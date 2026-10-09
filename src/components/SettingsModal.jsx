@@ -1043,6 +1043,11 @@ export default function SettingsModal(p) {
           </select>
         </div>
         <div style={{ marginTop: 12 }}>
+          {/* The question ladder (utils/questionTier.js): per mode, default on; raids and Legends fights read the same flag. */}
+          {toggleRow(activeMode.studyRules?.questionLadder !== false, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, questionLadder: v } }), t('set_questionLadder'))}
+          <div style={{ ...hint, marginTop: 3, marginLeft: 23 }}>{t('set_questionLadderDesc')}</div>
+        </div>
+        <div style={{ marginTop: 12 }}>
           {toggleRow(activeMode.studyRules?.adaptive === true, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, adaptive: v } }), t('studyAdaptive'))}
           <div style={{ ...hint, marginTop: 3, marginLeft: 23 }}>{t('studyAdaptiveDesc', { n: ADAPTIVE_STRUGGLE_LAPSES })}</div>
         </div>

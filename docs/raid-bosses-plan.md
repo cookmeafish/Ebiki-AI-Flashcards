@@ -98,16 +98,27 @@ moments and knockout in the asset view (light and dark) before the owner looks.
 
 ## 1. Hydra: the Tide Hydra
 
-- **Concept**: a many-headed sea serpent wrecking a harbor in a night storm. One creature (pewter scales, red crest
-  spikes, gold slit eyes under hard brow ridges), six characters with sleek angular dragon skulls: crowned King, scarred
-  one-eyed Elder, iron-jawed Brute, gold-banded Sly, frilled Young, bored Sleepy; small pale newborns regrow.
-- **Phases**: 1 a wide low row of heads over the harbor (lighthouse, fortress, burning ships). 2 rears out of the sea on
-  a diagonal, burnt-shut stumps bursting with newborns, red-orange sky. 3 seen from far below, necks fanning like a crown,
-  the King under a jagged storm crown with lightning, waterspouts, purple sky.
-- **Ability (heads)**: a right answer or blocked attack cuts a head; the third cut cauterizes for +2 and three heads
-  stand again; a missed raid answer grows 2 (max 6). Art: `data-ab-heads` 1 to 6 (stumps and newborns).
+- **Concept**: a many-headed sea serpent wrecking a harbor in a night storm, redesigned 2026-10-09 FROM THE HEADS OUT.
+  One serpent body with SIX fixed neck roots, filled in order so any count 1 to 6 is a balanced fan: 1 the crowned King
+  (centre, never cut), 2 the one-eyed Elder (left inner: scar, snapped horn, barbels), 3 the long-snouted Sly one (right
+  inner: gold-banded horns), 4 the Sleepy one rising low out of the surf in front (lidded eyes, ram horns), 5 the Brute
+  (left outer: iron jaw plate, tusks), 6 the hotheaded Young one (right outer: fanned frill, forked tongue). Shared: slate
+  scales, red crest spikes, gold slit eyes under solid V brow ridges, faceted arrowhead skulls (small 3D meshes cel shaded
+  by each phase's light, so a camera change turns every head with it). Slot k is the same head on the same root in every
+  phase; a phase change never changes which heads are up.
+- **Phases**: 1 the harbor at night, eye level, cold moonlight: a composed fan, jaws shut, smug (lighthouse, fortress,
+  a wreck, rain). 2 the harbor burns: a dutch angle, fire light from below, the King lunges down at you with jaws open
+  while the others rear high and wide, a torn red sail of fins opens behind the necks, old scars on the chest. 3 the storm
+  crown, from far below: the King towers in a crown crackling with lightning (a bolt strikes it), every head turned on you
+  with jaws open, a violet sail of fins spread like a crown with lightning in its veins, charged belly seams, waterspouts,
+  a turning storm eye, the most idle motion (heads snap forward, sway wider).
+- **Ability (heads)**: a right answer or blocked attack cuts a head; cutting the last one cauterizes for +2 and three
+  heads stand again; a missed raid answer grows 2 (max 6). Art: `data-ab-heads` 1 to 6 shows slots 2..N, and every slot
+  cut since the last burn shows its seared stump (`data-ab-top`: the most heads since the last burn; stumps are slots
+  N+1..top). Grow bursts heads out of their stumps (`data-ab-regrew`), Cauterize burns every stump (`data-ab-burnt`).
 - **Tint**: the lightning. **Card**: `lgHydraRise`.
-- **Owner**: heads must differ in skull, size and face; sleek and angular, never round or rubbery.
+- **Owner**: heads must differ in skull, size and face; sleek and angular, never round or rubbery; "built with the heads in
+  mind" (2026-10-09).
 
 ## 2. Titan: the Forge Titan
 

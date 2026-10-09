@@ -188,6 +188,7 @@ export function buildSystemPrompt(appContext) {
     if (appContext.currentQuestion) {
       const cq = appContext.currentQuestion
       parts.push(`\nQUESTION CURRENTLY ON SCREEN (question ${cq.number}/${cq.of}, type ${cq.type}):\n"${cq.question}"`)
+      if (cq.tierName) parts.push(`Question ladder tier: ${cq.tier} "${cq.tierName}" (one question per review, harder as the card matures in Anki: 0 new and taught, 1 learning, 2 recall, 3 use in context, 4 own sentence or explanation, 5 nuance).${cq.canShowChoices ? ' Typed; the learner may press "Show choices" for 4 options (a pick counts at most Good).' : ''}`)
       if (cq.choices?.length) parts.push(`Multiple-choice options shown: ${cq.choices.join(' | ')}`)
       if (cq.acceptedAnswers?.length) parts.push(`Expected answer (SECRET): do NOT reveal it (nor spelling/letter clues) unless the user EXPLICITLY asks to be told the answer: ${cq.acceptedAnswers.join(', ')}`)
       // The FRONT is secret too: on a language card it is the headword, i.e. the answer ("which card is this?"

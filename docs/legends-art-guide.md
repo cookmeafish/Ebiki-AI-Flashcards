@@ -310,6 +310,11 @@ The cases behind the top rules, per boss (Legends and raid). Each lesson applies
   too similar to each other in every phase", then blocky coffin heads (2026-10-03). Shared features, then per-head
   character through skull and gear (snout length, view, horns, scars, frill, barbels, tusks, expression and pose),
   tapered skulls on waisted necks. Each head nameable by silhouette at 120 px.
+  2026-10-09 "redesign the hydra entirely and make the head thing a priority": rebuilt from the heads out. Six fixed neck
+  roots filled in order (King centre, inner pair, a low front head, outer pair), the same slot on the same root in every
+  phase, a seared stump at every root a cut head leaves; heads are small faceted 3D meshes so each phase's camera and
+  light turn them. The old art bolted heads onto each phase (the young head sat on a different neck per phase, extra
+  heads left no stump, sideways necks sprouted from mid neck): never again.
 - **Zeus, the Thunder God (`raids/tempest.svg`)**: "make zeus more muscular and handsome": V-taper (broad deltoids,
   pecs with a hard shadow, six-pack, obliques), thick arms, strong neck, a handsome face with real irises and a
   confident half smile, a beard short enough to show face and chest; outline only the outer arc of the deltoid or he

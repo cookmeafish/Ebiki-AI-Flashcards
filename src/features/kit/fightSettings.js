@@ -28,8 +28,12 @@ export function fightRules(raw, { isLanguage = false, learnLang = '' } = {}) {
     strictAccents: r.accentDrill !== false,
     learnMoment: r.learnMoment !== false,
     answerStyle: r.fightAnswerStyle === 'choices' ? 'choices' : 'typed',
+    // THE QUESTION LADDER (utils/questionTier.js): one setting with Study (studyRules.questionLadder, default ON).
+    questionLadder: r.questionLadder !== false,
   }
 }
+// The ladder from any studyRules (a lesson's ctx.study.rules(), a fight's rules): on unless explicitly off.
+export const ladderOn = (rules) => !(rules && typeof rules === 'object' && rules.questionLadder === false)
 
 // The panel's change → the studyRules patch it writes. Unknown keys are dropped; values are shaped.
 const PATCH_KEYS = {
@@ -40,6 +44,7 @@ const PATCH_KEYS = {
   strictAccents: (v) => ({ accentDrill: !!v }),
   learnMoment: (v) => ({ learnMoment: !!v }),
   answerStyle: (v) => ({ fightAnswerStyle: FIGHT_STYLES.includes(v) ? v : 'typed' }),
+  questionLadder: (v) => ({ questionLadder: !!v }),
 }
 export function rulesPatch(change = {}) {
   const out = {}
@@ -89,14 +94,17 @@ export function fightWords(subject = {}, rules = {}) {
 }
 
 // Settings that change what the questions are WRITTEN in: a change asks for new questions.
-export const generationKey = (rules = {}) => [rules.learnLang || '', rules.speaks || '', rules.dialect || ''].join('|')
+// The question ladder too: on, every question is written at its card's tier; off, all at today's middle question.
+export const generationKey = (rules = {}) => [rules.learnLang || '', rules.speaks || '', rules.dialect || '', rules.questionLadder === false ? 'flat' : 'ladder'].join('|')
 
 // ── The first-letter cue (Study's guarantee, for fight questions) ─────────────────────────────────────────────
 // A typed language question pins ONE answer with a sense cue AND the answer's first letter. Scripts without letters
 // to show (Han, kana) never get a skeleton: their cue is the romanization's initial, written by the model.
 const NO_SKELETON = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
 const QUOTED_LETTER = /["'“”‘’«»‹›„‚「」『』]\s*(\p{L})\s*["'“”‘’«»‹›„‚「」『』]/gu
-const SKELETON = /\((\p{L})[·.]{2,}[^)]*\)/gu
+// A two-letter answer's skeleton has ONE dot ("(y·)", "(e· ········)" for "el sombrero"): a single middle dot counts
+// too (a single "." never does: "(p.)" is an abbreviation).
+const SKELETON = /\((\p{L})(?:[·.]{2,}|·)[^)]*\)/gu
 const initials = (accepted = []) => {
   const set = new Set()
   for (const a of accepted) for (const w of String(a || '').split(/[\s/'’]+/)) { const c = [...w.trim()][0]; if (c) set.add(c.toLowerCase()) }
@@ -121,7 +129,7 @@ export function hasLetterSkeleton(prompt, accepted = []) {
   return [...String(prompt || '').matchAll(SKELETON)].some((m) => firsts.has(m[1].toLowerCase()))
 }
 // The prompt without its skeleton, for a question answered with its choices (the letters would pick the tile).
-export const stripLetterSkeleton = (prompt) => String(prompt || '').replace(/\s*\((\p{L})[·.]{2,}[^)]*\)/gu, '')
+export const stripLetterSkeleton = (prompt) => String(prompt || '').replace(/\s*\((\p{L})(?:[·.]{2,}|·)[^)]*\)/gu, '')
 // A typed language question without the skeleton gets it, even beside a quoted first letter (open and choice
 // questions never: a cue would leak).
 export function ensureLetterCue(q, { isLanguage = false } = {}) {

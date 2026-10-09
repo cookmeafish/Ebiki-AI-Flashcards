@@ -19,7 +19,7 @@ import { EVENTS } from '../events'
 import { featureCfg, useActivityBusy } from '../registry'
 import { useHelpEntry } from '../kit/useHelp'
 import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
-import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText, fightCtx, generationKey, ensureLetterCue } from '../kit'
+import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText, fightCtx, generationKey } from '../kit'
 import FightSettings from './FightSettings'
 import { PowerCastBadge } from './impact/PowerFx'
 import LearnItPanel from '../kit/LearnItPanel'
@@ -30,11 +30,13 @@ import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
 import { act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome, newFight, tuneFight, rulesOf, abilityK } from './fight'
-import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, raidCardIndex, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage, siegeProfile } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage, siegeProfile } from './raid'
 import { raidProfile } from './raidProfiles'
 import { POWERS, POWER_IDS, POWER_DEFAULTS, powerVars, procVars, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, powersHelpLine, fiftyFifty, powerHint } from './powers'
 import { abilityById } from './abilities'
-import { buildRaidPrompt, parseQuestions, fitQuestionsToKind, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
+import { buildRaidPrompt, buildQuizCheckPrompt, parseQuizCheckWhy, RAID_ROLE, RAID_MAX_TOKENS, ROLE, MAX_TOKENS } from './prompt'
+import { parseRaidQuestions, placeholderFor, reviewPlan, redoOutcome, finalQuestion, startOrder, REVIEW } from './raidQuestions'
+import { tierOf } from '../../utils/questionTier'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
 
 const INFO_BATCH = 40
@@ -231,7 +233,9 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     for (let i = 0; i < ids.length && infos.length < INFO_MAX; i += INFO_BATCH) infos.push(...((await srs.cardsInfo(ids.slice(i, i + INFO_BATCH))) || []))
     return infos
   }
-  const toCards = (picked) => picked.map((c) => ({ cardId: c.cardId, noteId: c.note, ...ctx.cards.noteText(c) })).filter((c) => c.front)
+  // `tier`: the question ladder's tier from Anki's schedule (utils/questionTier.js tierOf: type, queue, interval, reps,
+  // all in the cardsInfo rows read here); the prompt uses it only while the ladder is on.
+  const toCards = (picked) => picked.map((c) => ({ cardId: c.cardId, noteId: c.note, tier: tierOf(c), ...ctx.cards.noteText(c) })).filter((c) => c.front)
   const answeredNotes = () => cardsRef.current.filter((c) => firstHit.current.has(c.cardId)).map((c) => c.noteId)
 
   const load = async () => {
@@ -285,27 +289,84 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const s = c.subject
     genKeyRef.current = generationKey(c.fight?.rules || {})
     const level = await learnerLevelLine(c)
-    const { system, user } = buildRaidPrompt(s, cards, { level })
+    const pcards = promptCards(c, cards)
+    const { system, user } = buildRaidPrompt(s, pcards, { level })
     const raw = c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, maxTokens: RAID_MAX_TOKENS }))
     if (my !== writeSeq.current) return null
-    // The list as an array, under "questions", or under another key one provider chose ({"quiz": [...]}).
-    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions
-      : (raw && typeof raw === 'object' && Object.values(raw).find((v) => Array.isArray(v) && v.some((q) => q && typeof q === 'object' && 'question' in q))) || []
-    const qs = []
-    const used = new Set()
-    for (const q of list) {
-      const i = raidCardIndex(q?.card)
-      const card = cards[i]
-      if (!card || used.has(card.cardId)) continue
-      const [one] = fitQuestionsToKind(parseQuestions([q], c.ai.clean, { speakLang: s.learnLangIso, dual: true }), 'raid') // every fight question stands typed
-      if (!one) continue
-      used.add(card.cardId)
-      // Study's first-letter cue guarantee for a typed language answer (kit/fightSettings.js).
-      qs.push({ ...ensureLetterCue(one, { isLanguage: !!s.isLanguage }), _cardId: card.cardId, target: card.front })
-    }
-    if (qs.length < Math.max(1, min)) throw new Error(t('lg_errQuiz'))
-    return qs
+    // One question per card (raidQuestions.js: parsed, typed with its choices as `alt`, the letter count, the tier).
+    const { qs: got } = parseRaidQuestions(raw, pcards, { clean: c.ai.clean, isLanguage: !!s.isLanguage, speakLang: s.learnLangIso })
+    if (got.length < Math.max(1, min)) throw new Error(t('lg_errQuiz'))
+    // A card whose question was dropped keeps its place: the review's rewrite fills it, or the run skips it.
+    const byCard = new Map(got.map((q) => [q._cardId, q]))
+    const list = pcards.map((card) => byCard.get(card.cardId) || placeholderFor(card))
+    runReview(list, pcards, my, level)
+    return list
   }
+  // THE QUESTION LADDER is on (one setting with Study): the cards keep their tiers in the prompt; off, none (today's question).
+  const promptCards = (c, cards) => (c.fight?.rules?.questionLadder === false ? cards.map(({ tier, ...rest }) => rest) : cards)
+
+  // THE REVIEW PASS (raidQuestions.js; the same check as Study and Legends, QUESTION_CHECK_RULES): one call for the batch,
+  // in the BACKGROUND while the intro shows. Rejected questions (and cards with none) are written once more and reviewed
+  // again; still bad = that card is not asked. Each card's state carries the write it belongs to (`w`), so a newer write
+  // (a settings change on the intro) is never overwritten by an older review.
+  const reviewState = useRef(new Map()) // cardId -> { s: 'pending'|'ok'|'redo'|'swap'|'drop', q?, w }
+  const reviewDone = useRef(Promise.resolve())
+  const runReview = (list, cards, my, level) => {
+    const c = ctxRef.current
+    const s = c.subject
+    const st = reviewState.current
+    for (const q of list) st.set(q._cardId, { s: q._redo ? 'redo' : 'pending', w: my })
+    const mine = (id) => st.get(id)?.w === my
+    const set = (id, v) => { if (mine(id)) st.set(id, { ...v, w: my }) }
+    const check = async (qs, items) => {
+      if (!qs.length) return new Map()
+      try {
+        const { system, user } = buildQuizCheckPrompt(s, items.map((x) => ({ kind: 'card', front: x.front, back: x.back, ...(x.tier != null ? { tier: x.tier } : {}) })), qs)
+        return parseQuizCheckWhy(c.ai.json(await c.ai.call(system, user, { role: ROLE.quizCheck, maxTokens: MAX_TOKENS.quizCheck, silent: true })), qs.length)
+      } catch { return null } // fail-soft: an unreviewed question still stands
+    }
+    reviewDone.current = (async () => {
+      const real = list.filter((q) => !q._redo)
+      const bad = await check(real, cards)
+      // The verdict mapped back onto the whole list (placeholders are always rewritten).
+      const badAt = bad ? new Map([...bad].map(([i, why]) => [list.indexOf(real[i]), why])) : null
+      const plan = reviewPlan(list, badAt)
+      for (const [id, v] of plan.state) set(id, v)
+      const redo = plan.redo.filter((r) => mine(r.cardId))
+      if (!redo.length) return
+      const redoCards = redo.map((r) => cards.find((x) => x.cardId === r.cardId)).filter(Boolean)
+      let fresh = []
+      let bad2 = null
+      try {
+        const { system, user } = buildRaidPrompt(s, redoCards, { level, redo })
+        fresh = parseRaidQuestions(c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, maxTokens: RAID_MAX_TOKENS, silent: true })), redoCards, { clean: c.ai.clean, isLanguage: !!s.isLanguage, speakLang: s.learnLangIso }).qs
+        bad2 = await check(fresh, redoCards)
+      } catch { fresh = [] }
+      for (const [id, v] of redoOutcome(redo.map((r) => r.cardId), fresh, bad2)) set(id, v)
+    })().catch(() => {})
+    return reviewDone.current
+  }
+  // The questions a batch STARTS with: the review waited for (at most REVIEW.waitMs, longer only when nothing else
+  // could be asked first), replacements in, rejected ones out.
+  const reviewedStart = async (list) => {
+    await Promise.race([reviewDone.current, new Promise((r) => setTimeout(r, REVIEW.waitMs))])
+    let out = startOrder(list, reviewState.current)
+    if (!out.length || finalQuestion(out[0], reviewState.current) == null) { await reviewDone.current; out = startOrder(list, reviewState.current) }
+    return out.filter((q, i) => i > 0 || finalQuestion(q, reviewState.current) != null)
+  }
+  const [checking, setChecking] = useState(false)
+  const startFight = async () => {
+    if (rewriting || checking) return
+    setChecking(true)
+    const list = await reviewedStart(segQs || questions || [])
+    if (!alive.current) return
+    setChecking(false)
+    if (!list.length) { setError(t('lg_errQuiz')); setPhase('error'); return }
+    setSegQs(list)
+    setPhase('fight')
+  }
+  // A question as the run reaches it: an attack's own resolution first (fightCheck), then the review's verdict.
+  const resolveQ = (raw) => { const r = fc.resolveQuestion(raw); return r ? finalQuestion(r, reviewState.current) : r }
   // A setting that changes what the questions are written in (FightSettings on the intro) rewrites them: same cards.
   const [rewriting, setRewriting] = useState(false)
   const genKey = generationKey(fightRulesNow)
@@ -375,7 +436,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }
   const unaskedQs = () => {
     const seen = new Set()
-    return (questions || []).filter((q) => q._cardId != null && !firstHit.current.has(q._cardId) && !seen.has(q._cardId) && seen.add(q._cardId))
+    return (questions || []).map((q) => finalQuestion(q, reviewState.current)).filter((q) => q && q._cardId != null && !firstHit.current.has(q._cardId) && !seen.has(q._cardId) && seen.add(q._cardId))
   }
 
   // THE RUN ENDS (a win, a loss, Stop for now, leaving): record every answer, then write the siege once.
@@ -475,13 +536,15 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     // The answers so far go to Anki first: the next batch can never record one of them again.
     recordSoFar()
     try {
-      const qs = await writeQuestions(cards, 1)
+      const written = await writeQuestions(cards, 1)
+      const qs = written ? await reviewedStart(written) : null
       // Ended meanwhile (a re-check during "Continue?" gave back the damage that beat the boss, and its result was taken).
       if (!alive.current || !qs || committed.current) return
+      if (!qs.length) throw new Error(t('lg_errQuiz'))
       cardsRef.current = [...cardsRef.current, ...cards]
       pendingRef.current = []
       pos.current = -1
-      setQuestions((all) => [...(all || []), ...qs])
+      setQuestions((all) => [...(all || []), ...written])
       setSegQs(qs)
       setSeg((n) => n + 1)
       setMore(null)
@@ -544,7 +607,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     hpLeft: helpLeft, hpMax: helpDay?.hp || 0,
     livesLeft: phase === 'done' && summary ? summary.hearts : Math.max(0, fightHearts - (running ? fs.livesLost : 0)),
     phase: helpDay ? phaseOf(helpLeft, helpDay.hp, fightRules.phases) : 1,
-    asked: firstHit.current.size, total: questions?.length || 0,
+    asked: firstHit.current.size, total: (questions || []).filter((q) => !q._redo).length,
     lapLeft: lapQs ? lapQs.filter((q) => !firstHit.current.has(q._cardId)).length : 0,
     nextCards: more?.cards?.length || 0,
     result: summary ? { ...summary, recorded: recordedRef.current.size, failed: failedRef.current.size } : null,
@@ -566,15 +629,17 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     )
   }
   if (phase === 'intro') {
+    const realCount = (questions || []).filter((q) => !q._redo).length
     return (
       <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         {testMotif && <TestTag t={t} note />}
-        <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={maxHearts} raidLeft={startHearts} ability={ability} calm={focus} onFight={() => { if (!rewriting) setPhase('fight') }} />
+        <BossIntro t={t} area={area} name={bossName} total={realCount} kind="raids" raidLives={maxHearts} raidLeft={startHearts} ability={ability} calm={focus} onFight={startFight} />
+        {checking && <div role="status" data-raid-checking="" style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: C.purple }}>🔎 {t('lg_raidChecking')}</div>}
         <FightSettings ctx={ctx} allowStyle busy={rewriting} runSize={runSizeOpt} />
         <PowerLoadout t={t} beaten={beaten} loadout={loadout} onToggle={testMotif ? null : setLoadout} test={!!testMotif}
           bandage={!day?.won && bandageWorth && !bandageDone ? bandageNow : null} note={bandageNote} heal={profile.heal} cast={powerCast?.id === 'bandage' ? powerCast : null} pw={pw} damage={fightRules.damage} />
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>
-          {t('lg_raidRules', { n: questions.length, lives: fightHearts })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
+          {t('lg_raidRules', { n: realCount, lives: fightHearts })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
           {!testMotif && <div style={{ marginTop: 4, fontWeight: 800 }}>🏰 {t('lg_raidSiegeLine', { n: profile.heal })}</div>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'center' }}><ChunkyButton variant="ghost" color={C.inkDim} onClick={onExit}>{t('lg_back')}</ChunkyButton></div>
@@ -835,7 +900,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
           canUseChoices={(q) => !!q.alt}
           startChoices={() => fightRulesNow.answerStyle === 'choices'}
           onQuestion={() => { setQuestionKey((k) => k + 1); taunt.onQuestion() }}
-          resolveQuestion={fc.resolveQuestion} feedbackExtra={missTools} overturnedFor={overturnedFor}
+          resolveQuestion={resolveQ} feedbackExtra={missTools} overturnedFor={overturnedFor}
           onFinish={ranOut} onExit={leave} />
       )}
     </div>

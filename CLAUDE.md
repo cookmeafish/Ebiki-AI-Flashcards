@@ -1285,6 +1285,18 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   keeps only `history`, fed back as `avoid`), pushed to the limit but never unfair.
 - **Legendary** (a cleared area's challenge, `{kind: 'legendary'}`, not a map node): 20 fresh typed questions, 90% to
   win (`PASS.legendary`), no bonus life; `applyLegendaryResult` marks `area.legendary` (🏅).
+- **The question ladder in fights and quizzes** (the SAME `utils/questionTier.js` as Study; `studyRules.questionLadder`,
+  default on, `ladderOn`/`fightRules.questionLadder`, in `generationKey` and a FightSettings toggle): raids tier each card
+  with `tierOf` (cardsInfo), Legends each item with `legendsItemTier` (codex tier, boss +1, Legendary +2); prompts list
+  tiers + `ladderBlock` + `CLEAR_ANSWER_RULE` + `ambiguityRule`; `parseQuestions({ tierFor })` sets `q.tier` (never the
+  model's), `sanitizeQuestions` lets only TIER 0 show its answer; `TierChip` above every QuizRunner question; graders
+  get `tierJudgeLine` (an open tier is judged on use/understanding). Off = no tiers (Legends lessons: the old split).
+  Lessons are dual too (typed default, `qt_showChoices`/`qt_typeInstead`); saved lesson sets carry `ladder` (tier sig)
+  and are rewritten when an item changes tier. Review pass calls use role `qcheck` (`ROLE.quizCheck`).
+- **Raids are reviewed too** (`raidQuestions.js`, pure + `ladder.test.js`): the batch is reviewed in the BACKGROUND while
+  the intro shows; rejected or dropped cards are rewritten ONCE (`buildRaidPrompt({ redo })`) and reviewed again, still
+  bad = not asked. Fight waits at most `REVIEW.waitMs` (`startOrder`), later questions resolve through `finalQuestion`
+  in `resolveQuestion`; Continue batches the same.
 - **The question KIND keeps the screen's promise** (`fitQuestionsToKind`, prompt.js, inside `makeQuizNow`'s ask, before
   the taught-items filter): boss, Legendary and raid convert a choice-only question to typed (choices become its
   `alt`) or DROP it when it can't stand without options ("which of these", true/false, all/none of the above, any of 4
@@ -1599,6 +1611,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     wrapper groups (added around existing art, never redrawn) that each boss's CSS moves: wind-up and blow toward the
     hearts, its own reaction per moment and ability, a staged death held in the fallen pose. Where that CSS lives:
     `impact/bosses/README.md`.
+  - **The Hydra is drawn FROM ITS HEADS** (the owner: "built with the heads in mind"): six fixed neck slots, the SAME
+    head on the same root in every phase (fill order King, Elder, Sly, Sleepy, Brute, Young), each with its own stump.
+    The ability keeps `top` (most heads since the last burn; missing = max(heads, 3)), so stumps show for slots
+    heads+1..top; `regrew`/`burnt` drive Grow out of a stump and Cauterize. `fx/hydra.jsx` `headCss` + `HYDRA_ROOTS`,
+    held through `data-fx-pending`; `hydraArt.test.js` checks every heads x top x phase.
   - **Every knockout is a themed CINEMATIC** (the owner: "very dramatic", "creative, dramatic, and unique"): 1.6 to
     2.6s, the killing-blow freeze, a build-up, the boss's OWN death (Chronos shatters into sand, the Lich's phylactery
     breaks, the Void becomes a black hole...), a shockwave + debris at the climax, a weighty DEFEATED! plate, then a
@@ -1827,7 +1844,28 @@ Again = wrong / I don't know; Hard = right with a hint, retry or near miss (acce
 glancing); Good = clean; Easy = clean, TYPED, no hint, MATURE. A choice never above Good. Subject-neutral. Used by
 one-question Study cards, raids (`raidRating`), Legends. Multi-question cards keep the count rule (`rateStudyCard`).
 
+### THE QUESTION LADDER (`utils/questionTier.js`, tested; `studyRules.questionLadder`, default on; one setting for Study, raids, Legends)
+The owner: Anki's spacing replaces the old three questions per card. Every flashcard gets ONE question per review
+whose KIND climbs with the card's maturity (`tierOf(card)` from Anki: 0 Meet = never reviewed, 1 Recognize = learning,
+relearning or due within 2 days, 2 Recall 3-6 days, 3 Use 7-20, 4 Produce 21-89 (Anki's mature), 5 Master 90+).
+Struggling cards drop on their own: Anki shrinks a lapsed card's interval. Legends items: `tierOfItem(codex, {kind})`.
+- **Tier 0 TEACHES**: answerable correctly first try from what it shows (exempt from the leak guard, `tierTeaches`).
+  Open tiers (`tierOpen`) get no letter cue and are graded on USE (`openTierGradingRule`; fights `tierJudgeLine`).
+- **Same features everywhere** (Study, raids, Legends lessons/boss/Legendary): `TierChip` above the question, typed by
+  default with a PER-QUESTION "🛡 Show choices" / "⌨ Type it instead" toggle (`qt_*`; a choice rates at most Good,
+  `cs.byChoice`), the letter count, and the TRIPLE CHECK: `CLEAR_ANSWER_RULE` + ambiguity self-check in the prompt,
+  code guards (leak, letter cue, `buildChoices`), and an independent REVIEW PASS (`QUESTION_CHECK_RULES`,
+  `buildQuestionReviewPrompt`/`parseQuestionReview`, AI role `qcheck`): a reject is rewritten once naming the reason,
+  then the safe fallback. A failed review keeps the question but never saves it (`_unreviewed`).
+- **Choices are always available**: `ladderFinish` gives every question its tier and verified choices (word answers
+  borrow distractors from other cards, `choicesFromPool`; open questions get one background call,
+  `buildOpenChoicesPrompt`/`parseOpenChoices`). Study's first card shows before its review and is swapped if rejected
+  while unanswered; raids review in the background during the intro (Fight waits at most 4 s).
+- Question reuse keys on the tier (`t<N>` in `sig`; tier 2 = the old sets). Ladder off = the old depth rule below.
+
 ### Question depth (`studyRules.questionDepth`: `'adaptive'` default | `'thorough'`; `utils/studyDepth.js`)
+- With the ladder on, adaptive gives EVERY flashcard one question at its tier; thorough keeps `questionsPerCard`, the
+  tiers climbing from the card's (`questionTiers`). The rules below are the ladder-off behavior.
 - `questionCountFor`: adaptive gives a due REVIEW (type 2) ONE question; new, learning, relearning, struggling
   (`ADAPTIVE_STRUGGLE_LAPSES`) and relearn copies get `questionsPerCard`; thorough, conjugations and PBQs always do.
 - `depthPlan` runs at every card-state creation with `questionsPerCard: 1`: ONE PRODUCTION question (never
@@ -2248,6 +2286,7 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   | `picture` | normal | Vision on busy screens needs a capable model. |
   | `study` | normal | Deterministic guards (leak, letter cue); grading fine at mid. |
   | `general` | normal | Mode creation matters but is rare. |
+  | `qcheck` | normal | The second look at every question; a cheap model misses ambiguity. |
   | `deck` | max | Cards get MEMORIZED; never cheap out here. |
 
 - **Adding an AI role**: `AI_ROLE_META` (label + hint), `ROLE_DEFAULTS`'s uniform map, a `ROLE_TIER` tier

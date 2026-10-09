@@ -14,6 +14,7 @@
 export const ROLE_STAKES = [
   { role: 'deck', text: 'Generates + proofreads Anki flashcards. HIGHEST STAKES: the learner MEMORIZES these, so a subtly wrong card teaches something false. Never use a weak model here.' },
   { role: 'study', text: 'Writes quiz questions and grades free-text answers. Medium-high stakes; has deterministic answer-leak/first-letter guards, so a mid model is usually fine.' },
+  { role: 'qcheck', text: 'Reviews every generated quiz question once before the learner sees it and rejects unclear or wrong ones (a second, independent look). Medium stakes; runs once per card, small output.' },
   { role: 'picture', text: 'Reads text from busy/stylized screenshots (vision) and translates in context. Needs solid VISION; medium stakes.' },
   { role: 'chat', text: 'The chat-tab tutor. Users feel quality on deep "why" explanations. Medium stakes.' },
   { role: 'general', text: 'Fallback + AI mode/config generation (createMode). Sets up a whole subject but runs rarely. Medium stakes.' },

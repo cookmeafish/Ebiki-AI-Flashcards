@@ -48,10 +48,16 @@ export function cardTextKey(front = '', back = '') {
 
 // { text, sig } for a card and the settings a generation would use. `style` = anything else that changes the
 // questions' words (App passes the mode's dialect).
-export function questionSignature({ kind = 'flash', front = '', back = '', learnLang = '', quizLang = '', choices = false, wordHints = false, perCard = 0, style = '' }) {
+// `tier` = the question ladder's tier (utils/questionTier.js) the set was made for: a saved easy question is never asked
+// again once the card has matured. Tier 2 (and no tier) keeps the signature sets had before the ladder, so those match
+// tier 2.
+export function questionSignature({ kind = 'flash', front = '', back = '', learnLang = '', quizLang = '', choices = false, wordHints = false, perCard = 0, style = '', tier = 2 }) {
+  const parts = [kind, String(learnLang).toLowerCase(), String(quizLang).toLowerCase(), !!choices, !!wordHints, kind === 'pbq' ? 1 : Number(perCard) || 0, String(style)]
+  const tn = Number(tier)
+  if (kind !== 'pbq' && tier !== null && tier !== undefined && Number.isFinite(tn) && tn !== 2) parts.push(`t${Math.round(tn)}`)
   return {
     text: cardTextKey(front, back),
-    sig: hashText(JSON.stringify([kind, String(learnLang).toLowerCase(), String(quizLang).toLowerCase(), !!choices, !!wordHints, kind === 'pbq' ? 1 : Number(perCard) || 0, String(style)])),
+    sig: hashText(JSON.stringify(parts)),
   }
 }
 
@@ -115,8 +121,8 @@ export function mergeGlosses(bank, setId, qi, questionText, glosses) {
 // Saved copies carry what the card state needs to ask them again, never session state (answers, grades).
 export const storableQuestion = (q) => {
   if (!q || typeof q !== 'object') return q
-  const { question, type, hint1, hint2, acceptedAnswers, glosses, pose, choices, answerIdx, pbq } = q
-  return { question, type, hint1, hint2, acceptedAnswers, glosses, pose, choices, answerIdx, ...(pbq ? { pbq } : {}) }
+  const { question, type, hint1, hint2, acceptedAnswers, glosses, pose, choices, answerIdx, pbq, tier } = q
+  return { question, type, hint1, hint2, acceptedAnswers, glosses, pose, choices, answerIdx, ...(pbq ? { pbq } : {}), ...(Number.isFinite(tier) ? { tier } : {}) }
 }
 
 // A reused multiple-choice question gets its options in a new order (the right answer must not sit in
@@ -188,7 +194,7 @@ export async function clearBank(deck, subdecks = null) {
 // generate() and NOTHING else, no read and no write. Every write re-checks the live setting (switched off
 // mid-generation = nothing saved) and the clear counter (a clear during generation must not write back the
 // sets read before it). A failed read never saves: it would replace sets it never saw. The give-up fallback
-// set (`_fallback`) is never saved. Returned questions carry `_bank` for "Fix question".
+// set (`_fallback`) and a set the review pass never checked (`_unreviewed`) are never saved. Returned questions carry `_bank` for "Fix question".
 export function createQuestionReuse({ getSettings, getEpoch = () => 0, load = loadBank, save = saveBank, log = () => {} }) {
   const on = () => reuseSettings(getSettings()).enabled
   return async function withQuestionReuse(card, sigParts, setSize, generate) {
@@ -220,7 +226,8 @@ export function createQuestionReuse({ getSettings, getEpoch = () => 0, load = lo
       }
     }
     const fresh = await generate()
-    if (!read.ok || !Array.isArray(fresh) || !fresh.length || fresh.some((q) => q?._fallback) || !mayWrite()) return fresh
+    // _unreviewed: the question ladder's review pass could not run on it (App.jsx), so it is asked but never saved.
+    if (!read.ok || !Array.isArray(fresh) || !fresh.length || fresh.some((q) => q?._fallback || q?._unreviewed) || !mayWrite()) return fresh
     // The new set is added to a FRESH read (updateBank), never to the copy read before generating: that save
     // replaced a Fix, a gloss save or a clear made during the seconds the generation took.
     const newSet = addSet(null, key, isPbq ? fresh : fresh.map(storableQuestion)).sets[0] // a PBQ is saved whole

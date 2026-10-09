@@ -6,12 +6,23 @@
 // questionsPerCard (the old behavior).
 // THE SWITCH: per mode, studyRules.questionDepth ('thorough' turns question depth off for that mode); app-wide, the
 // default below (DEFAULT_QUESTION_DEPTH = 'thorough' turns it off for every mode that never chose).
+// THE QUESTION LADDER (studyRules.questionLadder, default ON; utils/questionTier.js): Anki's spacing replaces the old
+// several questions per card. In 'adaptive' depth EVERY flashcard (new, learning, struggling, review, relearn copy) gets
+// ONE question whose tier climbs with the card's maturity in Anki; 'thorough' keeps questionsPerCard, climbing one tier
+// per question from the card's own. Ladder off = the depth rule as it was before the ladder (tier 2 for everything).
 import { ADAPTIVE_STRUGGLE_LAPSES } from '../config/study'
 import { gradeAnswer, easeFor, isMature } from '../config/grading'
+import { tierOf, clampTier, MAX_TIER } from './questionTier'
 
 export const QUESTION_DEPTHS = ['adaptive', 'thorough']
 export const DEFAULT_QUESTION_DEPTH = 'adaptive'
 export const questionDepthOf = (rules) => (QUESTION_DEPTHS.includes(rules?.questionDepth) ? rules.questionDepth : DEFAULT_QUESTION_DEPTH)
+// The ladder is ON unless the mode turned it off (fights read the same flag through ctx.study.rules()).
+export const questionLadderOn = (rules) => rules?.questionLadder !== false
+
+// Each question's tier for a card of tier `tier` asked `n` questions: Q1 at the card's tier, each later one a tier
+// higher, capped at the top.
+export const questionTiers = (tier, n) => Array.from({ length: Math.max(1, Number(n) || 1) }, (_, i) => Math.min(MAX_TIER, clampTier(tier) + i))
 
 const perCardOf = (rules) => {
   const n = Math.round(Number(rules?.questionsPerCard))
@@ -22,7 +33,9 @@ const perCardOf = (rules) => {
 // ctx.kind: the study type; only flashcards are adaptive (conjugations and PBQs keep their own counts).
 export function questionCountFor(card, rules, { kind = 'flashcards' } = {}) {
   const n = perCardOf(rules)
-  if (n <= 1 || kind !== 'flashcards' || questionDepthOf(rules) === 'thorough' || !card) return n
+  if (n <= 1 || kind !== 'flashcards' || questionDepthOf(rules) === 'thorough') return n
+  if (questionLadderOn(rules)) return 1 // the ladder: one question per review for every card, Anki's spacing does the rest
+  if (!card) return n
   if (card._relearn) return n
   const type = Number(card.type), queue = Number(card.queue)
   if (type === 0 || queue === 0) return n                       // new
@@ -47,10 +60,18 @@ export function oneQuestionRating(result, card) {
 // A card's plan at creation: → { rules (questionsPerCard = this card's count: generation, the split-first-card path
 // and the reuse signature read it), flags }. One-question cards carry `oneQ` and `ivl` (Anki interval, days, for the
 // mature check). Thorough mode never sets oneQ.
+// With the ladder on (flashcards only) the card also carries `tier` (tierOf: Anki's schedule; a relearn copy is tier 1)
+// and the rules carry `questionTiers` (one tier per question) for the generator; ladder off sets neither.
 export function depthPlan(card, rules, kind = 'flashcards') {
   const n = questionCountFor(card, rules, { kind })
-  if (n !== 1 || questionDepthOf(rules) === 'thorough' || kind !== 'flashcards') return { rules, flags: {} }
-  return { rules: { ...rules, questionsPerCard: 1 }, flags: { oneQ: true, ivl: Number(card?.interval) || 0 } }
+  const ladder = kind === 'flashcards' && questionLadderOn(rules)
+  const tier = ladder ? tierOf(card) : null
+  const ladderRules = (r, count) => (ladder ? { ...r, questionTiers: questionTiers(tier, count) } : r)
+  const ladderFlags = ladder ? { tier } : {}
+  if (n !== 1 || questionDepthOf(rules) === 'thorough' || kind !== 'flashcards') {
+    return { rules: ladderRules(rules, n), flags: { ...ladderFlags } }
+  }
+  return { rules: ladderRules({ ...rules, questionsPerCard: 1 }, 1), flags: { oneQ: true, ivl: Number(card?.interval) || 0, ...ladderFlags } }
 }
 
 // A studied card's rating from its graded results → { ease, label }. cs: the card state ({ oneQ, ivl, answers,
@@ -60,8 +81,12 @@ export function depthPlan(card, rules, kind = 'flashcards') {
 // slip or a penalizing grader note (grammar ones only with grammarOn); Good = clean; Easy = clean, typed, mature.
 // Every other card keeps the COUNT rule: 0 wrong Easy, 1 Good, more Hard, all Again ("all wrong" first: on a
 // one-question card it equals "one wrong"). MC/PBQ cards that record to Anki cap at Good; an accent slip caps at Good.
+// cs.byChoice ({ qi: bool }, the question ladder's per-question "Show choices"): which answers were PICKED from
+// options; without it a multiple-choice card (cs.mc) counts as answered by choice throughout (sessions saved before).
+export const answeredByChoice = (cs, qi) => (cs?.byChoice && typeof cs.byChoice === 'object' ? !!cs.byChoice[qi] : !!cs?.mc)
 export function rateStudyCard(cs, results, grammarOn = false) {
   const list = Array.isArray(results) ? results : []
+  const anyChoice = list.some((_, qi) => answeredByChoice(cs, qi))
   if (cs?.oneQ && list.length === 1 && !cs.isConjugation && !cs.pbq) {
     const r = list[0] || {}
     const notes = Array.isArray(r.notes) ? r.notes : []
@@ -72,7 +97,7 @@ export function rateStudyCard(cs, results, grammarOn = false) {
       accentSlip: (cs.accentSlips || 0) > 0,
       retried: (cs.questionAttempts?.[0] || []).length > 1,
       corrected: notes.some((n) => n?.penalize && (n.type !== 'grammar' || grammarOn)),
-      choice: !!cs.mc && !cs.noSync, // practice (noSync) keeps the honest label, like the count rule
+      choice: answeredByChoice(cs, 0) && !cs.noSync, // practice (noSync) keeps the honest label, like the count rule
     }, { interval: cs.ivl })
   }
   const qpc = list.length
@@ -84,14 +109,14 @@ export function rateStudyCard(cs, results, grammarOn = false) {
   else { ease = 2; label = 'hard' }
   // Recognition (picking from options) is easier than recall: a card that records to Anki never rates above Good off
   // a multiple-choice pass. Pure practice (noSync) keeps the honest label; it never reaches Anki.
-  if ((cs?.mc || cs?.pbq) && !cs?.noSync && ease > 3) { ease = 3; label = 'good' }
+  if ((anyChoice || cs?.pbq) && !cs?.noSync && ease > 3) { ease = 3; label = 'good' }
   // Strict accents: perfect answers with accent slips grade Good at best.
   if (ease === 4 && (cs?.accentSlips || 0) > 0) { ease = 3; label = 'good' }
   return { ease, label }
 }
 
-// A one-question review answered wrong (Again, recorded once) comes back in the session as a relearn copy (noSync,
-// full questionsPerCard). Not for relearn/practice copies, conjugations or PBQs, and not for a give-up while the
+// A one-question review answered wrong (Again, recorded once) comes back in the session as a relearn copy (noSync;
+// with the ladder ONE tier-1 question, without it the full questionsPerCard). Not for relearn/practice copies, conjugations or PBQs, and not for a give-up while the
 // Learn-it moment is on (the moment re-queues it itself).
 export function oneQMissNeedsRequeue(cs, label, { learnMoment = true } = {}) {
   if (!cs?.oneQ || label !== 'again' || cs.relearn || cs.noSync || cs.isConjugation || cs.pbq) return false

@@ -1,5 +1,7 @@
 // Local grading for typed answers (no AI): exact after normalizing, or exact except for accents.
 // Subject-agnostic: "accents" only matter where the text has them.
+import { answerInQuestionText, leakNorm, NO_SPACE_SCRIPT, HANGUL } from '../../utils/leak'
+import { clampTier, tierTeaches } from '../../utils/questionTier'
 
 // Edge punctuation, Latin and CJK (猫。 is 猫). NFKC folds full-width letters and half-width kana (ＲＡＩＤ is RAID).
 const TRAILING_PUNCT = /[\s.,;:!?¡¿"'`´“”‘’«»()[\]。、，．！？：；「」『』【】（）〈〉《》・…]+$/u
@@ -21,11 +23,16 @@ export function matchTyped(answer, accepted = []) {
 }
 
 // Does a question give its own answer away? (Whole word/phrase, accent-insensitive, 3+ letters.)
+// Scripts written without spaces (Han, kana, Thai) and Korean (particles glued to the word) use Study's guard
+// (utils/leak.js): whole-word matching never fired there, so a 2-character answer shipped inside its own question.
 export function leaksAnswer(question, accepted = []) {
   const q = ` ${stripAccents(normalizeAnswer(question)).replace(/[^\p{L}\p{N}]+/gu, ' ')} `
+  const lq = leakNorm(question || '')
   return (Array.isArray(accepted) ? accepted : [accepted]).some((x) => {
     const w = stripAccents(normalizeAnswer(x)).replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
-    return w.length >= 3 && q.includes(` ${w} `)
+    if (w.length >= 3 && q.includes(` ${w} `)) return true
+    const raw = String(x ?? '').trim()
+    return (NO_SPACE_SCRIPT.test(raw) || HANGUL.test(raw)) && answerInQuestionText(lq, raw)
   })
 }
 
@@ -81,8 +88,14 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
     const target = q.target != null ? String(q.target) : ''
     const say = String(q.say || '').trim()
     const extra = { ...(say ? { audio: { text: say, lang: audioLang } } : {}), ...(q.speak === true ? { speak: true, speakLang } : {}) }
+    // `tier` (the question ladder, utils/questionTier.js): a number on the raw question is kept (clamped). A TIER 0
+    // teaching question shows its answer on purpose ("this is how you say rain: lluvia; now you"), so the leak guard
+    // lets it through (tierTeaches); every other tier is guarded as before.
+    const tier = q.tier != null && q.tier !== '' && Number.isFinite(Number(q.tier)) ? clampTier(q.tier) : null
+    if (tier != null) extra.tier = tier
+    const leaks = (list) => (tier != null && tierTeaches(tier) ? false : leaksAnswer(prompt, list))
     const typedAccepted = Array.isArray(q.accepted) ? q.accepted.map((x) => String(x).trim()).filter(Boolean) : []
-    if (dual && Array.isArray(q.choices) && q.choices.length >= 2 && typedAccepted.length && !leaksAnswer(prompt, typedAccepted)) {
+    if (dual && Array.isArray(q.choices) && q.choices.length >= 2 && typedAccepted.length && !leaks(typedAccepted)) {
       const { choices, keyText } = cleanChoices(q.choices, q.answer, maxChoices)
       let idx = choices.findIndex((c) => normalizeAnswer(c) === normalizeAnswer(keyText ?? q.answer ?? typedAccepted[0]))
       if (idx < 0) idx = choices.findIndex((c) => typedAccepted.some((a) => normalizeAnswer(a) === normalizeAnswer(c)))
@@ -105,7 +118,7 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
     // With no choices a number IS the answer (a port, a year: 443 came back as JSON 443 and the question was dropped).
     const accepted = [...new Set([...(Array.isArray(q.accepted) ? q.accepted : []), ...(q.answer != null && (typeof q.answer !== 'number' || !Array.isArray(q.choices)) ? [q.answer] : [])].map((x) => String(x).trim()).filter(Boolean))]
     if (!accepted.length) continue
-    if (leaksAnswer(prompt, accepted)) continue
+    if (leaks(accepted)) continue
     out.push({ kind: 'typed', prompt, accepted, explanation, target, open: !!q.open, ...extra })
   }
   return out

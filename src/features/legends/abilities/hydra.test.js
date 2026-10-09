@@ -32,6 +32,15 @@ describe('raid ability: hydra (heads)', () => {
     // 2 + 2 + (2 + crit 1 + burn)
     expect(s.damage).toBe(DAMAGE.clean * 3 + DAMAGE.crit + K.burn)
   })
+  it('keeps the most heads since the last burn (the stumps), and an old state without it reads as the base', () => {
+    const s = run([hit('miss'), hit('clean'), hit('clean')])
+    expect(s.ab).toMatchObject({ heads: K.base, top: K.base + K.grow })
+    expect(mod.artState(s)['data-ab-top']).toBe(K.base + K.grow)
+    expect(mod.artState({ ab: { heads: 2, burns: 0 } })['data-ab-top']).toBe(K.base)
+    // an old state cut down and burned: the burn starts from the base three
+    const old = strike({ ...newFight(), ab: { heads: 1, burns: 0 } }, hit('clean'), o)
+    expect(old.ab).toMatchObject({ heads: K.base, top: K.base, burnt: K.base })
+  })
   it('the HUD is ready at one head, and the hint shows only then', () => {
     const s = run([hit('clean'), hit('clean')])
     expect(mod.hud(s)[0].ready).toBe(true)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasLetterCue, letterSkeleton, appendLetterCue, needsLetterCue, blankedSubject } from './letterCue'
+import { hasLetterCue, letterSkeleton, appendLetterCue, needsLetterCue, blankedSubject, withLetterCount, hasCountSkeleton, stripLetterCues } from './letterCue'
 import { rng } from './testRng'
 
 const q = (question, acceptedAnswers, extra = {}) => ({ question, acceptedAnswers, type: 'recall', ...extra })
@@ -80,5 +80,29 @@ describe('first-letter cue', () => {
     const out = appendLetterCue(q('Hat?', ['el sombrero']))
     expect(out.question).toBe('Hat (e·········)?')
     expect(hasLetterCue(out)).toBe(true)
+  })
+})
+
+describe('the question ladder letter count', () => {
+  const q = (question, extra = {}) => ({ question, type: 'recall', acceptedAnswers: ['sombrero'], ...extra })
+  it('adds the skeleton to a typed language recall even beside a quoted first letter', () => {
+    const out = withLetterCount(q('How do you say "hat" (wide brim; starts with "s")?'), { isLanguage: true })
+    expect(out.question).toMatch(/\(s·{7}\)/)
+    expect(hasCountSkeleton(out)).toBe(true)
+  })
+  it('puts it after a blank; never twice; not for open tiers, explanations or general modes', () => {
+    expect(withLetterCount(q('Lleva un ___ al sol', { type: 'fill_blank' }), { isLanguage: true }).question).toBe('Lleva un ___ (s·······) al sol')
+    const once = withLetterCount(q('x'), { isLanguage: true })
+    expect(withLetterCount(once, { isLanguage: true })).toBe(once)
+    const two = { question: 'Say "I" (y·)', type: 'recall', acceptedAnswers: ['yo'] }
+    expect(withLetterCount(two, { isLanguage: true })).toBe(two) // Study's own 2-letter skeleton counts
+    for (const [qq, o] of [[q('x'), { isLanguage: true, open: true }], [q('x', { type: 'explanation' }), { isLanguage: true }], [q('x'), { isLanguage: false }]]) expect(withLetterCount(qq, o)).toBe(qq)
+  })
+  it('the choices view drops every letter cue but keeps the sense', () => {
+    expect(stripLetterCues('La gacela ___ (s·······) (escapar de un peligro; empieza con "h") rápido')).toBe('La gacela ___ (escapar de un peligro) rápido')
+    expect(stripLetterCues('How do you say "hat" (starts with "s")?')).toBe('How do you say "hat"?')
+    expect(stripLetterCues('Say "I" (y·)')).toBe('Say "I"')
+    expect(stripLetterCues('傘は日本語で？（「か」で始まる）')).toBe('傘は日本語で？')
+    expect(stripLetterCues('No cue here (a sense note)')).toBe('No cue here (a sense note)')
   })
 })

@@ -483,7 +483,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       if (fight) { taunt.onAnswer(); if (fverdict === 'miss' && !info.skipped) taunt.onMiss(q, answer, expectedOf(q)) }
       if (!q._extra) {
         const expected = q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0]
-        answers.current = [...answers.current, { itemId, correct, grade, asked: q.prompt, answered: answer, expected: expected || '', ...(aid ? { aid, verdict: fverdict, q: { prompt: q.prompt, kind: q.kind, accepted: q.accepted, choices: q.choices, answerIdx: q.answerIdx, target: q.target, open: q.open } } : {}) }]
+        answers.current = [...answers.current, { itemId, correct, grade, asked: q.prompt, answered: answer, expected: expected || '', ...(aid ? { aid, verdict: fverdict, q: { prompt: q.prompt, kind: q.kind, accepted: q.accepted, choices: q.choices, answerIdx: q.answerIdx, target: q.target, open: q.open, tier: q.tier } } : {}) }]
       }
       if (!fight) {
         const e = effort.current
@@ -541,7 +541,9 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
         </div>
       </div>
     ) : undefined
-    const canUseChoices = fight ? (q) => !!q.alt : undefined
+    // Dual questions everywhere (the question ladder: typed by default, "Show choices" per question): a fight's choice is
+    // a safe strike; a lesson's counts at most Good (gradeAnswer with choice).
+    const canUseChoices = (q) => !!q.alt
     const tools = scrolls > 0 ? (q, api) => (!api.asChoice && q.kind !== 'choice' && !q.open && (q.accepted || []).length && api.phase === 'answer' && !scrolledFor.current.has(q)
       ? <ChunkyButton variant="ghost" color={C.purple} onClick={() => spendScroll(q, api)} style={{ fontSize: 12, padding: '6px 10px' }}>📜 {t('lg_useScroll', { n: scrolls })}</ChunkyButton>
       : null) : undefined

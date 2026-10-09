@@ -98,6 +98,7 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
             {isLang && toggle('grammarFeedback', r.grammarFeedback, 'lg_fsGrammarTip', 'lg_fsGrammar')}
             {isLang && subject.accents && toggle('strictAccents', r.strictAccents, 'lg_fsAccentsTip', 'lg_fsAccents')}
             {toggle('learnMoment', r.learnMoment, 'lg_fsLearnItTip', 'lg_fsLearnIt')}
+            {toggle('questionLadder', r.questionLadder !== false, 'lg_fsLadderTip', 'lg_fsLadder')}
           </div>
           {allowStyle && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

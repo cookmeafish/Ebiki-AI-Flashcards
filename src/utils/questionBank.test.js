@@ -27,6 +27,13 @@ describe('questionSignature', () => {
       expect(k.sig).not.toBe(key.sig)
     }
   })
+  it('the question ladder tier is part of the signature; tier 2 and no tier keep the old one', () => {
+    expect(questionSignature({ ...parts, tier: 2 }).sig).toBe(key.sig)
+    expect(questionSignature({ ...parts, tier: undefined }).sig).toBe(key.sig)
+    const tiers = [0, 1, 3, 4, 5].map((tier) => questionSignature({ ...parts, tier }).sig)
+    expect(new Set([key.sig, ...tiers]).size).toBe(6)
+    expect(questionSignature({ ...parts, tier: 4 }).text).toBe(key.text)
+  })
   it('the pronunciation Ebiki embeds on first play is not a card edit', () => {
     const embedded = 'dog\n[sound:ebiki-perro-1a2b.mp3]\n🔊 Some Speaker · CC BY-SA 4.0'
     expect(cardTextKey('perro', embedded)).toBe(cardTextKey('perro', 'dog'))
@@ -73,6 +80,10 @@ describe('pickSavedSet / addSet', () => {
 })
 
 describe('replaceQuestion / storableQuestion / reshuffleChoices', () => {
+  it('keeps the question ladder tier, drops a non-number', () => {
+    expect(storableQuestion({ ...q('a'), tier: 3 }).tier).toBe(3)
+    expect('tier' in storableQuestion({ ...q('a'), tier: 'x' })).toBe(false)
+  })
   it('fixes the saved copy of one question', () => {
     const bank = addSet(null, key, [q('a1'), q('a2')], 1)
     const id = bank.sets[0].id
@@ -151,9 +162,10 @@ describe('createQuestionReuse', () => {
     await h.reuse(card, parts, 3, gen('a'))
     expect(h.save).not.toHaveBeenCalled()
   })
-  it('never saves the give-up fallback, relearn copies, or cards without a deck', async () => {
+  it('never saves the give-up fallback, an unreviewed set, relearn copies, or cards without a deck', async () => {
     const h = harness({ enabled: true, maxPerCard: 10 })
     await h.reuse(card, parts, 1, async () => [{ ...q('fallback'), _fallback: true }])
+    await h.reuse(card, parts, 1, async () => [{ ...q('not reviewed'), _unreviewed: true }]) // the review pass never ran
     await h.reuse({ ...card, _relearn: true }, parts, 1, gen('r'))
     await h.reuse({ note: 7 }, parts, 1, gen('d'))
     expect(h.save).not.toHaveBeenCalled()

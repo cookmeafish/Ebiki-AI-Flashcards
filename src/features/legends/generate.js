@@ -4,8 +4,10 @@
 import { learnerLevelLine } from '../kit/learnerStore'
 import {
   createMap, parseMapPlan, parseAreaDetail, applyAreaDetail, needsDetail, appendAreas, needsMoreAreas, areaIndex,
-  adaptiveSplit, parseMapEdit, mergeEdit, setBossName, weakItems, AREAS, LOOKAHEAD,
+  adaptiveSplit, parseMapEdit, mergeEdit, setBossName, weakItems, itemTier, AREAS, LOOKAHEAD,
 } from './map'
+import { tierOfItem } from '../../utils/questionTier'
+import { ladderOn } from '../kit/fightSettings'
 import {
   buildMapPrompt, buildAreaPrompt, buildQuizPrompt, buildMapEditPrompt, buildPlacementPrompt,
   parseQuestions, fitQuestionsToKind, itemIdFor, buildBossNamePrompt, parseBossName, buildQuizCheckPrompt, parseQuizCheck, ROLE, MAX_TOKENS, QUIZ_SIZE, QUIZ_PER_ITEM_MAX,
@@ -115,7 +117,8 @@ export async function extendIfNeeded(ctx, modeId) {
 // A quiz with fewer on-topic questions than this (or two per item, if less) is asked again, more strictly.
 const QUIZ_MIN_KEPT = 4
 // Bump when the review pass changes: saved sets checked by an older one are reviewed again once.
-export const QUIZ_CHECK_VERSION = 1
+// 2: the question ladder's review (QUESTION_CHECK_RULES, tiers, a typed question's optional choices shown).
+export const QUIZ_CHECK_VERSION = 2
 // A set the review cut below this share of its size is topped up once with new questions (a boss of 14 came back
 // with 8 after the review, and nothing refilled it).
 const QUIZ_TOPUP_BELOW = 0.85
@@ -155,6 +158,11 @@ export function mergeQuestionSets(a, b) {
 }
 const askedIn = (data) => (Array.isArray(data?.questions) ? data.questions : []).map((q) => q?.prompt || q?.question || '').filter(Boolean)
 
+// THE QUESTION LADDER for Legends (pure): an item's tier from its codex tier (map.js itemTier), a boss one step up.
+export const legendsItemTier = (it, kind) => tierOfItem(itemTier(it), { kind })
+// The items a quiz prompt sees: each with its `tier` while the ladder is on, untouched while it is off.
+export const tieredItems = (list, kind, on) => (on ? (list || []).map((it) => ({ ...it, tier: legendsItemTier(it, kind) })) : list || [])
+
 export function makeQuiz(ctx, modeId, area, node, opts = {}) {
   return once(`quiz:${modeId}:${area.id}:${node.id}`, () => makeQuizNow(ctx, modeId, area, node, opts))
 }
@@ -174,7 +182,17 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   const at = (area.nodes || []).findIndex((n) => n.id === node.id)
   const earlierIds = new Set((area.nodes || []).slice(0, Math.max(0, at)).filter((n) => REVIEW_KINDS.has(n.kind) || n.kind === 'scene' || n.kind === 'practice').flatMap((n) => n.itemIds || []))
   const reviewItems = REVIEW_KINDS.has(node.kind) ? weakItems({ items: area.items.filter((it) => earlierIds.has(it.id) && !stepItems.includes(it)) }, QUIZ_REVIEW_ITEMS) : []
-  const taught = [...split.choice, ...split.typed, ...reviewItems]
+  // THE QUESTION LADDER (utils/questionTier.js, one setting with Study: studyRules.questionLadder): every item is asked
+  // at ITS tier, from its codex tier (new, bronze, silver, gold; a boss one step up, Legendary two). Off: today's
+  // questions (the adaptive choice/typed split), no tiers, no chip.
+  const ladder = ladderOn(ctx.fight?.rules || ctx.study?.rules?.())
+  const tierOfIt = (it) => legendsItemTier(it, node.kind)
+  const tiered = (list) => tieredItems(list, node.kind, ladder)
+  const taught = tiered([...split.choice, ...split.typed, ...reviewItems])
+  // A saved set fits only the ladder it was written for (an item that climbed a tier gets a new question; a set
+  // written without the ladder is not shown with one, and the reverse).
+  const ladderSig = ladder ? stepItems.map((it) => `${it.id}:${tierOfIt(it)}`).join(',') : ''
+  const tierFor = (rawQ) => { if (!ladder) return undefined; const id = itemIdFor(rawQ, taught); const it = id && taught.find((x) => x.id === id); return it ? it.tier : undefined }
   const enough = (n) => n >= Math.min(QUIZ_MIN_KEPT, taught.length * 2)
   // The second look: questions with two defensible answers, or about things the step never taught, go.
   // `null` = the review did not run (fail-soft: the caller keeps what it has).
@@ -188,7 +206,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   // A set saved before the review existed (it asked "the most natural answer in Texas" on a step that never
   // taught Texas) is reviewed once: what survives is kept, and the gaps are refilled below like a new set's.
   let kept = null
-  if (!fresh && saved.value?.questions?.length) {
+  if (!fresh && saved.value?.questions?.length && (saved.value.ladder || '') === ladderSig) {
     const clean = saved.value.questions
     if (saved.value.checked === QUIZ_CHECK_VERSION && enough(clean.length)) return reshuffleQuiz(clean)
     kept = await review(clean)
@@ -199,7 +217,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   const avoid = [...new Set([...others.flatMap(askedIn), ...history])].slice(-QUIZ_AVOID_MAX)
   const seen = new Set(avoid.map(normQ))
   const opts = {
-    choiceItems: split.choice, typedItems: split.typed, reviewItems, count: QUIZ_SIZE[node.kind] || QUIZ_SIZE.practice,
+    choiceItems: tiered(split.choice), typedItems: tiered(split.typed), reviewItems: tiered(reviewItems), ladder, count: QUIZ_SIZE[node.kind] || QUIZ_SIZE.practice,
     level: await levelText(ctx), knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz), misses, avoid, nemesis,
   }
   const lang = subject.isLanguage ? subject.learnLangIso : ''
@@ -209,7 +227,8 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   let reviewed = true
   const ask = async (strict, more = {}) => {
     const raw = await call(ctx, buildQuizPrompt(subject, area, node, { ...opts, ...more, strict }), ROLE.quiz, MAX_TOKENS.quiz)
-    const qs = fitQuestionsToKind(parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss }), node.kind).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
+    // Typed by default with the ladder (its choices an optional `alt`, Study's "Show choices"); a fight always.
+    const qs = fitQuestionsToKind(parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss || ladder, tierFor }), node.kind, { ladder }).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
     if (!qs.length) return qs // nothing to review (never a paid call on an empty list)
     const checked = await review(qs)
     if (!checked) reviewed = false
@@ -232,7 +251,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   if (saved.ok) {
     // A fight keeps only what it asked (so the next attempt is new); every other step keeps its set.
     if (fresh) await saveStep(modeId, area.id, node.id, 'fight', 'quiz', { history: [...history, ...qs.map((q) => q.prompt)].slice(-FIGHT_HISTORY_MAX) })
-    else await saveStep(modeId, area.id, node.id, sig, 'quiz', { questions: qs, ...(reviewed ? { checked: QUIZ_CHECK_VERSION } : {}) })
+    else await saveStep(modeId, area.id, node.id, sig, 'quiz', { questions: qs, ...(ladderSig ? { ladder: ladderSig } : {}), ...(reviewed ? { checked: QUIZ_CHECK_VERSION } : {}) })
   }
   return kept ? reshuffleQuiz(qs) : qs
 }

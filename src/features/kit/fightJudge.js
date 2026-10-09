@@ -8,6 +8,8 @@
 // background. A re-check (and an appeal) can only RAISE a verdict (miss -> glancing/clean, glancing -> clean), never
 // lower it: a right answer is never marked wrong after the fact.
 
+import { clampTier, tierTeaches, tierOpen } from '../../utils/questionTier'
+
 export const VERDICT_MAX_TOKENS = 120
 export const EXPLAIN_MAX_TOKENS = 400
 export const RECHECK_MAX_TOKENS = 300
@@ -27,8 +29,24 @@ export const flagOf = (v) => {
 // `phrasing` (a fight's language line, kit/fightSettings.js) tells the grader which language the learner reads, and in
 // a general mode that answers in any language count.
 const subjectLine = (subject) => `Subject: ${subject?.name || ''}${subject?.description ? ` (the learner's own context: ${subject.description})` : ''}${subject?.phrasing ? `\n${subject.phrasing}` : ''}`
-const questionLines = (q, ans) => [
+// THE QUESTION LADDER (utils/questionTier.js): the grader knows what KIND of answer the question asked for, so an open
+// answer (a sentence the learner wrote, an explanation) is never matched as one exact word, and a teaching question's
+// shown answer is expected (a right answer there is simply right). Shared by every fight grader and judgeAnswer.
+export function tierJudgeLine(q, subject) {
+  if (!q || q.tier == null || !Number.isFinite(Number(q.tier))) return ''
+  const tier = clampTier(q.tier)
+  const lang = !!subject?.isLanguage
+  if (tierTeaches(tier)) return `This is a TIER 0 teaching question (the card is new): the question shows the answer on purpose. Grade it like any other: the expected answer is right.`
+  if (q.open && tierOpen(tier, lang)) {
+    return lang
+      ? `This is a TIER ${tier} OPEN production question: the learner writes their OWN ${subject.learnLang || ''} sentence. "target" = the sentence uses the card's word (any correct form) with the card's meaning, correctly, and is understandable; NEVER compare it to one exact word or to the reference sentence. Grammar elsewhere in the sentence only matters for "all".`
+      : `This is a TIER ${tier} OPEN question: judge the understanding it shows (any wording, any language), never an exact phrase.`
+  }
+  return `Question tier: ${tier} of 5 (how mature the card is).`
+}
+const questionLines = (q, ans, subject) => [
   `Question: ${q.prompt}`,
+  tierJudgeLine(q, subject),
   q.kind === 'choice' && Array.isArray(q.choices) ? `Options: ${q.choices.join(' / ')}` : '',
   q.target ? `The question TESTS: ${q.target}` : '',
   q.accepted?.length ? `Reference answer(s): ${q.accepted.join(' / ')}` : '',
@@ -58,7 +76,7 @@ export const gradeObject = (j, keys) => {
 export function buildVerdictPrompt(subject, q, ans) {
   return {
     system: 'You grade one answer in a learning game. Reply with JSON only, nothing else: {"target": true|false, "all": true|false, "accentsOnly": true|false}.',
-    user: [subjectLine(subject), ...questionLines(q, ans), rulesFor(subject)].filter(Boolean).join('\n'),
+    user: [subjectLine(subject), ...questionLines(q, ans, subject), rulesFor(subject)].filter(Boolean).join('\n'),
   }
 }
 // → { target, all, accentsOnly } (booleans) or null when the reply holds no readable "target".
@@ -89,7 +107,7 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
   return {
     system: `You explain one graded answer to a learner. Reply with JSON only: {"note": "..."${wantFix ? ', "fix": {"question": "...", "answer": "..."} | null' : ''}}.`,
     user: [
-      subjectLine(subject), ...questionLines(q, ans),
+      subjectLine(subject), ...questionLines(q, ans, subject),
       verdict === 'miss' ? 'The answer was judged WRONG.' : verdict === 'glancing' ? 'The answer got the tested thing right but has another mistake.' : 'The answer was judged right.',
       `Write "note" in ${subject?.userLang || 'English'}: one short, neutral sentence saying what was wrong and the right form or answer. Plain words, no dashes, no shrimp emoji.`,
       wantFix ? '"fix": a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". null when there is none.' : '',
@@ -114,7 +132,7 @@ export function buildRecheckPrompt(subject, q, ans, { verdict = 'miss', reason =
   return {
     system: 'You are a careful, fair second grader in a learning game. A first grader may have been too strict. Reply with JSON only: {"right": true|false, "all": true|false, "why": "..."}.',
     user: [
-      subjectLine(subject), ...questionLines(q, ans),
+      subjectLine(subject), ...questionLines(q, ans, subject),
       `The first grader said: ${verdict === 'glancing' ? 'the tested thing is right but something else is wrong' : 'wrong'}.`,
       why ? `The student appeals and says: "${why}". Weigh it honestly; never just agree because they asked.` : '',
       'Look again, carefully. Is the student actually right? Consider synonyms, equivalent wordings, accepted variants and abbreviations, another answer the question really allows, and typos that do not change the meaning or turn it into another word or form.',

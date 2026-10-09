@@ -4,10 +4,11 @@
 import { sanitizeQuestions, leaksAnswer } from '../kit/grade'
 import { MOTIFS, PALETTES, AREAS, ITEMS, NODES, LESSONS, PER_LESSON, STORY, CAN_DO, cleanBossName } from './map'
 import { TIERS } from './placement'
+import { tierInstruction, CLEAR_ANSWER_RULE, QUESTION_CHECK_RULES, clampTier } from '../../utils/questionTier'
 
 // Roles pick the model tier like everywhere else: planning is `general`, questions are `study`, items that may
 // become cards are `deck` (they get memorized: the strongest tier).
-export const ROLE = { plan: 'general', area: 'deck', quiz: 'study', quizCheck: 'study', talk: 'chat', hint: 'help', bossName: 'help', edit: 'general', placement: 'study' }
+export const ROLE = { plan: 'general', area: 'deck', quiz: 'study', quizCheck: 'qcheck', talk: 'chat', hint: 'help', bossName: 'help', edit: 'general', placement: 'study' }
 export const MAX_TOKENS = { plan: 2500, area: 5000, quiz: 5000, talk: 600, talkScore: 800, hint: 200, bossName: 120, quizCheck: 1500, edit: 2500, placement: 3500 }
 // Questions per step (a learn level asks its new items two ways plus a few earlier ones; the boss is always 20).
 export const QUIZ_SIZE = { learn: 10, practice: 8, rule: 8, weak: 10, boss: 20, legendary: 20 }
@@ -32,7 +33,31 @@ const cueRule = (s) => `A typed answer asks for ONE form: right after the blank 
 const scope = (s) => (s.isLanguage
   ? `This mode teaches ${s.learnLang} to someone who reads ${s.userLang}. ${s.rules || ''}`.trim()
   : `This mode teaches ${s.name}, in ${s.userLang}. It is never a language lesson: keep terms, names, code and formulas as they are.`)
-const itemList = (items, max = 220) => items.map((it, i) => `${i + 1}. [${it.kind}] ${it.front} = ${String(it.back || '').replace(/\s+/g, ' ').slice(0, max)}`).join('\n')
+const itemList = (items, max = 220) => items.map((it, i) => `${i + 1}. [${it.kind}]${hasTier(it) ? ` TIER ${clampTier(it.tier)}` : ''} ${it.front} = ${String(it.back || '').replace(/\s+/g, ' ').slice(0, max)}`).join('\n')
+
+// ── THE QUESTION LADDER (utils/questionTier.js; the SAME ladder as Study) ──────────────────────────────────────
+// Each card or item carries a `tier` (raids: tierOf(the Anki card); Legends: tierOfItem(its codex tier, { kind })); the
+// prompt names it next to the card and spells out what each tier present asks. No tier = the ladder is off (today's
+// question). The model's "type" words map onto this app's question shape here.
+const hasTier = (x) => x && x.tier != null && Number.isFinite(Number(x.tier))
+const TIER_TYPES = 'In the tier texts, "recall" and "fill_blank" mean a typed question with "open": false and every correct answer in "accepted"; "explanation" means a typed question with "open": true and one good model answer in "accepted".'
+export function ladderBlock(subject, things = []) {
+  const tiers = [...new Set(things.filter(hasTier).map((x) => clampTier(x.tier)))].sort((a, b) => a - b)
+  if (!tiers.length) return ''
+  const opts = { isLanguage: !!subject.isLanguage, learnLang: subject.learnLang || 'the learned language', quizLang: subject.userLang || 'the learner\'s language' }
+  return [
+    'THE QUESTION LADDER: every card/item above is marked with its TIER (how well the learner knows it). Ask about each one AT ITS TIER, as described here:',
+    ...tiers.map((t) => tierInstruction(t, opts)),
+    TIER_TYPES,
+    'A TIER 0 question teaches the answer while asking it (it may show the answer); every other tier never shows its answer.',
+  ].join('\n')
+}
+// Study's AMBIGUITY SELF-CHECK, the same words for every fight and quiz (App.jsx's question prompt says it this way).
+export function ambiguityRule(subject) {
+  return subject.isLanguage
+    ? `AMBIGUITY SELF-CHECK (apply to EVERY typed recall or fill-in question before finalizing): mentally substitute 2 to 3 plausible alternative ${subject.learnLang} words, ESPECIALLY synonyms, into the question. If ANY of them still fits after reading the WHOLE question, it is INVALID until you embed a compact parenthetical cue in ${subject.userLang} right at the blank naming the target's precise meaning or nuance, with its first letter in quotes. A bare sentence with a generic predicate is never enough; a slightly over-specified question with a clear cue beats an elegant ambiguous one.`
+    : `AMBIGUITY SELF-CHECK (apply to EVERY typed question): if another term from this subject would also fit, add a compact parenthetical cue in ${subject.userLang} naming the precise concept or context, or list every fair answer in "accepted". Never a letter of the answer and never the term itself.`
+}
 const QUESTION_SHAPE = '{"type": "choice"|"typed", "question": "...", "choices": ["..."], "answer": <index or text>, "accepted": ["..."], "open": true|false, "explanation": "...", "target": "..."}'
 
 // ── Placement exam ──────────────────────────────────────────────────────────────────────────────────────────
@@ -61,10 +86,13 @@ export function parseQuestions(raw, clean, opts = {}) {
     ? Object.values(raw).find((v) => Array.isArray(v) && v.some((q) => q && typeof q === 'object' && 'question' in q))
     : null
   const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : other || []
+  // `tierFor(rawQuestion)`: the question ladder's tier for it (its card or item), set before sanitizing so a TIER 0
+  // teaching question passes the leak guard. The model's own "tier" is never trusted; without tierFor it is dropped.
+  const { tierFor, ...rest } = opts
   return sanitizeQuestions(list.map((q) => ({
-    ...q, question: clean(String(q?.question || '')), explanation: clean(String(q?.explanation || '')),
+    ...q, tier: tierFor ? tierFor(q) : undefined, question: clean(String(q?.question || '')), explanation: clean(String(q?.explanation || '')),
     ...(Array.isArray(q?.choices) ? { choices: q.choices.map((c) => clean(String(c))) } : {}),
-  })), opts)
+  })), rest)
 }
 
 // What a fight's screen promises about its questions, enforced on what the model sent (boss, Legendary, raid): every
@@ -72,15 +100,21 @@ export function parseQuestions(raw, clean, opts = {}) {
 // phase and on attacks too (the owner: a question can be ambiguous, so that way out never goes away). A choice-only
 // question becomes typed (the right option is the answer, the options its alt), unless it cannot stand without them
 // ("which of these", true/false, "all of the above") or would then give its answer away. The set is then topped up.
-export function fitQuestionsToKind(qs, kind) {
+// `ladder` (a lesson under the question ladder): typed by default there too, so a choice-only question becomes typed
+// with its options as `alt` when it can stand alone; one that cannot ("which of these") stays a choice question (a
+// lesson is not a fight: nothing promises typing there).
+export function fitQuestionsToKind(qs, kind, { ladder = false } = {}) {
   const list = Array.isArray(qs) ? qs : []
-  if (kind !== 'boss' && kind !== 'raid' && kind !== 'legendary') return list
+  const fightKind = kind === 'boss' || kind === 'raid' || kind === 'legendary'
+  if (!fightKind && !ladder) return list
   const out = []
   for (const q of list) {
     if (!q || typeof q !== 'object') continue
     if (q.kind !== 'choice') { out.push(q); continue }
     const typedQ = choiceToTyped(q)
     if (typedQ) out.push(typedQ)
+    // A lesson keeps it as a choice question, unless it names its own answer (the leak guard; TIER 0 teaches).
+    else if (!fightKind && (q.tier === 0 || !leaksAnswer(String(q.prompt || ''), [q.choices?.[q.answerIdx]].filter(Boolean)))) out.push(q)
   }
   return out
 }
@@ -96,7 +130,7 @@ function choiceToTyped(q) {
   const prompt = String(q.prompt || '')
   const key = choices[idx]
   if (NEEDS_OPTIONS_RE.test(prompt) || OPTION_ANSWER_RE.test(key)) return null
-  if (leaksAnswer(prompt, [key])) return null
+  if (!(q.tier === 0) && leaksAnswer(prompt, [key])) return null // a TIER 0 question teaches: it shows its answer
   const { choices: _c, answerIdx: _a, ...rest } = q
   return { ...rest, kind: 'typed', accepted: [key], open: false, alt: { choices, answerIdx: idx } }
 }
@@ -177,12 +211,14 @@ export function buildAreaPrompt(subject, area, { level = '', knowledge = '', bef
 export const QUIZ_PER_ITEM_MAX = 3
 export const NEMESIS_SHARE = 30 // % of a rematch's questions on the items that beat the learner last time
 
-export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedItems = [], reviewItems = [], count, level = '', knowledge = '', misses = [], strict = false, avoid = [], nemesis = [] } = {}) {
+export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedItems = [], reviewItems = [], count, level = '', knowledge = '', misses = [], strict = false, avoid = [], nemesis = [], ladder = false } = {}) {
   const boss = node.kind === 'boss' || node.kind === 'legendary'
   const items = [...choiceItems, ...typedItems, ...reviewItems]
   const n = Math.max(2, Math.min(count || QUIZ_SIZE[node.kind] || QUIZ_SIZE.practice, items.length * QUIZ_PER_ITEM_MAX))
   const kindLine = {
-    learn: 'These items were JUST taught in this level: for each one, first a recognition question (multiple choice), then a recall or use question (typed). Gentle, one step at a time.',
+    learn: ladder
+      ? 'These items were JUST taught in this level: ask each one twice, from two different angles, both at its TIER (the ladder below). Gentle, one step at a time.'
+      : 'These items were JUST taught in this level: for each one, first a recognition question (multiple choice), then a recall or use question (typed). Gentle, one step at a time.',
     practice: 'Practice these items: recall and use them.',
     rule: 'Drill the RULE(S) among these items: questions that make the learner apply the rule to new cases.',
     boss: `BOSS TEST of the whole area. Push the learner to the limit of what the area taught, so passing proves real understanding: use the items in NEW sentences and situations (never a copy of an example), combine two items in one question, make them produce rather than recognize. Mostly questions answered with a ${subject.isLanguage ? `${subject.learnLang} sentence` : 'sentence'} ("open": true with a model answer in "accepted"). Every question is answered TYPED and has its answers in "accepted"; for EVERY question, ALSO add 4 "choices" (the right one plus CLOSE wrong ones, the tempting mistake, only one right) as an easier way to answer (it deals less damage), but the question must make full sense without them (never "which of these", "which of the following", "choose", "true or false", "all of the above"). Hard, never unfair: every answer still follows from the material.`,
@@ -190,7 +226,7 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
     weak: 'WEAK SPOTS: these are the items this learner got wrong most often. Ask each one from a new angle (not the way it was asked before), starting easier and ending harder, so the gap closes.',
   }[node.kind] || 'Practice these items.'
   return {
-    system: `You write quiz questions for a learning app about material the learner was JUST shown. Reply with JSON only: {"questions": [${QUESTION_SHAPE}]}. Every question checks ONE item of that material, and its correct answer is stated in, or follows directly from, that item's text: the learner must be able to answer it from what they were shown. Never ask about a word, fact, rule, example or topic that is not in the material, even when it belongs to the same area or subject. Every question has exactly one correct answer; choices are 4 real, plausible options with no duplicates (the RIGHT one comes from the material; every wrong one must be clearly false, never an option a fair reader could defend, such as "they mean the same" for two greetings that are mostly interchangeable). Ask what an item plainly teaches (its meaning, its use, its example), not a fine nuance it only hints at; typed questions list every acceptable answer in "accepted". Never reveal the answer in the question. "target" = the item's "front", copied exactly. ${NO_DASH}`,
+    system: `You write quiz questions for a learning app about material the learner was JUST shown. Reply with JSON only: {"questions": [${QUESTION_SHAPE}]}. Every question checks ONE item of that material, and its correct answer is stated in, or follows directly from, that item's text: the learner must be able to answer it from what they were shown. Never ask about a word, fact, rule, example or topic that is not in the material, even when it belongs to the same area or subject. Every question has exactly one correct answer; choices are 4 real, plausible options with no duplicates (the RIGHT one comes from the material; every wrong one must be clearly false, never an option a fair reader could defend, such as "they mean the same" for two greetings that are mostly interchangeable). Ask what an item plainly teaches (its meaning, its use, its example), not a fine nuance it only hints at; typed questions list every acceptable answer in "accepted". Never reveal the answer in the question (only a TIER 0 teaching question shows it, on purpose). "target" = the item's "front", copied exactly. ${NO_DASH}`,
     user: [
       quizSubjectLine(subject),
       scope(subject),
@@ -201,8 +237,8 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
       reviewItems.length ? `REVIEW: the last ${reviewItems.length} items above were taught in EARLIER levels (${reviewItems.map((it) => it.front).join(' | ')}). Ask about ${Math.min(reviewItems.length, 4)} of the ${n} questions over them (spaced review); the rest over this level's new items.` : '',
       `Spread the ${n} questions over these ${items.length} items (about ${Math.max(1, Math.round(n / Math.max(1, items.length)))} each). More questions than items? Ask the same item another way (meaning, use in a sentence, recognition, its example), never about something else.`,
       strict ? 'Your last questions asked about things that are NOT in the material above. Every question must now check one listed item, with "target" copied from its front.' : '',
-      !boss && node.kind !== 'learn' && choiceItems.length ? `New or shaky (ask these as multiple choice): ${choiceItems.map((it) => it.front).join(' | ')}` : '',
-      !boss && node.kind !== 'learn' && typedItems.length ? `Known well (ask these typed: recall, fill in, or a short sentence): ${typedItems.map((it) => it.front).join(' | ')}` : '',
+      !ladder && !boss && node.kind !== 'learn' && choiceItems.length ? `New or shaky (ask these as multiple choice): ${choiceItems.map((it) => it.front).join(' | ')}` : '',
+      !ladder && !boss && node.kind !== 'learn' && typedItems.length ? `Known well (ask these typed: recall, fill in, or a short sentence): ${typedItems.map((it) => it.front).join(' | ')}` : '',
       avoid.length ? `Questions the learner already got in this area's other steps. Write NEW ones: never repeat or reword these; ask from another angle, with other sentences and examples:\n${avoid.map((q) => `- ${String(q).replace(/\s+/g, ' ').slice(0, 200)}`).join('\n')}` : '',
       misses.length ? `The learner recently missed these (include them again, differently): ${misses.slice(0, 8).join(' | ')}` : '',
       // The rematch: a boss that won last time comes back with what beat the learner, but mostly the whole area.
@@ -210,6 +246,11 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
       subject.isLanguage
         ? `Instructions in ${subject.userLang}; answers in ${subject.learnLang}. ${cueRule(subject)} ${subject.rules || ''}`.trim()
         : `Everything in ${subject.userLang}. Test understanding and application, not wording.`,
+      // The ladder: typed by default on every question, its 4 options an optional way out (Study's "Show choices").
+      ladder && !boss ? 'Every question is answered TYPED by default and has its answers in "accepted"; for EVERY question ALSO add 4 "choices" (the right one plus close wrong ones, only one right) as an optional easier way to answer, but the question must make full sense without them (never "which of these", "true or false", "all of the above").' : '',
+      ladderBlock(subject, items),
+      CLEAR_ANSWER_RULE,
+      ambiguityRule(subject),
       `Write ${n} questions. "explanation" in ${subject.userLang}: why the answer is right, in one sentence.`,
       knowledge ? `Background from the learner's own material (only to keep facts accurate; never ask about anything in it that the learning material above does not teach):\n${knowledge}` : '',
     ].filter(Boolean).join('\n'),
@@ -219,12 +260,20 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
 // A second look at a new quiz before it is saved: which questions are unfair. A model asked to write questions
 // still wrote "the correct way to use to be with I" where "I am Carlos" is as right as "I'm Carlos", and slipped in a
 // place the step never taught. Reply: {"bad": [{"i": <index>, "why": "..."}]}; makeQuiz drops those.
+// THE REVIEW PASS for every Legends quiz AND every raid (the same independent look Study runs, QUESTION_CHECK_RULES):
+// each row shows the question's TIER (the ladder), its accepted answers, and its options with the [KEY] (a choice
+// question's own, or a typed question's optional `alt`). `items`: the material ({ kind, front, back, tier? }; a raid
+// passes its cards).
+const optionsRow = (choices, key) => choices.map((c, k) => `${k === key ? '[KEY] ' : ''}${c}`).join(' | ')
 export function buildQuizCheckPrompt(subject, items, questions) {
-  const row = (q, i) => (q.kind === 'choice'
-    ? `${i}. ${q.prompt}\n   options: ${q.choices.map((c, k) => `${k === q.answerIdx ? '[KEY] ' : ''}${c}`).join(' | ')}`
-    : `${i}. ${q.prompt}\n   accepted: ${(q.accepted || []).join(' | ') || '(open answer)'}`)
+  const row = (q, i) => {
+    const head = `${i}. ${hasTier(q) ? `[TIER ${clampTier(q.tier)}${q.open ? ', open' : ''}] ` : q.open ? '[open] ' : ''}${q.prompt}`
+    if (q.kind === 'choice') return `${head}\n   options: ${optionsRow(q.choices, q.answerIdx)}`
+    const alt = q.alt && Array.isArray(q.alt.choices) ? `\n   optional options: ${optionsRow(q.alt.choices, q.alt.answerIdx)}` : ''
+    return `${head}\n   accepted: ${(q.accepted || []).join(' | ') || '(open answer)'}${alt}`
+  }
   return {
-    system: `You review quiz questions before a learner sees them. Reply with JSON only: {"bad": [{"i": <question index>, "why": "<short reason>"}]} (an empty list when all are fair). A question is BAD when: a second option (not the [KEY]) could also fairly be called correct, or a correct answer is missing from "accepted"; the [KEY] is actually wrong; it cannot be answered from the learning material alone; it relies on something the material never teaches (a place, a person, culture, a rule); or the question gives its answer away. When unsure about a choice question, mark it BAD. ${NO_DASH}`,
+    system: `You review quiz questions before a learner sees them. Reply with JSON only: {"bad": [{"i": <question index>, "why": "<short reason>"}]} (an empty list when all are fair). A question is BAD when: a second option (not the [KEY]) could also fairly be called correct, or a correct answer is missing from "accepted"; the [KEY] is actually wrong; it cannot be answered from the learning material alone; it relies on something the material never teaches (a place, a person, culture, a rule); or the question gives its answer away (except a TIER 0 teaching question, which shows it on purpose). When unsure about a choice question, mark it BAD.\n${QUESTION_CHECK_RULES}\n${NO_DASH}`,
     user: [
       quizSubjectLine(subject),
       subject.isLanguage ? `The learner is learning ${subject.learnLang}; judge the ${subject.learnLang} as a native teacher would (a form that is correct but less casual is still CORRECT).` : '',
@@ -240,6 +289,18 @@ export function parseQuizCheck(raw, n) {
   if (!Array.isArray(raw?.bad) && !Array.isArray(raw)) return null
   const list = Array.isArray(raw?.bad) ? raw.bad : raw
   return new Set(list.map((b) => Number(typeof b === 'object' ? b?.i : b)).filter((i) => Number.isInteger(i) && i >= 0 && i < n))
+}
+// The same verdict with the reviewer's reasons (index -> why), for a rewrite that must fix them. null = no verdict.
+export function parseQuizCheckWhy(raw, n) {
+  const set = parseQuizCheck(raw, n)
+  if (!set) return null
+  const list = Array.isArray(raw?.bad) ? raw.bad : raw
+  const out = new Map([...set].map((i) => [i, '']))
+  for (const b of list) {
+    const i = Number(b && typeof b === 'object' ? b.i : b)
+    if (out.has(i) && b && typeof b === 'object' && b.why) out.set(i, String(b.why).replace(/\s+/g, ' ').trim().slice(0, 200))
+  }
+  return out
 }
 
 // Which item a question checks (its "target" names the item's front), or ''.
@@ -390,19 +451,27 @@ export function buildMapEditPrompt(subject, map, request) {
 // (the power strike) and 4 options (the safe strike), so the learner picks how to answer.
 export const RAID_ROLE = 'study'
 export const RAID_MAX_TOKENS = 6000
-export function buildRaidPrompt(subject, cards, { level = '' } = {}) {
+// cards may carry `tier` (the question ladder: tierOf(the Anki card)); none = the ladder is off (today's question).
+// `redo`: [{ prompt, why }] = the questions these cards got before, rejected by the review pass (or dropped for
+// showing their answer): the replacement must fix that.
+export function buildRaidPrompt(subject, cards, { level = '', redo = [] } = {}) {
+  const tiered = cards.some(hasTier)
   return {
-    system: `You write the questions of a review fight in a learning app. Reply with JSON only: {"questions": [{"card": <1-based card number>, "question": "...", "accepted": ["..."], "choices": ["...", "...", "...", "..."], "answer": "<the right choice, exactly>", "target": "<the card's front>"}]}. ${NO_DASH}`,
+    system: `You write the questions of a review fight in a learning app. Reply with JSON only: {"questions": [{"card": <1-based card number>, "question": "...", "accepted": ["..."], "open": true|false, "choices": ["...", "...", "...", "..."], "answer": "<the right choice, exactly>", "target": "<the card's front>"}]}. ${NO_DASH}`,
     user: [
       quizSubjectLine(subject),
       level ? `Learner: ${level}.` : '',
       `Exactly ONE question per card below, in the same order, testing ONLY what that card says (never another card, never outside knowledge).`,
+      tiered ? ladderBlock(subject, cards) : '',
+      CLEAR_ANSWER_RULE,
+      ambiguityRule(subject),
+      redo.length ? `A REVIEWER REJECTED the last questions for these cards. Write NEW ones that fix the problem:\n${redo.map((r, i) => `${i + 1}. ${r.prompt ? `"${String(r.prompt).replace(/\s+/g, ' ').slice(0, 200)}"` : '(no usable question was written)'}${r.why ? ` (rejected: ${String(r.why).slice(0, 160)})` : ''}`).join('\n')}` : '',
       subject.isLanguage
         ? `Ask in ${subject.userLang} for the ${subject.learnLang} word or phrase (recall), or give a short ${subject.learnLang} sentence with a blank for it. "accepted": every correct ${subject.learnLang} answer. ${cueRule(subject)} ${subject.rules || ''}`.trim()
         : `Ask for the term, or to apply the idea to a short new case. "accepted": the correct short answers (terms stay as written). Write questions and choices in ${subject.userLang}; subject terms, acronyms, code and numbers stay as written.`,
-      '"choices": 4 options, the right one plus 3 CLOSE but clearly wrong ones (the tempting mistakes), an easier way to answer that is offered only at first. Every question must be answerable TYPED without its options, with its answers in "accepted": never "which of these", "which of the following", "choose", "true or false" or "all of the above". The question must never contain its own answer.',
+      '"choices": 4 options, the right one plus 3 CLOSE but clearly wrong ones (the tempting mistakes), an optional easier way to answer (a safe strike, less damage). Every question must be answerable TYPED without its options, with its answers in "accepted": never "which of these", "which of the following", "choose", "true or false" or "all of the above". The question must never contain its own answer (only a TIER 0 teaching question shows it, on purpose).',
       'Situations are everyday or from the learner\'s own context above: never a city, region, country or person that neither the card nor that context names.',
-      `Cards:\n${cards.map((c, i) => `${i + 1}. FRONT: ${c.front}\n   BACK: ${String(c.back || '').replace(/\n+/g, ' / ')}`).join('\n')}`,
+      `Cards:\n${cards.map((c, i) => `${i + 1}.${hasTier(c) ? ` TIER ${clampTier(c.tier)}` : ''} FRONT: ${c.front}\n   BACK: ${String(c.back || '').replace(/\n+/g, ' / ')}`).join('\n')}`,
     ].filter(Boolean).join('\n'),
   }
 }

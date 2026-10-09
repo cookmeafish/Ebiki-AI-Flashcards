@@ -1,5 +1,6 @@
 // The first-letter cue guarantee for typed language questions.
 // Moved verbatim out of App.jsx (pure: no React, no app state) so they can be tested; App imports them back.
+import { ensureLetterCue, stripLetterSkeleton } from '../features/kit/fightSettings'
 
 // ── First-letter cue guarantee (LANGUAGE-AGNOSTIC) ────────────────────────────────────────────
 // A typed translation / fill-in-the-blank is only fair if the student can tell WHICH word is
@@ -67,3 +68,35 @@ export const needsLetterCue = (q, isLanguage, wantChoices) =>
 // A scrub that blanked the whole quoted subject ("Translate: '___'"): nothing left to answer from (generation and
 // Fix question both drop it).
 export const blankedSubject = (q) => new RegExp(`[${CUE_QUOTES_PLAIN}${CUE_APOS}]\\s*___\\s*[${CUE_QUOTES_PLAIN}${CUE_APOS}]|[:：]\\s*___\\s*(?:[(（]|[?？.。!！]*\\s*$)`, 'u').test(String(q.question || ''))
+
+// ── The question ladder: the LETTER COUNT and the choices view (same as fights, kit/fightSettings.js) ──────────────
+// Every typed language recall/fill_blank question (not an open tier) shows the answer's skeleton "(s·······)": the first
+// letter AND how many letters, even beside a quoted first letter. A skeleton already there (any length, Study's own
+// "(y·)" for a 2-letter word too) is kept.
+const ANY_SKELETON = /[(（]\s*(\p{L})[·.]+[^)）]*[)）]/gu
+const answerInitials = (q) => {
+  const set = new Set()
+  for (const a of cueAnswers(q)) for (const w of a.split(/[\s/'’]+/)) { const c = [...w].find((ch) => /\p{L}/u.test(ch)); if (c) set.add(cueFold(c)) }
+  return set
+}
+export const hasCountSkeleton = (q) => {
+  const firsts = answerInitials(q)
+  return [...String(q?.question || '').matchAll(ANY_SKELETON)].some((m) => firsts.has(cueFold(m[1])))
+}
+export function withLetterCount(q, { isLanguage = false, open = false } = {}) {
+  if (!isLanguage || open || !q || typeof q !== 'object' || !(q.type === 'recall' || q.type === 'fill_blank')) return q
+  const acc = cueAnswers(q)
+  if (!acc.length || hasCountSkeleton(q)) return q
+  const out = ensureLetterCue({ kind: 'typed', prompt: String(q.question || ''), accepted: acc, open: false }, { isLanguage: true })
+  return out.prompt === q.question ? q : { ...q, question: out.prompt }
+}
+// The question as shown with its CHOICES: no skeleton and no quoted first letter (the letters would pick the tile).
+// A letter clause inside a parenthetical cue goes ("(sense; starts with "h")" → "(sense)"); a parenthetical that is only
+// the letter cue goes whole. The sense cue stays.
+const LQ = `${CUE_QUOTES_PLAIN}${CUE_APOS}`
+const LETTER_CLAUSE = new RegExp(`\\s*[;,，；]\\s*[^;,，；()（）]*?[${LQ}]\\s*\\p{L}\\s*[${LQ}][^;,，；()（）]*(?=[)）])`, 'gu')
+const LETTER_PAREN = new RegExp(`\\s*[(（][^()（）]*?[${LQ}]\\s*\\p{L}\\s*[${LQ}][^()（）]*[)）]`, 'gu')
+export const stripLetterCues = (text) => stripLetterSkeleton(String(text || ''))
+  .replace(/\s*[(（]\s*\p{L}·\s*[)）]/gu, '')
+  .replace(LETTER_CLAUSE, '')
+  .replace(LETTER_PAREN, '')

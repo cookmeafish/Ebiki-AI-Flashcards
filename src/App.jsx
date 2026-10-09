@@ -22,7 +22,9 @@ import { splitTapTokens, tapClean, tapLongEnough, tapAllowed, splitCueParts } fr
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
 import { useLocale } from './i18n/useLocale'
 import { ADAPTIVE_STRUGGLE_LAPSES } from './config/study'
-import { questionDepthOf, depthPlan as depthPlanFor, rateStudyCard, oneQMissNeedsRequeue, DEFAULT_QUESTION_DEPTH } from './utils/studyDepth'
+import { questionDepthOf, depthPlan as depthPlanFor, rateStudyCard, oneQMissNeedsRequeue, DEFAULT_QUESTION_DEPTH, questionLadderOn, answeredByChoice } from './utils/studyDepth'
+import { clampTier, tierInstruction, tierTeaches, tierOpen, tierLabelKey, openTierGradingRule, choicesFromPool, buildOpenChoicesPrompt, parseOpenChoices, CLEAR_ANSWER_RULE, buildQuestionReviewPrompt, parseQuestionReview } from './utils/questionTier'
+import TierChip from './features/kit/TierChip'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile, SHRIMP } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import { PALETTE_CSS } from './config/palette'
@@ -70,7 +72,7 @@ import { boundChatHistory, cleanChatReply, chatTitleText } from './utils/chatRep
 import { SLASH_ENDING, SLASH_SPELLED, isSlashEnding, expandSlashEnding, GENDERED_ARTICLES, expandSlashAnswers, answerNormalize, stripLeadArticles, stripAccArticlesFor, stripAccentsKeepYot, exactAnswerMatch } from './utils/answers'
 import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugation'
 import { leakNorm, HANGUL, leakLen, hangulLeak, NO_SPACE_SCRIPT, noSpaceLeak, answerInQuestionText, leakAnswers, questionAnswerLeak, scrubAnswerFromQuestion, hintTokenLeaks, hintRevealsAnswer, scrubHint } from './utils/leak'
-import { CUE_QUOTES_PLAIN, CUE_APOS, letterCueRe, cueFold, cueAnswers, hasLetterCue, letterSkeleton, appendLetterCue, needsLetterCue, blankedSubject } from './utils/letterCue'
+import { CUE_QUOTES_PLAIN, CUE_APOS, letterCueRe, cueFold, cueAnswers, hasLetterCue, letterSkeleton, appendLetterCue, needsLetterCue, blankedSubject, withLetterCount, stripLetterCues } from './utils/letterCue'
 import { cardText } from './utils/cardText'
 import { clearableCard } from './utils/studyClear'
 import { isAccentTwin } from './utils/accentPairs'
@@ -1229,6 +1231,9 @@ export default function App() {
 
   const [studyActive, setStudyActive] = useState(false)
   const [studyAllCards, setStudyAllCards] = useState([])     // all cards to study
+  // Live mirror (set at once by beginStudy too): the question ladder borrows other cards' answers as distractors.
+  const studyAllCardsRef = useRef([])
+  studyAllCardsRef.current = studyAllCards
   const snapshotCard = (c) => {
     if (!c || typeof c !== 'object') return c
     const noStyle = (h) => (typeof h === 'string' ? h.replace(/<style[\s\S]*?<\/style>/gi, '') : h)
@@ -1753,7 +1758,7 @@ export default function App() {
   // The presets this build knows. A newer computer on the share may save one this build lacks: it ran every
   // role on the provider's fallback model, and the first autosave posted 'normal' over the other computer's pick.
   const INTELLIGENCE_PRESETS = ['optimized', 'normal', 'max']
-  const ROLE_TIER = { pose: 'cheap',help: 'cheap', discover: 'cheap', chat: 'normal', picture: 'normal', study: 'normal', general: 'normal', deck: 'max' }
+  const ROLE_TIER = { pose: 'cheap',help: 'cheap', discover: 'cheap', chat: 'normal', picture: 'normal', study: 'normal', qcheck: 'normal', general: 'normal', deck: 'max' }
   const ROLE_DEFAULTS = (pc, intel = 'normal', prov = aiStateRef.current.provider) => {
     const normal = presetModel(pc, prov, 'normal')
     // Tier-based baseline (also the fallback for any role the advisor didn't decide).
@@ -1763,7 +1768,7 @@ export default function App() {
       for (const role of Object.keys(ROLE_TIER)) base[role] = presetModel(pc, prov, ROLE_TIER[role])
     } else {
       const m = presetModel(pc, prov, intel) // 'normal' or 'max' → one model for every role
-      base = { general: m, picture: m, deck: m, study: m, discover: m, chat: m, help: m, pose: normal }
+      base = { general: m, picture: m, deck: m, study: m, qcheck: m, discover: m, chat: m, help: m, pose: normal }
     }
     // A decided per-role plan (Model Advisor) OVERRIDES the baseline for the roles it covers. Only
     // non-empty string ids apply, so a bad/partial plan can never blank a role (it falls back to base).
@@ -1781,6 +1786,7 @@ export default function App() {
     { role: 'picture', label: 'Picture', hint: 'OCR translation, word explanations, tooltip lookups' },
     { role: 'deck', label: 'Deck', hint: 'Anki card generation, editing, analysis, deduplication' },
     { role: 'study', label: 'Study', hint: 'quiz/conjugation questions, answer grading, hints, insights, feedback' },
+    { role: 'qcheck', label: 'Question check', hint: 'the second look that rejects unclear questions before you see them (Study, raids, Legends)' },
     { role: 'discover', label: 'Discover', hint: 'learner profiling, new-item suggestions, fact-checking' },
     { role: 'chat', label: 'Chat', hint: 'the chat tab assistant' },
     { role: 'help', label: 'Help', hint: "Ebi's Help assistant" },
@@ -8760,7 +8766,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // `split` (the session's first card only, see beginStudy): { part: 'first' } writes Q1 alone (a small reply, back
   // fast, so the session opens sooner); { part: 'rest', firstQuestion } writes Q2..Qn told what Q1 asked. Every guard
   // below (leak check, letter cue, rewrites, give-up set) applies to each part as to a whole set.
-  const generateQuestionsFresh = async (card, rules, studyLang, knowledgeContext, wantChoices = false, split = null) => {
+  // `extra` (the question ladder's review pass): { reviewNote } is told to the model as a rejection to fix;
+  // { fallbackOnly } returns the safe give-up question at once (a question the review rejected twice).
+  const generateQuestionsFresh = async (card, rules, studyLang, knowledgeContext, wantChoices = false, split = null, extra = {}) => {
     const front = getCardFront(card)
     const back = getCardBack(card)
     // Huge knowledge bases: replace the caller's static (truncated) context with the book
@@ -8804,6 +8812,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const quizLang = isLanguage ? (rules.quizLanguage || studyLang || learnLang) : (rules.quizLanguage || userLang)
     const sameLang = quizLang.toLowerCase() === learnLang.toLowerCase()
     const wantHints = isLanguage && !!rules.wordHints
+    // THE QUESTION LADDER (utils/questionTier.js; depthPlan puts one tier per question in rules.questionTiers): each
+    // question is written at its own tier and is DUAL: typed by default, with 4 verified options behind its own
+    // "Show choices" toggle. The letter cue is required on every typed language recall/fill_blank (the app hides the
+    // letters while options show), except a teaching TIER 0 question and the open tiers.
+    const ladderTiers = Array.isArray(rules.questionTiers) && rules.questionTiers.length ? rules.questionTiers.map(clampTier) : null
+    const callTiers = !ladderTiers ? null : part === 'first' ? ladderTiers.slice(0, 1) : part === 'rest' ? ladderTiers.slice(1, n) : ladderTiers.slice(0, n)
+    while (callTiers && callTiers.length < count) callTiers.push(Math.min(5, (callTiers[callTiers.length - 1] ?? 2) + 1))
+    const tierAt = (qi) => (callTiers ? callTiers[Math.min(qi, callTiers.length - 1)] : null)
+    const dual = !!callTiers
+    const cueChoices = dual ? false : wantChoices // "no letter cue, the options disambiguate" only in a choices-only set
+    const cueExempt = (qi) => dual && (tierTeaches(tierAt(qi)) || tierOpen(tierAt(qi), isLanguage))
+    const needsCueAt = (q, qi) => !cueExempt(qi) && needsLetterCue(q, isLanguage, cueChoices)
 
     const deepQ = isLanguage
       ? `Q${n} (USAGE/DEPTH): Test deeper PRACTICAL command of the ${learnLang} word in a way a LEARNER can actually answer, e.g. use it correctly in a short sentence, pick it over a close synonym for a given context, choose the right form for a stated subject/time, give its opposite, or a common collocation. Stay within the everyday/general meaning unless the card explicitly indicates a specialized domain. DO NOT ask the student to EXPLAIN grammar/spelling theory, orthographic or etymological rules, or to use metalinguistic terminology (e.g. NEVER "explica qué cambio ortográfico ocurre / por qué se añade la y / qué regla se aplica"). Test USING the language, not describing its rules. Phrase the question in ${quizLang}.`
@@ -8816,7 +8836,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const q2General = `Q2 to Q${n - 1} (GUIDED RECALL / APPLICATION): May reference related concepts, synonyms as contrast, fill-in-the-blank, OR a short realistic scenario asking which concept/technique from this card applies (great for practical subjects, certifications, soft skills, procedures). Must still point at the card's EXACT term/concept as the answer. Each from a DIFFERENT angle.`
 
     const firstAsked = String(split?.firstQuestion || '').trim()
-    const orderRules = part === 'first'
+    const ladderOrder = callTiers && [
+      part === 'rest'
+        ? `Question 1 of this card is already written and will be asked separately${firstAsked ? `: "${firstAsked}"` : ''}. Do NOT repeat it or test the same angle. Generate ONLY the remaining ${count} question${count === 1 ? '' : 's'}, each at the tier given below (the ladder climbs one tier per question):`
+        : `Generate exactly ${count} question${count === 1 ? '' : 's'}, each at the tier given below. THE QUESTION LADDER: the tier comes from how well the learner already knows this card (Anki's schedule), so follow it exactly: never easier, never harder.`,
+      ...callTiers.map((tr, i) => `Q${i + 1}: ${tierInstruction(tr, { isLanguage, learnLang, quizLang })}`),
+    ].join('\n')
+    const orderRules = ladderOrder ? ladderOrder : part === 'first'
       ? `Generate ONLY the first question of this card (its other questions are written separately):\n${isLanguage ? q1Language : q1General}`
       : part === 'rest'
       ? [
@@ -8837,18 +8863,19 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     // Multiple-choice practice session: every question must be answerable by picking ONE option.
     // The distractor rules replace the inline-cue burden — options only need ONE defensible answer.
-    const choicesBlock = !wantChoices ? '' : `\nMULTIPLE-CHOICE SESSION: REQUIRED:\n- Every question will be answered by picking ONE option from a list, never by typing. Do NOT generate open "explain in your own words" questions: where a depth/usage question is called for, ask it as something with ONE selectable answer (e.g. "Which sentence uses the word correctly?", "Which statement about X is true?", "Which option means ...?"). Use type "recall" or "fill_blank" for every question.\n- For EACH question ALSO return:\n  "choices": exactly 4 options, 1 correct + 3 plausible but clearly WRONG distractors. Distractors must be the same kind of thing as the answer (same part of speech / same category / same level of detail), must fit the question grammatically, and must be tempting to someone who half-knows the material, but NEVER defensible as correct. NEVER include two options that could both be argued correct (no synonyms of the answer, no alternate spellings of it).\n  "answerIdx": the 0-based index of the correct option within "choices".\n- The correct option must be EXACTLY one of the acceptedAnswers (same casing rules aside).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each option SHORT (a word, phrase, or one short sentence).\n- With options visible, first-letter cues would give the answer away, do NOT add "empieza con"-style letter cues to the question text; a sense/nuance cue is still fine.\n`
+    const dualBlock = `\nDUAL QUESTIONS: REQUIRED:\n- Every question is shown TYPED by default, and the learner may switch THAT question to options. Write each question so it reads right both ways: never mention options, never "which of these".\n- For EACH question ALSO return "choices": exactly 4 options, 1 correct + 3 clearly WRONG distractors of the same kind as the answer (same part of speech / category / level of detail) that fit the question grammatically and tempt someone who half-knows it, but are NEVER defensible as correct (no synonyms or alternate spellings of the answer), and "answerIdx": the 0-based index of the correct option.\n- The correct option must be EXACTLY one of the acceptedAnswers. For an open question (type "explanation"), the 4 options are short sentences or statements and exactly ONE is correct (for a sentence task: the only sentence that uses the word correctly with the card's meaning).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each SHORT.\n- Keep the question's own cues (the sense cue and the first letter): the app hides the letters while the options show.\n`
+    const choicesBlock = dual ? dualBlock : !wantChoices ? '' : `\nMULTIPLE-CHOICE SESSION: REQUIRED:\n- Every question will be answered by picking ONE option from a list, never by typing. Do NOT generate open "explain in your own words" questions: where a depth/usage question is called for, ask it as something with ONE selectable answer (e.g. "Which sentence uses the word correctly?", "Which statement about X is true?", "Which option means ...?"). Use type "recall" or "fill_blank" for every question.\n- For EACH question ALSO return:\n  "choices": exactly 4 options, 1 correct + 3 plausible but clearly WRONG distractors. Distractors must be the same kind of thing as the answer (same part of speech / same category / same level of detail), must fit the question grammatically, and must be tempting to someone who half-knows the material, but NEVER defensible as correct. NEVER include two options that could both be argued correct (no synonyms of the answer, no alternate spellings of it).\n  "answerIdx": the 0-based index of the correct option within "choices".\n- The correct option must be EXACTLY one of the acceptedAnswers (same casing rules aside).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each option SHORT (a word, phrase, or one short sentence).\n- With options visible, first-letter cues would give the answer away, do NOT add "empieza con"-style letter cues to the question text; a sense/nuance cue is still fine.\n`
 
     const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE: REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}. It is NOT a language course.\n- Match the question style to what the subject actually IS: exam-style for certifications, applied "what would you do/use" for practical skills and procedures, notation/theory for music or math, cause/effect for science or history. The card and the subject decide, never force one template onto every subject.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course, it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning, not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
     const languageBlock = isLanguage ? `\nLANGUAGE MODE: REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}), that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence), only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor, don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.\n- PREFERRED-TERM AWARENESS: if the card's back notes that a DIFFERENT ${learnLang} word is more common for one of its meanings (a "Uso:"-style line naming a preferred synonym, e.g. barro's card noting that everyday speech prefers "lodo" for mud), do NOT build questions that present the headword as the default word for THAT meaning, quiz the meanings the headword IS the default term for instead, and let the cue's sense note reflect the word's own core sense.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object giving a SHORT translation (1-3 words) for EVERY word shown in the question text, INCLUDING short function words (articles, pronouns, prepositions, conjunctions: "se", "el", "que", "y", "no", …) and the words inside any parenthetical (…) cue, EXCEPT ONLY the answer word, the blank, quoted single letters, and any word whose translation would reveal the answer: a ${learnLang} word gets a short ${userLang} meaning, a ${userLang} word gets its ${learnLang} equivalent. Every key must be ONE single word, spelled EXACTLY as it appears in the question (keep accents). Skip bare punctuation and numbers. Missing words leave the learner unable to read that part of the question, cover them ALL.` : ''}\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card, synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT: not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle${isLanguage ? `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2 to 3 plausible alternative ${learnLang} words, ESPECIALLY synonyms, into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, ${wantChoices ? 'but NO first letter: this is a multiple-choice session, where the options already disambiguate and a letter would give the answer away. This inline sense cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question' : `and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question`}, a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye", but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida.", the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca", but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual.", the cue pins "recíproca".` : `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question): if another term from this subject would also fit, add a compact parenthetical cue in ${quizLang} at the blank naming the precise concept or context. Never a letter of the answer and never the term itself: a blind recall must stay blind.`}\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}${levelBlock}${learnerCtxBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${count} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer word from the question>": "<short translation>" } (single-word keys exactly as written in the question, covering EVERY word incl. function words and cue words, excluding only the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card, synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT: not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.${callTiers?.some(tierTeaches) ? ' EXCEPTION: a TIER 0 (MEET) teaching question shows the word on purpose in its teaching part (that is how it teaches); every other question never does.' : ''}\n- ${CLEAR_ANSWER_RULE}\n- Each question must test a DIFFERENT angle${isLanguage ? `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2 to 3 plausible alternative ${learnLang} words, ESPECIALLY synonyms, into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, ${cueChoices ? 'but NO first letter: this is a multiple-choice session, where the options already disambiguate and a letter would give the answer away. This inline sense cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question' : `and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question`}, a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye", but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida.", the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca", but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual.", the cue pins "recíproca".` : `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question): if another term from this subject would also fit, add a compact parenthetical cue in ${quizLang} at the blank naming the precise concept or context. Never a letter of the answer and never the term itself: a blind recall must stay blind.`}\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}${levelBlock}${learnerCtxBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${count} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${(wantChoices || dual) ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer word from the question>": "<short translation>" } (single-word keys exactly as written in the question, covering EVERY word incl. function words and cue words, excluding only the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     // Generate → leak-check → REGENERATE (up to twice, with the violation named) so the question
     // reads naturally without the answer; the scrub is only the absolute last resort so a leak can
     // never ship. The prompt forbids the answer inside the question text, but prompts are advisory —
     // this loop is the guarantee.
-    let leakRetryNote = ''
+    let leakRetryNote = String(extra.reviewNote || '')
     // The last-resort pass (scrub leaks, guarantee the letter cue, drop a blanked subject), also for the LAST
     // parsed set when the final attempt itself fails (a 429): the good questions were thrown away for the
     // give-up set before.
@@ -8858,12 +8885,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
         let out = leakExempt(qi) ? q : scrubAnswerFromQuestion(q)
         // Still leaking after the scrub (accents or marks the scrub could not match): dropped, never shipped.
         if (out !== q && ((blankedSubject(out) && !blankedSubject(q)) || questionAnswerLeak(out))) return null // the model's own blank is fine
-        if (needsLetterCue(out, isLanguage, wantChoices)) out = appendLetterCue(out)
+        if (needsCueAt(out, qi)) out = appendLetterCue(out)
         return out
       }).filter(Boolean)
       return scrubbed.length ? cueTypedFallbacks(scrubbed) : null
     }
-    for (let attempt = 0; attempt < 3; attempt++) {
+    // Every set handed out: each question tagged with its tier and given its letter count (the skeleton, as fights do).
+    const finish = (qs) => qs.map((q, qi) => {
+      const out = callTiers ? { ...q, tier: Number.isFinite(q.tier) ? q.tier : tierAt(qi) } : q
+      return withLetterCount(out, { isLanguage, open: callTiers ? tierOpen(out.tier, isLanguage) : false })
+    })
+    for (let attempt = extra.fallbackOnly ? 3 : 0; attempt < 3; attempt++) {
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt + leakRetryNote, resolveModel('study'))
       const parsed = parseAiJson(text)
@@ -8873,12 +8905,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // that could only be answered blind. Dropped; the card handles fewer questions than asked for.
       const usable = parsed.filter((q) => (typeof q === 'string' ? q.trim() : (q && typeof q === 'object' && typeof q.question === 'string' && q.question.trim())))
       if (!usable.length) throw new Error('no question text')
-      const questions = usable.slice(0, count).map(q => {
+      const questions = usable.slice(0, count).map((q, qi) => {
         // Multiple-choice: validate + SHUFFLE client-side (models bias the correct option's slot).
         // A question that arrives without usable choices keeps choices:null — the UI falls back to
         // typed input for it and the whole card is then graded by the AI path instead of locally.
         const acceptedAnswers = (q && Array.isArray(q.acceptedAnswers)) ? expandSlashAnswers(q.acceptedAnswers.map(a => String(a).toLowerCase().trim())) : []
-        const built = (wantChoices && q && typeof q === 'object') ? buildChoices(q.choices, q.answerIdx, acceptedAnswers) : null
+        const built = ((wantChoices || dual) && q && typeof q === 'object') ? buildChoices(q.choices, q.answerIdx, acceptedAnswers) : null
         const choices = built ? built.choices : null, answerIdx = built ? built.answerIdx : null
         return {
           question: typeof q === 'string' ? q : (q.question || ''),
@@ -8890,6 +8922,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           pose: (typeof q === 'object' && q.pose) ? String(q.pose).toLowerCase().trim() : null, // precomputed mascot pose
           choices,
           answerIdx,
+          ...(callTiers ? { tier: tierAt(qi) } : {}),
         }
       })
 
@@ -8899,18 +8932,21 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // question per card the only question is the blind recall, and with a row dropped the "last"
       // one is the guided recall; both were exempted and shipped holding their answer.
       // (A split's first part never holds the deep question; its rest part ends on it.)
-      const leakExempt = (qi) => !isLanguage && n > 1 && part !== 'first' && questions.length === count && qi === count - 1
+      // The ladder: a TIER 0 question teaches (shows the word on purpose); a general mode's open tier may name it.
+      const leakExempt = (qi) => (callTiers
+        ? (tierTeaches(tierAt(qi)) || (!isLanguage && tierOpen(tierAt(qi), false)))
+        : (!isLanguage && n > 1 && part !== 'first' && questions.length === count && qi === count - 1))
       const leaked = [...new Set(questions.map((q, qi) => (leakExempt(qi) ? null : questionAnswerLeak(q))).filter(Boolean))]
       // AMBIGUITY GUARANTEE: every typed language recall/fill_blank must carry a first-letter cue so
       // the student can tell WHICH word is wanted (the "hat → sombrero vs gorra" failure). Works for
       // any learned/Ebi-speaks language pair — the check is on the cue's presence, not its wording.
-      const missingCue = questions.map((q, qi) => (needsLetterCue(q, isLanguage, wantChoices) ? qi : -1)).filter((i) => i >= 0)
+      const missingCue = questions.map((q, qi) => (needsCueAt(q, qi) ? qi : -1)).filter((i) => i >= 0)
       // In a multiple-choice session a question whose choices failed validation is shown as TYPED
       // input, so it needs the first-letter cue like any typed question (the MC exemption above only
       // makes sense when options exist). Deterministic skeleton, no regeneration: a retry here would
       // ask for letters on the real multiple-choice questions too.
-      const cueTypedFallbacks = (qs) => (!wantChoices ? qs : qs.map((q) => (!questionHasChoices(q) && needsLetterCue(q, isLanguage, false)) ? appendLetterCue(q) : q))
-      if (leaked.length === 0 && missingCue.length === 0) return cueTypedFallbacks(questions)
+      const cueTypedFallbacks = (qs) => ((!wantChoices || dual) ? qs : qs.map((q) => (!questionHasChoices(q) && needsLetterCue(q, isLanguage, false)) ? appendLetterCue(q) : q))
+      if (leaked.length === 0 && missingCue.length === 0) return finish(cueTypedFallbacks(questions))
 
       lastParsed = { questions, leakExempt, cueTypedFallbacks }
       if (attempt < 2) {
@@ -8928,13 +8964,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // A scrub that blanked the whole quoted subject ("Translate: '___'", a card whose word is spelled the
       // same in both languages, like hotel) leaves nothing to answer from: that question is dropped.
       const done = lastResort(lastParsed)
-      if (done) return done
+      if (done) return finish(done)
       lastParsed = null // nothing usable in it
     } catch (err) {
       if (attempt < 2) { console.warn('[Study] question generation failed, retrying:', err.message); continue }
     }
     }
-    if (lastParsed) { const done = lastResort(lastParsed); if (done) return done }
+    if (lastParsed) { const done = lastResort(lastParsed); if (done) return finish(done) }
     // Language cards: blind recall of the headword from the back. General cards (whose front may be a
     // whole question): answer the front in their own words. (It used to ask about the first 30
     // characters of the back and accept only the WHOLE back, word for word: the question showed its
@@ -8957,7 +8993,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // it is scrubbed like every generated question before it is shown.
     // false, not wantChoices: fallback rows carry no choices, so they are TYPED even in a multiple-choice session.
     // _fallback: the give-up set is never saved for reuse (see generateQuestionsForCard).
-    return (part === 'first' ? fallback.slice(0, 1) : part === 'rest' ? fallback.slice(1, n) : fallback.slice(0, n)).map((q) => scrubAnswerFromQuestion(q)).map((q) => (needsLetterCue(q, isLanguage, false) ? appendLetterCue(q) : q)).map((q) => ({ ...q, _fallback: true }))
+    return finish((part === 'first' ? fallback.slice(0, 1) : part === 'rest' ? fallback.slice(1, n) : fallback.slice(0, n)).map((q) => scrubAnswerFromQuestion(q)).map((q) => (needsLetterCue(q, isLanguage, false) ? appendLetterCue(q) : q))).map((q) => ({ ...q, _fallback: true }))
   }
 
   // Question reuse (opt-in; utils/questionBank.js). OFF means off: no bank is read or written and every card
@@ -8987,28 +9023,115 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (!r.ok) setAiErrorNotice(t('reuse_clearFailed'))
     else setSuccessNotice(r.removed === 1 ? t('reuse_clearedOne', { deck }) : t('reuse_cleared', { n: r.removed, deck }))
   }
-  // `onFirst(q1)`: write Q1 by itself first and hand it over at once (the session's first card). The promise still
-  // resolves with the WHOLE set, which is what question reuse saves; a saved set is used as is (onFirst never runs).
+  // THE REVIEW PASS (the question ladder's third check, after the prompt's rules and the code guards): a second,
+  // independent model call sees the card and the questions and applies QUESTION_CHECK_RULES (utils/questionTier.js).
+  // → { complete, reviewed, fails } or null when the call itself failed. Small and on the study role.
+  const runQuestionReview = async (card, qs) => {
+    const isLanguage = activeMode.type === 'language'
+    try {
+      const text = await aiCall(apiKey, 'You review flashcard quiz questions before a learner sees them. You did not write them; you are strict and independent. Always respond with one valid JSON object.',
+        buildQuestionReviewPrompt({
+          front: getCardFront(card), back: getCardBack(card).slice(0, 1500), questions: qs, isLanguage,
+          learnLang: isLanguage ? learnLangName() : '', subject: `${activeMode.name}${activeMode.description ? ` (${String(activeMode.description).slice(0, 300)})` : ''}`,
+        }), resolveModel('qcheck'), { silent: true, maxTokens: 500 })
+      return parseQuestionReview(parseAiJson(text), qs.length)
+    } catch (err) {
+      console.warn('[Study] question review failed (kept unreviewed):', err.message)
+      return null
+    }
+  }
+  // Review a freshly written set and repair what fails: each rejected question is written ONCE more, told the reason,
+  // and reviewed again; still failing (or nothing usable came back) it becomes the safe give-up question. Fail-soft: a
+  // review that could not run keeps the question but marks it `_unreviewed` (asked, never saved for reuse). A repaired
+  // question carries `_reviewFixed` (the session's first card, already on screen, swaps to it while unanswered).
+  const reviewAndRepair = async (card, rules, studyLang, knowledgeContext, wantChoices, qs) => {
+    if (!Array.isArray(qs) || !qs.length || !Array.isArray(rules.questionTiers) || !apiKey) return qs
+    const r = await runQuestionReview(card, qs)
+    if (!r) return qs.map((q) => (q?._fallback ? q : { ...q, _unreviewed: true }))
+    const out = qs.map((q, i) => (r.reviewed.includes(i) || q?._fallback ? q : { ...q, _unreviewed: true }))
+    const one = (tier) => ({ ...rules, questionsPerCard: 1, questionTiers: [tier] })
+    await Promise.all(r.fails.filter(({ i }) => out[i] && !out[i]._fallback).map(async ({ i, reason }) => {
+      const tier = Number.isFinite(out[i].tier) ? out[i].tier : rules.questionTiers[Math.min(i, rules.questionTiers.length - 1)]
+      const others = out.filter((_, j) => j !== i).map((q) => q?.question).filter(Boolean)
+      console.warn(`[Study] review rejected Q${i + 1} for "${getCardFront(card)}":`, reason)
+      const note = `\n\nAN INDEPENDENT REVIEW REJECTED YOUR PREVIOUS QUESTION: "${out[i].question}". Reason: ${String(reason).replace(/[.!?]?\s*$/, '.')} Write a NEW question at the same tier that fixes exactly this problem.${others.length ? ` Do not repeat: ${others.map((q) => `"${q}"`).join('; ')}.` : ''}`
+      let replacement = null
+      try {
+        const again = await generateQuestionsFresh(card, one(tier), studyLang, knowledgeContext, wantChoices, null, { reviewNote: note })
+        const cand = Array.isArray(again) ? again[0] : null
+        if (cand && !cand._fallback) {
+          const r2 = await runQuestionReview(card, [cand])
+          if (!r2) replacement = { ...cand, _unreviewed: true }
+          else if (r2.complete && !r2.fails.length) replacement = cand
+          else console.warn(`[Study] review rejected the rewrite of Q${i + 1} too:`, r2.fails[0]?.reason || 'no verdict')
+        }
+      } catch { /* the give-up question below */ }
+      if (!replacement) replacement = (await generateQuestionsFresh(card, one(tier), studyLang, knowledgeContext, wantChoices, null, { fallbackOnly: true }))[0]
+      out[i] = { ...replacement, tier, _reviewFixed: true }
+    }))
+    return out
+  }
+
+  // `onFirst(q1)`: hand the first question(s) over at once (the session's first card). With several questions Q1 is
+  // written by itself first; with the ladder's one question the guarded question goes out before the review pass
+  // ends. The promise still resolves with the WHOLE, reviewed set, which is what question reuse saves (and what the
+  // first card swaps to while unanswered); a saved set is used as is (onFirst never runs).
   const generateQuestionsForCard = async (card, rules, studyLang, knowledgeContext, wantChoices = false, onFirst = null) => {
     const isLanguage = activeMode.type === 'language'
     const learnLang = isLanguage ? (studyLang || learnLangName()) : userLangName()
     const quizLang = isLanguage ? (rules.quizLanguage || studyLang || learnLang) : (rules.quizLanguage || userLangName())
     const perCard = rules.questionsPerCard || 3
-    return withQuestionReuse(card, {
+    const ladderTiers = Array.isArray(rules.questionTiers) && rules.questionTiers.length ? rules.questionTiers.map(clampTier) : null
+    const reviewed = (qs) => (ladderTiers ? reviewAndRepair(card, rules, studyLang, knowledgeContext, wantChoices, qs) : qs)
+    const early = typeof onFirst === 'function' && (perCard > 1 || !!ladderTiers)
+    const handOver = (qs) => { try { onFirst(ladderTiers ? ladderFinish(qs, ladderTiers, card, isLanguage) : qs) } catch { /* the caller's problem, never the generation's */ } }
+    const out = await withQuestionReuse(card, {
       // A language mode learning the APP language would share a general mode's signature (same languages, no word
       // hints): concept questions without letter cues were asked there. Only that case gets its own kind, so no
       // other saved set is retired.
       kind: isLanguage && String(learnLang).toLowerCase() === String(userLangName()).toLowerCase() ? 'flash-lang' : 'flash', front: getCardFront(card), back: getCardBack(card), learnLang, quizLang,
       choices: !!wantChoices, wordHints: isLanguage && !!rules.wordHints, perCard, style: questionStyleKey(rules),
-    }, perCard, () => ((typeof onFirst === 'function' && perCard > 1)
+      tier: ladderTiers ? ladderTiers[0] : undefined, // the ladder: a saved easy question never comes back once the card matured
+    }, perCard, () => (early
       ? (async () => {
-          const first = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices, { part: 'first' })
-          try { onFirst(first) } catch { /* the caller's problem, never the generation's */ }
-          const rest = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices, { part: 'rest', firstQuestion: first?.[0]?.question })
-          return [...(first || []), ...(rest || [])]
+          if (perCard > 1) {
+            const first = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices, { part: 'first' })
+            handOver(first)
+            const rest = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices, { part: 'rest', firstQuestion: first?.[0]?.question })
+            return reviewed([...(first || []), ...(rest || [])])
+          }
+          const qs = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices)
+          handOver(qs)
+          return reviewed(qs)
         })()
-      : generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices)))
+      : (async () => reviewed(await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices)))()))
+    // Every set the ladder hands out (fresh, repaired, give-up, or saved before the ladder: it matches tier 2) leaves
+    // with its tier, its choices and its letter count.
+    return ladderTiers ? ladderFinish(out, ladderTiers, card, isLanguage) : out
   }
+  // Other cards' answers in this session (their questions' first accepted answer, then the pool's fronts), the
+  // distractors for a question that came without choices (utils/questionTier.js choicesFromPool).
+  const ladderChoicePool = (card) => {
+    const own = card?.cardId
+    const fromStates = (studyCardStateRef.current || []).filter((c) => c && c.cardId !== own && !c.pbq)
+      .flatMap((c) => (c.questions || []).map((q) => (q && typeof q === 'object' && q.type !== 'explanation' ? q.acceptedAnswers?.[0] : null)).filter(Boolean))
+    const fromCards = (studyAllCardsRef.current || []).filter((c) => c && c.cardId !== own)
+      .map((c) => { try { return getCardFront(c).replace(/\s*\([^)]*\)\s*$/, '').trim() } catch { return '' } })
+    return [...fromStates, ...fromCards]
+  }
+  // THE LADDER'S GUARANTEE for every question of a set: (1) its tier (the set's tiers by position when it has none),
+  // (2) verified choices whenever possible (a question without them borrows other cards' answers; buildChoices still
+  // verifies, and a rejection leaves it typed-only), (3) the letter count on typed word questions.
+  const ladderFinish = (qs, tiers, card, isLanguage) => (!Array.isArray(qs) ? qs : qs.map((q, qi) => {
+    if (!q || typeof q !== 'object' || q.type === 'pbq') return q
+    let out = { ...q, tier: Number.isFinite(q.tier) ? q.tier : clampTier(tiers[Math.min(qi, tiers.length - 1)]) }
+    if (!questionHasChoices(out)) {
+      const pooled = choicesFromPool(out, ladderChoicePool(card))
+      const built = pooled ? buildChoices(pooled.choices, pooled.answerIdx, out.acceptedAnswers) : null
+      if (built) out = { ...out, choices: built.choices, answerIdx: built.answerIdx }
+    }
+    return withLetterCount(out, { isLanguage, open: tierOpen(out.tier, isLanguage) })
+  }))
 
   // ---------------------------------------------------------------------------------------------
   // PBQ pipeline — generate ONE verified performance-based question for a card, or null (discard).
@@ -9356,7 +9479,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const seenNotes = new Set()
       const cards = (cardsRaw || []).filter((c) => { if (!c || c.note === undefined) return true; if (seenNotes.has(c.note)) return false; seenNotes.add(c.note); return true })
       console.log('[Study] loaded', cards.length, 'cards from deck:', deck)
-      setStudyAllCards(cards)
+      setStudyAllCards(cards); studyAllCardsRef.current = cards
       setStudyCardTags({})
       usageTagCacheRef.current.clear() // a new session reads every card's tags fresh
       // Language modes only: in a general mode a region-/freq- tag (a history deck's "region-japan") is
@@ -9474,7 +9597,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
         fullP.catch(() => {}) // awaited below; a rejection here must not be unhandled
         const early = await Promise.race([fullP.then((qs) => ({ full: qs })), firstP.then((q1) => ({ first: q1 }))])
         const splitStart = !!early.first && Array.isArray(early.first) && early.first.length > 0 && perCard > 1
-        const firstQuestions = splitStart ? early.first : (early.full || await fullP)
+        // The question ladder's one question: shown as soon as the code guards passed; the review pass finishes
+        // behind it and the card swaps to a repaired question while it is still unanswered (below).
+        const reviewStart = !splitStart && !!early.first && Array.isArray(early.first) && early.first.length > 0
+        const firstQuestions = (splitStart || reviewStart) ? early.first : (early.full || await fullP)
         const firstCardState = {
           cardId: firstCard.cardId, front: getCardFront(firstCard), back: getCardBack(firstCard),
           questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags, ...firstPlan.flags, ...firstDepth.flags,
@@ -9491,6 +9617,29 @@ Output ONLY raw JSON. No markdown, no backticks.`
         mine() && setStudyLoading(false)
         setStudyPhase('question')
 
+        // The first card's review pass (the ladder): a rejected question that came back repaired replaces the one on
+        // screen while nothing was answered; answered meanwhile, what was asked stands (only the reviewed set is
+        // saved). An unchanged question picks up its saved set's _bank (Fix question writes through it).
+        if (reviewStart) fullP.then((full) => {
+          if (sid !== studySessionRef.current || studyEndedRef.current || !Array.isArray(full) || !full.length) return
+          const isMine = (c) => c && c.cardId === firstCard.cardId && !c.relearn && !c.pendingRest
+          const untouched = (c) => !c.done && (c.questionIdx || 0) === 0 && !(c.questionAttempts?.[0] || []).length
+          const fixed = full.some((q) => q?._reviewFixed)
+          const live = studyCardStateRef.current
+          const li = live.findIndex(isMine)
+          if (li < 0) return
+          const swap = fixed && untouched(live[li])
+          setStudyCardState((prev) => prev.map((c) => {
+            if (!isMine(c)) return c
+            if (fixed) return swap && untouched(c) ? { ...c, questions: full } : c
+            return { ...c, questions: c.questions.map((q, qi) => (full[qi] && q && full[qi].question === q.question && full[qi]._bank ? { ...q, _bank: full[qi]._bank } : q)) }
+          }))
+          if (swap && currentQuestionRef.current?.cardIdx === li) {
+            setStudyHintLevel(0); setStudyCurrentHint(null); setStudyMeaningHint(null); setStudyWordLookup(null); setStudyAccentRetype(null)
+            console.log('[Study] first card: the review pass replaced its question')
+          }
+        }).catch(() => {})
+
         // The rest of the first card. Counted as a generation in flight (so "Preparing the next card" shows and the
         // session neither ends nor pulls a spare card while it waits). Not dropped by Wrap Up: this card is in play.
         if (splitStart) trackStudyGen(async () => {
@@ -9505,7 +9654,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
             if (c.done) return base
             let qs = Array.isArray(full) && full.length > c.questions.length ? full : c.questions
             // Q1 as it is on screen (Fix question may have rewritten it), with the saved set's _bank.
-            if (qs !== c.questions && qs[0] && c.questions[0] && qs[0].question !== c.questions[0].question) qs = [{ ...c.questions[0], ...(qs[0]._bank ? { _bank: qs[0]._bank } : {}) }, ...qs.slice(1)]
+            // Unless the review pass rejected Q1 and it is still unanswered: then the repaired one replaces it.
+            const q1Fixed = qs[0]?._reviewFixed && (c.questionIdx || 0) === 0 && !(c.questionAttempts?.[0] || []).length
+            if (qs !== c.questions && qs[0] && c.questions[0] && qs[0].question !== c.questions[0].question && !q1Fixed) qs = [{ ...c.questions[0], ...(qs[0]._bank ? { _bank: qs[0]._bank } : {}) }, ...qs.slice(1)]
             const next = { ...base, questions: qs }
             // Nothing more came (the rest failed) and Q1 is answered: the card is finished now, like a last answer.
             return (next.questionIdx >= qs.length) ? { ...next, done: true, evaluating: true } : next
@@ -9896,7 +10047,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // The old answer's accent slip goes with it: a perfect re-answer was still capped at Good.
         const dropped = dropQuestionAttempts(c, [questionIdx])
         dropped.questionAttempts[questionIdx] = [answer]
-        updated[cardIdx] = { ...c, ...dropped, answers }
+        updated[cardIdx] = { ...c, ...dropped, answers, byChoice: { ...(c.byChoice || {}), [questionIdx]: false } } // typed now
         return updated
       })
       setCurrentQuestion({ cardIdx, questionIdx: cs.questionIdx })   // back to the frontier they were on
@@ -10084,6 +10235,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     newStates[cardIdx] = {
       ...newStates[cardIdx],
       answers: [...cs.answers, answer],
+      byChoice: { ...(cs.byChoice || {}), [questionIdx]: false }, // typed (the ladder rates a picked answer at most Good)
       questionIdx: cs.questionIdx + 1,
       questionAttempts: newAttempts,
     }
@@ -10117,7 +10269,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const { cardIdx, questionIdx } = currentQuestion
     const cs = studyCardState[cardIdx]
     const questionObj = cs?.questions?.[questionIdx]
-    if (!questionHasChoices(questionObj)) return
+    if (!questionShowsChoices(cs, questionIdx)) return
     const answer = String(questionObj.choices[choiceIdx] ?? '')
     if (!answer) return
     if (!claimSubmit(cardIdx, questionIdx, cs, answer)) return
@@ -10136,7 +10288,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // The old answer's accent slip goes with it: a perfect re-answer was still capped at Good.
         const dropped = dropQuestionAttempts(c, [questionIdx])
         dropped.questionAttempts[questionIdx] = [answer]
-        updated[cardIdx] = { ...c, ...dropped, answers }
+        updated[cardIdx] = { ...c, ...dropped, answers, byChoice: { ...(c.byChoice || {}), [questionIdx]: true } }
         return updated
       })
       setCurrentQuestion({ cardIdx, questionIdx: cs.questionIdx })
@@ -10144,7 +10296,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       return
     }
 
-    setStudyChoiceFlash({ question: getQuestionText(questionObj), choices: questionObj.choices, picked: choiceIdx, answerIdx: questionObj.answerIdx })
+    setStudyChoiceFlash({ question: stripLetterCues(getQuestionText(questionObj)), choices: questionObj.choices, picked: choiceIdx, answerIdx: questionObj.answerIdx })
     if (studyChoiceFlashTimer.current) clearTimeout(studyChoiceFlashTimer.current)
     studyChoiceFlashTimer.current = setTimeout(() => setStudyChoiceFlash(null), correct ? 700 : 1600)
 
@@ -10158,6 +10310,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     newStates[cardIdx] = {
       ...cs,
       answers: [...cs.answers, answer],
+      byChoice: { ...(cs.byChoice || {}), [questionIdx]: true }, // picked: recognition, rated at most Good
       questionIdx: cs.questionIdx + 1,
       questionAttempts: newAttempts,
     }
@@ -10187,7 +10340,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (activeTab !== 'study' || appConfirm || settingsOpen || studyDeleteConfirm !== null) return // not under "delete this card?"
     const cs = studyCardState[currentQuestion.cardIdx]
     const questionObj = cs?.questions?.[currentQuestion.questionIdx]
-    if (!questionHasChoices(questionObj)) return
+    if (!questionShowsChoices(cs, currentQuestion.questionIdx)) return
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const tag = document.activeElement?.tagName
@@ -10720,6 +10873,12 @@ Rules:
       const learnLang = isLanguage ? (rules.studyLanguage || learnLangName()) : userLangName()
       const quizLang = interactionLangName(rules)
       const wantChoices = Array.isArray(q.choices) && q.choices.length >= 2
+      // The question ladder: the replacement stays at the question's tier (a dual question keeps its letter cue, a
+      // TIER 0 teaching question may show the word, an open tier takes no letter cue).
+      const qTier = Number.isFinite(q.tier) ? clampTier(q.tier) : null
+      const teaches = qTier !== null && tierTeaches(qTier)
+      const openQ = qTier !== null && tierOpen(qTier, isLanguage)
+      const typedCue = isLanguage && (!wantChoices || qTier !== null) && !teaches && !openQ
       const prompt = `You wrote a quiz question for a flashcard and the student flagged it BEFORE answering. Write ONE replacement question that fixes their complaint.
 
 Card front: "${cs.front}"
@@ -10729,9 +10888,10 @@ Student's complaint: "${complaint}"
 
 RULES for the replacement:
 - Fix the complaint. Keep testing the SAME card, in the same slot type ("${q.type}").
-${isLanguage ? `- The expected answer stays the ${learnLang} word/phrase on the card; phrase the question in ${quizLang}. acceptedAnswers = the ${learnLang} answer(s), lowercase, with and without accents.` : `- Phrase the question in ${quizLang}; the expected answer is the card's term/concept.`}
-- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT: not even inside a parenthetical cue.
-- Exactly ONE defensible answer.${isLanguage && !wantChoices ? ` For this typed ${q.type} question you MUST include, in the question text, a compact cue phrased in ${quizLang} that pins the target word: a sense/feature note ruling out synonyms AND the answer's FIRST LETTER shown in quotes (e.g. 'empieza con "s"' / 'starts with "s"', in ${quizLang}, using the answer's real first character). Never write the answer itself inside the cue.` : ' Add a compact sense cue right at the blank if a synonym would still fit.'}
+${qTier !== null ? `- Keep it at its tier: ${tierInstruction(qTier, { isLanguage, learnLang, quizLang })}\n` : ''}${isLanguage ? `- The expected answer stays the ${learnLang} word/phrase on the card; phrase the question in ${quizLang}. acceptedAnswers = the ${learnLang} answer(s), lowercase, with and without accents.` : `- Phrase the question in ${quizLang}; the expected answer is the card's term/concept.`}
+- ${teaches ? 'This is a TIER 0 teaching question: it may show the word in its teaching part, and must be answerable on the first try from what it shows.' : 'THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT: not even inside a parenthetical cue.'}
+- ${CLEAR_ANSWER_RULE}
+- Exactly ONE defensible answer.${typedCue ? ` For this typed ${q.type} question you MUST include, in the question text, a compact cue phrased in ${quizLang} that pins the target word: a sense/feature note ruling out synonyms AND the answer's FIRST LETTER shown in quotes (e.g. 'empieza con "s"' / 'starts with "s"', in ${quizLang}, using the answer's real first character). Never write the answer itself inside the cue.` : ' Add a compact sense cue right at the blank if a synonym would still fit.'}
 ${wantChoices ? '- Also return "choices": exactly 4 options (1 correct, matching acceptedAnswers, + 3 plausible but clearly wrong) and "answerIdx" (index of the correct one).\n' : ''}ALSO distill the complaint into "preference": ONE concise imperative rule in English, GENERALIZED beyond this single card, that future question generation for this mode should follow, or null if the flaw was purely specific to this one question.
 
 Return ONLY raw JSON:
@@ -10750,16 +10910,18 @@ Return ONLY raw JSON:
         pose: q.pose || null,
         choices: null,
         answerIdx: null,
+        ...(qTier !== null ? { tier: qTier } : {}),
       }
       const built = wantChoices ? buildChoices(nq.choices, nq.answerIdx, newQ.acceptedAnswers) : null
       if (built) { newQ.choices = built.choices; newQ.answerIdx = built.answerIdx }
       const preScrub = newQ
-      if (questionAnswerLeak(newQ)) newQ = scrubAnswerFromQuestion(newQ) // same hard guarantee
+      if (!teaches && questionAnswerLeak(newQ)) newQ = scrubAnswerFromQuestion(newQ) // same hard guarantee
       // Still leaking, or the scrub blanked its whole subject ("Traduce: '___'"): the old question stays.
-      if (questionAnswerLeak(newQ) || (newQ !== preScrub && blankedSubject(newQ) && !blankedSubject(preScrub))) throw new Error(tLiveRef.current('d_errUnusable'))
+      if ((!teaches && questionAnswerLeak(newQ)) || (newQ !== preScrub && blankedSubject(newQ) && !blankedSubject(preScrub))) throw new Error(tLiveRef.current('d_errUnusable'))
       // Whether THIS question kept usable choices, not whether the session wanted them: a reply with bad
       // choices is shown TYPED, and skipping the cue for it left a typed question with no first letter.
-      if (needsLetterCue(newQ, isLanguage, questionHasChoices(newQ))) newQ = appendLetterCue(newQ) // and the first-letter cue guarantee
+      if (qTier !== null ? (typedCue && needsLetterCue(newQ, isLanguage, false)) : needsLetterCue(newQ, isLanguage, questionHasChoices(newQ))) newQ = appendLetterCue(newQ) // and the first-letter cue guarantee
+      newQ = withLetterCount(newQ, { isLanguage, open: openQ }) // and the letter count, like every typed question
       // The student answered or moved on while this was generating: swapping the question now would
       // rewrite one they already answered (grading pairs it with the old answer) and wipe what they
       // are typing on the next one.
@@ -11752,6 +11914,23 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // any question arrived without usable choices (the model failed to supply them).
   const questionHasChoices = (q) => q && Array.isArray(q.choices) && q.choices.length >= 2 &&
     Number.isInteger(q.answerIdx) && q.answerIdx >= 0 && q.answerIdx < q.choices.length
+  // THE QUESTION LADDER's dual questions: a question with verified choices is TYPED unless the learner asked for its
+  // options ("Show choices", per question: cs.choiceView[qi]); a choices card (cs.mc: the session's answer style, or
+  // adaptive) opens on them, and "Type it instead" switches back while it is unanswered. A question whose choices
+  // failed buildChoices has none, so it offers no toggle.
+  const questionShowsChoices = (cs, qi) => {
+    const q = cs?.questions?.[qi]
+    if (!questionHasChoices(q)) return false
+    const v = cs?.choiceView?.[qi]
+    return typeof v === 'boolean' ? v : !!cs?.mc
+  }
+  const setQuestionChoiceView = (cardIdx, qi, on) => {
+    const cardId = studyCardStateRef.current[cardIdx]?.cardId
+    setStudyCardState((prev) => prev.map((c, i) => (i === cardIdx && c.cardId === cardId && (c.questionIdx || 0) <= qi && !c.done
+      ? { ...c, choiceView: { ...(c.choiceView || {}), [qi]: !!on } } : c)))
+    setStudyCurrentHint(null); setStudyHintLevel(0); setStudyMeaningHint(null); setStudyWordLookup(null); setStudyAccentRetype(null)
+    if (!on) setTimeout(() => studyAnswerInputRef.current?.focus?.(), 0)
+  }
 
   // A card's rating (the count rule, or the one-answer rule for a one-question card): utils/studyDepth.js rateStudyCard.
   // A one-question review answered wrong comes back as a relearn copy (oneQMissNeedsRequeue decides; this re-queues).
@@ -11850,7 +12029,9 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // Route a completed card to the right grader: local for PBQs and fully multiple-choice cards, AI otherwise.
   const evaluateCard = (cardIdx, cs) => {
     if (cs.pbq) return evaluatePbqSkipped(cardIdx, cs)
-    if (cs.mc && cs.questions.length > 0 && cs.questions.every(questionHasChoices)) return evaluateCardLocally(cardIdx, cs)
+    // Every answer PICKED (or given up): graded locally. A choices card answered "Type it instead" goes to the AI grader.
+    if (cs.questions.length > 0 && cs.questions.some((_, qi) => answeredByChoice(cs, qi))
+      && cs.questions.every((q, qi) => questionHasChoices(q) && (answeredByChoice(cs, qi) || cs.answers?.[qi] === '(skipped)'))) return evaluateCardLocally(cardIdx, cs)
     return evaluateCardAnswers(cardIdx, cs)
   }
 
@@ -11885,19 +12066,23 @@ Your output keeps: the same method, the same language (${explainLang}), the same
               ? `\nAccepted answers (CORRECT if the student's answer contains one of these, a leading article or extra words are fine; synonyms are WRONG): ${accepted.join(', ')}`
               : `\nReference answer(s) (a guide, not exact-match, accept any answer that shows correct understanding): ${accepted.join(', ')}`)
           : ''
-        return `Q${i+1} [${type}]: ${getQuestionText(q)}${acceptedLine}\nAnswer: ${cs.answers[i] || '(no answer)'}`
+        const tierTag = isObj && Number.isFinite(q.tier) ? ` TIER ${q.tier}` : '' // the question ladder: open tiers grade on use
+        return `Q${i+1} [${type}${tierTag}]: ${getQuestionText(q)}${acceptedLine}\nAnswer: ${cs.answers[i] || '(no answer)'}`
       }).join('\n\n')
 
       const gradingRules = isLanguage
         ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers", ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT: mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${learnLang} side of the card.\n- INFLECTION TOLERANCE (fill_blank): a different grammatical FORM of the SAME target word (verb tense/mood/person, or noun/adjective gender/number) is the SAME word, NOT a synonym. If the sentence does NOT contain a clear marker forcing one specific form, a time adverb (ayer, mañana, siempre, ahora), an explicit subject, or grammatical agreement, then accept ANY grammatically correct form of the target lemma that fits the sentence, even if it differs from the accepted list (e.g. present "huye" is CORRECT when the list says preterite "huyó" but nothing in the sentence indicates past tense). Only require the exact inflection when the sentence unambiguously forces it; never invent a tense the sentence does not signal.\n- explanation: grade on conceptual understanding, accept any answer that correctly addresses the question.\n- GENDER/ARTICLE questions: the definite/indefinite article ALREADY encodes the gender (el/un/los/unos = masculine; la/una/las/unas = feminine). So if a question asks for BOTH the gender AND the article and the student gives the correct article (e.g. "el"), that FULLY answers it, treat it as complete and do NOT add a note telling them to also state the gender explicitly (it is redundant). Likewise, giving the correct gender word ("masculine") answers the article implicitly.\n- AGREEMENT WITH NO FIXED REFERENT: when the question or sentence does not fix the gender or number of the person or thing described ("alguien", "a person", a generic "you", a friend never named), ANY form that agrees with a referent the student could mean is fully correct ("eres muy cálido" and "eres muy cálida" both are). Never add a note asking for the other gender or number, and never remind the student to make it agree. Note agreement ONLY when the student's own answer contains a real clash ("ella es muy cálido").\n${grammarOn ? 'ALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.' : 'Grammar feedback is turned off: do not comment on grammar, spelling or accents unless it changes whether the answer is correct.'}`
         : `Grading rules:\n- This is NOT a vocabulary test. The student answers in their own words to explain concepts or situations. Grade EVERY question on conceptual understanding: mark CORRECT if the answer demonstrates correct understanding of the topic, even when phrased differently, with extra words, or not matching the reference answer exactly. Only mark WRONG if the answer is factually incorrect, off-topic, or empty. When useful, add a brief note in the feedback about anything they missed.`
 
+      // The question ladder's open tiers (shared wording, utils/questionTier.js).
+      const openRule = cs.questions.some((q) => q && typeof q === 'object' && Number.isFinite(q.tier) && tierOpen(q.tier, isLanguage))
+        ? `\n${openTierGradingRule({ isLanguage, grammarOn })}` : ''
       const knowledgeRef = !studyKnowledge ? '' : knowledgeIsBig()
         ? await getKnowledgeContext(`Grading a student's answers about "${cs.front}", ${String(cs.back).slice(0, 300)}`, KNOWLEDGE_CAP, `card:${cs.front}`)
         : `\n\nREFERENCE MATERIAL (the user's knowledge base for this subject, authoritative when grading factual accuracy):\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}`
       // Conjugation drills test ONE exact form, and there an accent is the tense or person, not a typo.
       const conjugationGradeRule = '\n- CONJUGATION DRILL: each question asks for one exact conjugated form (tense and subject are given). An accent that changes the form ("hablé" vs "hable", "habló" vs "hablo") makes it a DIFFERENT form: mark it INCORRECT and name the correct form. Only ignore a difference that does not change which form it is.'
-      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${cs.isConjugation ? conjugationGradeRule : ''}${notesInstruction}${knowledgeRef}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
+      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${openRule}${cs.isConjugation ? conjugationGradeRule : ''}${notesInstruction}${knowledgeRef}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
       // An unreadable reply used to `return` here, leaving the card "evaluating" FOREVER: the
       // session could never reach Batch Results and the card never synced. One retry covers the
@@ -12095,6 +12280,49 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       console.log('[Study] pulled new card:', getCardFront(card))
     }
   }
+
+  // THE LADDER'S CHOICES FOR OPEN QUESTIONS (the owner: multiple choice ALWAYS available): an unanswered open question
+  // (a tier 4 sentence, a general explain or give-up question) left without verified options gets them from one small
+  // background call (utils/questionTier.js buildOpenChoicesPrompt/parseOpenChoices, then buildChoices). The question
+  // shows at once; its "Show choices" toggle appears when they land, only on the same session, card, question text and
+  // while still unanswered. Asked once per question (openChoicesAskedRef).
+  const openChoicesAskedRef = useRef(new Set())
+  useEffect(() => {
+    if (!studyActive || studyMode !== 'flashcards' || !apiKey || !questionLadderOn(activeMode.studyRules)) return
+    const sid = studySessionRef.current
+    const isLanguage = activeMode.type === 'language'
+    for (const cs of studyCardState) {
+      if (!cs || cs.done || cs.pbq || cs.isConjugation || !Array.isArray(cs.questions)) continue
+      cs.questions.forEach((q, qi) => {
+        if (!q || typeof q !== 'object' || qi < (cs.questionIdx || 0) || questionHasChoices(q)) return
+        if (q.type !== 'explanation' && (q.acceptedAnswers || []).length) return // word questions: ladderFinish's pool
+        const text = getQuestionText(q)
+        const key = `${sid}:${cs.cardId}:${qi}:${text}`
+        if (!text || openChoicesAskedRef.current.has(key)) return
+        openChoicesAskedRef.current.add(key)
+        const rules = activeMode.studyRules || defaultStudyRules
+        ;(async () => {
+          try {
+            const reply = await aiCall(apiKey, 'You write multiple-choice options for a quiz question. Always respond with one valid JSON object.',
+              buildOpenChoicesPrompt({ front: cs.front, back: cs.back, question: text, isLanguage, learnLang: isLanguage ? learnLangName() : '', quizLang: interactionLangName(rules) }),
+              resolveModel('study'), { silent: true, maxTokens: 400 })
+            const parsed = parseOpenChoices(parseAiJson(reply))
+            const built = parsed ? buildChoices(parsed.choices, parsed.answerIdx, []) : null
+            if (!built || sid !== studySessionRef.current) return
+            setStudyCardState((prev) => prev.map((c) => {
+              const cq = c?.questions?.[qi]
+              if (!c || c.cardId !== cs.cardId || c.done || (c.questionIdx || 0) > qi || !cq || getQuestionText(cq) !== text || questionHasChoices(cq)) return c
+              const questions = [...c.questions]
+              questions[qi] = { ...cq, choices: built.choices.map((o) => stripDashes(o)), answerIdx: built.answerIdx }
+              return { ...c, questions }
+            }))
+          } catch (err) {
+            console.warn('[Study] open-question choices failed (stays typed):', err.message)
+          }
+        })()
+      })
+    }
+  }, [studyCardState, studyActive, studyMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Adaptive "learn it first": the first time a new card's first question comes up, teach the card, then ask.
   useEffect(() => {
@@ -17136,7 +17364,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               const cq = currentQuestion
               const cs = cq ? studyCardState[cq.cardIdx] : null
               const questionObj = cs ? cs.questions[cq.questionIdx] : null
-              const question = getQuestionText(questionObj)
+              const showChoicesNow = !!(cs && cq && questionShowsChoices(cs, cq.questionIdx))
+              // With its options showing, the letter cues go (the letters would pick the tile).
+              const question = showChoicesNow ? stripLetterCues(getQuestionText(questionObj)) : getQuestionText(questionObj)
+              // The question ladder's chip: the tier this question was written at (the card's, for a set saved before).
+              const qTier = (studyMode === 'flashcards' && questionLadderOn(activeMode.studyRules) && questionObj?.type !== 'pbq')
+                ? (Number.isFinite(questionObj?.tier) ? questionObj.tier : (Number.isFinite(cs?.tier) ? cs.tier : null)) : null
               const undoCs = studyCardState[studyAnswerHistory[studyAnswerHistory.length - 1]?.cardIdx]
               const canUndo = studyAnswerHistory.length > 0 && !undoCs?.synced && undoCs?.rating !== 'deleted' && !(undoCs?.cardId && !undoCs?.noSync && (syncInFlightIdsRef.current.has(undoCs.cardId) || uncertainSyncRef.current.has(undoCs.cardId)))
 
@@ -17360,10 +17593,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {(() => {
                         const qTags = activeMode.type === 'language' ? (studyCardTags[studyNoteId(cs)] || []) : [] // general modes: see beginStudy
                         const showDots = !!(cs && cardQuestionCount(cs) > 1)
-                        if (!qTags.length && !showDots) return null
+                        if (!qTags.length && !showDots && qTier === null) return null
                         return (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', marginBottom: 4 }}>
-                          <div style={{ minWidth: 0 }}>{renderUsageTagChips(qTags)}</div>
+                          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            {qTier !== null && <TierChip t={t} tier={qTier} />}
+                            {renderUsageTagChips(qTags)}
+                          </div>
                           {showDots && (
                           <span className="tip" data-tip={`${t('studyQuestionOf')} ${Math.min(cs.questionIdx + 1, cardQuestionCount(cs))}/${cardQuestionCount(cs)}${cs.questionIdx > 0 ? ` · ${t('studyDotJump')}` : ''}`}
                             style={{ display: 'inline-flex', gap: 6, alignItems: 'center', padding: 2 }}>
@@ -17473,7 +17709,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
                       {questionObj?.type === 'pbq' && questionObj.pbq ? (
                         <PbqQuestion key={`pbq-${cq?.cardIdx}`} pbq={questionObj.pbq} t={t} onSubmit={submitPbqAnswer} />
-                      ) : questionHasChoices(questionObj) ? (
+                      ) : showChoicesNow ? (
                         renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
                       ) : (<>
                       {/* Accent drill: correct answer, wrong/missing accents — type the accented form once */}
@@ -17505,6 +17741,26 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         </button>
                       </div>
                       </>)}
+
+                      {/* The question ladder's dual question: "Show choices" for THIS question (a pick rates at most Good),
+                          "Type it instead" back while it is unanswered. Only where verified choices exist. */}
+                      {studyMode === 'flashcards' && cs && !cs.done && questionObj?.type !== 'pbq' && questionHasChoices(questionObj)
+                        && cq.questionIdx >= (cs.questionIdx || 0) && !studyAccentRetype && (
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+                          {showChoicesNow ? (
+                            <button onClick={() => setQuestionChoiceView(cq.cardIdx, cq.questionIdx, false)} data-ladder-toggle="type" className="ui-btn"
+                              style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                              {t('qt_typeInstead')}
+                            </button>
+                          ) : (
+                            <button onClick={() => setQuestionChoiceView(cq.cardIdx, cq.questionIdx, true)} data-ladder-toggle="choices" className="ui-btn tip"
+                              data-tip={t('qt_showChoicesTip')}
+                              style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                              {t('qt_showChoices')}
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {/* "Fix this question" — complaint input; regenerates the live question and
                           saves the distilled style preference to the mode */}
@@ -17538,7 +17794,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                               {t('skipWord')}
                             </button>
                           )}
-                          {!questionHasChoices(questionObj) && questionObj?.type !== 'pbq' && (
+                          {!showChoicesNow && questionObj?.type !== 'pbq' && (
                           <button onClick={fetchMeaningHint} disabled={!apiKey || (!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) || !!studyMeaningHint} className="st-tool"
                             style={{ color: 'var(--c-brand)', opacity: ((!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) || !!studyMeaningHint) ? 0.5 : 1 }}>
                             💡 {(!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) ? t('loading') : t('meaningHint')}
@@ -17589,7 +17845,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {/* Keyboard hints: Enter answers a typed question, 1 to 4 pick a choice */}
                       {!studyLearnMoment && !studyPbqReview && questionObj?.type !== 'pbq' && (
                         <div className="st-keys">
-                          {questionHasChoices(questionObj)
+                          {showChoicesNow
                             ? <div><span style={{ display: 'inline-flex', gap: 3 }}>{['A', 'B', 'C', 'D', 'E', 'F'].slice(0, Math.max(2, Math.min(6, questionObj.choices.length))).map((k) => <span key={k} className="ui-kbd">{k}</span>)}</span>{t('study_kbdChoose')}</div>
                             : <div><span className="ui-kbd">↵</span>{t('study_kbdSubmit')}</div>}
                         </div>
@@ -17669,6 +17925,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>
                             {cs.front}
+                            {Number.isFinite(cs.tier) && questionLadderOn(activeMode.studyRules) && <TierChip t={t} tier={Number.isFinite(cs.questions?.[0]?.tier) ? cs.questions[0].tier : cs.tier} style={{ flexShrink: 0 }} />}
                             {activeMode.type === 'language' && (
                               <span onClick={(e) => e.stopPropagation()}>
                                 <Pronunciation word={pronWord(cs.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact cardId={cs.cardId}
@@ -17774,6 +18031,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                           {cs.rating !== 'deleted' && <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>}
                           {cs.front}
+                          {Number.isFinite(cs.tier) && questionLadderOn(activeMode.studyRules) && <TierChip t={t} tier={Number.isFinite(cs.questions?.[0]?.tier) ? cs.questions[0].tier : cs.tier} style={{ flexShrink: 0 }} />}
                         </span>
                         <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         {cs.rating !== 'deleted' && (<>
@@ -19267,12 +19525,17 @@ ${PALETTE_CSS}
           const cs = studyCardState[currentQuestion.cardIdx]
           const q = cs?.questions?.[currentQuestion.questionIdx]
           if (!q || cs.done) return null
+          const picking = questionShowsChoices(cs, currentQuestion.questionIdx)
+          const tier = (studyMode === 'flashcards' && questionLadderOn(activeMode.studyRules)) ? (Number.isFinite(q.tier) ? q.tier : cs.tier) : undefined
           return {
-            question: getQuestionText(q), type: q.type,
+            question: picking ? stripLetterCues(getQuestionText(q)) : getQuestionText(q), type: q.type,
             number: currentQuestion.questionIdx + 1, of: cs.questions.length,
             cardFront: cs.front, cardBack: String(cs.back || '').slice(0, 300),
             acceptedAnswers: q.acceptedAnswers || [],
-            choices: Array.isArray(q.choices) ? q.choices : undefined,
+            // Only the options ON SCREEN (a dual question stays typed until "Show choices").
+            choices: picking ? q.choices : undefined,
+            // The question ladder: its tier, by the name the learner sees on the chip ("New · Meet it", "Recall"...).
+            ...(Number.isFinite(tier) ? { tier, tierName: t(tierLabelKey(tier)), canShowChoices: !picking && questionHasChoices(q) } : {}),
           }
         })(),
         studySession: studyActive ? {

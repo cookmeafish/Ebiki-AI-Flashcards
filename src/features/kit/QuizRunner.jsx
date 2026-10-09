@@ -28,6 +28,10 @@
 //                          time, or one a re-check cancelled). Skipped questions record nothing.
 // startChoices(q)          a typed question with `alt` choices opens on its choices (the fight's "choices first" style);
 //                          the learner can still switch to typing.
+// THE QUESTION LADDER (utils/questionTier.js): a question carrying `tier` shows the ladder's chip above it (TierChip, the
+// same chip Study shows). DUAL QUESTIONS: a typed question with `alt` choices opens TYPED (Study's default) with
+// "🛡 Show choices" (qt_showChoices) beside the box, and "⌨ Type it instead" (qt_typeInstead) goes back while it is
+// unanswered; the feature decides what a choice answer is worth (a safe strike, at most Good).
 // overturnedFor(q)         true once a later check (a re-check or an Appeal) found this answer RIGHT after all: the
 //                          feedback strip turns green and drops the grader's old note (it said "wrong").
 // WORDS (with `ctx.words`): Study's question formatting everywhere. "(...)" sense cues render muted italic, word hints
@@ -45,6 +49,7 @@ import { matchTyped } from './grade'
 import { judgeAnswer } from './judge'
 import { questionAnswersOf, ensureLetterCue, stripLetterSkeleton } from './fightSettings'
 import TalkButton from './TalkButton'
+import TierChip from './TierChip'
 import { speak } from '../../speech'
 import { imeActive, choiceIndex } from '../../utils/keys'
 
@@ -341,6 +346,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       </div>
       {title && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.purple }}>{title} · {t('kit_progress', { i: idx + 1, n: total })}{q._retry ? ` · 🔁 ${t('kit_again')}` : ''}</div>}
       {header && header(q, asChoice ? 'choice' : 'typed')}
+      {q.tier != null && <div data-quiz-tier={q.tier} style={{ display: 'flex' }}><TierChip t={t} tier={q.tier} /></div>}
       <div dir="auto" data-quiz-prompt="" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: glossMap && Object.keys(glossMap).length ? 2.2 : 1.35, whiteSpace: 'pre-wrap' }}>{words(shownPrompt, 'q', { guarded: true, gloss: true })}</div>
       {popup('q')}
       {(narrow || hintText) && <style>{POP_CSS}</style>}
@@ -380,9 +386,9 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
           })}
           {view.choices.map((_, i) => <span key={`p${i}`} style={{ display: 'contents' }}>{popup(`c${i}`)}</span>)}
           {q.kind !== 'choice' && !narrow && phase === 'answer' && (
-            <button type="button" onClick={() => { setMode('typed'); setPicked(null); setTimeout(() => inputRef.current?.focus(), 30) }}
+            <button type="button" data-quiz-type-instead="" onClick={() => { setMode('typed'); setPicked(null); setTimeout(() => inputRef.current?.focus(), 30) }}
               style={{ justifySelf: 'start', fontFamily: FONT.body, border: `2px solid color-mix(in srgb, ${C.warning} 40%, transparent)`, background: 'transparent', color: C.warning, fontWeight: 800, fontSize: 13, borderRadius: RADIUS.pill, padding: '5px 12px', cursor: 'pointer' }}>
-              ⌨ {t('kit_typeInstead')}
+              {t('qt_typeInstead')}
             </button>
           )}
         </div>
@@ -395,9 +401,9 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
               borderRadius: RADIUS.md, border: `${UI.cardBorder}px solid ${C.border}`, background: C.surfaceAlt, color: C.ink,
             }} />
           {switchable && phase === 'answer' && (
-            <button type="button" onClick={() => { setMode('choice'); setPicked(null) }}
+            <button type="button" onClick={() => { setMode('choice'); setPicked(null) }} className="tip tip-r" data-tip={t('qt_showChoicesTip')} data-quiz-show-choices=""
               style={{ justifySelf: 'start', fontFamily: FONT.body, border: `2px solid color-mix(in srgb, ${C.info} 40%, transparent)`, background: 'transparent', color: C.info, fontWeight: 800, fontSize: 13, borderRadius: RADIUS.pill, padding: '5px 12px', cursor: 'pointer' }}>
-              🛡 {t('kit_useChoices')}
+              {t('qt_showChoices')}
             </button>
           )}
         </div>

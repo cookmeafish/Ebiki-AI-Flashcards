@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { questionCountFor, oneQuestionRating, questionDepthOf, depthPlan, rateStudyCard, oneQMissNeedsRequeue, DEFAULT_QUESTION_DEPTH } from './studyDepth'
+import { questionCountFor, oneQuestionRating, questionDepthOf, depthPlan, rateStudyCard, oneQMissNeedsRequeue, DEFAULT_QUESTION_DEPTH, questionLadderOn, questionTiers, answeredByChoice } from './studyDepth'
 import { ADAPTIVE_STRUGGLE_LAPSES } from '../config/study'
 
-const rules = { questionsPerCard: 3 }
+const rules = { questionsPerCard: 3, questionLadder: false } // the depth rule without the ladder
+const ladder = { questionsPerCard: 3 }
 const review = { type: 2, queue: 2, lapses: 0, interval: 30 }
 
 describe('questionCountFor', () => {
@@ -28,9 +29,9 @@ describe('questionCountFor', () => {
   it('other study types and per-card counts', () => {
     expect(questionCountFor(review, rules, { kind: 'conjugations' })).toBe(3)
     expect(questionCountFor(review, rules, { kind: 'pbq' })).toBe(3)
-    expect(questionCountFor({ type: 0 }, { questionsPerCard: 1 })).toBe(1)
-    expect(questionCountFor({ type: 0 }, {})).toBe(3)
-    expect(questionCountFor({ type: 0 }, { questionsPerCard: 5 })).toBe(5)
+    expect(questionCountFor({ type: 0 }, { questionsPerCard: 1, questionLadder: false })).toBe(1)
+    expect(questionCountFor({ type: 0 }, { questionLadder: false })).toBe(3)
+    expect(questionCountFor({ type: 0 }, { questionsPerCard: 5, questionLadder: false })).toBe(5)
   })
   it('depth defaults to adaptive', () => {
     expect(questionDepthOf({})).toBe('adaptive')
@@ -88,6 +89,7 @@ describe('depthPlan', () => {
     expect(p.rules.questionsPerCard).toBe(1)
     expect(p.flags).toEqual({ oneQ: true, ivl: 30 })
     expect(rules.questionsPerCard).toBe(3) // never mutates the mode's rules
+    expect(p.flags.tier).toBeUndefined() // ladder off: no tier
   })
   it('everything else keeps the rules untouched and sets no flags', () => {
     for (const [card, r, kind] of [[{ type: 0, queue: 0 }, rules, 'flashcards'], [review, { ...rules, questionDepth: 'thorough' }, 'flashcards'], [review, rules, 'pbq'], [{ ...review, _relearn: true }, rules, 'flashcards']]) {
@@ -151,5 +153,64 @@ describe('oneQMissNeedsRequeue', () => {
     const gave = { ...cs, answers: ['(skipped)'] }
     expect(oneQMissNeedsRequeue(gave, 'again')).toBe(false)
     expect(oneQMissNeedsRequeue(gave, 'again', { learnMoment: false })).toBe(true)
+  })
+})
+
+describe('the question ladder', () => {
+  const card = (type, queue, interval, reps = 3) => ({ type, queue, interval, reps, lapses: 0 })
+  it('is on unless the mode turned it off', () => {
+    expect(questionLadderOn({})).toBe(true)
+    expect(questionLadderOn(null)).toBe(true)
+    expect(questionLadderOn({ questionLadder: false })).toBe(false)
+  })
+  it('adaptive: ONE question for every flashcard, new, learning, struggling and relearn copies included', () => {
+    for (const c of [card(0, 0, 0, 0), card(1, 1, 0), { ...card(2, 2, 40), lapses: 9 }, card(3, 3, 1), { ...review, _relearn: true }, review, null]) {
+      expect(questionCountFor(c, ladder)).toBe(1)
+      const p = depthPlan(c, ladder)
+      expect(p.rules.questionsPerCard).toBe(1)
+      expect(p.flags.oneQ).toBe(true)
+      expect(p.rules.questionTiers).toHaveLength(1)
+    }
+  })
+  it('each card carries its tier from Anki; a relearn copy is tier 1', () => {
+    const cases = [[card(0, 0, 0, 0), 0], [card(1, 1, 0), 1], [card(2, 2, 4), 2], [card(2, 2, 10), 3], [card(2, 2, 40), 4], [card(2, 2, 200), 5], [{ ...card(2, 2, 200), _relearn: true }, 1]]
+    for (const [c, tier] of cases) {
+      const p = depthPlan(c, ladder)
+      expect(p.flags.tier).toBe(tier)
+      expect(p.rules.questionTiers).toEqual([tier])
+    }
+  })
+  it('thorough keeps questionsPerCard, climbing a tier per question, capped at 5', () => {
+    const r = { ...ladder, questionDepth: 'thorough' }
+    const p = depthPlan(card(2, 2, 10), r)
+    expect(p.rules.questionsPerCard).toBe(3)
+    expect(p.rules.questionTiers).toEqual([3, 4, 5])
+    expect(p.flags).toEqual({ tier: 3 })
+    expect(depthPlan(card(2, 2, 200), r).rules.questionTiers).toEqual([5, 5, 5])
+    expect(questionTiers(0, 3)).toEqual([0, 1, 2])
+  })
+  it('conjugations and PBQs never get a tier', () => {
+    for (const kind of ['conjugations', 'pbq']) {
+      const p = depthPlan(review, ladder, kind)
+      expect(p.flags).toEqual({})
+      expect(p.rules).toBe(ladder)
+    }
+  })
+})
+
+describe('per-question choices (Show choices)', () => {
+  const ok = { correct: true }
+  it('a typed answer on a choices card is not capped; a picked one is', () => {
+    const cs = { oneQ: true, ivl: 40, answers: ['x'] }
+    expect(rateStudyCard({ ...cs, byChoice: { 0: true } }, [ok]).label).toBe('good')
+    expect(rateStudyCard({ ...cs, byChoice: { 0: false } }, [ok]).label).toBe('easy')
+    expect(rateStudyCard({ ...cs, mc: true, byChoice: { 0: false } }, [ok]).label).toBe('easy') // "Type it instead"
+    expect(rateStudyCard({ byChoice: { 1: true } }, [ok, ok]).label).toBe('good') // count rule: any pick caps
+    expect(rateStudyCard({ byChoice: {} }, [ok, ok]).label).toBe('easy')
+  })
+  it('without byChoice an mc card counts as picked (older saved sessions)', () => {
+    expect(answeredByChoice({ mc: true }, 0)).toBe(true)
+    expect(answeredByChoice({}, 0)).toBe(false)
+    expect(answeredByChoice({ mc: true, byChoice: {} }, 0)).toBe(false)
   })
 })

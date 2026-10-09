@@ -1,7 +1,7 @@
 // AI check for a typed answer the local matcher couldn't settle (a synonym, a paraphrase, an open answer).
 // Subject-agnostic: language questions judge the exact word or form; everything else judges meaning.
 import { matchTyped } from './grade'
-import { flagOf, gradeObject, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
+import { flagOf, gradeObject, tierJudgeLine, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
 
 export const JUDGE_ROLE = 'study'
 export { flagOf }
@@ -90,6 +90,7 @@ export async function judgeAnswer(ai, subject, q, answer) {
   const user = [
     `Subject: ${subject?.name || ''}${subject?.description ? ` (${subject.description})` : ''}`,
     `Question: ${q.prompt}`,
+    tierJudgeLine(q, subject),
     q.accepted?.length ? `Reference answer(s): ${q.accepted.join(' / ')}` : '',
     `Student answer: ${answer}`,
     q.open

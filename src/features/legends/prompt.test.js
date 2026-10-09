@@ -135,6 +135,8 @@ describe('raid prompt follows the fight settings', () => {
     const s = { name: 'CompTIA A+', isLanguage: false, learnLang: 'English', userLang: 'Japanese', phrasing: 'Phrase everything in Japanese. Subject terms ... never translated' }
     const { user } = buildRaidPrompt(s, [{ front: 'Port 443', back: 'HTTPS' }])
     expect(user).toMatch(/Phrase everything in Japanese/)
-    expect(user).not.toMatch(/first letter/)
+    // The shared ONE CLEAR ANSWER rule names letter cues for language courses only; a general mode never gets the cue rule.
+    expect(user).not.toMatch(/with the answer's first letter in quotes/)
+    expect(user).toMatch(/Never a letter of the answer/)
   })
 })

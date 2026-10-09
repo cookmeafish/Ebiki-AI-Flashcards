@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fightRules, rulesPatch, fightSubject, fightWords, isImmersive, phrasingLine, generationKey, hasLetterCue, letterSkeleton, ensureLetterCue, stripLetterSkeleton, questionAnswersOf } from './fightSettings'
+import { fightRules, rulesPatch, fightSubject, fightWords, isImmersive, phrasingLine, generationKey, hasLetterCue, letterSkeleton, hasLetterSkeleton, ensureLetterCue, stripLetterSkeleton, questionAnswersOf } from './fightSettings'
 
 const es = { isLanguage: true, learnLang: 'Spanish', userLang: 'English', name: 'Spanish' }
 const comptia = { isLanguage: false, learnLang: 'English', userLang: 'English', name: 'CompTIA A+' }
@@ -7,7 +7,7 @@ const comptia = { isLanguage: false, learnLang: 'English', userLang: 'English', 
 describe('fightRules', () => {
   it('shapes damaged rules and keeps today\'s defaults', () => {
     const r = fightRules(null, { isLanguage: true, learnLang: 'Spanish' })
-    expect(r).toEqual({ learnLang: 'Spanish', speaks: '', dialect: '', grammarFeedback: false, wordHints: false, strictAccents: true, learnMoment: true, answerStyle: 'typed' })
+    expect(r).toEqual({ learnLang: 'Spanish', speaks: '', dialect: '', grammarFeedback: false, wordHints: false, strictAccents: true, learnMoment: true, answerStyle: 'typed', questionLadder: true })
   })
   it('reads the study settings (one setting with Study)', () => {
     const r = fightRules({ studyLanguage: 'Japanese', quizLanguage: 'Japanese', dialect: ' Kansai ', wordHints: true, grammarFeedback: true, accentDrill: false, learnMoment: false, fightAnswerStyle: 'choices' }, { isLanguage: true, learnLang: 'Spanish' })
@@ -108,6 +108,15 @@ describe('first-letter cue', () => {
     expect(ensureLetterCue(done, { isLanguage: true })).toBe(done)
     expect(stripLetterSkeleton('Hoy ___ (l·····) mucho.')).toBe('Hoy ___ mucho.')
     expect(stripLetterSkeleton('Tengo (umbrella) un ___')).toBe('Tengo (umbrella) un ___')
+  })
+  it('a two-letter answer\'s one-dot skeleton counts and strips too; a single "." never does', () => {
+    const q = { kind: 'typed', prompt: '___ (y·) soy de aquí.', accepted: ['yo'] }
+    expect(hasLetterSkeleton(q.prompt, q.accepted)).toBe(true)
+    expect(ensureLetterCue(q, { isLanguage: true })).toBe(q) // never a second skeleton
+    expect(stripLetterSkeleton('___ (y·) soy de aquí.')).toBe('___ soy de aquí.')
+    expect(hasLetterSkeleton('Lleva un ___ (e· ········)', ['el sombrero'])).toBe(true)
+    expect(stripLetterSkeleton('See (p.) 4')).toBe('See (p.) 4')
+    expect(hasLetterSkeleton('See (p.) 4', ['perro'])).toBe(false)
   })
   it('adds a cue after the blank of a typed language question only', () => {
     const q = { kind: 'typed', prompt: 'Hoy ___ mucho (to rain).', accepted: ['llueve'] }
