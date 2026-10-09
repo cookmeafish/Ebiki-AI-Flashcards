@@ -18,7 +18,7 @@ export const HERO = { art: 148, artNarrow: 120, wrapBelow: 560 } // px
 const STAGE = `color-mix(in srgb, ${C.bg} 22%, black)` // the raid stage is dark in both themes (like the raid intro)
 
 const CSS = `
-@keyframes rhStripe { to { transform: translateX(40px) } }
+@keyframes rhStripe { from { transform: translateX(-2%) } to { transform: translateX(0) } }
 @keyframes rhGlowLo { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
 @keyframes rhGlowHi { 0%,100% { opacity: 0 } 50% { opacity: 1 } }
 @keyframes rhAura { 0%,100% { transform: scale(1); opacity: .55 } 50% { transform: scale(1.08); opacity: .9 } }
@@ -87,7 +87,7 @@ export default function RaidHero({ onOpen }) {
   const name = t(`lg_raidBoss_${shownMotif}`)
   const artSize = narrow ? HERO.artNarrow : HERO.art
   const mix = (pct, other = 'transparent') => `color-mix(in srgb, ${tint} ${pct}%, ${other})`
-  const stripe = `repeating-linear-gradient(-45deg, ${mix(90, 'black')} 0 14.1421px, ${mix(18, 'black')} 14.1421px 28.2843px)` // one period = 40px across at -45deg, the exact distance rhStripe moves, so the loop is seamless
+  const stripe = `repeating-linear-gradient(-45deg, ${mix(90, 'black')} 0 14.1421px, ${mix(18, 'black')} 14.1421px 28.2843px)` // one period = 40px across at -45deg; the strip is 50 periods (2000px) and rhStripe moves it 2% = one period at any zoom (a px distance jumped on the GPU under zoom)
 
   const status = (() => {
     if (beaten) return { icon: '🏆', text: t('lg_raidHeroBeaten'), sub: t('lg_raidHeroNext', { n: s.num }) }
@@ -121,7 +121,7 @@ export default function RaidHero({ onOpen }) {
       <style>{CSS}</style>
       {/* The hazard band, like the raid intro's, in this boss's color. */}
       <div aria-hidden="true" style={{ position: 'relative', height: 26, overflow: 'hidden', display: 'grid', placeItems: 'center' }}>
-        <span style={{ position: 'absolute', top: 0, bottom: 0, left: -40, right: 0, background: stripe, animation: pulse ? 'rhStripe 1.4s linear infinite' : 'none' }} />
+        <span style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2000, background: stripe, animation: pulse ? 'rhStripe 1.4s linear infinite' : 'none' }} />
         <span style={{ position: 'relative', fontFamily: FONT.display, fontWeight: 900, fontSize: 12.5, letterSpacing: '.3em', textTransform: 'uppercase',
           padding: '0 12px', borderRadius: 4, background: mix(22, 'black'), color: C.white }}>⚠ {t('lg_raidTile')} ⚠</span>
       </div>

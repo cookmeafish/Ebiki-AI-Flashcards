@@ -88,7 +88,7 @@ const CSS = `
 @keyframes lgStageIn { 0% { opacity: 0 } 100% { opacity: 1 } }
 @keyframes lgStripeL { 0% { transform: translateX(-110%) } 100% { transform: translateX(0) } }
 @keyframes lgStripeR { 0% { transform: translateX(110%) } 100% { transform: translateX(0) } }
-@keyframes lgStripeMove { to { transform: translateX(39.598px) } } /* one stripe period across: 28px along a -45deg axis = 28 x sqrt(2); any other distance stutters at the loop */
+@keyframes lgStripeMove { from { transform: translateX(-2%) } to { transform: translateX(0) } } /* the strip is 50 stripe periods wide, so 2% = one period at ANY app zoom. A px distance broke under zoom: the GPU (compositor) moved it unzoomed while the pattern was zoomed, so the loop jumped back */
 @keyframes lgSlam { 0% { transform: translateY(-340px) scale(1.5); opacity: 0; filter: blur(6px) } 60% { opacity: 1; filter: blur(0) } 78% { transform: translateY(0) scale(1.08, .88) } 88% { transform: translateY(-10px) scale(.97, 1.04) } 100% { transform: translateY(0) scale(1) } }
 @keyframes lgRootRise { 0% { transform: translateY(110%) scaleX(.7) rotate(-6deg); opacity: 0 } 45% { opacity: 1 } 65% { transform: translateY(-8%) scaleX(1.05) rotate(4deg) } 82% { transform: translateY(2%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgGlitchIn { 0% { transform: translateX(-40px) skewX(30deg) scaleY(.2); opacity: 0 } 15% { transform: translateX(30px) skewX(-25deg) scaleY(1.2); opacity: 1 } 25% { transform: translateX(-18px) scaleX(1.4) scaleY(.6); opacity: .2 } 38% { transform: translateX(12px) skewX(15deg); opacity: 1 } 50% { transform: translateX(-6px) scaleY(1.1); opacity: .4 } 64% { transform: translateX(4px) skewX(-6deg); opacity: 1 } 80% { transform: scale(1.06) } 100% { transform: none } }
@@ -313,6 +313,8 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
   const entrance = entranceFor(area?.motif)
   const NIGHT = `color-mix(in srgb, ${C.bg} 25%, black)` // the stage is dark in both themes
   const stripe = `repeating-linear-gradient(-45deg, ${C.danger} 0 14px, color-mix(in srgb, ${C.danger} 20%, black) 14px 28px)`
+  // 50 periods (28px along -45deg = 28 x sqrt(2) across): lgStripeMove moves it 2% = exactly one period.
+  const STRIPE_STRIP = `${(28 * Math.SQRT2 * 50).toFixed(3)}px`
   const band = (side) => ({
     position: 'absolute', left: 0, right: 0, height: 30, [side]: 18, display: 'grid', placeItems: 'center', overflow: 'hidden',
     boxShadow: `0 0 18px color-mix(in srgb, ${C.danger} 60%, transparent)`,
@@ -320,7 +322,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
   })
   // The stripes slide on their own layer, one tile wider on the left, moved by transform (composited) instead of
   // background-position (a full repaint every frame); the tiles line up with the band's left edge as before.
-  const stripes = <span aria-hidden="true" className="lg-loop1" style={{ position: 'absolute', top: 0, bottom: 0, left: -40, right: 0, background: stripe, animation: 'lgStripeMove 1.2s linear infinite' }} />
+  const stripes = <span aria-hidden="true" className="lg-loop1" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: STRIPE_STRIP, background: stripe, animation: 'lgStripeMove 1.2s linear infinite' }} />
   const off = useOffscreen(cardRef)
   // The glow layer exists only while it would pulse (like the shockwave): stilled, the old filter showed no glow.
   const glowLayer = INTRO_EYES_GLOW_LAYER && !calm && (motion || !reducedMotion())
