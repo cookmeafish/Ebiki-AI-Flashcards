@@ -1585,7 +1585,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   puts a tag UNDER drawings of 100px+, never on them, never in gameplay (the owner).
 - **Small STILL drawings are bitmaps** (`snap/web.js`, STILL SNAPSHOTS in `LegendsArt`): still, no `phase`, both sizes
   numeric and at most `SNAP_MAX_PX` (260), not the photo ophanim. Drawn once at the box's EXACT device pixels (rounding
-  read as blur), colors resolved from the box (`resolveVars`), kept in Cache Storage `ebiki-art-snap-v1` keyed by the
+  read as blur) STRAIGHT FROM THE FILE (`snap/plan.js` `stillImageSvg`, pure + tested: string edits only, no sanitize
+  or parse, the vector never enters the page; an image runs no script and loads nothing), painted on a canvas and
+  encoded by the worker pool: **never `canvas.toBlob` on a busy page** (it waits for an idle moment, about 1.2 s per
+  tile while bosses animate). Art files must be well-formed XML for this (no attribute twice in a tag: the test checks
+  every file; the HTML parser had hidden it). Colors resolved from the box, kept in Cache Storage `ebiki-art-snap-v2` keyed by the
   file's ETag (a HEAD), size and colors; a theme change re-keys (`useThemeTick`). The SVG file is read only on a miss.
   **Shown first, checked after**: a layout effect puts up this page life's snapshot before the first paint
   (`peekSnap`), else the one the localStorage index (`ebiki-art-snap-index`, base → newest key) names; the HEAD runs

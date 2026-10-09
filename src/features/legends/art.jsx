@@ -646,7 +646,8 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     return () => { alive = false }
   }, [near, snapOn, snapIdent]) // eslint-disable-line react-hooks/exhaustive-deps
   const snapShown = snapOn && !!snap && snap.ident === snapIdent
-  const needVector = !snapOn || (!!snapNeed && snapNeed.ident === snapIdent)
+  const [snapFailed, setSnapFailed] = useState('') // the ident whose snapshot could not be drawn: the vector shows
+  const needVector = !snapOn || snapFailed === snapIdent || (!!snapNeed && snapNeed.ident === snapIdent && !snapNeed.key)
   useEffect(() => {
     if (!near || !needVector) return undefined
     let live = true
@@ -685,16 +686,19 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // The bake keeps every phase's animations; the phase on screen drops the hidden phases' ones again (they would be
   // computed on every redraw for layers nobody sees), exactly like the vector drawing.
   const svg = useMemo(() => withIds(live ? motionMarkup(`${baked.key}|baked`, baked.out, mode, livePhase) : template, idSuffix), [live, baked, template, idSuffix, mode, livePhase])
-  const shown = near && !!svg && !snapShown // off screen: out of the page (the box keeps its size)
+  const shown = near && !!svg && !snapShown && needVector // off screen: out of the page (the box keeps its size)
   useEffect(() => {
     const box = boxRef.current
-    if (!near || !svg || !snapOn || !snapNeed || snapNeed.ident !== snapIdent || !snapNeed.key || !box) return undefined
+    if (!near || !snapOn || !snapNeed || snapNeed.ident !== snapIdent || !snapNeed.key || !box) return undefined
     let alive = true
     const ident = snapIdent, { key, base } = snapNeed
-    makeSnap(key, svg, box, snapNeed.pxW, snapNeed.pxH, figure ? HEADROOM_SHARE : 0)
-      .then((href) => { if (href) adoptSnap(base, key, href); if (alive && href) setSnap({ ident, href }) })
+    makeSnap(key, url, box, snapNeed.pxW, snapNeed.pxH, figure ? HEADROOM_SHARE : 0).then((href) => {
+      if (href) adoptSnap(base, key, href)
+      if (!alive) return
+      if (href) setSnap({ ident, href }); else setSnapFailed(ident)
+    })
     return () => { alive = false }
-  }, [near, snapOn, snapNeed, snapIdent, svg, figure])
+  }, [near, snapOn, snapNeed, snapIdent, url, figure])
   useEffect(installArtSleep, [])
   // A drawing put in the page while the window sleeps starts paused (its entrance plays on return).
   useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])
