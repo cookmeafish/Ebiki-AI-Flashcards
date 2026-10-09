@@ -14,6 +14,7 @@
 import { raidCardIndex } from './raid'
 import { parseQuestions, fitQuestionsToKind } from './prompt'
 import { ensureLetterCue } from '../kit/fightSettings'
+import { canonKeys } from '../../utils/aiJson'
 
 export const REVIEW = { waitMs: 4000 }
 
@@ -21,8 +22,11 @@ export const REVIEW = { waitMs: 4000 }
 // raw: the model's JSON (an array, {"questions": [...]}, or another key). → { qs, missing } where `missing` = the cards
 // (indexes) that got no usable question.
 export function parseRaidQuestions(raw, cards, { clean = (s) => s, isLanguage = false, speakLang = '' } = {}) {
-  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions
-    : (raw && typeof raw === 'object' && Object.values(raw).find((v) => Array.isArray(v) && v.some((q) => q && typeof q === 'object' && 'question' in q))) || []
+  // Keys in another case ("Question", "Card") count too, and ONE question as a bare object is a list of one.
+  const isQ = (q) => q && typeof q === 'object' && !Array.isArray(q) && Object.keys(q).some((k) => /^question$/i.test(k))
+  const list = (Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions
+    : (raw && typeof raw === 'object' && Object.values(raw).find((v) => Array.isArray(v) && v.some(isQ))) || (isQ(raw) ? [raw] : []))
+    .map((q) => canonKeys(q, ['card', 'question']))
   const byCard = new Map()
   for (const q of list) {
     const i = raidCardIndex(q?.card)

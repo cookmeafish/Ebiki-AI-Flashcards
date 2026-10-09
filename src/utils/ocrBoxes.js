@@ -184,3 +184,24 @@ export function hoverTooltipPos(rect, zoom, viewportWidth, { half = 160, roomAbo
   x = vw > half * 2 ? Math.max(half, Math.min(vw - half, x)) : vw / 2
   return { x, y, anchor }
 }
+
+// The PINNED word popup's box, in LAYOUT px (vw/vh = the viewport divided by the app zoom). Kept fully on
+// screen with a 10px margin: its width is capped by the viewport (a phone at 390px, zoomed 1.35, is 289 layout
+// px wide, and the fixed 300 to 500px popup ran off the right edge with its buttons cut in half), its top-left
+// is clamped, and its height is capped to the room below its top (it scrolls inside). `expanded`: the wide
+// variant (deep explanation, word study, chat). `pos`: where the user left it (or where it opened).
+export function pinnedTooltipBox(pos, vw, vh, expanded = false, { margin = 10 } = {}) {
+  const avail = Math.max(120, Math.floor((Number(vw) || 0) - margin * 2))
+  const height = Number(vh) || 0
+  const width = expanded ? Math.min(500, avail) : null
+  const minWidth = Math.min(300, avail)
+  const maxWidth = Math.min(expanded ? 900 : 400, avail)
+  const estW = width || maxWidth // the widest it can grow: an auto-width popup with a long word reached 400px past a 340px guess
+  const estH = expanded ? 580 : 460
+  const left = Math.max(margin, Math.min(Number(pos?.x) || margin, (Number(vw) || 0) - estW - margin))
+  const top = Math.max(margin, Math.min(Number(pos?.y) || margin, height - estH - margin))
+  const maxHeight = Math.max(120, Math.min(Math.round(height - margin * 2), Math.round(height - top - margin)))
+  // A narrow screen gets a slimmer padding (32px a side left a 225px column for the buttons).
+  const narrow = avail < 400
+  return { left, top, width, minWidth, maxWidth, maxHeight, padding: narrow ? '16px 14px' : null }
+}

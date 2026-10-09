@@ -3,7 +3,7 @@ import { resolveWiktionary } from './wiktionary'
 
 // A scripted Wikimedia: `pages[edition][title]` = files on that Wiktionary page, `search` = Commons search hits,
 // `info[file]` = its imageinfo (null = no metadata). Every URL is logged. No real network.
-function fakeWiki({ pages = {}, search = [], info = {} }) {
+function fakeWiki({ pages = {}, search = [], info = {}, down = [] }) {
   const urls = []
   globalThis.fetch = vi.fn(async (url) => {
     urls.push(url)
@@ -11,6 +11,7 @@ function fakeWiki({ pages = {}, search = [], info = {} }) {
     const ok = (body) => ({ ok: true, status: 200, json: async () => body })
     const ed = u.hostname.split('.')[0]
     if (u.pathname.includes('/media-list/')) {
+      if (down.includes(ed)) return { ok: false, status: 503, json: async () => ({}) }
       const title = decodeURIComponent(u.pathname.split('/media-list/')[1])
       return ok({ items: (pages[ed]?.[title] || []).map((t) => ({ type: 'audio', title: `File:${t}` })) })
     }
@@ -68,4 +69,14 @@ describe('resolveWiktionary', () => {
     expect(next.fileName).toBe('LL-Q1321 (spa)-B-casa.wav') // the search hit scores higher, yet comes AFTER the heard voice
     expect(next.variantCount).toBe(2)
   }, 20000)
+  it('a weak list gathered while a lookup FAILED is not kept for the session', async () => {
+    // es.wiktionary is down: only a bare search hit (no language evidence) is found.
+    fakeWiki({ down: ['es', 'en'], search: ['Lluvia.ogg'], info: { 'Lluvia.ogg': LICENSED } })
+    await resolveWiktionary({ word: 'lluvia', lang: 'Spanish' })
+    // Back up: the real, language-tagged recording is found (the weak list was not cached).
+    const urls = fakeWiki({ pages: { es: { lluvia: ['Es-lluvia.ogg'] } }, info: { 'Es-lluvia.ogg': LICENSED } })
+    const r = await resolveWiktionary({ word: 'lluvia', lang: 'Spanish' })
+    expect(urls.some((u) => u.includes('/media-list/'))).toBe(true)
+    expect(r?.fileName).toBe('Es-lluvia.ogg')
+  }, 15000)
 })

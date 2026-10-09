@@ -48,3 +48,17 @@ describe('cardHtmlForText after a caller turned </tr> into text', () => {
     expect(text('<table><tr><td>a</td><td>b</td> · <tr><td>c</td></tr></table>')).toBe('a | b\n · c')
   })
 })
+
+describe('escapeStrayLt: bare placeholders and generics', () => {
+  it('escapes a bare tag-named placeholder that nothing closes', () => {
+    expect(escapeStrayLt('cp <source> <dest>')).toBe('cp &lt;source> &lt;dest>')
+    expect(escapeStrayLt('prog <input> <output>')).toBe('prog &lt;input> &lt;output>')
+    expect(escapeStrayLt('List<Object> and Promise<Data>')).toBe('List&lt;Object> and Promise&lt;Data>')
+  })
+  it('keeps real markup: closed bare tags, void breaks, tags with attributes, closing tags', () => {
+    expect(escapeStrayLt('a<b>x</b> line<br>next<hr>')).toBe('a<b>x</b> line<br>next<hr>')
+    expect(escapeStrayLt('<div>one</div><DIV>two</div>')).toBe('<div>one</div><DIV>two</div>')
+    expect(escapeStrayLt('<img src="a.jpg"><span class="x">y</span>')).toBe('<img src="a.jpg"><span class="x">y</span>')
+    expect(escapeStrayLt('<br/>ok')).toBe('<br/>ok')
+  })
+})

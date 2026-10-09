@@ -17,11 +17,17 @@ const HTML_TAGS = new Set(('a abbr address area article aside audio b base bdi b
   'rb rtc nobr').split(' '))
 // A real HTML tag name (for turning card HTML into plain text without eating "<stdio.h>" or "a < b").
 export const isHtmlTagName = (name) => !!name && (HTML_TAGS.has(String(name).toLowerCase()) || String(name).includes('-'))
+const BARE_OK = new Set(['br', 'hr', 'wbr'])
 export const escapeStrayLt = (html) => {
   const text = String(html ?? '')
   // A hyphenated name is a custom element only when the text also CLOSES it (<anki-mathjax>…</anki-mathjax>);
   // on its own it is a placeholder ("git checkout <branch-name>") and must stay visible.
   const closed = new Set([...text.matchAll(/<\/([a-zA-Z][\w-]*-[\w-]*)\s*>/g)].map((m) => m[1].toLowerCase()))
+  // Every name the text CLOSES somewhere. A BARE opening tag ("<name>", no attributes) of a non-void element is
+  // markup only when the text closes it too: "cp <source> <dest>" lost "source" (an empty element) and
+  // "List<Object>", "Promise<Data>", "prog <input> <output>" lost their words. Void "<br>", "<hr>", "<wbr>" need no
+  // closing; any other void element with no attributes is meaningless as markup ("<source>", "<input>").
+  const closesAny = new Set([...text.matchAll(/<\/([a-zA-Z][\w-]*)\s*>/g)].map((m) => m[1].toLowerCase()))
   // Kept as markup only when it really is a tag: a known name FOLLOWED by whitespace, "/", ">" or the end
   // ("a<b && c>d" and "j<i;" are code, not <b>/<i>), not a lone uppercase letter (the generics in
   // "PhantomData<S>", "fn f<A, B>"), and "<!" only for a comment ("List<?> items" lost its "<?>" to the
@@ -35,6 +41,7 @@ export const escapeStrayLt = (html) => {
     // parser threw away everything from there.
     const real = name && (next === '>' || text.startsWith('/>', offset + m.length) || /\s/.test(next)) && attrsOk && !/^[A-Z]$/.test(name)
       && (HTML_TAGS.has(name.toLowerCase()) || (name.includes('-') && closed.has(name.toLowerCase())))
+      && !(next === '>' && !slash && !BARE_OK.has(name.toLowerCase()) && !closesAny.has(name.toLowerCase()))
     return real ? m : '&lt;' + slash + (name || '')
   })
 }

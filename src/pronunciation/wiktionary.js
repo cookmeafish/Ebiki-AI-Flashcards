@@ -31,42 +31,42 @@ const politeFetch = async (url) => {
   return r
 }
 
-const fetchMediaList = async (edition, title) => {
+const fetchMediaList = async (edition, title, bad = {}) => {
   try {
     const r = await politeFetch(`https://${edition}.wiktionary.org/api/rest_v1/page/media-list/${encodeURIComponent(title)}`)
-    if (!r.ok) return []
+    if (!r.ok) { if (r.status !== 404) bad.n = (bad.n || 0) + 1; return [] }
     const j = await r.json()
     return (j.items || [])
       .filter((i) => i.type === 'audio' || /\.(ogg|oga|wav|mp3|opus|flac)$/i.test(i.title || ''))
       .map((i) => i.title)
-  } catch { return [] }
+  } catch { bad.n = (bad.n || 0) + 1; return [] }
 }
 
-const fetchWikitextFiles = async (edition, title) => {
+const fetchWikitextFiles = async (edition, title, bad = {}) => {
   try {
     const r = await politeFetch(`https://${edition}.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=wikitext&format=json&origin=*`)
-    if (!r.ok) return []
+    if (!r.ok) { bad.n = (bad.n || 0) + 1; return [] }
     const j = await r.json()
     const wt = j.parse?.wikitext?.['*'] || ''
     return [...new Set((wt.match(WIKITEXT_AUDIO_RE) || []).map((s) => s.trim()))]
-  } catch { return [] }
+  } catch { bad.n = (bad.n || 0) + 1; return [] }
 }
 
 // Source B — direct Commons file search (CirrusSearch). Recordings frequently exist on
 // Commons with NO Wiktionary page linking them (verified live: es.wiktionary "paraguas"
 // links no audio, yet Commons holds "LL-Q1321 (spa)-Eavqwiki-paraguas.wav"). Runs only
 // when every edition page came up empty.
-const searchCommonsFiles = async (word) => {
+const searchCommonsFiles = async (word, bad = {}) => {
   // QUOTED: a bare `intitle:buenos días` limited only "buenos" to the title, so "días" became a free-text word
   // and the 20 hits were mostly other phrases with "buenos" in their name.
   const phrase = String(word).replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim()
   if (!phrase) return []
   try {
     const r = await politeFetch(`https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`intitle:"${phrase}" filetype:audio`)}&srnamespace=6&srlimit=20&format=json&origin=*`)
-    if (!r.ok) return []
+    if (!r.ok) { bad.n = (bad.n || 0) + 1; return [] }
     const j = await r.json()
     return (j.query?.search || []).map((x) => x.title)
-  } catch { return [] }
+  } catch { bad.n = (bad.n || 0) + 1; return [] }
 }
 
 const stripHtml = (s) => String(s || '').replace(/<[^>]*>/g, '').trim()
@@ -107,11 +107,11 @@ const candidateCache = new Map()
 // Stops at the first edition whose audio actually RANKS for this language (`usable`), not the first
 // with any audio: es.wiktionary pages often carry only another language's recording, which the matcher
 // rejects, and stopping there never tried the en edition that had the Spanish file.
-const gatherEditionCandidates = async (editions, titles, usable = (c) => c.length > 0) => {
+const gatherEditionCandidates = async (editions, titles, usable = (c) => c.length > 0, bad = {}) => {
   let fallback = { files: [], edition: null }
   for (const edition of editions) {
     for (const title of titles) {
-      const [ml, wt] = await Promise.all([fetchMediaList(edition, title), fetchWikitextFiles(edition, title)])
+      const [ml, wt] = await Promise.all([fetchMediaList(edition, title, bad), fetchWikitextFiles(edition, title, bad)])
       const candidates = unionCandidates(ml, wt)
       if (!candidates.length) continue
       if (usable(candidates)) return { files: candidates, edition }
@@ -139,13 +139,15 @@ export async function resolveWiktionary({ word, lang, region = '', config = {}, 
   let entry = candidateCache.get(cacheKey)
   if (!entry || (variant > 0 && !entry.includedSearch)) {
     const rankOf = (files) => pickAudioFiles(files, { iso1: info.iso1, iso3: info.iso3, region, word })
-    const base = entry?.gathered ? { files: entry.raw, edition: entry.edition } : await gatherEditionCandidates(editions, titles, (c) => rankOf(c).length > 0)
+    // Lookups that FAILED (a rate limit, a network error) rather than found nothing: see the cache write below.
+    const bad = { n: 0 }
+    const base = entry?.gathered ? { files: entry.raw, edition: entry.edition } : await gatherEditionCandidates(editions, titles, (c) => rankOf(c).length > 0, bad)
     let raw = base.files
     let includedSearch = entry?.includedSearch || false
     // Source B: merge the Commons-wide search when the pages had nothing USABLE (audio that is all in
     // another language counts as nothing) — or when the user asks for alternate voices.
     if (!rankOf(raw).length || variant > 0) {
-      raw = unionCandidates(raw, await searchCommonsFiles(word.trim()))
+      raw = unionCandidates(raw, await searchCommonsFiles(word.trim(), bad))
       includedSearch = true
     }
     const ranked = pickAudioFiles(raw, { iso1: info.iso1, iso3: info.iso3, region, word })
@@ -165,7 +167,10 @@ export async function resolveWiktionary({ word, lang, region = '', config = {}, 
     entry = { files, raw, edition: base.edition, includedSearch, gathered: true }
     // An empty result is not cached: every fetch helper turns a network error or a second 429 into [],
     // so a rate-limited burst (🔊 down a deck list) became a miss for the rest of the session.
-    if (entry.files.length) {
+    // A list gathered while some lookups FAILED holds only weak bare files when the good region-tagged recording
+    // sat behind the failed request: kept, it was the word's list for the whole session. Cached only when it has a
+    // language-confirmed recording or nothing failed (a missing page is a 404, not a failure).
+    if (entry.files.length && (!bad.n || strong.length)) {
       if (candidateCache.size > 200) candidateCache.clear()
       candidateCache.set(cacheKey, entry)
     }

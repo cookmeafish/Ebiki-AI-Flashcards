@@ -78,6 +78,10 @@ export function buildTauntPrompt(o = {}) {
 export function parseTaunt(raw, clean = (s) => s) {
   let s = String(raw || '').trim()
   if (!s) return ''
+  // The line sent as JSON ({"taunt": "..."}, {"line": "..."}): its one text value.
+  if (/^\{[\s\S]*\}$/.test(s)) {
+    try { const v = Object.values(JSON.parse(s)).filter((x) => typeof x === 'string' && x.trim()); if (v.length === 1) s = v[0].trim() } catch { /* a line in braces */ }
+  }
   // Code fences and a preamble on its own line ("Here's my taunt:") are not the line (some models add them).
   const lines = s.split(/\n+/).map((x) => x.trim()).filter((x) => x && !/^```/.test(x))
   s = (lines.length > 1 && /[:：]$/.test(lines[0]) ? lines[1] : lines[0]) || ''

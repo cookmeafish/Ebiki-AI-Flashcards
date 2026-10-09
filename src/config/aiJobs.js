@@ -173,3 +173,10 @@ export function jobMatches(job, query, text = {}) {
 // The tier a PINNED model heals at (App.jsx healRetiredModel): the first override key holding the dead model that
 // maps to a role with a tier. A job pick heals at its parent role's tier, never the strongest one.
 export const pinnedTierFor = (keys, roleTier = {}) => (keys || []).map((k) => roleTier[roleOfOverrideKey(k)]).find(Boolean) || null
+
+// Model ids that are not chat models (speech, image, embedding, live audio, robotics...). A provider's model list can
+// carry them (Gemini lists every generateContent model, its TTS and image models too): offered for a chat role or
+// job, one failed every call it was picked for. The current pick is always kept (callers add it back).
+const NON_CHAT_ID = /tts|transcri|whisper|realtime|audio|image|imagen|imagine|instruct|deep-research|embed|(^|-)live(-|$)|robotics|computer-use|veo-|lyria|aqa|moderation|dall-e/i
+export const isChatModelId = (id) => typeof id === 'string' && !!id.trim() && !NON_CHAT_ID.test(id)
+export const chatModelsOnly = (ids) => (Array.isArray(ids) ? ids.filter(isChatModelId) : [])

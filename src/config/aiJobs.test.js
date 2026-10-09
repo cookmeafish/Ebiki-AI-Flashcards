@@ -6,6 +6,7 @@ import path from 'path'
 import {
   AI_JOBS, JOB_BY_ID, JOB_GROUPS, jobKey, jobLabelKey, jobHintKey, jobGroupKey, resolveJob, speechJobModel, pinnedTierFor,
   roleOfOverrideKey, jobsForProvider, jobOverridesOf, withoutJobOverrides, jobMatches,
+  isChatModelId, chatModelsOnly,
 } from './aiJobs'
 import { LANGUAGES } from '../i18n/languages'
 import { flattenConfig, diffConfig, mergeConfigPatch } from '../utils/configDiff'
@@ -169,5 +170,20 @@ describe('every AI call passes a job', () => {
     named.add('speech.stt'); named.add('speech.tts') // read through ctx.speechModel(kind, engine)
     expect([...named].filter((id) => !JOB_BY_ID[id])).toEqual([])
     expect(AI_JOBS.map((j) => j.id).filter((id) => !named.has(id))).toEqual([])
+  })
+})
+
+describe('chat model lists leave out speech, image and live models', () => {
+  it('keeps chat models and drops the rest', () => {
+    const ids = ['gemini-2.5-flash', 'gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-image', 'gemini-2.0-flash-live-001', 'gemini-live-2.5-flash-preview',
+      'gemini-2.5-flash-native-audio-dialog', 'gemini-robotics-er-1.5-preview', 'gemini-2.5-computer-use-preview-10-2025', 'gemini-2.5-flash-lite',
+      'gpt-4o-mini', 'gpt-4o-mini-tts', 'gpt-4o-transcribe', 'o4-mini', 'claude-opus-5', 'grok-4', 'grok-2-image-1212']
+    expect(chatModelsOnly(ids)).toEqual(['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gpt-4o-mini', 'o4-mini', 'claude-opus-5', 'grok-4'])
+  })
+  it('is safe on junk', () => {
+    expect(chatModelsOnly(null)).toEqual([])
+    expect(isChatModelId('')).toBe(false)
+    expect(isChatModelId(42)).toBe(false)
+    expect(isChatModelId('olive-1')).toBe(true) // "live" only as its own word
   })
 })

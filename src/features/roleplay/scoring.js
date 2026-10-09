@@ -1,5 +1,6 @@
 // Roleplay data rules (pure, tested): scenario lists, the end-of-scene scorecard, and what "the scene" means
 // for any subject. A language roleplay is judged on the language; anything else on the thinking.
+import { pickObject, pickList, canonKeys } from '../../utils/aiJson'
 export const SCORE_AXES = {
   language: ['accuracy', 'complexity', 'vocabulary'],
   general: ['correctness', 'reasoning', 'communication'],
@@ -17,8 +18,10 @@ export const axesFor = (subject) => SCORE_AXES[subject?.isLanguage ? 'language' 
 const str = (v, max) => (typeof v === 'string' || typeof v === 'number' ? String(v) : '').replace(/\s+/g, ' ').trim().slice(0, max)
 
 // One scenario: { title, emoji, setting, role, goal }. Needs a setting and Ebi's role; the rest defaults.
-export function cleanScenario(raw, clean = (s) => s) {
-  if (!raw || typeof raw !== 'object') return null
+export function cleanScenario(raw0, clean = (s) => s) {
+  // A wrapped scenario ({"scenario": {...}}) or keys in another case ("Setting") read the same.
+  const raw = pickObject(raw0, ['setting', 'role'], ['title', 'emoji', 'setting', 'role', 'goal'])
+  if (!raw) return null
   const s = {
     title: clean(str(raw.title, MAX_LEN.title)),
     emoji: str(raw.emoji, MAX_LEN.emoji) || '🎭',
@@ -32,7 +35,7 @@ export function cleanScenario(raw, clean = (s) => s) {
 }
 
 export function parseScenarios(parsed, clean) {
-  const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.scenarios) ? parsed.scenarios : []
+  const list = pickList(parsed, 'scenarios', ['setting', 'role'], ['title', 'emoji', 'setting', 'role', 'goal'])
   const out = []
   for (const r of list) {
     const s = cleanScenario(r, clean)
@@ -45,13 +48,17 @@ export function parseScenarios(parsed, clean) {
 // Scorecard: { scores: { axis: 1..5 }, overall 1..5, goalMet, summary, strengths[], tips[], cards[{front,back}] }.
 // Unknown axes are dropped, missing ones left out (the UI shows only what was judged); overall falls back to
 // the mean of the scores.
-export function normalizeScorecard(raw, axes, clean = (s) => s) {
-  if (!raw || typeof raw !== 'object') return null
+export function normalizeScorecard(raw0, axes, clean = (s) => s) {
+  const raw = pickObject(raw0, ['scores', 'overall'], ['scores', 'overall', 'goalMet', 'summary', 'strengths', 'tips', 'cards', 'mistakes'])
+  if (!raw) return null
   const clamp = (n) => Math.max(1, Math.min(SCORE_MAX, Math.round(Number(n))))
+  // A score as "4/5" or "4 out of 5" is its first number; an axis named in another case ("Accuracy") counts.
+  const num = (v) => (typeof v === 'string' ? Number((v.match(/^\s*(\d+(?:\.\d+)?)/) || [])[1]) : Number(v))
+  const given = canonKeys(raw.scores && typeof raw.scores === 'object' ? raw.scores : {}, axes)
   const scores = {}
   for (const a of axes) {
-    const v = raw.scores?.[a]
-    if (Number.isFinite(Number(v)) && v !== null && v !== '') scores[a] = clamp(v)
+    const v = given[a]
+    if (Number.isFinite(num(v)) && v !== null && v !== '') scores[a] = clamp(num(v))
   }
   const vals = Object.values(scores)
   const overall = Number.isFinite(Number(raw.overall)) && raw.overall !== null && raw.overall !== '' ? clamp(raw.overall) : vals.length ? clamp(vals.reduce((a, b) => a + b, 0) / vals.length) : 0

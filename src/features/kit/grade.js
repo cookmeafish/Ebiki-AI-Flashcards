@@ -2,6 +2,9 @@
 // Subject-agnostic: "accents" only matter where the text has them.
 import { answerInQuestionText, leakNorm, NO_SPACE_SCRIPT, HANGUL } from '../../utils/leak'
 import { clampTier, tierTeaches } from '../../utils/questionTier'
+import { canonKeys } from '../../utils/aiJson'
+
+const QUESTION_KEYS = ['question', 'prompt', 'type', 'choices', 'answer', 'accepted', 'acceptedAnswers', 'explanation', 'target', 'say', 'speak', 'open', 'tier']
 
 // Edge punctuation, Latin and CJK (猫。 is 猫). NFKC folds full-width letters and half-width kana (ＲＡＩＤ is RAID).
 const TRAILING_PUNCT = /[\s.,;:!?¡¿"'`´“”‘’«»()[\]。、，．！？：；「」『』【】（）〈〉《》・…]+$/u
@@ -73,7 +76,12 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
   const out = []
   for (const given of raw) {
     if (!given || typeof given !== 'object') continue
-    const q = { ...given }
+    // Keys in another case ("Question", "accepted_answers" aside: see below) and a single accepted answer sent as a
+    // string instead of a list ("accepted": "perro") are read as asked; "open": "false" is off, not a truthy string.
+    const q = { ...canonKeys(given, QUESTION_KEYS) }
+    if (typeof q.accepted === 'string' && q.accepted.trim()) q.accepted = [q.accepted]
+    if (!Array.isArray(q.accepted) && Array.isArray(q.acceptedAnswers)) q.accepted = q.acceptedAnswers
+    if (typeof q.open === 'string') q.open = /^(true|yes|1)$/i.test(q.open.trim())
     if (Array.isArray(q.choices)) {
       q.choices = q.choices.map((c) => clean(String(c ?? '')))
       if (typeof q.answer === 'string') {

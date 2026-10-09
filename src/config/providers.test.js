@@ -132,9 +132,9 @@ describe('reasoning models that spend the whole budget on thinking', () => {
     expect(calls).toHaveLength(1)
   })
 
-  it('does not retry when the model simply answered nothing without hitting the cap', async () => {
+  it('does not retry when the model simply answered nothing without hitting the cap (an error, never "")', async () => {
     const calls = stub(() => okOpenAi('', 'stop'))
-    await PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o', undefined, 600)
+    await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o', undefined, 600)).rejects.toThrow(/^API 200: empty/)
     expect(calls).toHaveLength(1)
   })
 })
@@ -241,7 +241,7 @@ describe('every provider handles the shared call contract', () => {
     }
   })
 
-  it('returns a string (never undefined) so parseAiJson callers never crash', async () => {
+  it('never returns undefined or "": an empty reply to a real call is an "API 200: empty" error, a probe gets a string', async () => {
     const empty = {
       anthropic: () => new Response(JSON.stringify({}), { status: 200 }),
       gemini: () => new Response(JSON.stringify({}), { status: 200 }),
@@ -251,8 +251,11 @@ describe('every provider handles the shared call contract', () => {
     for (const prov of Object.keys(PROVIDERS)) {
       vi.unstubAllGlobals()
       stub(empty[prov])
-      const out = await PROVIDERS[prov].call('k', 'sys', 'u', null, undefined, 100)
-      expect(typeof out, `${prov} returned a non-string`).toBe('string')
+      await expect(PROVIDERS[prov].call('k', 'sys', 'u', null, undefined, 100), prov).rejects.toThrow(/^API 200: empty/)
+      vi.unstubAllGlobals()
+      stub(empty[prov])
+      const probe = await PROVIDERS[prov].call('k', 'ping', 'hi', null, undefined, 4)
+      expect(typeof probe, `${prov} returned a non-string`).toBe('string')
     }
   })
 })
@@ -350,5 +353,68 @@ describe('a reply cut off by its own reasoning', () => {
     const calls = stub(() => okOpenAi('Long text that hit the cap', 'length'))
     await PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o-mini', undefined, 600)
     expect(calls).toHaveLength(1)
+  })
+})
+
+describe('a model that takes no system role', () => {
+  const okGem = (text) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] }), { status: 200 })
+
+  it('OpenAI-compatible: retries once with the instructions folded into the user turn', async () => {
+    const calls = stub((n) => (n === 1
+      ? badRequest("Unsupported value: 'messages[0].role' does not support 'system' with this model.")
+      : okOpenAi('hi')))
+    const out = await PROVIDERS.openai.call('k', 'SYS', 'USER', 'o1-mini', undefined, 2000)
+    expect(out).toBe('hi')
+    expect(calls).toHaveLength(2)
+    expect(calls[0].body.messages[0].role).toBe('system')
+    expect(calls[1].body.messages).toHaveLength(1)
+    expect(calls[1].body.messages[0]).toEqual({ role: 'user', content: 'SYS\n\nUSER' })
+    expect(calls[1].body.max_completion_tokens).toBe(2000)
+  })
+
+  it('OpenAI-compatible: keeps the images when it folds', async () => {
+    const calls = stub((n) => (n === 1 ? badRequest("Unsupported value: 'messages[0].role' does not support 'system' with this model.") : okOpenAi('hi')))
+    await PROVIDERS.openai.call('k', 'SYS', 'USER', 'o1-mini', [{ mediaType: 'image/png', base64: 'AAAA' }], 2000)
+    const content = calls[1].body.messages[0].content
+    expect(content[0]).toEqual({ type: 'text', text: 'SYS\n\nUSER' })
+    expect(JSON.stringify(content)).toContain('AAAA')
+  })
+
+  it('Gemini: a model without system instructions gets them at the top of the user turn', async () => {
+    const calls = stub((n) => (n === 1 ? badRequest('Developer instruction is not enabled for models/gemma-3-27b-it') : okGem('ok')))
+    const out = await PROVIDERS.gemini.call('k', 'SYS', 'USER', 'gemma-3-27b-it', undefined, 500)
+    expect(out).toBe('ok')
+    expect(calls).toHaveLength(2)
+    expect(calls[0].body.system_instruction).toBeTruthy()
+    expect(calls[1].body.system_instruction).toBeUndefined()
+    expect(calls[1].body.contents[0].parts[0].text).toBe('SYS\n\nUSER')
+  })
+
+  it('does not fold for an unrelated 400', async () => {
+    const calls = stub(() => badRequest('Invalid value for messages'))
+    await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o', undefined, 2000)).rejects.toThrow(/API 400/)
+    expect(calls).toHaveLength(1)
+  })
+})
+
+describe('Anthropic: a reply cut off by its own thinking', () => {
+  const claude = (content, stop) => new Response(JSON.stringify({ content, stop_reason: stop }), { status: 200 })
+  it('retries once with room and keeps the longer reply', async () => {
+    const calls = stub((n) => (n === 1
+      ? claude([{ type: 'thinking', thinking: '...' }, { type: 'text', text: 'Half an ans' }], 'max_tokens')
+      : claude([{ type: 'thinking', thinking: '...' }, { type: 'text', text: 'A whole answer.' }], 'end_turn')))
+    const out = await PROVIDERS.anthropic.call('k', 'sys', 'user', 'claude-x', undefined, 600)
+    expect(out).toBe('A whole answer.')
+    expect(calls).toHaveLength(2)
+    expect(calls[1].body.max_tokens).toBeGreaterThan(600)
+  })
+  it('keeps a reply cut without thinking as is (no retry)', async () => {
+    const calls = stub(() => claude([{ type: 'text', text: 'Cut' }], 'max_tokens'))
+    await expect(PROVIDERS.anthropic.call('k', 'sys', 'user', 'claude-x', undefined, 600)).resolves.toBe('Cut')
+    expect(calls).toHaveLength(1)
+  })
+  it('keeps the cut reply when the retry fails', async () => {
+    stub((n) => (n === 1 ? claude([{ type: 'thinking', thinking: '...' }, { type: 'text', text: 'Cut' }], 'max_tokens') : new Response('busy', { status: 529 })))
+    await expect(PROVIDERS.anthropic.call('k', 'sys', 'user', 'claude-x', undefined, 600)).resolves.toBe('Cut')
   })
 })

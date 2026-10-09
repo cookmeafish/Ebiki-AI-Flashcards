@@ -193,7 +193,8 @@ export const S = {
     display: 'inline-block', maxWidth: '100%', margin: '0 auto',
     boxShadow: SHADOW.lg,
   },
-  mainImage: { display: 'block', maxWidth: '100%', maxHeight: '75vh', height: 'auto', width: 'auto' },
+  // vh divided by the app zoom (the body is zoomed): 75vh at zoom 2 was 150% of the window.
+  mainImage: { display: 'block', maxWidth: '100%', maxHeight: 'calc(75vh / var(--app-zoom, 1))', height: 'auto', width: 'auto' },
   overlayLayer: { position: 'absolute', inset: 0 },
   capturedOverlay: {
     position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
@@ -234,13 +235,15 @@ export const S = {
     fontFamily: FONT.body, fontWeight: 700,
   },
   expandedWrap: {
-    position: 'relative', maxWidth: '95vw', maxHeight: '92vh',
-    display: 'inline-block',
+    // Viewport units divided by the app zoom, minus the backdrop's padding: at zoom 2 (or on a phone) the picture
+    // ran past the window, the box clipped it, and every word highlight sat off its word.
+    position: 'relative', maxWidth: 'calc(100vw / var(--app-zoom, 1) - 48px)', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 48px)',
+    display: 'inline-block', flexShrink: 0,
     cursor: 'default', borderRadius: RADIUS.lg, overflow: 'hidden',
     boxShadow: SHADOW.xl,
   },
   expandedImg: {
-    display: 'block', maxWidth: '95vw', maxHeight: '92vh', width: 'auto', height: 'auto',
+    display: 'block', maxWidth: 'calc(100vw / var(--app-zoom, 1) - 48px)', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 48px)', width: 'auto', height: 'auto',
   },
 
   // Tooltip

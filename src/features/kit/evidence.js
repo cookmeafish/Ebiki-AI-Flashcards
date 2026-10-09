@@ -5,6 +5,7 @@
 // mode, the Discover profile, the practice log and feature progress (Legends map, raids). Legends uses it for
 // "Use what Ebiki knows"; the learner feature uses it to give a level to a learner who never took the exam.
 import { formatLearnerContext, contextSources } from './learnerContext'
+import { pickObject } from '../../utils/aiJson'
 
 // How much is enough to judge a level without a test. Points: a studied card = 1 (its real stats tell how well
 // it is known); a graded study answer = 1/3; the learner's own chat words = 1 per 15 words (capped: chats alone
@@ -121,7 +122,8 @@ const leadNumber = (v) => {
   const m = /^\s*(-?\d+(?:[.,]\d+)?)/.exec(String(v ?? ''))
   return m ? Number(m[1].replace(',', '.')) : NaN
 }
-export function parseEvidenceLevel(raw, clean = (s) => s, levelMax = 130, { cautious = false } = {}) {
+export function parseEvidenceLevel(raw0, clean = (s) => s, levelMax = 130, { cautious = false } = {}) {
+  const raw = pickObject(raw0, ['level'], ['level', 'confidence', 'strengths', 'gaps', 'why']) // wrapped, or "Level"
   const lv = leadNumber(raw?.level)
   if (!raw || typeof raw !== 'object' || !Number.isFinite(lv)) return null
   const pct = typeof raw.confidence === 'string' && /%\s*$/.test(raw.confidence)

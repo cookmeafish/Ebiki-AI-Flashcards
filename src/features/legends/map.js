@@ -12,6 +12,7 @@
 //              storySeen, chestOpened, nemesis ({ itemIds, at } after a lost boss fight), bonusLife, legendary
 // Map extras:  helpers ({ scroll, shield }), days ({ 'YYYY-MM-DD': steps finished }) for the journey heatmap
 import { gradeIsRight, gradeIsSolid } from '../../config/grading'
+import { canonKeys, pickObject } from '../../utils/aiJson'
 export const MAP_VERSION = 1
 export const AREAS = { min: 3, max: 12, plan: 8 }       // areas planned at once (titles only, detail comes later)
 export const ITEMS = { min: 4, max: 24 }
@@ -71,8 +72,12 @@ export function slug(text, used = new Set(), fallback = 'area') {
 // ── Parsing what the model planned ──────────────────────────────────────────────────────────────────────────
 
 // Map plan → [{ title, theme, motif, palette }] or null when too little came back.
-export function parseMapPlan(raw, clean) {
-  const list = (Array.isArray(raw) ? raw : Array.isArray(raw?.areas) ? raw.areas : [])
+export function parseMapPlan(raw0, clean) {
+  // The list under "Areas" or another key ({"plan": [...]}) too.
+  const raw = canonKeys(raw0, ['areas'])
+  const other = raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.values(raw).find((v) => Array.isArray(v) && v.length) : null
+  const list = (Array.isArray(raw) ? raw : Array.isArray(raw?.areas) ? raw.areas : other || [])
+    .map((a) => canonKeys(a, ['title', 'theme', 'motif', 'palette']))
     .map((a) => (typeof a === 'string' ? { title: a } : a)) // a plain list of titles is still a plan
   const out = []
   const seen = new Set()
@@ -123,8 +128,10 @@ const KIND_ALIASES = { grammar: 'rule', orthography: 'rule', spelling: 'rule', p
 const itemKind = (v) => { const k = String(v || '').trim().toLowerCase(); return ITEM_KINDS.includes(k) ? k : KIND_ALIASES[k] || 'term' }
 // A back written as a list of lines reads as those lines (String() joined them with commas).
 const backText = (v) => (Array.isArray(v) ? v.map((x) => String(x ?? '').trim()).filter(Boolean).join('\n') : String(v ?? ''))
-export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
-  if (!raw || typeof raw !== 'object') return null
+export function parseAreaDetail(raw0, clean, { areaId = 'a' } = {}) {
+  // A wrapped area ({"area": {...}}) or keys in another case ("Items") read the same.
+  const raw = pickObject(raw0, ['items'], ['items', 'nodes', 'boss', 'story', 'canDo', 'bonus'])
+  if (!raw) return null
   const used = new Set()
   const items = []
   // Nodes name items by their RAW position: a skipped item (empty, or a repeat) shifted every later one, and levels
@@ -537,7 +544,8 @@ export function appendAreas(map, plan, now = Date.now()) {
 // ── Edits proposed by Ebi ───────────────────────────────────────────────────────────────────────────────────
 
 // { areas: [{ id?, title, theme, motif, palette }], note } or null. The list is the WHOLE map as the model wants it.
-export function parseMapEdit(raw, clean) {
+export function parseMapEdit(raw0, clean) {
+  const raw = pickObject(raw0, ['areas'], ['areas', 'note'])
   const list = Array.isArray(raw?.areas) ? raw.areas : null
   if (!list) return null
   const areas = list.map((a) => ({

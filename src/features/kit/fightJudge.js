@@ -9,6 +9,7 @@
 // lower it: a right answer is never marked wrong after the fact.
 
 import { clampTier, tierTeaches, tierOpen } from '../../utils/questionTier'
+import { canonKeys } from '../../utils/aiJson'
 
 export const VERDICT_MAX_TOKENS = 120
 export const EXPLAIN_MAX_TOKENS = 400
@@ -63,13 +64,17 @@ const rulesFor = (subject) => (subject?.isLanguage
 // The one object a grading reply holds, however the model wrapped it: a list of one ([{"target": true, ...}]) or a
 // wrapper key ({"verdict": {...}}, {"result": {...}}). Read as nothing, the grading "did not happen" and the learner
 // had to answer again on every provider that wraps. `keys`: the fields that mark the real object.
+// Keys in another case or spelling ({"Target": true, "accents_only": false}) are read as the ones asked for.
+const GRADE_KEYS = ['target', 'all', 'accentsOnly', 'correct', 'right', 'note', 'fix', 'why', 'different', 'question', 'answer']
 export const gradeObject = (j, keys) => {
-  const has = (o) => o && typeof o === 'object' && !Array.isArray(o) && keys.some((k) => k in o)
-  if (Array.isArray(j)) return j.find(has) || null
+  const canon = (o) => canonKeys(o, [...new Set([...keys, ...GRADE_KEYS])])
+  const has = (o) => o && typeof o === 'object' && !Array.isArray(o) && keys.some((k) => k in canon(o))
+  const pick = (o) => (has(o) ? canon(o) : null)
+  if (Array.isArray(j)) return pick(j.find(has))
   if (!j || typeof j !== 'object') return null
-  if (has(j)) return j
+  if (has(j)) return canon(j)
   const inner = Object.values(j).filter((v) => v && typeof v === 'object')
-  return inner.length === 1 ? (Array.isArray(inner[0]) ? inner[0].find(has) || null : has(inner[0]) ? inner[0] : null) : null
+  return inner.length === 1 ? (Array.isArray(inner[0]) ? pick(inner[0].find(has)) : pick(inner[0])) : null
 }
 
 // THE FAST VERDICT: three flags, nothing else.

@@ -40,7 +40,9 @@ const costText = (sum) => (sum.cost > 0 || sum.unpricedTokens === 0 ? formatCost
 
 // Session + all-time totals, the per-model list with "Set price", the note and Reset. Used by the counter's panel
 // and by Settings > AI & cost.
-export function UsageDetails({ t, confirmDialog, live = true }) {
+// `foldModels`: the per-model list folds behind its heading (Settings, where the pane is long); open by itself while a
+// row has no price, so its "Set price" stays in view.
+export function UsageDetails({ t, confirmDialog, live = true, foldModels = false }) {
   const { total, setTotal } = useUsageTotals(live)
   // The by-model row whose price is being typed: { key, provider, model, inp, out, error }.
   const [priceEdit, setPriceEdit] = useState(null)
@@ -73,19 +75,20 @@ export function UsageDetails({ t, confirmDialog, live = true }) {
     <>
       {block(t('usage_session'), s)}
       {all && block(t('usage_total'), all, total.since ? t('usage_since', { date: new Date(total.since).toLocaleDateString() }) : '')}
-      {all && all.rows.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-ink)', marginBottom: 4 }}>{t('usage_byModel')}</div>
-          {rowsToShow(all.rows, 10).map((r) => {
+      {all && all.rows.length > 0 && (() => {
+        const shown = rowsToShow(all.rows, 10)
+        const list = shown.map((r) => {
             const key = `${r.provider}|${r.model}`
             const editing = priceEdit && priceEdit.key === key
             const own = prices && prices[key]
             const num = (v) => { const x = Number(String(v).replace(',', '.').trim()); return String(v).trim() !== '' && Number.isFinite(x) && x >= 0 && x < 10000 ? x : null }
             return (
               <div key={key} style={{ padding: '2px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 10.5, color: 'var(--c-ink-dim)' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.model || r.provider}</span>
-                  <span style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', columnGap: 8, flexWrap: 'wrap', fontSize: 10.5, color: 'var(--c-ink-dim)' }}>
+                  {/* The whole id stays readable (it is what "Set price" is for): it breaks anywhere, and on a narrow
+                      screen the numbers wrap under it instead of pushing the button off the edge. */}
+                  <span style={{ minWidth: 0, flex: '1 1 120px', overflowWrap: 'anywhere' }}>{r.model || r.provider}</span>
+                  <span style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
                     {formatTokens(r.input + r.output)} · {r.cost === null ? t('usage_noPrice') : formatCost(r.cost)}{r.ownPrice ? ` (${t('usage_priceCustom')})` : ''}
                     <button type="button" className="ui-btn" onClick={() => setPriceEdit(editing ? null : { key, provider: r.provider, model: r.model, inp: own ? String(own[0]) : '', out: own ? String(own[1]) : '', error: false })}
                       aria-label={t('usage_setPrice')}
@@ -117,9 +120,20 @@ export function UsageDetails({ t, confirmDialog, live = true }) {
                 })()}
               </div>
             )
-          })}
-        </div>
-      )}
+          })
+        const heading = <>{t('usage_byModel')} <span style={{ fontWeight: 500, color: 'var(--c-ink-dim)' }}>({shown.length})</span></>
+        return foldModels ? (
+          <details data-usage-models="" ref={(el) => { if (el && !el.dataset.init) { el.dataset.init = '1'; if (shown.some((r) => r.cost === null)) el.open = true } }} style={{ marginBottom: 10 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 11, fontWeight: 800, color: 'var(--c-ink)', marginBottom: 4, listStyle: 'revert' }}>{heading}</summary>
+            {list}
+          </details>
+        ) : (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-ink)', marginBottom: 4 }}>{heading}</div>
+            {list}
+          </div>
+        )
+      })()}
       <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', lineHeight: 1.4, marginBottom: 8 }}>{t('usage_note')}</div>
       <button type="button" className="ui-btn" onClick={async () => {
         if (!(await confirmDialog(t('usage_resetConfirm')))) return

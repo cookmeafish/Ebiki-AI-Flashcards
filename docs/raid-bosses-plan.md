@@ -348,9 +348,16 @@ trophies work. Do not recreate it.
 - **Concept**: a smug, swaggering, gold-dripping sewer rat king (long-snouted wedge skull, torn ear with gold hoops,
   scar, gold grill, buck teeth, round rat pupils, crown, shades). Smug in EVERY phase.
 - **Phases**: 1 holding court on his coin throne before an emerald vault, cigar, scepter, henchmen on the hoard.
-  2 High Roller: neon casino, three-quarter lean over the felt, royal flush, roulette halo. 3 The Gold Emperor (2026-10-08
-  redraw, "phase 3 is bad"): the peak of his rise, still smug: from below, chin up, head turned right, crowned in full
-  regalia on a gold throne in his vault, rat-skull scepter, a goblet of coins raised in a toast, gold raining down.
+  2 High Roller: neon casino, three-quarter lean over the felt, royal flush, roulette halo (the felt and its chip stacks
+  sit OUTSIDE his breathing group: "the green table should not move"). 3 The Chad Emperor (2026-10-09, "make this guy a
+  chad on phase 3"; a first chad with a new long-snouted head and cold grey palette "looks like a different character
+  entirely"): the SAME rat as phases 1 and 2. His head IS phase 2's head (copied by the build, a touch chin-up, crown
+  tilted, neon rims turned gold); phase 1's pink clawed paws, link chains, crown medallion, ermine and henchmen. A heroic
+  low poster shot: V-taper, bare furry chest with cream chest fur, pecs and abs as light and shadow planes; his left arm
+  (viewer right) flexes, bicep pumping, and he looks away from it; the other paw on his hip under a red velvet drape
+  with ermine and a crown brooch; the robe billows behind. His gold vault in warm red: turning rays of gold light, an
+  arched vault door with chasing marquee lamps, gold spouts pouring tumbling coins, shafts, sparkles, coins in the air;
+  coin mounds at his feet and two small henchmen on gold-bar stacks fanning him.
 - **Ability (hoard, decision)**: a right answer takes a coin, a miss loses one; Cheese Bomb (3 coins) deals 3; Lucky Tail
   (2 coins) saves the next heart; at 5 coins the rats throw a bomb for you. Art: `lg-ab-hoard-0..2`.
 - **Tint**: the red velvet. **Card**: `lgCoinToss`.
@@ -369,18 +376,27 @@ trophies work. Do not recreate it.
 
 ## 26. Showman: the Infernal Impresario
 
-- **Concept**: a smug ash-grey demon showman (ember slit eyes, gold star under the eye, swept silver pompadour, ringed
-  black horns, emerald sequin tailcoat, white gloves with claws through the tips), clearly not the Legends Grand
-  Illusionist. ONE character per phase, big in frame; Comedy and Tragedy are his act. Smug in every phase.
-- **Phases**: 1 the Overture: between crimson drapes, Comedy raised on a gold baton beside his face, Tragedy floating
-  over his glove. 2 the Swap (the owner asked for it back): backstage at a bulb-rimmed mirror, dutch angle, head three
-  quarters, cold violet eyes; the masks float mid switch and the idle swaps them across his face. 3 the Grand Finale:
-  center stage from below, crossing spotlights, a fan of giant cards, cape and chain of office, both masks raised like
-  trophies, a broad smug grin, roses and cards raining. Never a doubled head or a sawn box again ("two of the same
-  character", "looks broken").
+- **Concept** (v3, redrawn from scratch 2026-10 after "this guy looks like a soyboy ... he looks awful"): a sinister,
+  charismatic ringmaster who owns the stage, clearly not the Legends Grand Illusionist. A strong angular face (heavy V
+  brows, deep-set glowing gold eyes, sharp cheekbones, a square stubbled jaw), a waxed black handlebar moustache and a
+  pointed chin tuft, slick black hair silvered at the temples, a tall black top hat, broad shoulders under gold bullion
+  epaulettes, a frogged ringmaster tailcoat, white gloves that GRIP (a baton, a cane, a hat brim). ONE character per
+  phase, big in frame; Comedy (gold, ruby) and Tragedy (pearl silver, sapphire tear) are his act. Smug and in command in
+  every phase, escalating in spectacle.
+- **Phases**: 1 the Overture: straight on between teal house curtains, footlights from below, midnight coat; Comedy
+  raised on a gold baton, the other glove on his cane with Tragedy floating over the knob; a cocked brow, a sly smirk
+  with a gold tooth. 2 the Swap: backstage under a swinging work lamp, dutch angle, closer, head three quarters, one fist
+  tipping the hat brim low over burning half-lidded eyes, the other glove conjuring; the masks float at his face and the
+  idle swaps them across it. Cold violet light. 3 the Grand Finale: a quick change into a scarlet showcoat with a gold
+  waistcoat, a medal and a gold-lined cape; from below at center stage, a peacock fan of giant cards behind him, crossing
+  spotlights, arms flung up in a V (cane raised like a baton, glove spread), head tipped back in a broad grin, the masks
+  circling at his shoulders, cards, roses and stars raining. Never a doubled head or a sawn box ("two of the same
+  character", "looks broken"); never a soft pretty-boy face.
 - **Ability (encore)**: right answers win applause, the 4th = Encore +3; misses shed tears, the 2nd tear is a Plot Twist
-  leaving the applause one short of an Encore. Art: `lg-ab-comedy`, `lg-ab-tragedy`, `lgfa-showman-comedy`.
-- **Tint**: the ember ascot. **Card**: `lgCurtainPart`. **Owner**: masks are the core of his act.
+  leaving the applause one short of an Encore. Art: `lg-ab-comedy`, `lg-ab-tragedy`, `lgfa-showman-comedy`; the fight
+  moves `lg-showman-arml/-armr/-head/-comedy/-tragedy/-fan` (pivots per phase in `fx/showman.jsx`).
+- **Tint**: the ember silk cravat. **Card**: `lgCurtainPart`. **Owner**: masks are the core of his act; "make him a
+  villain who owns the stage, not a pretty boy".
 
 ## 27. Cerberus: the Hound of the Last Gate
 

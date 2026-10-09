@@ -71,6 +71,11 @@ function drawn(ab, phase) {
   const king = ALL.filter((n) => n.cls.includes('lg-hydra-king') && visible(n, rules, phase)).length
   return { heads: king + on(/^lg-hydra-s\d$/).length, slots: on(/^lg-hydra-s\d$/), stumps: on(/^lg-hydra-stump\d$/) }
 }
+// The shoulders on the chest every neck and stump grows out of (lg-hydra-root<k>; 1 = the King's).
+function shoulders(ab, phase) {
+  const rules = stateRules(mod.artState({ ab }))
+  return ALL.filter((n) => n.cls.some((c) => /^lg-hydra-root\d$/.test(c)) && visible(n, rules, phase)).map((n) => Number(n.cls.find((c) => /^lg-hydra-root\d$/.test(c)).slice(-1))).sort()
+}
 const range = (a, b) => { const out = []; for (let i = a; i <= b; i++) out.push(i); return out }
 
 const o = { ability: 'heads', need: 400, lives: 50 }
@@ -86,6 +91,7 @@ describe('raids/hydra.svg draws the heads and the stumps', () => {
         expect(inPhase(`lg-hydra-s${k}`).length, `phase ${phase} slot ${k}`).toBe(1)
         expect(inPhase(`lg-hydra-stump${k}`).length, `phase ${phase} stump ${k}`).toBe(1)
         expect(inPhase(`lg-hydra-n${k}`).length, `phase ${phase} neck ${k}`).toBe(1)
+        expect(inPhase(`lg-hydra-root${k}`).length, `phase ${phase} shoulder ${k}`).toBe(1)
       }
     }
   })
@@ -95,6 +101,8 @@ describe('raids/hydra.svg draws the heads and the stumps', () => {
       for (let heads = 1; heads <= top; heads++) {
         for (const phase of [1, 2, 3]) {
           expect(drawn({ heads, top }, phase), `phase ${phase}, ${heads} heads, top ${top}`).toEqual({ heads, slots: range(2, heads), stumps: range(heads + 1, top) })
+          // every head and every stump stands on its own shoulder, and no shoulder stands bare
+          expect(shoulders({ heads, top }, phase), `phase ${phase}, ${heads} heads, top ${top}: shoulders`).toEqual(range(1, top))
         }
       }
     }
@@ -102,7 +110,10 @@ describe('raids/hydra.svg draws the heads and the stumps', () => {
   it('a state saved before stumps were tracked (no top) draws like before: the base three, stumps for cut base heads', () => {
     for (let heads = 1; heads <= HYDRA_MAX_HEADS; heads++) {
       expect(topOf({ heads })).toBe(Math.max(heads, mod.K.base))
-      for (const phase of [1, 2, 3]) expect(drawn({ heads }, phase)).toEqual({ heads, slots: range(2, heads), stumps: range(heads + 1, mod.K.base) })
+      for (const phase of [1, 2, 3]) {
+        expect(drawn({ heads }, phase)).toEqual({ heads, slots: range(2, heads), stumps: range(heads + 1, mod.K.base) })
+        expect(shoulders({ heads }, phase)).toEqual(range(1, Math.max(heads, mod.K.base)))
+      }
     }
   })
   it('a played fight: after every strike the drawing shows the module\'s heads, and every cut slot as a stump', () => {
@@ -117,6 +128,7 @@ describe('raids/hydra.svg draws the heads and the stumps', () => {
         const d = drawn(s.ab, phase)
         expect(d.heads).toBe(s.ab.heads)
         expect(d.stumps).toEqual(range(s.ab.heads + 1, s.ab.top))
+        expect(shoulders(s.ab, phase)).toEqual(range(1, s.ab.top))
         maxStumps = Math.max(maxStumps, d.stumps.length)
       }
     }
@@ -159,6 +171,12 @@ describe('raids/hydra.svg draws the heads and the stumps', () => {
     expect(css).toMatch(/\.lg-boss\[data-fx="cauterize"\]\[data-ab-burnt="6"\] \.lg-hydra-stump6[^{]*\{ display: inline !important; animation: lgrHydraBurn/)
     expect(css).toContain('.lg-boss[data-fx="cauterize"][data-ab-burnt="0"] .lg-hydra-stump3') // an older state: the base three
     expect(css).not.toContain('lg-hydra-s1') // the King is never cut or grown
+    // a head grown where no stump stood brings its shoulder up with it; one regrown from a stump keeps the shoulder
+    expect(css).toMatch(/\.lg-boss\[data-fx="grow"\]\[data-ab-heads="5"\]\[data-ab-grew="2"\]\[data-ab-regrew="1"\] \.lg-hydra-root5[^{]*\{ animation: lgrHydraSprout/)
+    expect(css).not.toContain('[data-ab-heads="5"][data-ab-grew="2"][data-ab-regrew="1"] .lg-hydra-root4')
+    // the burn sears the shoulders of the stumps beyond the base three flat with them
+    expect(css).toMatch(/\.lg-boss\[data-fx="cauterize"\]\[data-ab-burnt="6"\] \.lg-hydra-root6[^{]*\{ display: inline !important; animation: lgrHydraSink/)
+    expect(css).not.toContain('[data-ab-burnt="6"] .lg-hydra-root3')
     expect(abilityCss('heads', { 'data-ab-heads': 4 })).toContain(css)
   })
   it('between the strike and its moment (data-fx-pending) the drawing holds the picture from BEFORE the strike', () => {

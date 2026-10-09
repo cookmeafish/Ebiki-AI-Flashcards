@@ -38,7 +38,7 @@ async function ankiRequest(action, params = {}) {
   try { data = await res.json() } catch { throw new Error(ankiText('anki_errIncomplete', 'Anki sent an incomplete reply. Check that Anki is open, then try again.')) }
   ankiLog(`response: ${action}`, data)
   // The proxy's own messages carry a code: shown in the app language. AnkiConnect's errors pass through as written.
-  const PROXY_ERR = { notRunning: 'anki_errNotRunning', timeout: 'anki_errTimeout', timeoutChange: 'anki_errTimeoutChange', closed: 'anki_errClosed' }
+  const PROXY_ERR = { notRunning: 'anki_errNotRunning', timeout: 'anki_errTimeout', timeoutChange: 'anki_errTimeoutChange', closed: 'anki_errClosed', refused: 'anki_errRefused' }
   if (data && data.error) {
     const e = new Error(PROXY_ERR[data.code] ? ankiText(PROXY_ERR[data.code], data.error) : data.error)
     if (data.code) e.code = data.code // 'timeoutChange' = the change is still queued in Anki: a retry would repeat it

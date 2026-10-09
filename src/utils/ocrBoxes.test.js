@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ocrMatchKey, snapWordsToBoxes, overlayBoxes, hoverTooltipPos, readingLines } from './ocrBoxes'
+import { ocrMatchKey, snapWordsToBoxes, overlayBoxes, hoverTooltipPos, readingLines, pinnedTooltipBox } from './ocrBoxes'
 
 const box = (x0, y0, x1, y1) => ({ x0, y0, x1, y1 })
 const vw = (text, b) => ({ text, bbox: b })
@@ -163,5 +163,35 @@ describe('readingLines', () => {
   it('ignores words without a box', () => {
     expect(readingLines([{ text: 'x' }, vw('a', box(0, 0, 10, 10))])).toEqual([{ line: 0, idxs: [1] }])
     expect(readingLines(null)).toEqual([])
+  })
+})
+
+describe('pinnedTooltipBox', () => {
+  it('fits a phone: never wider than the viewport, slimmer padding', () => {
+    const vw = 390 / 1.35, vh = 844 / 1.35
+    for (const expanded of [false, true]) {
+      const b = pinnedTooltipBox({ x: 200, y: 300 }, vw, vh, expanded)
+      expect(b.maxWidth).toBeLessThanOrEqual(vw - 20)
+      expect(b.minWidth).toBeLessThanOrEqual(vw - 20)
+      if (expanded) expect(b.width).toBeLessThanOrEqual(vw - 20)
+      expect(b.left).toBeGreaterThanOrEqual(10)
+      expect(b.left + (b.width || b.maxWidth)).toBeLessThanOrEqual(vw - 10 + 0.001)
+      expect(b.padding).toBeTruthy()
+    }
+  })
+  it('keeps desktop sizes and the saved spot when it fits', () => {
+    const b = pinnedTooltipBox({ x: 100, y: 50 }, 1400, 900, false)
+    expect(b).toMatchObject({ left: 100, top: 50, minWidth: 300, maxWidth: 400, padding: null })
+    expect(pinnedTooltipBox({ x: 100, y: 50 }, 1400, 900, true)).toMatchObject({ width: 500, maxWidth: 900 })
+  })
+  it('clamps a spot saved on a bigger screen and caps the height to the room below', () => {
+    const b = pinnedTooltipBox({ x: 3000, y: 3000 }, 1000, 700, true)
+    expect(b.left).toBe(1000 - 500 - 10)
+    expect(b.top).toBe(110) // room for the estimated 580px height
+    expect(b.maxHeight).toBe(580)
+  })
+  it('survives junk', () => {
+    const b = pinnedTooltipBox(null, NaN, undefined)
+    expect(Number.isFinite(b.left) && Number.isFinite(b.top) && Number.isFinite(b.maxHeight)).toBe(true)
   })
 })

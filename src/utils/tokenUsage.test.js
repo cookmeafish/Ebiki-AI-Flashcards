@@ -116,6 +116,19 @@ describe('prices: snapshots with their own published price, and non-text models'
     // a price the user typed still wins
     expect(priceFor('openai', 'gpt-4o-mini-tts', { 'openai|gpt-4o-mini-tts': [0.6, 12] })).toEqual([0.6, 12])
   })
+  it('a family pattern never prices a sibling with its own (higher or lower) price', () => {
+    expect(priceFor('openai', 'gpt-3.5-turbo')).toEqual([0.5, 1.5])
+    expect(priceFor('openai', 'gpt-3.5-turbo-0125')).toEqual([0.5, 1.5])
+    expect(priceFor('openai', 'gpt-3.5-turbo-instruct')).toEqual([1.5, 2])
+    expect(priceFor('openai', 'gpt-3.5-turbo-1106')).toEqual([1, 2])
+    expect(priceFor('openai', 'gpt-3.5-turbo-16k')).toBeNull()
+    expect(priceFor('openai', 'gpt-3.5-turbo-0613')).toBeNull()
+    expect(priceFor('openai', 'o4-mini')).toEqual([1.1, 4.4])
+    expect(priceFor('openai', 'o4-mini-2025-04-16')).toEqual([1.1, 4.4])
+    expect(priceFor('openai', 'o4-mini-deep-research')).toBeNull()
+    expect(priceFor('gemini', 'gemini-1.5-flash-8b')).toEqual([0.0375, 0.15])
+    expect(priceFor('gemini', 'gemini-1.5-flash-002')).toEqual([0.075, 0.3])
+  })
   it('current ids without a published table price stay unpriced', () => {
     for (const [prov, id] of [['anthropic', 'claude-sonnet-5-5'], ['anthropic', 'claude-fable-5-1'], ['gemini', 'gemini-3-pro-preview'], ['openai', 'gpt-5.1']]) {
       expect(priceFor(prov, id), id).toBeNull()

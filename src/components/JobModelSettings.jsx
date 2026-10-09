@@ -6,12 +6,20 @@ import { S } from '../styles/theme'
 import { C } from '../config/tokens'
 import {
   JOB_GROUPS, jobsForProvider, jobKey, jobOverride, jobOverridesOf, withoutJobOverrides, resolveJob, speechJobModel,
-  jobLabelKey, jobHintKey, jobGroupKey, jobMatches,
+  jobLabelKey, jobHintKey, jobGroupKey, jobMatches, chatModelsOnly,
 } from '../config/aiJobs'
 import { MODELS as SPEECH_MODELS } from '../speech/engines'
 import { imeActive } from '../utils/keys'
 
-const SPEECH_ID_RE = { stt: /transcri|whisper|stt|speech|audio/i, tts: /tts|speech|audio|voice/i }
+// Speech model ids by name. Not "audio" alone: Gemini's native-audio models are LIVE (streaming) models that the
+// one-shot speech requests cannot use.
+const SPEECH_ID_RE = { stt: /transcri|whisper|stt/i, tts: /tts/i }
+// The models a speech job can pick from. Gemini transcribes with an ordinary chat model (audio in, text out), so its
+// speech-to-text list is its chat list.
+// `allModels` = the provider's UNFILTERED list (App's listAllModels): the chat list never holds OpenAI's speech models.
+export const speechModels = (job, provider, provModels, allModels = []) => (job.speech === 'stt' && provider === 'gemini'
+  ? chatModelsOnly(provModels)
+  : [...new Set([...(allModels || []), ...(provModels || [])])].filter((m) => SPEECH_ID_RE[job.speech].test(m)))
 const rowLabelStyle = { fontSize: 11, color: C.ink, fontWeight: 600, flex: '1 1 160px', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }
 const usesStyle = { fontSize: 10, color: C.inkFaint, marginTop: 2, lineHeight: 1.4, wordBreak: 'break-word' }
 
@@ -30,10 +38,11 @@ function inheritedFor(job, { provider, overrides, roleDefaults, presetModel }) {
   return { model, builtIn: false }
 }
 
-function JobRow({ t, job, provider, overrides, provModels, roleDefaults, presetModel, planDeciding, custom, setCustom, setJob }) {
+function JobRow({ t, job, provider, overrides, provModels, allModels, roleDefaults, presetModel, planDeciding, custom, setCustom, setJob }) {
   const current = jobOverride(overrides, job.id)
   const inherited = inheritedFor(job, { provider, overrides, roleDefaults, presetModel })
-  const listed = job.speech ? provModels.filter((m) => SPEECH_ID_RE[job.speech].test(m)) : provModels
+  // A chat job lists chat models only (a TTS or image model picked here failed every call of the job).
+  const listed = job.speech ? speechModels(job, provider, provModels, allModels) : chatModelsOnly(provModels)
   const opts = Array.from(new Set([...listed, inherited.model, current].filter(Boolean)))
   const label = t(jobLabelKey(job.id))
   const inheritedModel = (planDeciding && !job.speech && !overrides[job.role] ? t('set_choosing') : inherited.model) || '?'
@@ -77,7 +86,7 @@ function JobRow({ t, job, provider, overrides, provModels, roleDefaults, presetM
   )
 }
 
-export default function JobModelSettings({ t, provider, providerConfig, aiModels, setAiModels, provModels = [], roleDefaults = {}, presetModel, planDeciding, card, hint }) {
+export default function JobModelSettings({ t, provider, providerConfig, aiModels, setAiModels, provModels = [], allModels = [], roleDefaults = {}, presetModel, planDeciding, card, hint }) {
   const [query, setQuery] = useState('')
   const [customJobs, setCustomJobs] = useState({}) // "<provider>:<job>" → typing a model id
   const overrides = aiModels?.[provider] || {}
@@ -97,7 +106,7 @@ export default function JobModelSettings({ t, provider, providerConfig, aiModels
   const textFor = (job) => ({ label: t(jobLabelKey(job.id)), hint: t(jobHintKey(job.id)), group: t(jobGroupKey(job.group)), role: job.role ? t('aiRole_' + job.role) : '' })
   const searching = !!query.trim()
   const rowProps = (job) => ({
-    t, job, provider, overrides, provModels, roleDefaults, presetModel, planDeciding,
+    t, job, provider, overrides, provModels, allModels, roleDefaults, presetModel, planDeciding,
     custom: !!customJobs[`${provider}:${job.id}`],
     setCustom: (on) => setCustomJobs((c) => ({ ...c, [`${provider}:${job.id}`]: on })),
     setJob: setJob(job.id),

@@ -7,8 +7,6 @@
 // The rule these guard: a grading call that fails (a reasoning model that spent the tiny verdict budget thinking, a
 // blocked reply, an outage) is NEVER a miss. A fight must not cost a heart, and a raid must not record an Again,
 // because the grader could not answer.
-import fs from 'node:fs'
-import path from 'node:path'
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { PROVIDERS } from '../../config/providers'
 import { stripAiDashes } from '../../utils/dashes'
@@ -20,9 +18,8 @@ import { parseTaunt, TAUNT_MAX_TOKENS } from './taunt'
 import { parseQuestions, fitQuestionsToKind, buildRaidPrompt, RAID_MAX_TOKENS } from '../legends/prompt'
 import { raidCardIndex } from '../legends/raid'
 
-// parseAiJson lives in App.jsx; its block is self-contained (the same load as src/utils/properties.test.js).
-const APP = fs.readFileSync(path.resolve(__dirname, '../../App.jsx'), 'utf8')
-const parseAiJson = new Function(`${APP.slice(APP.indexOf('function escapeControlsInStrings('), APP.indexOf('// ONE JSON object embedded in an AI reply'))}\nreturn parseAiJson`)()
+import { parseAiJson } from '../../utils/aiJson'
+// parseAiJson: the shared parser App.jsx hands features as ctx.ai.json (src/utils/aiJson.js).
 
 const mem = new Map()
 setPlatform({ kv: { getJson: (k, f = null) => (mem.has(k) ? JSON.parse(mem.get(k)) : f), setJson: (k, v) => { mem.set(k, JSON.stringify(v)); return true } } })

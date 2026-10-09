@@ -2,6 +2,7 @@
 // line by line with two voices, followed by comprehension questions. Shared kit so any feature (Scenes in
 // Practice, Legends later) can make one. Pure: prompt + parse only.
 import { sanitizeQuestions } from './grade'
+import { pickObject, pickList } from '../../utils/aiJson'
 
 export const SCENE_ROLE = 'study'
 // One scene writer, two jobs: a Legends story step and the Scenes practice activity.
@@ -39,9 +40,11 @@ export function buildScenePrompt(subject, items, { level = '', knowledge = '', t
 const txt = (v) => (typeof v === 'string' || typeof v === 'number' ? String(v) : '')
 
 // { title, cast: { A, B }, lines: [{ speaker, text, gloss }], questions } or null when unusable.
-export function parseScene(raw, clean = (s) => s) {
-  if (!raw || typeof raw !== 'object') return null
-  const lines = (Array.isArray(raw.lines) ? raw.lines : [])
+export function parseScene(raw0, clean = (s) => s) {
+  // A wrapped scene ({"scene": {...}}) or keys in another case ("Lines") read the same.
+  const raw = pickObject(raw0, ['lines'], ['title', 'cast', 'lines', 'questions'])
+  if (!raw) return null
+  const lines = pickList(raw.lines, 'lines', ['text'], ['speaker', 'text', 'gloss'])
     .map((l) => ({
       speaker: SPEAKERS.includes(String(l?.speaker || '').toUpperCase()) ? String(l.speaker).toUpperCase() : 'N',
       text: clean(txt(l?.text).replace(/\s+/g, ' ').trim().slice(0, LINE_CHARS)),
@@ -51,7 +54,7 @@ export function parseScene(raw, clean = (s) => s) {
     .slice(0, SCENE_LINES.max)
   if (lines.length < Math.min(3, SCENE_LINES.min)) return null
   const cast = { A: clean(txt(raw.cast?.A).trim().slice(0, 30)) || 'A', B: clean(txt(raw.cast?.B).trim().slice(0, 30)) || 'B' }
-  const questions = sanitizeQuestions((Array.isArray(raw.questions) ? raw.questions : []).filter((q) => q && typeof q === 'object')
+  const questions = sanitizeQuestions(pickList(raw.questions, 'questions', ['question'], ['question', 'explanation'])
     .map((q) => ({ ...q, question: clean(txt(q.question)), explanation: clean(txt(q.explanation)) })), { clean })
   return { title: clean(txt(raw.title).trim().slice(0, 80)), cast, lines, questions }
 }

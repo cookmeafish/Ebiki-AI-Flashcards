@@ -1,8 +1,6 @@
 // Seeded property tests for the pure helpers several screens lean on. Each property runs over a few
 // hundred generated inputs from a fixed seed, so a failure is reproducible (the failing case is printed).
 import { describe, it, expect } from 'vitest'
-import fs from 'fs'
-import path from 'path'
 import { splitTapTokens } from './tapTokens.js'
 import { flattenConfig, diffConfig, mergeConfigPatch, NESTED_CONFIG_KEYS } from './configDiff.js'
 import { cleanChatReply, boundChatHistory } from './chatReply.js'
@@ -10,6 +8,7 @@ import { snapWordsToBoxes, overlayBoxes, readingLines, hoverTooltipPos } from '.
 import { rng } from './testRng.js'
 import { planChatSave } from '../server/chatSave.js'
 import { detectHeadings, extractOutline, sliceSections, tocNorm } from '../server/knowledgeOutline.js'
+import { parseAiJson } from './aiJson.js'
 
 const forAll = (n, seed, gen, check) => {
   const r = rng(seed)
@@ -30,11 +29,7 @@ const PIECES = ['a', 'Z', 'é', 'é', 'ñ', 'ß', '1', '42', ' ', '  ', '\t', '
   'مرحبا', 'שלום', 'नमस्ते', 'Ελλάδα', 'Россия', '👩‍👩‍👧', '🏳️‍🌈', '🇪🇸', '👍🏽', '🦐', '\ud800', '​', '‍']
 const randText = (r, max = 12) => Array.from({ length: r.int(max) }, () => r.pick(PIECES)).join('')
 
-// ── parseAiJson (lives in App.jsx; its block is self-contained, so the test loads that source) ──────────
-const APP = fs.readFileSync(path.resolve(__dirname, '../App.jsx'), 'utf8')
-const startAt = APP.indexOf('function escapeControlsInStrings(')
-const endAt = APP.indexOf('// ONE JSON object embedded in an AI reply')
-const parseAiJson = new Function(`${APP.slice(startAt, endAt)}\nreturn parseAiJson`)()
+// ── parseAiJson (src/utils/aiJson.js) ──────────
 
 const JSON_KEYS = ['front', 'back', 'tags', 'id', 'correct', 'note', 'a', 'b', 'x y', 'ñ', '你好']
 // JSON values whose strings never hold a backtick (parseAiJson strips ``` fences by design).

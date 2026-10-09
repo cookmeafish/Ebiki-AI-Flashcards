@@ -1,6 +1,7 @@
 // The Mistake Gym workout prompt. ONE prompt for every subject: `subject.isLanguage` only changes what
 // "using the knowledge" means (a language is used by producing it; CompTIA, music theory or pilot training by
 // applying the concept). The model diagnoses the pattern behind the misses and tests THAT, freshly.
+import { pickList } from '../../utils/aiJson'
 export const WORKOUT_ROLE = 'study'
 export const WORKOUT_JOB = 'practice.mistakeGym'
 export const WORKOUT_MAX_TOKENS = 6000
@@ -50,8 +51,8 @@ export function buildWorkoutPrompt(subject, mistakes, { slips = '', count = QUES
 // "answer" naming the right choice with them; an index sent as the string "2" is read as the index (else the question
 // was dropped). A choice that IS that number ("1990") stays a choice text.
 export function workoutQuestions(j, clean = (s) => String(s ?? '')) {
-  const list = Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []
-  return list.filter((q) => q && typeof q === 'object').map((q) => {
+  // A bare list, another key ({"workout": [...]}), one question alone, or keys in another case read the same.
+  return pickList(j, 'questions', ['question'], ['question', 'explanation', 'target', 'choices', 'answer']).map((q) => {
     // The list names each mistake as "id: x"; a target echoed that way matched nothing (no progress, no practice log).
     const out = { ...q, question: clean(q.question), explanation: clean(q.explanation), ...(q.target != null ? { target: String(q.target).trim().replace(/^id[\s:#]*/i, '') } : {}) }
     if (!Array.isArray(q.choices)) return out

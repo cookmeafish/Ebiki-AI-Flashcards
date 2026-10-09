@@ -2,6 +2,7 @@
 // A language gets a grammar, spelling or accent rule ("When does qué carry an accent?"); any other subject a
 // principle or distinction ("RAID 1 vs RAID 0: which survives a disk failure, and why?"). Cards get memorized,
 // so the model must refuse (skip) when there is no real, general rule to teach.
+import { pickObject } from '../../utils/aiJson'
 export const RULE_JOB = 'deck.ruleCard'
 export const RULE_ROLE = 'deck'          // cards get memorized: the strongest tier
 export const RULE_MAX_TOKENS = 1200
@@ -40,8 +41,10 @@ export function buildRuleCardPrompt(subject, source, { avoid = [] } = {}) {
 const txt = (v) => (typeof v === 'string' || typeof v === 'number' ? String(v) : Array.isArray(v) ? v.filter((x) => typeof x === 'string' || typeof x === 'number').join('\n') : '')
 
 // { front, back, tags } or { skip: true, why } or null when unreadable.
-export function parseRuleCard(raw, clean = (s) => s) {
-  if (!raw || typeof raw !== 'object') return null
+export function parseRuleCard(raw0, clean = (s) => s) {
+  // A wrapped card ({"card": {...}}, [{...}]) or keys in another case ("Front") read the same.
+  const raw = pickObject(raw0, ['front', 'back', 'skip'], ['front', 'back', 'skip', 'why', 'tags'])
+  if (!raw) return null
   // Models answer the flag as text too ("yes", "True"): read as a card, it was refused as incomplete ("unreadable").
   if (raw.skip === true || /^\s*(true|yes|1)\s*$/i.test(typeof raw.skip === 'string' ? raw.skip : '')) return { skip: true, why: clean(txt(raw.why).slice(0, 200)) }
   const front = clean(txt(raw.front).replace(/\s+/g, ' ').trim()).slice(0, FRONT_MAX)

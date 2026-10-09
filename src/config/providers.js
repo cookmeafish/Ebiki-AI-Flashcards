@@ -89,6 +89,36 @@ function replyText(content) {
   return text.replace(/^\s*<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>\s*/i, '')
 }
 
+// A 400 saying the model takes no system role / system instruction (OpenAI-style role errors, Gemini's
+// "Developer instruction is not enabled"). Never a size or parameter error that merely quotes a message.
+export const systemRoleRefused = (text) => {
+  const t = String(text || '')
+  return (/role/i.test(t) && /'?system'?/i.test(t) && /unsupported|not supported|does not support|invalid|not allowed|unknown/i.test(t))
+    || /(developer|system)[ _]instruction[s]? (is |are )?not (enabled|supported)/i.test(t)
+}
+
+const foldedPrompt = (systemPrompt, userContent) => `${systemPrompt}\n\n${userContent}`
+
+// A model that cannot read images (an older or text-only model picked for an image job): the provider says so in a
+// 4xx ("image_url is only supported by certain models", "does not support image input"). aiCall moves the request to
+// a vision model on this (and only this) refusal. Never a size or format complaint about an image the model CAN read.
+export const imageInputRefused = (msg) => {
+  const t = String(msg || '')
+  return /\bAPI 4\d\d\b/.test(t) && /image|vision|multimodal|multi-modal/i.test(t)
+    && /not support|unsupported|only supported|does not support|doesn't support|not enabled|invalid content type|not allowed|cannot (?:read|process|accept)|no vision/i.test(t)
+    && !/too (?:large|big)|exceeds|maximum (?:size|allowed)|dimensions|media type/i.test(t)
+}
+
+// A real call (not a liveness probe) whose reply has no text at all: an error, never "". Returned empty, Chat saved a
+// blank bubble, a quiz read "no questions" and a grader read "no verdict" from a model that simply said nothing.
+const EMPTY_REPLY = 'API 200: empty (no text in the reply)'
+
+// A model served ONLY by OpenAI's Responses API (the "-pro" and codex models): Chat Completions answers 404/400
+// "This model is only supported in v1/responses and not in v1/chat/completions". They are in the provider's model
+// list, so a user can pick one for any job; the call is re-sent through the Responses API instead.
+const responsesOnly = (status, text) => (status === 404 || status === 400)
+  && /v1\/responses|responses api|only supported in (?:the )?(?:v1\/)?responses/i.test(String(text || ''))
+
 async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, systemPrompt, userContent, model, images, maxTokens }) {
   const userMsg = (images && images.length)
     ? [
@@ -96,10 +126,15 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
         ...images.map((im) => ({ type: 'image_url', image_url: { url: `data:${im.mediaType};base64,${im.base64}` } })),
       ]
     : userContent
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userMsg },
-  ]
+  // SYSTEM ROLE. A model or endpoint without a system role (an older reasoning model: "Unsupported value:
+  // 'messages[0].role' does not support 'system' with this model"; chat templates of some local models) refused
+  // every call. Healed like the token parameter: once refused, the instructions ride at the top of the user turn.
+  let foldSystem = false
+  const messagesFor = () => (foldSystem
+    ? [{ role: 'user', content: Array.isArray(userMsg)
+        ? [{ type: 'text', text: foldedPrompt(systemPrompt, userContent) }, ...userMsg.slice(1)]
+        : foldedPrompt(systemPrompt, userContent) }]
+    : [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }])
 
   const post = async (tokenParam, budget) => {
     const resp = await fetch(endpoint, {
@@ -108,7 +143,7 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
       // No forced response_format: JSON-expecting prompts already say "output JSON" and
       // parseAiJson() extracts it - while forcing json_object breaks free-form chat/help
       // (and errors unless the prompt contains the word "json"). Mirrors Claude's behavior.
-      body: JSON.stringify({ model, [tokenParam]: budget, messages }),
+      body: JSON.stringify({ model, [tokenParam]: budget, messages: messagesFor() }),
     })
     const text = await resp.text()
     if (resp.ok) reportUsage(provider, model, text)
@@ -121,12 +156,20 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
   let roomier = Math.min(Math.max(budget * 4, 4000), 32000)
   let tokenParam = 'max_completion_tokens'
   let r = await post(tokenParam, budget)
+  if (!r.ok && responsesOnly(r.status, r.text) && /\/chat\/completions$/.test(endpoint)) {
+    return responsesApiCall({ provider, endpoint: endpoint.replace(/\/chat\/completions$/, '/responses'), apiKey, systemPrompt, userContent, model, images, budget })
+  }
 
   // An endpoint that predates the rename (xAI, a local server) rejects the new name.
   // Only when the NAME is refused: "max_completion_tokens is too large ... at most 4096" also names it, and the
   // retry with max_tokens failed the same way (and hid the real error on newer models).
   if (!r.ok && r.status === 400 && /max_completion_tokens/.test(r.text) && /unsupported|unrecognized|unknown|not supported|extra (inputs|fields)|not permitted/i.test(r.text)) {
     tokenParam = 'max_tokens'
+    r = await post(tokenParam, budget)
+  }
+
+  if (!r.ok && r.status === 400 && systemRoleRefused(r.text)) {
+    foldSystem = true
     r = await post(tokenParam, budget)
   }
 
@@ -203,7 +246,63 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
   if (!content && finish === 'content_filter') throw new Error('API 200: blocked (content_filter)')
   // A REFUSAL is the other empty-200 form: content null, a `refusal` message, finish_reason "stop".
   if (!content && refusal) throw new Error(`API 200: blocked (refusal: ${refusal.slice(0, 120)})`)
+  if (!content && budget >= MIN_CONTENT_BUDGET) throw new Error(EMPTY_REPLY)
   return content
+}
+
+// OpenAI's RESPONSES API, for the models Chat Completions refuses (see responsesOnly). Same contract as
+// openAiCompatibleCall: text out, the same budget heal, blocked/empty replies are errors.
+// Reply: { status: 'completed'|'incomplete', incomplete_details: { reason }, output: [{ type: 'reasoning' }, { type:
+// 'message', content: [{ type: 'output_text', text } | { type: 'refusal', refusal }] }], usage: { input_tokens, ... } }.
+async function responsesApiCall({ provider, endpoint, apiKey, systemPrompt, userContent, model, images, budget }) {
+  const content = [
+    { type: 'input_text', text: userContent },
+    ...((images && images.length) ? images.map((im) => ({ type: 'input_image', image_url: `data:${im.mediaType};base64,${im.base64}` })) : []),
+  ]
+  // The Responses API refuses max_output_tokens below 16 (a liveness probe sends 4).
+  const post = async (n) => {
+    const resp = await fetch(endpoint, {
+      method: 'POST', signal: timeoutSignal(CALL_TIMEOUT_MS),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, instructions: systemPrompt, input: [{ role: 'user', content }], max_output_tokens: Math.max(16, n) }),
+    })
+    const text = await resp.text()
+    if (resp.ok) reportUsage(provider, model, text)
+    return { ok: resp.ok, status: resp.status, text }
+  }
+  const read = (raw) => {
+    try {
+      const j = JSON.parse(raw)
+      let text = '', refusal = ''
+      if (typeof j.output_text === 'string') text = j.output_text
+      else {
+        for (const item of Array.isArray(j.output) ? j.output : []) {
+          if (item?.type !== 'message' || !Array.isArray(item.content)) continue
+          for (const c of item.content) {
+            if (c?.type === 'output_text' && typeof c.text === 'string') text += c.text
+            else if (c?.type === 'refusal' && typeof c.refusal === 'string') refusal += c.refusal
+          }
+        }
+      }
+      return { text, refusal: refusal.trim(), reason: j.status === 'incomplete' ? String(j.incomplete_details?.reason || '') : '' }
+    } catch { return { text: '', refusal: '', reason: '' } }
+  }
+  const r = await post(budget)
+  if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
+  let got = read(r.text)
+  const roomier = Math.min(Math.max(budget * 4, 4000), 32000)
+  // Reasoning spent the budget (no text, or text cut short): one roomier retry, as on Chat Completions. A cut reply
+  // is kept when the retry fails.
+  if (got.reason === 'max_output_tokens' && budget >= MIN_CONTENT_BUDGET && roomier > budget) {
+    const retry = await post(roomier).catch((e) => { if (!got.text) throw e; return null })
+    if (retry?.ok) { const g2 = read(retry.text); if (g2.text || !got.text) got = g2 }
+    else if (retry && !got.text) throw new Error(`API ${retry.status}: ${errText(retry.text)}`)
+  }
+  if (!got.text && got.reason === 'content_filter') throw new Error('API 200: blocked (content_filter)')
+  if (!got.text && got.refusal) throw new Error(`API 200: blocked (refusal: ${got.refusal.slice(0, 120)})`)
+  if (!got.text && got.reason === 'max_output_tokens' && budget >= MIN_CONTENT_BUDGET) throw new Error('API 200: empty (output limit reached)')
+  if (!got.text && budget >= MIN_CONTENT_BUDGET) throw new Error(EMPTY_REPLY)
+  return got.text
 }
 
 // A key that carries ANOTHER provider's longer prefix ("sk-ant-" also starts with OpenAI's "sk-"): pasted in the
@@ -289,10 +388,23 @@ export const PROVIDERS = {
       }
       if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
       let body = null
-      try { body = JSON.parse(r.text) } catch { return '' }
+      try { body = JSON.parse(r.text) } catch { body = null }
       // Only `text` blocks: a model that thinks returns `thinking` / `redacted_thinking` blocks first, never the answer.
       const textOf = (b) => b?.content?.map?.((c) => (c?.type === 'text' ? c.text || '' : '')).join('') || ''
       let out = textOf(body)
+      // CUT OFF BY ITS OWN THINKING (a model that thinks by default): some text, stop_reason "max_tokens", and a
+      // thinking block took part of the budget. One roomier retry, kept only when it has text (the other providers
+      // do the same; a short Help reply was shown cut mid-sentence as if complete).
+      const thought = (b) => Array.isArray(b?.content) && b.content.some((c) => c?.type === 'thinking' || c?.type === 'redacted_thinking')
+      if (out && body?.stop_reason === 'max_tokens' && thought(body) && budget >= MIN_CONTENT_BUDGET && sent === budget) {
+        const roomier = Math.min(Math.max(budget * 4, 4000), 32000)
+        if (roomier > sent) {
+          try {
+            const retry = await post(roomier)
+            if (retry.ok) { const b2 = JSON.parse(retry.text); const t2 = textOf(b2); if (t2) { out = t2; body = b2 } }
+          } catch { /* keep the cut reply */ }
+        }
+      }
       // EVERYTHING SPENT ON THINKING (a model that thinks by default, the same budget for both): 200, stop_reason
       // "max_tokens", no text. The same bounded retry as the other providers; a still-empty reply is an error, never ""
       // (the fight verdict's 120 tokens, a taunt's 160). MIN_CONTENT_BUDGET keeps a liveness probe out of it.
@@ -308,6 +420,7 @@ export const PROVIDERS = {
       }
       // A refusal is 200 + stop_reason "refusal" and no text (see the OpenAI note above).
       if (!out && body?.stop_reason === 'refusal') throw new Error('API 200: blocked (refusal)')
+      if (!out && budget >= MIN_CONTENT_BUDGET) throw new Error(EMPTY_REPLY)
       return out
     },
   },
@@ -331,7 +444,7 @@ export const PROVIDERS = {
       if (!resp.ok) throw new Error(`API ${resp.status}: ${errText(await resp.text())}`)
       const data = await resp.json()
       return (data.data || []).map((m) => m.id)
-        .filter((id) => (/^(gpt|chatgpt|o\d)/.test(id)) && !/(embedding|audio|tts|whisper|image|realtime|moderation|transcribe|search|dall)/.test(id))
+        .filter((id) => (/^(gpt|chatgpt|o\d)/.test(id)) && !/(embedding|audio|tts|whisper|image|realtime|moderation|transcribe|search|dall|instruct)/.test(id))
         .sort()
     },
     call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) =>
@@ -364,11 +477,16 @@ export const PROVIDERS = {
         .sort()
     },
     call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
-      const model = modelOverride || 'gemini-2.0-flash'
+      // An id copied from Google's own list carries a "models/" prefix ("models/gemini-2.5-pro"): sent as is, the URL
+      // named models/models/... and every call 404'd (and the retired-model heal replaced a perfectly good pick).
+      const model = String(modelOverride || 'gemini-2.0-flash').trim().replace(/^models\//, '')
       const parts = [
         { text: userContent },
         ...((images && images.length) ? images.map((im) => ({ inline_data: { mime_type: im.mediaType, data: im.base64 } })) : []),
       ]
+      // A model without system instructions (a Gemma model typed as a custom id: "Developer instruction is not
+      // enabled") refused every call: once refused, the instructions go at the top of the user turn instead.
+      let foldSystem = false
       const post = async (budget) => {
         const r = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -376,8 +494,8 @@ export const PROVIDERS = {
             method: 'POST', signal: timeoutSignal(CALL_TIMEOUT_MS),
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              contents: [{ parts }],
+              ...(foldSystem ? {} : { system_instruction: { parts: [{ text: systemPrompt }] } }),
+              contents: [{ role: 'user', parts: foldSystem ? [{ text: foldedPrompt(systemPrompt, userContent) }, ...parts.slice(1)] : parts }],
               // No forced responseMimeType: it would break free-form chat/help. JSON roles still
               // work via the prompt + parseAiJson(), like Claude.
               generationConfig: { ...(budget ? { maxOutputTokens: budget } : {}) },
@@ -397,8 +515,16 @@ export const PROVIDERS = {
         } catch { return { text: '', finish: null, thoughts: 0 } }
       }
 
-      const budget = maxTokens || 0
+      let budget = maxTokens || 0
       let r = await post(budget)
+      if (!r.ok && r.status === 400 && systemRoleRefused(r.text)) { foldSystem = true; r = await post(budget) }
+      // OVER THIS MODEL'S OUTPUT CAP ("maxOutputTokens value of 8000 but the supported range is from 1 (inclusive) to
+      // 8193 (exclusive)", a Gemma or older model): once more at the number the error names, only ever DOWN.
+      if (!r.ok && r.status === 400 && budget && /max_?output_?tokens/i.test(r.text)) {
+        const m = r.text.match(/to (\d{2,6}) \(exclusive\)/i) || r.text.match(/(?:at most|maximum(?: of| is| allowed)?|up to|limit(?: is| of)?)\s*:?\s*(\d{2,6})/i)
+        const cap = m ? Number(m[1]) - (/exclusive/i.test(m[0]) ? 1 : 0) : 0
+        if (cap >= MIN_CONTENT_BUDGET && cap < budget) { budget = cap; r = await post(budget) }
+      }
       if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
       let { text, finish, blocked, thoughts } = read(r.text)
       // Cut off by its own thinking (some text, MAX_TOKENS, thoughts used): one roomier retry, kept only with text.
@@ -430,6 +556,7 @@ export const PROVIDERS = {
       if (!text && (blocked || /^(SAFETY|RECITATION|PROHIBITED_CONTENT|BLOCKLIST|SPII|IMAGE_SAFETY)$/.test(String(finish || '')))) {
         throw new Error(`API 200: blocked (${blocked || finish})`)
       }
+      if (!text && (!budget || budget >= MIN_CONTENT_BUDGET)) throw new Error(EMPTY_REPLY)
       return text
     },
   },
@@ -465,4 +592,22 @@ export const PROVIDERS = {
         model: modelOverride || 'grok-3-mini-fast',
       }),
   },
+}
+
+// Every model id the provider lists, UNFILTERED (speech models included). `listModels` keeps only chat models (the
+// advisor, failover and upgrade checks read it), so OpenAI's speech jobs had nothing to pick from. In memory only:
+// Settings > Models per job filters this list for its speech rows. Providers without a raw endpoint give their
+// normal list.
+export async function listAllModels(prov, apiKey, fetchImpl = (...a) => fetch(...a)) {
+  if (prov === 'openai') {
+    const resp = await fetchImpl('https://api.openai.com/v1/models', {
+      signal: timeoutSignal(LIST_TIMEOUT_MS),
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    })
+    if (!resp.ok) throw new Error(`API ${resp.status}: ${errText(await resp.text())}`)
+    const data = await resp.json()
+    return [...new Set((Array.isArray(data?.data) ? data.data : []).map((m) => m?.id).filter((id) => typeof id === 'string' && id))].sort()
+  }
+  const pc = PROVIDERS[prov]
+  return pc?.listModels ? pc.listModels(apiKey) : []
 }

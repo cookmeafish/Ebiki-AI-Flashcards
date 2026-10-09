@@ -5,6 +5,7 @@ import { sanitizeQuestions, leaksAnswer } from '../kit/grade'
 import { MOTIFS, PALETTES, AREAS, ITEMS, NODES, LESSONS, PER_LESSON, STORY, CAN_DO, cleanBossName } from './map'
 import { TIERS } from './placement'
 import { tierInstruction, CLEAR_ANSWER_RULE, QUESTION_CHECK_RULES, clampTier } from '../../utils/questionTier'
+import { canonKeys } from '../../utils/aiJson'
 
 // Roles pick the model tier like everywhere else: planning is `general`, questions are `study`, items that may
 // become cards are `deck` (they get memorized: the strongest tier).
@@ -84,10 +85,13 @@ export function buildPlacementPrompt(subject, tier, n, { avoid = [], knowledge =
 // Questions for QuizRunner: [{ kind, prompt, ... , target }] (sanitized; unusable ones dropped).
 export function parseQuestions(raw, clean, opts = {}) {
   // The list under another key ({"quiz": [...]}, {"items": [...]}): the first list of question objects.
+  // Keys in another case ("Question") count too, and ONE question sent as a bare object is a list of one.
+  const isQ = (q) => q && typeof q === 'object' && !Array.isArray(q) && Object.keys(q).some((k) => /^question$/i.test(k))
   const other = raw && typeof raw === 'object' && !Array.isArray(raw)
-    ? Object.values(raw).find((v) => Array.isArray(v) && v.some((q) => q && typeof q === 'object' && 'question' in q))
+    ? Object.values(raw).find((v) => Array.isArray(v) && v.some(isQ))
     : null
-  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : other || []
+  const list = (Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : other || (isQ(raw) ? [raw] : []))
+    .map((q) => canonKeys(q, ['question', 'explanation', 'choices']))
   // `tierFor(rawQuestion)`: the question ladder's tier for it (its card or item), set before sanitizing so a TIER 0
   // teaching question passes the leak guard. The model's own "tier" is never trusted; without tierFor it is dropped.
   const { tierFor, ...rest } = opts
@@ -287,13 +291,15 @@ export function buildQuizCheckPrompt(subject, items, questions) {
 }
 // Indexes the review marked bad (numbers only, in range).
 // null = no usable verdict (prose, a cut-off reply): the review did not run, and the set is not stamped as reviewed.
-export function parseQuizCheck(raw, n) {
+export function parseQuizCheck(raw0, n) {
+  const raw = canonKeys(raw0, ['bad']) // {"Bad": [...]} too
   if (!Array.isArray(raw?.bad) && !Array.isArray(raw)) return null
   const list = Array.isArray(raw?.bad) ? raw.bad : raw
   return new Set(list.map((b) => Number(typeof b === 'object' ? b?.i : b)).filter((i) => Number.isInteger(i) && i >= 0 && i < n))
 }
 // The same verdict with the reviewer's reasons (index -> why), for a rewrite that must fix them. null = no verdict.
-export function parseQuizCheckWhy(raw, n) {
+export function parseQuizCheckWhy(raw0, n) {
+  const raw = canonKeys(raw0, ['bad'])
   const set = parseQuizCheck(raw, n)
   if (!set) return null
   const list = Array.isArray(raw?.bad) ? raw.bad : raw
@@ -417,7 +423,8 @@ export function buildTalkScorePrompt(subject, area, history, { hints = 0, goal =
     ].filter(Boolean).join('\n'),
   }
 }
-export function parseTalkScore(raw, clean) {
+export function parseTalkScore(raw0, clean) {
+  const raw = canonKeys(raw0, ['score', 'note', 'strengths', 'gaps']) // {"Score": 0.8} too
   // "" read as a real 0; "85%" and "8/10" are read too. Scales: 0..1 as is, above 10 out of 100, 1..10 out of 10 (an
   // "8" was a near fail at 0.08).
   const v = typeof raw?.score === 'string' ? raw.score.trim() : raw?.score

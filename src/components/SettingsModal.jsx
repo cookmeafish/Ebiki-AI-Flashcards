@@ -14,7 +14,7 @@ import { checkStateFor, updateResultState, verifyOutcome, restartOffered, pollUn
 import { imeActive } from '../utils/keys'
 import JobModelSettings from './JobModelSettings'
 import { UsageDetails } from './TokenUsageMeter'
-import { jobOverridesOf } from '../config/aiJobs'
+import { jobOverridesOf, chatModelsOnly } from '../config/aiJobs'
 
 // ── Data folder (optional shared data directory) ──
 // Self-contained: talks to /api/datadir directly. The data-folder pointer is
@@ -484,7 +484,7 @@ export default function SettingsModal(p) {
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
     // AI Models (global)
     provider, setProvider, apiKeys, apiKey, setCurrentKey, validateKey, providerConfig,
-    AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, presetModel,
+    AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, allModels, presetModel,
     refreshModels, checkNewModels, modelsLoading, modelsError, intelligence, setIntelligence,
     planDeciding, runConnectionTest, modelProbe,
     serverDown,
@@ -843,7 +843,7 @@ export default function SettingsModal(p) {
               }
               return (
                 <button key={opt.key} onClick={onPick} className={active ? 'ui-tab-current' : undefined} aria-disabled={opt.key === 'custom' || undefined}
-                  style={{ flex: 1, minWidth: 'min(150px, 100%)', textAlign: 'left', cursor: (active || opt.key === 'custom') ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
+                  style={{ flex: 1, minWidth: 'min(150px, 100%)', textAlign: 'left', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', cursor: (active || opt.key === 'custom') ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
                     border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
                     background: active ? 'color-mix(in srgb, var(--c-brand) 10%, transparent)' : 'transparent' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brandText : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
@@ -856,21 +856,86 @@ export default function SettingsModal(p) {
         {planDeciding && <div style={{ fontSize: 10, color: C.brand, marginTop: 8 }}>{t('set_deciding')}</div>}
       </div>
 
-      {/* Token and cost counter: OFF unless the user turns it on here. */}
-      <div style={card}>
-        {cardTitle(t('usage_title'))}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-          <input type="checkbox" checked={!!showTokenUsage} onChange={(e) => setShowTokenUsage?.(e.target.checked)}
-            style={{ width: 16, height: 16, accentColor: C.brand, cursor: 'pointer' }} />
-          <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>{t('usage_setting')}</span>
-        </label>
-        <div style={{ fontSize: 11, color: C.inkDim, marginTop: 6, lineHeight: 1.5 }}>{t('usage_settingDesc')}</div>
-        {/* The totals themselves, always here (the counter only adds a shortcut at the bottom right). */}
-        <div data-usage-settings="" style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-          <UsageDetails t={t} confirmDialog={confirmDialog} />
-        </div>
-      </div>
+      {/* Per-feature models (advanced). */}
+      {/* Opens itself when an override exists, but only on mount: bound to it, the section snapped shut
+          under the pointer when the last override was reset. */}
+      <details key={provider} ref={(el) => { if (el && !el.dataset.init) { el.dataset.init = '1'; if (hasModelOverrides) el.open = true } }} style={card}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 800, color: C.ink, listStyle: 'revert' }}>
+          {t('set_modelsPerFeature')} <span style={{ fontWeight: 600, color: C.inkDim, fontSize: 12 }}>({providerConfig.label})</span>
+        </summary>
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <button onClick={() => (checkNewModels || refreshModels)(provider)} disabled={modelsLoading || !apiKey} className="tip" data-tip={t('checkNewModelsHint')}
+                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.brand, borderColor: C.brandRing, ...((modelsLoading || !apiKey) ? { opacity: 0.5, cursor: 'default' } : {}) }}>
+                {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
+              </button>
+              {runConnectionTest && (
+                <button onClick={() => runConnectionTest(provider)} disabled={(modelProbe?.loading && modelProbe.provider === provider) || !apiKey} className="tip" data-tip={t('set_testConnectionsHint')}
+                  style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.inkDim, ...(((modelProbe?.loading && modelProbe.provider === provider) || !apiKey) ? { opacity: 0.5, cursor: 'default' } : {}) }}>
+                  {modelProbe?.loading && modelProbe.provider === provider ? t('set_testing') : t('set_testConnections')}
+                </button>
+              )}
+              {aiModels[provider] && Object.values(aiModels[provider]).some(Boolean) && (
+                <button onClick={clearModelOverrides} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('resetToDefaults')}</button>
+              )}
+            </div>
+          </div>
+          {modelsError?.provider === provider && <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{modelsError.msg}</div>}
+          {modelProbe && !modelProbe.loading && modelProbe.provider === provider && (
+            modelProbe.connectionError
+              ? <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{t('set_connError')}</div>
+              : <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 6 }}>
+                  {t('set_probeResult', { ok: modelProbe.working?.length || 0, down: modelProbe.down?.length || 0 })}
+                  {modelProbe.down?.length ? `: ${modelProbe.down.join(', ')}` : ''}
+                  {modelProbe.unknown?.length ? ` · ${t('set_probeUnknown', { n: modelProbe.unknown.length })}` : ''}
+                </div>
+          )}
 
+          {AI_ROLE_META.map(({ role }) => {
+            // The provider being SHOWN (its plan and live presets), and chat models only: a TTS or image model
+            // picked for a role failed every call of that role.
+            const def = ROLE_DEFAULTS(providerConfig, intelligence, provider)[role]
+            const current = aiModels[provider]?.[role] || ''
+            const opts = Array.from(new Set([...chatModelsOnly(provModels), def, current].filter(Boolean)))
+            const isCustom = customRoles[`${provider}:${role}`]
+            const setRole = (v) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: v } }))
+            return (
+              // Wraps on a narrow screen: the picker takes its own full-width line (side by side, a phone showed
+              // "Provider def" and never the model it means).
+              <div key={role} style={{ display: 'flex', alignItems: 'center', columnGap: 8, rowGap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: C.inkDim, width: 96, flexShrink: 0, fontWeight: 600 }}>{t('aiRole_' + role)}</span>
+                {isCustom ? (
+                  // Committed on blur / Enter: every keystroke was saved and USED at once ("gpt-5" half typed),
+                  // and a background call's retired-model heal then rewrote the box while typing.
+                  <input key={`${provider}:${role}:${current}`} defaultValue={current} spellCheck={false} aria-label={t('aiRole_' + role)}
+                    onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ''); if (v !== current) setRole(v) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) e.currentTarget.blur() }}
+                    placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: '1 1 190px', minWidth: 0, fontSize: 11, padding: '6px 9px' }} />
+                ) : (
+                  <select aria-label={t('aiRole_' + role)} value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: true })) } else setRole(e.target.value) }}
+                    style={{ ...S.select, flex: '1 1 190px', minWidth: 0, fontSize: 11, padding: '6px 9px' }}>
+                    <option value="">{t('providerDefault')} ({planDeciding && !current ? t('set_choosing') : def})</option>
+                    {opts.map((m) => <option key={m} value={m}>{m}</option>)}
+                    <option value="__custom__">✏️ {t('customModel')}</option>
+                  </select>
+                )}
+                {isCustom && (
+                  <button onClick={() => { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: false })); if (current && !(provModels || []).includes(current)) setRole('') }} aria-label={t('useList')} className="tip tip-r" data-tip={t('useList')} style={{ ...S.ghostBtn, fontSize: 9, padding: '3px 7px' }}>↩</button>
+                )}
+              </div>
+            )
+          })}
+          <div style={hint}>
+            {provModels.length ? t('aiModelsHintDropdown') : t('aiModelsHint')}<br />
+            {t('customModelHelp')} <a href={providerConfig.modelsUrl || providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a>
+          </div>
+        </div>
+      </details>
+      {/* Every AI job on its own model (src/config/aiJobs.js); unpicked jobs follow their role above. */}
+      <JobModelSettings t={t} provider={provider} providerConfig={providerConfig} aiModels={aiModels} setAiModels={setAiModels}
+        provModels={provModels} allModels={allModels?.[provider] || []} roleDefaults={ROLE_DEFAULTS(providerConfig, intelligence, provider)} presetModel={presetModel} planDeciding={planDeciding}
+        card={card} hint={hint} />
       {/* Question reuse: OFF unless the user turns it on here (or ticks it in onboarding). */}
       <div style={card}>
         {cardTitle(t('reuse_title'))}
@@ -906,82 +971,21 @@ export default function SettingsModal(p) {
         )}
       </div>
 
-      {/* Per-feature models (advanced). */}
-      {/* Opens itself when an override exists, but only on mount: bound to it, the section snapped shut
-          under the pointer when the last override was reset. */}
-      <details key={provider} ref={(el) => { if (el && !el.dataset.init) { el.dataset.init = '1'; if (hasModelOverrides) el.open = true } }} style={card}>
-        <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 800, color: C.ink, listStyle: 'revert' }}>
-          {t('set_modelsPerFeature')} <span style={{ fontWeight: 600, color: C.inkDim, fontSize: 12 }}>({providerConfig.label})</span>
-        </summary>
-        <div style={{ marginTop: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <button onClick={() => (checkNewModels || refreshModels)(provider)} disabled={modelsLoading || !apiKey} title={t('checkNewModelsHint')}
-                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.brand, borderColor: C.brandRing, opacity: (modelsLoading || !apiKey) ? 0.5 : 1 }}>
-                {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
-              </button>
-              {runConnectionTest && (
-                <button onClick={() => runConnectionTest(provider)} disabled={(modelProbe?.loading && modelProbe.provider === provider) || !apiKey} className="tip" data-tip={t('set_testConnectionsHint')}
-                  style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.inkDim, opacity: ((modelProbe?.loading && modelProbe.provider === provider) || !apiKey) ? 0.5 : 1 }}>
-                  {modelProbe?.loading && modelProbe.provider === provider ? t('set_testing') : t('set_testConnections')}
-                </button>
-              )}
-              {aiModels[provider] && Object.values(aiModels[provider]).some(Boolean) && (
-                <button onClick={clearModelOverrides} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('resetToDefaults')}</button>
-              )}
-            </div>
-          </div>
-          {modelsError?.provider === provider && <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{modelsError.msg}</div>}
-          {modelProbe && !modelProbe.loading && modelProbe.provider === provider && (
-            modelProbe.connectionError
-              ? <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{t('set_connError')}</div>
-              : <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 6 }}>
-                  {t('set_probeResult', { ok: modelProbe.working?.length || 0, down: modelProbe.down?.length || 0 })}
-                  {modelProbe.down?.length ? `: ${modelProbe.down.join(', ')}` : ''}
-                  {modelProbe.unknown?.length ? ` · ${t('set_probeUnknown', { n: modelProbe.unknown.length })}` : ''}
-                </div>
-          )}
-
-          {AI_ROLE_META.map(({ role }) => {
-            const def = ROLE_DEFAULTS(providerConfig, intelligence)[role]
-            const current = aiModels[provider]?.[role] || ''
-            const opts = Array.from(new Set([...(provModels.length ? provModels : []), def, current].filter(Boolean)))
-            const isCustom = customRoles[`${provider}:${role}`]
-            const setRole = (v) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: v } }))
-            return (
-              <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: C.inkDim, width: 70, flexShrink: 0, fontWeight: 600 }}>{t('aiRole_' + role)}</span>
-                {isCustom ? (
-                  // Committed on blur / Enter: every keystroke was saved and USED at once ("gpt-5" half typed),
-                  // and a background call's retired-model heal then rewrote the box while typing.
-                  <input key={`${provider}:${role}:${current}`} defaultValue={current} spellCheck={false}
-                    onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ''); if (v !== current) setRole(v) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) e.currentTarget.blur() }}
-                    placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 11, padding: '6px 9px' }} />
-                ) : (
-                  <select aria-label={t('aiRole_' + role)} value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: true })) } else setRole(e.target.value) }}
-                    style={{ ...S.select, flex: 1, minWidth: 0, fontSize: 11, padding: '6px 9px' }}>
-                    <option value="">{t('providerDefault')} ({planDeciding && !current ? t('set_choosing') : def})</option>
-                    {opts.map((m) => <option key={m} value={m}>{m}</option>)}
-                    <option value="__custom__">✏️ {t('customModel')}</option>
-                  </select>
-                )}
-                {isCustom && (
-                  <button onClick={() => { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: false })); if (current && !(provModels || []).includes(current)) setRole('') }} aria-label={t('useList')} className="tip tip-r" data-tip={t('useList')} style={{ ...S.ghostBtn, fontSize: 9, padding: '3px 7px' }}>↩</button>
-                )}
-              </div>
-            )
-          })}
-          <div style={hint}>
-            {provModels.length ? t('aiModelsHintDropdown') : t('aiModelsHint')}<br />
-            {t('customModelHelp')} <a href={providerConfig.modelsUrl || providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a>
-          </div>
+      {/* Token and cost counter: OFF unless the user turns it on here. */}
+      <div style={card}>
+        {cardTitle(t('usage_title'))}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+          <input type="checkbox" checked={!!showTokenUsage} onChange={(e) => setShowTokenUsage?.(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: C.brand, cursor: 'pointer' }} />
+          <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>{t('usage_setting')}</span>
+        </label>
+        <div style={{ fontSize: 11, color: C.inkDim, marginTop: 6, lineHeight: 1.5 }}>{t('usage_settingDesc')}</div>
+        {/* The totals themselves, always here (the counter only adds a shortcut at the bottom right). */}
+        <div data-usage-settings="" style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+          <UsageDetails t={t} confirmDialog={confirmDialog} foldModels />
         </div>
-      </details>
-      {/* Every AI job on its own model (src/config/aiJobs.js); unpicked jobs follow their role above. */}
-      <JobModelSettings t={t} provider={provider} providerConfig={providerConfig} aiModels={aiModels} setAiModels={setAiModels}
-        provModels={provModels} roleDefaults={ROLE_DEFAULTS(providerConfig, intelligence)} presetModel={presetModel} planDeciding={planDeciding}
-        card={card} hint={hint} />
+      </div>
+
     </div>
   )
 
@@ -1366,7 +1370,7 @@ export default function SettingsModal(p) {
                   style={{ ...S.keyInput, width: 160, fontSize: 12, padding: '4px 8px' }} />
               ) : (
               <button onClick={() => { if (m.id === activeModeId) setEditingModeName(m.id); else if (p.switchMode) p.switchMode(m.id); else { setActiveModeId(m.id); saveModes(modes, m.id, { changedIds: [] }) } }}
-                title={`${m.description || m.name}`}
+                className="tip tip-b" data-tip={m.description || m.name}
                 style={{ padding: '5px 12px', borderRadius: RADIUS.pill, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
                   background: m.id === activeModeId ? C.brandTint : C.surfaceAlt, color: m.id === activeModeId ? C.brandText : C.inkDim,
                   border: m.id === activeModeId ? `1px solid ${C.brandRing}` : `1px solid ${C.border}`, fontWeight: m.id === activeModeId ? 700 : 500 }}>

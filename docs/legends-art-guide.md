@@ -5,6 +5,69 @@ the technical rules the app enforces. Files: `public/assets/legends/` (`areas/<m
 `bosses/<motif>.svg`, `raids/<motif>.svg`); `public/assets/legends/README.md` is the short version for hand edits.
 Each rule is stated once; the sections after the top rules give the details and the cases behind them.
 
+## ⭐⭐ RAID BOSSES GO ALL OUT, EVERY TIME (the owner: "super crucial")
+
+Read this before making a NEW raid boss, REDESIGNING one, or touching any raid boss phase, effect or animation. The
+owner's words (2026-10-09), after several redraws came back broken or bland: "sloppy terrible job with this raid. this
+is NOT the quality i EXPECT WITH RAID BOSSES"; "where the hell is the quality??? kitsune and ophanim are good examples
+of quality. please go all out with them like kitsune and ophanim... put in a lot of effort into these raid bosses and
+phases and animations and everything"; "IT DOESN'T MATTER HOW LONG IT TAKES, THEY MUST GO ALL THE WAY CRAZY AND TRIPLE
+CHECK FOR QUALITY AND THAT ITS NOT BROKEN SVG"; "raid bosses must GO ALL OUT and all phases must be distinct and
+animations should go hard for all of them and all animations for abilities are crazy distinct... so that if i tell it to
+make another raid boss or to redesign or make a new one that it has the quality of kitsune and ophanim". Time is never
+a reason to stop early. "Good enough" is a failure.
+
+### The bar
+**`raids/kitsune.svg` and the photo `raids/ophanim.svg`.** Every raid boss, at every phase, must stand beside them at
+300 and 120 px: same anatomy quality, layered shading (3 to 4 values per material, rim light, ambient color), detail
+density, clean joins, props gripped in hands, and as much alive at once. Weaker anywhere = not done.
+
+### The character
+- **One clear concept the owner can NAME at a glance**, one silhouette idea, big in frame (head and torso dominate;
+  never zoom out to a tiny full figure).
+- **One character across all three phases**: same face, proportions, fur/skin, line style, palette family, signature
+  props. (Rejected: the Rat King's Chad phase that looked like "a different character entirely".)
+- **Personality constant**: escalate with power, scale and swagger, never turn a smug or cool boss into a screaming
+  monster. Villains look strong and charismatic: never a soft, weak, pretty-boy face (rejected Showman).
+- **Anatomy that connects**: shoulder → upper arm → elbow → forearm → wrist → hand; necks grow out of shoulders;
+  heads sit on necks; hands grip what they hold. NEVER floating gloves, tube arms, pasted heads or necks (rejected
+  Hydra), stuck-on props, parts sliced by another shape (rejected sewer ears). Multi-part bosses (Hydra heads, Cerberus
+  heads) are designed FROM those parts out: the ability's state (head slots, stumps) is part of the drawing's plan.
+- **Minions and lackeys** (mice for the Rat King) are small, comic, each with its own character, never covering the boss.
+
+### The phases: three DISTINCT pictures
+Each phase changes CAMERA, POSE, HEAD ANGLE, FACE, LIGHT, PALETTE and usually SETTING; tellable apart by silhouette at
+120 px. A story: P1 the boss at rest in its domain; P2 the fight turns (dynamic camera, the boss acts); P3 THE
+SPECTACLE: the climax, the most happening on screen (moving lights, particles, magic, transformations, falling things),
+the boss still the one dominant, readable figure, the most idle motion. "Phase 3 is boring af, nothing happens" is a
+rejection. The backdrop is part of each phase and fills the frame (muted, no flat blobs, no rounded inset frame).
+
+### Animations: go hard on ALL of them
+- **Idle**: every part that would move moves (breath, fur/hair, cloth, eyes and blinks, props, lights, particles,
+  backdrop), at LAYERED rhythms so it never reads as one thing bobbing. Loops seamless; time-based SMIL only.
+- **Entrance** (`ENTRANCES`): its own movement, dramatic, ending on the file's pose.
+- **The nine impact moments** (hit, crit, sharpen, strike, heavy, block, shield, second wind, knockout) and **the attack
+  on the player**: the DRAWING's own parts act each one out hard (wind-up, blow toward the hearts, recoil), plus its own
+  parts and glyph (`impact/bosses/<motif>.*`); the knockout is a themed cinematic held in a fallen pose.
+- **Every ABILITY effect is CRAZY DISTINCT**: each `fx` key of each boss has its own big, unmistakable effect (its own
+  shapes, motion, colors, sound-like juice) AND moves the boss's real parts (eyes open, heads snap, arms throw, wings
+  beat). No two abilities, and no two bosses, share a look. Never a generic flash, never covering or hiding the boss.
+
+### Process (mandatory, no time limit, for EVERY change: "EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST QA")
+A small fix (moving a table, fixing an ear, a pivot, one effect) gets the same full process as a redraw: a small edit
+can break a join, a phase or an animation elsewhere in the file.
+1. Read this section, then the rest of this guide, CLAUDE.md's raid sections and `impact/bosses/README.md`; back up
+   the file.
+2. Draw. Then at least THREE rounds of: render → written critique → fix. Each round: every phase zoomed 2 to 4x (every
+   join, outline, draw order; nothing floating, clipped, popping or sliding), the three phases side by side (distinct?
+   one character?), and beside the kitsune and ophanim at 300 and 120 px.
+3. Animation check: frames across the idle loop, the entrance, every moment, the attack and every ability; zoomed,
+   looking for parts that detach, slide, pop or cover the face.
+4. The TRIPLE CHECK (below), `check-art.mjs` 0 failures, tests green.
+5. Report with the kitsune/ophanim side by side, what was checked, and an honest list of what is still weaker.
+6. The coordinator inspects the zoomed renders before the owner sees anything. Never relay art as done from one
+   overview render.
+
 ## The owner's top rules, in short (2026-10)
 
 Every boss, raid boss and banner brief starts from these.
@@ -274,12 +337,19 @@ The cases behind the top rules, per boss (Legends and raid). Each lesson applies
   120 px silhouette concepts per phase first. 2026-10-03: phase 3 low angle, chin up, a gold wyrm pet, violet treasury,
   then much more idle motion. 2026-10-08 "phase 3 is bad" (that wyrm scene, then a furious version: a cluttered mess,
   small lost face): redrawn as one clear picture, the smug Gold Emperor on his vault throne (big face, chin up, crown,
-  scepter, goblet toast, coin rain). A rat is a wedge (long snout, nose at the TIP, high thin round ears, buck teeth); the
+  scepter, goblet toast, coin rain); its head then read as jagged grey slabs (an oversized mirrored copy of phase 2's
+  head with the shades removed: the far eye sat alone on the snout ridge, the crown and scepter ran off the frame).
+  2026-10-09 "different design for phase 3", then "make this guy a chad on phase 3": the Chad Emperor, a poster shot
+  from below (V-taper, bare furry chest, flexing bicep, fist on the hip, square stubbled jaw, shades, the calm "yes."
+  smirk); the first chad drew a new long-snouted head in cold grey and "looks like a different character entirely", so
+  phase 3 now REUSES phase 2's head markup and phase 1's paws, chains and henchmen in his warm palette. Keep one
+  character by reusing the loved parts, not by redrawing them from memory. Small figures at the bottom edge stand on something that
+  runs into the bleed (the arena shows below y 120). A rat is a wedge (long snout, nose at the TIP, high thin round ears, buck teeth); the
   sewer kingpin's round head and short muzzle read as a cat. Check the species at 120 px first.
 - **Infernal Impresario (`raids/showman.svg`, from stage, "I LOVE THE DESIGN OF STAGE ... GOES ALL OUT")**: keeping the
   parent's bust, costume and stage read as the parent through v1 to v6; a hellfire circus ringmaster was too close, then
   a flat red devil melting into his tent. Then "do a different magic trick per phase and also redesign the character",
-  on a transparent background. Now (v9): a tall ash-grey demon conjurer in an emerald sequin tailcoat (the tinted part),
+  on a transparent background. Then (v9): a tall ash-grey demon conjurer in an emerald sequin tailcoat (the tinted part),
   one trick per phase: Ember Doves, the Levitation (cold mean face), the Infernal Encore (sawing himself in half, the
   manic face). A trick per phase gives each phase its own silhouette and event. Lessons from the passes: a full-figure
   phase needs a WHOLE body ("it's almost as if his lower body doesn't exist": 3.5 to 4 heroic heads tall, waist, hips,
@@ -293,6 +363,15 @@ The cases behind the top rules, per boss (Legends and raid). Each lesson applies
   masks are the act: the Overture (presenting), the Swap (an earlier draft's mask carousel the owner remembered: masks
   float mid switch and the idle swaps them across his face), the Grand Finale (spotlights, card fan, masks raised like
   trophies, still smug). Never draw a second copy of a character's head or body as a "trick".
+  2026-10-09 "this guy looks like a soyboy ... redesign him from scratch": the grey horned elf (narrow chin, long thin
+  neck, wide doll eyes, small features, timid smile, tube arms, the same flat pose three times) was thrown away. v3 is
+  a human-shaped ringmaster villain: a strong angular face (heavy V brows over deep-set glowing eyes, sharp cheekbones,
+  a square stubbled jaw, a waxed moustache), a tall top hat, broad epaulette shoulders, thick sleeves and gloves that
+  grip a baton, a cane and a hat brim; Overture (straight on, footlights), Swap (dutch angle, brim pulled low, masks
+  sliding across the face), Grand Finale (scarlet quick change, card fan, V arms, head thrown back in a grin).
+  **Never give a villain a soft, weak, pretty-boy face**: a narrow chin, a long thin neck, big doll eyes, small features
+  and a timid smile read as weak whatever the costume. A villain needs a strong jaw and brow, eyes in shadow that
+  glow, a confident smirk, thick limbs and hands that hold something.
 - **Sugar queen (`raids/sugarqueen.svg`)**: one front half figure with a scepter, a sword, a halo was "boring"; a leap
   and a float keeping her head the same size in the same place still "need to be more interesting"; a small figure
   surfing a caramel wave was "too far away". The fix is a new camera ANGLE and pose at the SAME closeness. A villainess

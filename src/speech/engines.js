@@ -64,27 +64,49 @@ async function multipartStt(url, key, blob, fields) {
   try { return String(JSON.parse(body).text || '').trim() } catch { return body.trim() }
 }
 
+// A Gemini id copied from Google's list ("models/gemini-2.5-flash") would name models/models/... in the URL.
+const geminiId = (m) => String(m || '').trim().replace(/^models\//, '')
+
+// A PICKED speech model the provider refuses (a chat model picked for speech, a typo, a model this key cannot use):
+// 400/404 naming the request, never a key, credit or rate problem. The engine's built-in model is tried once instead,
+// so a wrong pick in Settings costs one failed request, not every recording.
+const modelRefused = (e) => /^API (400|404|422)\b/.test(String(e?.message || '')) && !/api[_ ]?key|credit|quota|billing|unauthori/i.test(String(e?.message || ''))
+async function withBuiltInFallback(model, run) {
+  try { return await run(model) } catch (e) {
+    if (model && modelRefused(e)) return run('')
+    throw e
+  }
+}
+
 async function geminiStt(blob, key, model, lang) {
   const data = await blobToBase64(blob)
   const mimeType = (blob.type || 'audio/webm').split(';')[0]
   const ask = 'Transcribe this recording exactly as spoken, in the language it is spoken in'
     + (lang ? ` (most likely ${lang})` : '') + '. Output ONLY the transcript: no quotes, labels or commentary. If nothing is said, output nothing.'
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiId(model)}:generateContent?key=${key}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: timeoutSignal(),
     body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: ask }, { inline_data: { mime_type: mimeType, data } }] }], generationConfig: { temperature: 0 } }),
   })
   const body = await r.text()
   if (!r.ok) throw new Error(`API ${r.status}: ${body.slice(0, 300)}`)
-  return (JSON.parse(body).candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim()
+  let j = null
+  try { j = JSON.parse(body) } catch { throw new Error('API 200: unreadable transcript reply') }
+  const c = j?.candidates?.[0]
+  // Thinking parts are never the transcript; a blocked recording is an error, not "nothing was said".
+  const text = (c?.content?.parts || []).map((p) => (p?.thought ? '' : p?.text || '')).join('').trim()
+  if (!text && (j?.promptFeedback?.blockReason || /^(SAFETY|PROHIBITED_CONTENT|BLOCKLIST|SPII)$/.test(String(c?.finishReason || '')))) {
+    throw new Error(`API 200: blocked (${j?.promptFeedback?.blockReason || c.finishReason})`)
+  }
+  return text
 }
 
 // `lang` = optional ISO 639-1 hint. `geminiModel` = the cheap Gemini text model (audio in, text out).
 // `model` = the model picked in Settings for this engine (the speech.stt job; '' = the built-in MODELS one).
 export async function transcribe(blob, { engine, keys = {}, geminiModel = 'gemini-2.5-flash', lang = '', model = '' } = {}) {
   if (!blob || !blob.size) return ''
-  if (engine === 'openai') return multipartStt('https://api.openai.com/v1/audio/transcriptions', keys.openai, blob, { model: model || MODELS.stt.openai, language: lang })
-  if (engine === 'grok') return multipartStt('https://api.x.ai/v1/stt', keys.grok, blob, { model: model || MODELS.stt.grok, language: lang, format: 'true' })
-  if (engine === 'gemini') return geminiStt(blob, keys.gemini, model || geminiModel, lang)
+  if (engine === 'openai') return withBuiltInFallback(model, (m) => multipartStt('https://api.openai.com/v1/audio/transcriptions', keys.openai, blob, { model: m || MODELS.stt.openai, language: lang }))
+  if (engine === 'grok') return withBuiltInFallback(model, (m) => multipartStt('https://api.x.ai/v1/stt', keys.grok, blob, { model: m || MODELS.stt.grok, language: lang, format: 'true' }))
+  if (engine === 'gemini') return withBuiltInFallback(model, (m) => geminiStt(blob, keys.gemini, m || geminiModel, lang))
   throw new Error('no speech-to-text engine')
 }
 
@@ -104,6 +126,13 @@ const b64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
 // Audio (Blob) for `text`. `voice` = index into VOICES[engine]. Throws on failure (callers fall back to device).
 // `model` = the model picked in Settings (the speech.tts job; '' = the built-in MODELS one; xAI takes no model).
 export async function synthesize(text, { engine, keys = {}, lang = '', voice = 0, model = '' } = {}) {
+  return withBuiltInFallback(model, (m) => synthesizeWith(text, { engine, keys, lang, voice, model: m }))
+}
+
+// The sample rate Gemini names in the audio's type ("audio/L16;codec=pcm;rate=24000"); 24 kHz when it names none.
+export const pcmRate = (mime) => Number((String(mime || '').match(/rate=(\d{4,6})/) || [])[1]) || 24000
+
+async function synthesizeWith(text, { engine, keys = {}, lang = '', voice = 0, model = '' } = {}) {
   const name = VOICES[engine]?.[voice % (VOICES[engine]?.length || 1)]
   let r
   if (engine === 'openai') {
@@ -117,7 +146,7 @@ export async function synthesize(text, { engine, keys = {}, lang = '', voice = 0
       body: JSON.stringify({ text, voice_id: name, language: lang || 'auto' }),
     })
   } else if (engine === 'gemini') {
-    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || MODELS.tts.gemini}:generateContent?key=${keys.gemini}`, {
+    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiId(model || MODELS.tts.gemini)}:generateContent?key=${keys.gemini}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: timeoutSignal(),
       body: JSON.stringify({
         contents: [{ parts: [{ text }] }],
@@ -127,9 +156,9 @@ export async function synthesize(text, { engine, keys = {}, lang = '', voice = 0
     const body = await r.text()
     if (!r.ok) throw new Error(`API ${r.status}: ${body.slice(0, 300)}`)
     const data = JSON.parse(body).candidates?.[0]?.content?.parts?.find((p) => p.inlineData || p.inline_data)
-    const b64 = (data?.inlineData || data?.inline_data)?.data
-    if (!b64) throw new Error('no audio returned')
-    return pcmToWav(b64ToBytes(b64))
+    const inline = data?.inlineData || data?.inline_data
+    if (!inline?.data) throw new Error('no audio returned')
+    return pcmToWav(b64ToBytes(inline.data), pcmRate(inline.mimeType || inline.mime_type))
   } else {
     throw new Error('no text-to-speech engine')
   }

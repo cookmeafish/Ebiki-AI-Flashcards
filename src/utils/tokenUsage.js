@@ -29,8 +29,11 @@ export const PRICE_TABLE = [
   { provider: 'openai', re: /^(gpt-4o|chatgpt-4o)/, price: [2.5, 10] },
   { provider: 'openai', re: /^gpt-4-turbo/, price: [10, 30] },
   { provider: 'openai', re: /^gpt-4(-\d{4})?$/, price: [30, 60] },
-  { provider: 'openai', re: /^gpt-3\.5-turbo/, price: [0.5, 1.5] },
-  { provider: 'openai', re: /^o4-mini/, price: [1.1, 4.4] },
+  // Only the current 3.5 build: older snapshots and the instruct model cost 2 to 6 times more.
+  { provider: 'openai', re: /^gpt-3\.5-turbo(-0125)?$/, price: [0.5, 1.5] },
+  { provider: 'openai', re: /^gpt-3\.5-turbo-1106$/, price: [1, 2] },
+  { provider: 'openai', re: /^gpt-3\.5-turbo-instruct/, price: [1.5, 2] },
+  { provider: 'openai', re: /^o4-mini(-\d{4}-\d\d-\d\d)?$/, price: [1.1, 4.4] }, // not o4-mini-deep-research (2, 8)
   { provider: 'openai', re: /^o3-mini/, price: [1.1, 4.4] },
   { provider: 'openai', re: /^o3(-\d{4}-\d\d-\d\d)?$/, price: [2, 8] },
   { provider: 'openai', re: /^o1-mini/, price: [1.1, 4.4] },
@@ -41,6 +44,7 @@ export const PRICE_TABLE = [
   { provider: 'gemini', re: /^gemini-2\.5-pro/, price: [1.25, 10] },
   { provider: 'gemini', re: /^gemini-2\.0-flash-lite/, price: [0.075, 0.3] },
   { provider: 'gemini', re: /^gemini-2\.0-flash/, price: [0.1, 0.4] },
+  { provider: 'gemini', re: /^gemini-1\.5-flash-8b/, price: [0.0375, 0.15] },
   { provider: 'gemini', re: /^gemini-1\.5-flash/, price: [0.075, 0.3] },
   { provider: 'gemini', re: /^gemini-1\.5-pro/, price: [1.25, 5] },
   // xAI

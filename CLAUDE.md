@@ -3,6 +3,24 @@
 Local-first AI flashcard/study app (React + Vite), grown out of "ScreenLens". Mascot **Ebi**, a red shrimp.
 Brand color **#DF2540**. Themes **Ocean Light** + **Dark**. Fonts Baloo 2 (display) + Nunito (body).
 
+## ⭐ THE QA RULE: TRIPLE CHECK EVERYTHING (the owner: "triple check for everything to ensure quality", "the QA must be amazing")
+**QA ALWAYS HAPPENS, unasked: it is part of every change, never a step the owner has to request.** "QA" means THIS
+WHOLE SECTION (plus, for anything raid boss, even a one-line edit, the full "RAID BOSSES GO ALL OUT" process in
+`docs/legends-art-guide.md`). **When the owner SAYS "QA", it means QA FAILED** (the owner: "QA should always happen.
+but when i mention it its because QA failed"): something broken reached him. Then: find what slipped through and
+why, fix it, re-run the whole QA on it, and tighten the process (a new check, a rule here) so that kind of miss can
+not happen again; say what failed and what changed.
+Nothing reaches the owner (or a commit) on one look. Every change, code or art, gets three independent checks:
+1. **Automated**: the tests for what changed (add them for pure logic), `npx vitest run` green, `npx vite build` ok,
+   `check-art.mjs` 0 failures for any art.
+2. **In the real app**: drive the changed screens in Playwright's bundled Chromium (stubs per "Testing"), at desktop
+   AND phone width and more than one zoom, every state the change touches (empty, loading, error, long text, both
+   themes); for art and animation, zoomed renders and frames across every motion. LOOK at every screenshot.
+3. **An independent review**: a second pass by someone who did not write it (a separate agent or the coordinator)
+   reads the diff and the screenshots hunting for what's broken, missing or off-brief, against the owner's words.
+   Findings are fixed and re-checked, not listed and shipped.
+Reports say what was checked and what is still weak, honestly. The coordinator verifies before relaying "done".
+
 ## ⭐ THE VISION: runs well on ANY computer, device, screen and platform
 The owner's standing rule for EVERY change, not only art: Ebiki must feel smooth on a weak laptop with an integrated
 GPU, a 60 Hz office screen, a 480 Hz gaming monitor, a 4K display, a phone (Capacitor / React Native later), and
@@ -1334,6 +1352,17 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   boss its OWN entrance MOVEMENT (`ENTRANCES`, optional pivot `origin`); everything has idle life.
   `dev/legends-gallery/catalog.js` is the one motif list (a test keeps it equal to `MOTIFS`); the owner reviews all art
   at `/dev/legends-gallery/` (dev server only).
+- **⭐⭐ RAID BOSSES GO ALL OUT, EVERY TIME (the owner: "super crucial").** Making a NEW raid boss, REDESIGNING one,
+  or touching any raid phase, effect or animation, EVEN A SMALL EDIT ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST
+  QA": a one-line fix gets the same zoomed checks, side by side, animation check and triple check as a redraw): read `docs/legends-art-guide.md` "RAID BOSSES GO ALL OUT" FIRST and
+  follow every line. In short: the bar is `raids/kitsune.svg` and `raids/ophanim.svg` (beside them at 300 and 120 px,
+  weaker anywhere = not done); one nameable character, big in frame, the SAME character in every phase, personality
+  constant, strong villain faces; anatomy that connects (no floating gloves, tube arms, pasted heads/necks); three
+  DISTINCT phases (new camera, pose, face, light, palette, setting) with phase 3 the SPECTACLE; animations go hard on
+  everything (layered idle, entrance, nine moments, the attack on the player, a themed knockout) and every ABILITY
+  effect is CRAZY DISTINCT and moves the boss's real parts. No time limit ("IT DOESN'T MATTER HOW LONG IT TAKES"):
+  at least three render → critique → fix rounds zoomed 2 to 4x, an animation check, the triple check, an honest
+  report with the kitsune/ophanim side by side; the coordinator inspects zoomed renders before the owner sees anything.
 - **SVG motion rules**: `<animateTransform>`/`<animateMotion>` only (the sanitizer drops `<animate>`/`<set>`/
   `calcMode`); `keyTimes` must match `values` one to one and end at 1, or the browser silently drops it (tested).
   Tag `class="lg-in"` (entrance) or `lg-loop` (idle); `withMotion` strips per `animated` mode ('intro' card, 'idle'
@@ -2331,10 +2360,22 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   stalled connection left Chat "typing" forever with its send lock held.
 - **A blocked/refused reply with no text THROWS `API 200: blocked (<reason>)`** (OpenAI/xAI `content_filter`,
   Anthropic `stop_reason: refusal`, Gemini `blockReason` or SAFETY-family `finishReason`): as "" it became a saved blank
-  bubble. Status 200 keeps it out of heal/failover; `probeModel` counts it reachable.
+  bubble. Status 200 keeps it out of heal/failover; `probeModel` counts it reachable. An EMPTY 200 reply (no text, no
+  block) THROWS `API 200: empty` on real calls (probes under `MIN_CONTENT_BUDGET` still get "").
+- **Any model the user pins must work** (per role or job): more self-heals in providers.js, each a single retry and
+  never a model swap: OpenAI Responses-only models (`-pro`, codex) go through `/v1/responses` (`responsesOnly`, never
+  read as retired); a refused system role is folded into the user turn (`systemRoleRefused`; Gemini/Gemma without
+  `system_instruction`); output caps named in the error (Anthropic, Gemini) retry lower; Gemini ids lose a `models/`
+  prefix; a text-only model refusing an image is retried once on the provider's vision preset (`imageInputRefused`, in
+  `aiCall`'s catch, before heal/failover); a speech model that is refused falls back to the engine's built-in one.
+  Pickers offer chat models only (`chatModelsOnly`/`NON_CHAT_ID` in aiJobs.js). The matrix lives in
+  `providers-matrix.test.js` (every provider x reply shape); add a case there for any new reply shape.
 - **No forced JSON** (`response_format`/`responseMimeType` break free-form chat).
-- **ALWAYS parse AI JSON with `parseAiJson(text)`, never bare `JSON.parse`** (strips noise, repairs slop, salvages
-  truncated arrays; `escapeInnerQuotes`: a quote closes a string only before `, : } ]` or the end).
+- **ALWAYS parse AI JSON with `parseAiJson(text)` (`src/utils/aiJson.js`), never bare `JSON.parse`** (strips noise
+  and `<think>`-style blocks, repairs slop: curly/single quotes, bare keys, Python literals, comments; salvages
+  truncated arrays; picks the longest balanced value out of prose). Parsers then normalize shape with `canonKeys`
+  (per parser, never global), `pickObject`, `pickList`, `asList`. Every parser is fed real-world reply variants in
+  `aiReplyVariants.test.js`: a new parser gets a case there.
 - **Staying current: two mechanisms** (a working model never errors, so the heal alone never upgrades):
   1. **Retirement heal**: `healRetiredModel`, only on `isRetiredModelError` (404/not-found; never a 429/5xx, an
      "overloaded" 503 matched the words), for the FAILING call's provider, via `discoverCurrentModel` (skips

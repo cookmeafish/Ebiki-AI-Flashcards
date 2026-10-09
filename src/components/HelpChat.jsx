@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { focusUnlessCovered } from '../utils/focusGuard'
 import { shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP } from '../config/shrimp'
 import { FONT } from '../config/tokens'
 import Markdown from './Markdown'
@@ -459,7 +460,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     return () => {
       window.removeEventListener('keydown', onKey, true)
       // The zones unmount with the focus on one of them: hand it back to the panel's input (a no-op once closed).
-      setTimeout(() => { if (inputRef.current && !document.querySelector('[data-dock-zone]')) inputRef.current.focus() }, 60)
+      setTimeout(() => { if (inputRef.current && !document.querySelector('[data-dock-zone]')) focusUnlessCovered(inputRef.current) }, 60)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choosingZone])
@@ -773,7 +774,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     } finally {
       sendingRef.current = false
       setLoading(false)
-      setTimeout(() => inputRef.current?.focus(), 50)
+      setTimeout(() => focusUnlessCovered(inputRef.current), 50) // never behind a modal that opened meanwhile
     }
   }
 
@@ -785,7 +786,8 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     // No floating button to anchor to (e.g. opened via "Ask Ebi" during study): show a
     // normal chat panel docked to the bottom-left corner instead of filling the screen.
     // Never wider than the window (a phone at the default zoom is ~290 layout px: a fixed 360 ran off the right edge).
-    if (!rect) return { position: 'fixed', left: 'min(20px, calc(100vw / var(--app-zoom, 1) / 20))', bottom: 20, width: 'min(360px, calc(100vw / var(--app-zoom, 1) - 2 * min(20px, calc(100vw / var(--app-zoom, 1) / 20))))', height: 'min(460px, calc(80vh / var(--app-zoom)))' }
+    // A phone's bottom tab bar is kept clear (at bottom 20 the panel covered it, so no screen could be picked while open).
+    if (!rect) return { position: 'fixed', left: 'min(20px, calc(100vw / var(--app-zoom, 1) / 20))', bottom: navBottom + (navBottom ? 8 : 20), width: 'min(360px, calc(100vw / var(--app-zoom, 1) - 2 * min(20px, calc(100vw / var(--app-zoom, 1) / 20))))', height: `min(460px, calc(80vh / var(--app-zoom, 1) - ${navBottom}px))` }
     const zoom = getZoom()
     const left = rect.left / zoom, right = rect.right / zoom
     const top = rect.top / zoom, bottom = rect.bottom / zoom

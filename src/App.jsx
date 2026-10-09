@@ -2,13 +2,14 @@ import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react
 import Tesseract from 'tesseract.js'
 import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_ENRICH_PROMPT, LANGUAGE_CARD_PROMPT, buildGenericCardPrompt, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { shapeModeType, shapeTagCategories, shapeChatSuggestions, shapeDiscoverKinds } from './config/modeSpec'
-import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './utils/image'
-import { snapWordsToBoxes, overlayBoxes, hoverTooltipPos, readingLines } from './utils/ocrBoxes'
+import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise, needsRasterCopy, rasterSize, rasterizeImage, svgIntrinsicSize, svgTextOf } from './utils/image'
+import { snapWordsToBoxes, overlayBoxes, hoverTooltipPos, readingLines, pinnedTooltipBox } from './utils/ocrBoxes'
 import { preprocessForOCR, filterTessWords, dedupeOcrWords, tidyOcrWords, untranslatedOcrWords } from './utils/ocr'
 import { createKeyVerdictCache } from './utils/keyVerdicts'
 // Media types EVERY provider accepts in an image part (GIF/WebP are re-encoded, see utils/image.js).
 const PORTABLE_IMAGE_TYPES = /^image\/(jpeg|jpg|png)$/i
-import { PROVIDERS, keyOfOtherProvider, setUsageListener } from './config/providers'
+import { PROVIDERS, keyOfOtherProvider, setUsageListener, listAllModels, imageInputRefused } from './config/providers'
+import { parseAiJson, asList } from './utils/aiJson'
 import { recordUsage } from './utils/tokenUsage'
 import { shapeLegacyModes } from './utils/legacyModes'
 import { editorTagTarget } from './utils/deckTags'
@@ -51,6 +52,7 @@ import { gatherLearnerContext } from './features/kit/learnerContextGather'
 import { learnerLine } from './features/kit/learner'
 import { describeAiError as describeAiErrorText, aiErrorText } from './features/kit/aiError'
 import { toastClearance, TOAST_BASE } from './utils/toastClearance'
+import { focusUnlessCovered } from './utils/focusGuard'
 import Sidebar from './shell/Sidebar'
 import Rail from './shell/Rail'
 import { SHELL, CORE_NAV, railWanted, useViewportWidth, isPhoneWidth } from './shell/layout'
@@ -134,128 +136,7 @@ const FEEDBACK_CATS = {
 const FEEDBACK_CAT_ORDER = ['praise', 'correction', 'grammar', 'terminology', 'detail', 'tip']
 
 
-// Salvage every complete top-level {...} object from a (possibly truncated) string,
-// respecting quoted strings/escapes. Lets us recover most rows even when an array was
-// cut off mid-object (e.g. a long vision response that hit the token limit).
-// Raw line breaks/tabs INSIDE JSON strings escaped ("back": "Pronunciación: X⏎Traducción: cat"): JSON forbids
-// them, and every parse stage failed, so a chat card vanished and a Quick Add reply gave "no cards".
-function escapeControlsInStrings(str) {
-  let out = '', inStr = false, esc = false
-  for (const ch of str) {
-    if (inStr) {
-      if (esc) esc = false
-      else if (ch === '\\') esc = true
-      else if (ch === '"') inStr = false
-      else if (ch === '\n') { out += '\\n'; continue }
-      else if (ch === '\r') { out += '\\r'; continue }
-      else if (ch === '\t') { out += '\\t'; continue }
-    } else if (ch === '"') inStr = true
-    out += ch
-  }
-  return out
-}
-
-function salvageJsonObjects(str) {
-  const out = []
-  out.starts = [] // where each salvaged object began (parseAiJson reads what precedes the first)
-  let depth = 0, start = -1, inStr = false, esc = false
-  for (let i = 0; i < str.length; i++) {
-    const ch = str[i]
-    if (inStr) {
-      if (esc) esc = false
-      else if (ch === '\\') esc = true
-      else if (ch === '"') inStr = false
-      continue
-    }
-    if (ch === '"') { inStr = true; continue }
-    if (ch === '{') { if (depth === 0) start = i; depth++ }
-    else if (ch === '}') {
-      // A stray '}' between rows (the model closed a row twice) never takes the depth below 0: it went negative
-      // and every row after it was lost.
-      if (depth === 0) continue
-      depth--
-      if (depth === 0 && start !== -1) {
-        try { out.push(JSON.parse(str.slice(start, i + 1))); out.starts.push(start) } catch {
-          try { out.push(JSON.parse(escapeControlsInStrings(str.slice(start, i + 1)))); out.starts.push(start) } catch { /* skip bad row */ }
-        }
-        start = -1
-      }
-    }
-  }
-  return out
-}
-
-// Double quotes INSIDE a string value the model forgot to escape ("back":"Ejemplo: "Tengo un perro."") made the
-// whole card or grading row vanish. A quote counts as the string's end only when a JSON delimiter (, : } ]) or
-// the end of the text follows it; any other one is escaped. Used only after the strict parses failed.
-function escapeInnerQuotes(str) {
-  let out = '', inStr = false, esc = false
-  for (let i = 0; i < str.length; i++) {
-    const ch = str[i]
-    if (inStr) {
-      if (esc) esc = false
-      else if (ch === '\\') esc = true
-      else if (ch === '"') {
-        let j = i + 1
-        while (j < str.length && /\s/.test(str[j])) j++
-        if (j >= str.length || /[,:}\]]/.test(str[j])) inStr = false
-        else { out += '\\"'; continue }
-      } else if (ch === '\n') { out += '\\n'; continue }
-    } else if (ch === '"') inStr = true
-    out += ch
-  }
-  return out
-}
-
-// ─── Robust JSON extraction from an AI response ──────────────────────────────
-// Strips markdown fences/preamble, isolates the outermost array/object, repairs common
-// LLM JSON glitches, and as a last resort salvages whatever complete objects it can
-// (so a truncated array still yields most of its rows). Returns parsed value or null.
-function parseAiJson(text) {
-  if (!text) return null
-  let cleaned = String(text).replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '')
-  const jsonStart = cleaned.search(/[[{]/)
-  if (jsonStart > 0) cleaned = cleaned.slice(jsonStart)
-  const wasArray = cleaned[0] === '['
-  let trimmed = cleaned
-  const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'))
-  if (lastBracket > 0) trimmed = cleaned.slice(0, lastBracket + 1)
-  trimmed = trimmed.trim()
-  // 1) Straight parse.
-  try { return JSON.parse(trimmed) } catch { /* fall through */ }
-  // 1b) Trailing commas ONLY. The broader repair below also turns every ' into ", which breaks any
-  // apostrophe in the content ("don't", "l'eau"), so a reply whose only fault was a trailing comma
-  // came back null (a lost card) whenever its text contained an apostrophe.
-  try { return JSON.parse(trimmed.replace(/,\s*([}\]])/g, '$1')) } catch { /* fall through */ }
-  // 1c) Raw line breaks inside strings (see escapeControlsInStrings), trailing commas too.
-  try { return JSON.parse(escapeControlsInStrings(trimmed).replace(/,\s*([}\]])/g, '$1')) } catch { /* fall through */ }
-  // 2) Light repair (bare keys, single quotes, trailing commas).
-  try {
-    let r = trimmed
-    r = r.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":')
-    r = r.replace(/'/g, '"')
-    r = r.replace(/,\s*([}\]])/g, '$1')
-    return JSON.parse(r)
-  } catch { /* fall through */ }
-  // 2b) Unescaped quotes inside a value (see escapeInnerQuotes), trailing commas too.
-  try { return JSON.parse(escapeInnerQuotes(trimmed).replace(/,\s*([}\]])/g, '$1')) } catch { /* fall through */ }
-  // 3) Salvage complete objects (handles truncation). For an array, return the rows.
-  const objs = salvageJsonObjects(cleaned)
-  if (!objs.length) {
-    // A wrapper object cut off mid-list ({"questions": [{...}, {...}, {"quest) never closes, so no row stood at the
-    // top level and every question was lost: salvage the rows of its first list instead.
-    const list = cleaned[0] === '{' ? cleaned.indexOf('[') : -1
-    const rows = list > 0 ? salvageJsonObjects(cleaned.slice(list + 1)) : []
-    return rows.length ? rows.slice() : null
-  }
-  // Array or object by what directly precedes the first real object ("[" or "," = a row of a list), not by
-  // the reply's first bracket: a preamble like "Using the format {front, back}:" made a list of 3 cards
-  // come back as ONE object, and "[Note] {...}" made an object come back as a list.
-  let k = (objs.starts?.[0] ?? 0) - 1
-  while (k >= 0 && /\s/.test(cleaned[k])) k--
-  const inList = k >= 0 ? (cleaned[k] === '[' || cleaned[k] === ',') : wasArray
-  return inList ? objs : objs[0]
-}
+// parseAiJson (robust JSON out of an AI reply) lives in src/utils/aiJson.js.
 
 // ONE JSON object embedded in an AI reply's tag (<anki-card>, <action>). Strict first, so a well-formed
 // object parses exactly as before; then the tolerant parser, so a stray comma or a word of commentary
@@ -927,6 +808,29 @@ export default function App() {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [appConfirm])
+  // Focus goes back where it was once the LAST queued dialog closes: it was left on the page body, so a keyboard user
+  // who answered "Delete this chat?" started over from the top of the app. Only when nothing else took it meanwhile.
+  // The OK button takes focus as it mounts, so the opener is the LAST element focused outside a dialog, tracked all along.
+  const dialogOpen = !!appConfirm
+  const dialogReturnRef = useRef(null)
+  useEffect(() => {
+    const onFocus = (e) => { const el = e.target; if (el && el !== document.body && el.closest && !el.closest('[data-app-dialog]')) dialogReturnRef.current = el }
+    document.addEventListener('focusin', onFocus, true)
+    return () => document.removeEventListener('focusin', onFocus, true)
+  }, [])
+  const dialogWasOpenRef = useRef(false)
+  useEffect(() => {
+    const was = dialogWasOpenRef.current
+    dialogWasOpenRef.current = dialogOpen
+    if (dialogOpen || !was) return
+    const back = dialogReturnRef.current
+    if (!back) return
+    const id = setTimeout(() => {
+      const a = document.activeElement
+      if (back.isConnected && !back.closest?.('[inert]') && (!a || a === document.body)) focusUnlessCovered(back, { preventScroll: true })
+    }, 0)
+    return () => clearTimeout(id)
+  }, [dialogOpen])
   // App UI language ('en' | 'es' | 'zh' | 'ja' | ...). Translates chrome, not flashcards.
   // Starts from this browser's last language (like the theme), so the few screens shown BEFORE the config
   // loads (a slow start, a failed settings read) are already in the user's language. The config wins once read.
@@ -1859,6 +1763,26 @@ export default function App() {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, settingsCategory, provider, keysLoaded, apiKeys[provider]]) // a FIRST key entered here loads the list too
+  // The provider's UNFILTERED model list, for the speech jobs in Settings > Models per job: `availableModels` holds chat
+  // models only (the advisor, failover and upgrades read it), so OpenAI's speech rows listed nothing. In memory only,
+  // per provider AND key (a new key lists again); a failed list just leaves the speech rows on their built-in model.
+  const [allModels, setAllModels] = useState({}) // { [provider]: ids }
+  const allModelsKeyRef = useRef({}) // provider -> the key its list was read with (or is being read with)
+  useEffect(() => {
+    const key = apiKeys[provider]
+    const pc = PROVIDERS[provider]
+    if (!(settingsOpen && settingsCategory === 'models' && key && pc) || keyMisfits(pc, key)) return
+    if (allModelsKeyRef.current[provider] === key) return
+    const prov = provider
+    const timer = setTimeout(() => {
+      allModelsKeyRef.current[prov] = key
+      listAllModels(prov, key)
+        .then((ids) => { if (allModelsKeyRef.current[prov] === key && Array.isArray(ids)) setAllModels((p) => ({ ...p, [prov]: ids })) })
+        .catch(() => { if (allModelsKeyRef.current[prov] === key) delete allModelsKeyRef.current[prov] }) // retried on the next visit
+    }, 700)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsOpen, settingsCategory, provider, keysLoaded, apiKeys[provider]])
   // Another mode's file list must not stay on screen after a switch: Disable/Delete act on the NEW mode (by id),
   // so a click on the old list hit the new mode's file of that name.
   const knowledgeListModeRef = useRef(activeModeId)
@@ -2287,6 +2211,16 @@ export default function App() {
       return finish(out)
     } catch (e) {
       const msg = e?.message || ''
+      // A model that cannot read images (one picked by hand for an image job, any provider): once more on the
+      // provider's vision preset, never the retired-model heal (the model is fine for text).
+      if (images?.length && imageInputRefused(msg)) {
+        const pcI = PROVIDERS[prov]
+        const vm = presetModel(pcI, prov, pcI?.visionTier || 'normal')
+        if (vm && vm !== model) {
+          try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, vm, images, maxTokens)) }
+          catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
+        }
+      }
       const healed = await healRetiredModel(msg, model, role, prov)
       if (healed) {
         try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, healed, images, maxTokens)) }
@@ -2555,7 +2489,8 @@ export default function App() {
     Promise.all([
       apiFetch('/api/keys').then((r) => r.ok ? r.json().then((k) => ({ ...k, _ok: true })) : { _ok: false }).catch(() => ({ _ok: false })),
       apiFetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true, _offline: r.headers.get('X-Ebiki-Offline') === '1' })) : { _reachable: false }).catch(() => ({ _reachable: false })),
-      apiFetch('/api/modes').then((r) => r.json()).catch(() => null),
+      // A non-OK reply (500 read failure, 503 unreachable share) is a FAILED read, never "no modes".
+      apiFetch('/api/modes').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       apiFetch('/api/ankiformat').then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]).then(([keys, config, modesData, legacyFormat]) => {
       // Load modes from /api/modes (per-file storage)
@@ -2732,12 +2667,18 @@ export default function App() {
     const loadOverlayScreenshot = (onLoaded) => {
       const url = window.__overlayScreenshot
       if (!url) return
+      // The newest capture wins (a reset or a newer Alt+Q bumps it): two quick captures raced, and the first one's
+      // slower read replaced the second picture and queued ITS scan.
+      const seq = ++imageLoadSeqRef.current
       apiFetch(url).then(r => r.blob()).then(blob => {
+        if (seq !== imageLoadSeqRef.current) return
         const reader = new FileReader()
         reader.onload = (e) => {
+          if (seq !== imageLoadSeqRef.current) return
           const dataUrl = e.target.result
           const img = new Image()
           img.onload = () => {
+            if (seq !== imageLoadSeqRef.current) return
             setImgDims({ w: img.naturalWidth, h: img.naturalHeight })
             setScreenshot(dataUrl)
             setStage('captured')
@@ -2750,11 +2691,14 @@ export default function App() {
           // A file that does not DECODE (empty or truncated capture) never fired onload, so the page
           // stayed invisible: a transparent full-screen window swallowing every click. Show it.
           img.onerror = () => {
+            if (seq !== imageLoadSeqRef.current) return
             document.body.style.opacity = '1'
             setError(tLiveRef.current('pic_errCaptureEsc'))
           }
           img.src = dataUrl
         }
+        // An unreadable blob never fired onload either: the page stayed invisible over the whole screen.
+        reader.onerror = () => { if (seq === imageLoadSeqRef.current) { document.body.style.opacity = '1'; setError(tLiveRef.current('pic_errCaptureEsc')) } }
         reader.readAsDataURL(blob)
       }).catch(err => {
         console.error('[Overlay] Failed to load screenshot:', err)
@@ -3089,6 +3033,15 @@ export default function App() {
     const img = new Image()
     img.onload = () => {
       if (seq !== imageLoadSeqRef.current) return
+      // An SVG, AVIF, ICO, BMP or GIF becomes a PNG here, once (src/utils/image.js): the local OCR could not read
+      // it (the scan failed), and an SVG with only a viewBox had no size, so no word box was ever drawn on it.
+      let url = dataUrl, w = img.naturalWidth, h = img.naturalHeight
+      if (needsRasterCopy(dataUrl, w, h)) {
+        const size = rasterSize(w, h, svgIntrinsicSize(svgTextOf(dataUrl)))
+        const png = rasterizeImage(img, size.w, size.h)
+        if (!png) { setError(tLiveRef.current('pic_imageUnreadable')); return }
+        url = png; w = size.w; h = size.h
+      }
       // A new picture retires any scan still running on the old one: without this, image A's words
       // (in A's coordinates) landed on image B, and B was never analyzed in the overlay. Only once it
       // DECODED: a picture that can't be opened (HEIC) used to retire the running scan and leave the old
@@ -3096,10 +3049,11 @@ export default function App() {
       scanGenRef.current++; pinGenRef.current++; resetPinBusy()
       setLoading(false); setProgress('') // the retired scan's finally skips this (its gen moved), so the spinner stayed and Analyze never came back
       setAnkiSynced({}) // "synced" flags are per word INDEX of the previous picture
-      setImgDims({ w: img.naturalWidth, h: img.naturalHeight })
-      setScreenshot(dataUrl)
+      setImgDims({ w, h })
+      setScreenshot(url)
       setStage('captured')
-      setOcrWords([])
+      setOcrWords([]); setOcrLines([])
+      setPinnedIdx(null); setHoveredIdx(null) // a word pinned on the old picture kept its popup's index over the new one
       setExpanded(false)
       setError(null)
     }
@@ -3740,7 +3694,7 @@ export default function App() {
       if (stale()) return
       ocrLog(`Vision returned (${String(text).length} chars): ${String(text).slice(0, 1200)}`)
 
-      const parsed = parseAiJson(text)
+      const parsed = asList(parseAiJson(text)) // a list wrapped in one key is still the list
       if (!Array.isArray(parsed)) {
         ocrLog('[Vision] could not parse JSON: falling back to Tesseract')
         ocrLogFlush()
@@ -4100,6 +4054,11 @@ export default function App() {
     if (lazyTranslateRef.current.has(idx)) return
     lazyTranslateRef.current.add(idx)
     const gen = scanGenRef.current
+    // A failed try is MARKED on the word (the popup offers Try again): a pinned word never gets another hover,
+    // so its popup said "Loading…" for good after one failed call. A new try clears the mark (Loading again).
+    const setFailed = (failed) => setOcrWords((prev) => prev.map((w, i) => (i === idx && !!w._translateFailed !== failed ? { ...w, _translateFailed: failed } : w)))
+    const fail = () => { if (gen === scanGenRef.current) { lazyTranslateRef.current.delete(idx); setFailed(true) } }
+    if (words[idx]?._translateFailed) setFailed(false)
     try {
       const word = words[idx]
       const context = words.map((w) => w.text).join(' ')
@@ -4112,7 +4071,7 @@ export default function App() {
       const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload, resolveJobModel('picture.translate'))
       // A failed or empty answer frees the index again: it stayed marked "in flight" for the rest of
       // the scan, so that word could never be translated by hovering it again.
-      if (!text) { if (gen === scanGenRef.current) lazyTranslateRef.current.delete(idx); return }
+      if (!text) { fail(); return }
       const parsed = parseAiJson(text) // tolerant: commentary/fences around the JSON no longer kill the retry
       // Get the first translation item regardless of format
       let t = null
@@ -4121,10 +4080,10 @@ export default function App() {
       // the row, so the word read "perro → perro" for the rest of the scan.
       else if (parsed && typeof parsed === 'object') t = ('t' in parsed) ? parsed : Object.values(parsed).find((v) => v && typeof v === 'object' && !Array.isArray(v))
       if (t && (typeof t !== 'object' || !cardText(t.t))) t = null
-      if (!t && gen === scanGenRef.current) lazyTranslateRef.current.delete(idx) // unreadable: retry on next hover
+      if (!t) fail() // unreadable: retry on next hover (or Try again)
       if (t && gen === scanGenRef.current) {
         setOcrWords((prev) => prev.map((w, i) => i === idx
-          ? { ...w, translation: dashText(t.t) || w.text, synonyms: Array.isArray(t.s) ? t.s.map(dashText).filter(Boolean) : [], isEnglish: t.e === true || t.c === 'target', _own: t.o === true, _untranslated: false, // TRANSLATE_PROMPT answers the category (c), not e
+          ? { ...w, translation: dashText(t.t) || w.text, synonyms: Array.isArray(t.s) ? t.s.map(dashText).filter(Boolean) : [], isEnglish: t.e === true || t.c === 'target', _own: t.o === true, _untranslated: false, _translateFailed: false, // TRANSLATE_PROMPT answers the category (c), not e
               // Category / part of speech / reading too (the Conjugate button and the card's POS hint need them).
               ...(typeof t.c === 'string' && t.c ? { category: t.c } : {}), ...(cardText(t.p) ? { partOfSpeech: cardText(t.p) } : {}), ...(cardText(t.r) ? { pronunciation: cardText(t.r) } : {}) }
           : w
@@ -4132,7 +4091,7 @@ export default function App() {
       }
     } catch (err) {
       console.warn('[Ebiki] Lazy translate failed for index', idx, err)
-      if (gen === scanGenRef.current) lazyTranslateRef.current.delete(idx)
+      fail()
     }
     // targetLang: without it a changed "translate to" language kept translating into the old one.
   }, [apiKey, language, targetLang, ocrWords, providerConfig, activeMode, appLanguage])
@@ -4259,33 +4218,39 @@ export default function App() {
   }
 
   // ─── Draggable pinned tooltip ─────────────────────────────────────────────
+  // Pointer events (mouse, touch and pen): with mouse events only the popup could not be moved on a phone or tablet.
   const handleTooltipDragStart = (e) => {
+    if (e.button != null && e.button !== 0) return // a right or middle press is not a drag
+    if (tooltipDragRef.current) return // one drag at a time (a second finger added a second set of listeners)
     e.preventDefault()
     const el = e.currentTarget.closest('[data-tooltip-pinned]')
     if (!el) return
     const rect = el.getBoundingClientRect()
     // Work entirely in layout px (left/top are layout px; clientX/rect are real px).
     const zoom = el.offsetWidth ? ((rect.width / el.offsetWidth) || 1) : getZoom()
-    tooltipDragRef.current = { offsetX: (e.clientX - rect.left) / zoom, offsetY: (e.clientY - rect.top) / zoom, zoom }
+    const pointerId = e.pointerId
+    tooltipDragRef.current = { offsetX: (e.clientX - rect.left) / zoom, offsetY: (e.clientY - rect.top) / zoom, zoom, pointerId, last: null }
+    const mine = (ev) => tooltipDragRef.current && (pointerId == null || ev.pointerId === pointerId) // only the pointer that started it
     const onMove = (ev) => {
-      if (!tooltipDragRef.current) return
+      if (!mine(ev)) return
       const { offsetX, offsetY, zoom } = tooltipDragRef.current
-      const x = ev.clientX / zoom - offsetX
-      const y = ev.clientY / zoom - offsetY
-      setPinnedTooltipPos({ x, y })
+      const pos = { x: ev.clientX / zoom - offsetX, y: ev.clientY / zoom - offsetY }
+      tooltipDragRef.current.last = pos
+      setPinnedTooltipPos(pos)
     }
-    const onUp = () => {
+    const onUp = (ev) => {
+      if (!mine(ev)) return
+      const last = tooltipDragRef.current.last
       tooltipDragRef.current = null
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      // Save position
-      setPinnedTooltipPos(prev => {
-        if (prev) localStorage.setItem('screenlens-tooltip-pos', JSON.stringify(prev))
-        return prev
-      })
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      // Save the position (outside any state updater: those may run twice)
+      try { if (last) localStorage.setItem('screenlens-tooltip-pos', JSON.stringify(last)) } catch {} // storage refused: kept for this session only
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }
 
   // ─── Explain Word (short, auto-triggered on pin) ───────────────────────────
@@ -4839,7 +4804,7 @@ Output ONLY raw JSON. No markdown, no backticks.${dialectRule()}${preferredTermR
       if (gen === pinGenRef.current) setAnkiCard(card)
     } catch (err) {
       console.error('[Anki] card generation failed:', err.message)
-      if (gen === pinGenRef.current) setAnkiError(t('d_errCard', { msg: err.message }))
+      if (gen === pinGenRef.current) setAnkiError(tLiveRef.current('d_errCard', { msg: aiErrMsg(err) })) // a raw "API 529: {...}" body read as the reason
     } finally {
       if (gen === pinGenRef.current) { ankiGeneratingRef.current = false; setAnkiGenerating(false) } // see resetPinBusy
     }
@@ -5590,7 +5555,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if (!(await confirmDialog(t('deck_resetConfirm', { front: shortFront(front) })))) return
     try {
       const cardIds = await srs.findCards({ noteId: note.noteId })
-      if (cardIds.length === 0) throw new Error(t('deck_noCardsForNote'))
+      if (!Array.isArray(cardIds) || cardIds.length === 0) throw new Error(t('deck_noCardsForNote')) // no list (Anki down answers null) said "Cannot read properties of null"
       await srs.resetCards(cardIds)
       srs.syncSoon()
       await loadDeckNotes(deckBrowserDeckRef.current, { quiet: true }) // refresh the badges; quiet keeps the open editor (and its unsaved text)
@@ -5606,7 +5571,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // Notes deleted from the Deck tab: a live study session's pull skips them (the pool was read before the delete,
   // and the next pull generated questions for a card Anki no longer has). Note ids are never reused.
   const deletedNoteIdsRef = useRef(new Set())
+  // One delete per note at a time: a double click on Del queued two confirmations, and the second delete ran on a note
+  // already gone (an error box, or a second "deleted" pass over the study session and the hooks).
+  const deletingNotesRef = useRef(new Set())
   const deleteNote = async (noteId) => {
+    if (deletingNotesRef.current.has(noteId)) return
+    deletingNotesRef.current.add(noteId)
+    try { await deleteNoteNow(noteId) } finally { deletingNotesRef.current.delete(noteId) }
+  }
+  const deleteNoteNow = async (noteId) => {
     // The note's cards, read BEFORE the await (ids only: they never change).
     const listed = deckBrowserNotes.find((n) => n.noteId === noteId)
     const goneCardIds = new Set([
@@ -5897,7 +5870,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', buildPrompt(batches[bi]), resolveJobModel('deck.bulkEdit'), { keepDashes: true, maxTokens: 8000 })
           // parseAiJson, not bare JSON.parse: models sometimes append commentary after the array or
           // truncate mid-row — the tolerant parser strips the noise and salvages complete objects.
-          const parsed = parseAiJson(text)
+          const parsed = asList(parseAiJson(text)) // a list wrapped in one key is still the list
           if (!Array.isArray(parsed)) throw new Error('Response is not an array')
           // One suggestion per card: the same card twice (two issues) made two rows sharing a React key, the
           // verify pass gave both the same entry, and saving both wrote the second over the first from a stale
@@ -5963,7 +5936,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           : `The proposals fix ambiguous/underspecified cards.`
       const prompt = `You are a skeptical senior reviewer double-checking ANOTHER model's proposed flashcard edits BEFORE the deck owner reviews them. These edits will be WRITTEN onto the owner's cards, so a wrong or sloppy proposal is harmful. ${isLangDeck ? `The deck teaches ${studyLang}.${dialectRule()}${preferredTermRule()}` : `The deck studies "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}.`}\n${goal}\n\nFor EACH proposal, check IN ORDER:\n1. TRUTH: every claim in proposedFields is factually correct${isLangDeck ? ` in ${studyLang}, including REGIONAL honesty: never say a word is "only slang/colloquial" or "only means X" when some region genuinely uses it for the literal sense too; state the per-region reality precisely` : ''}. Fix anything wrong.\n2. SCOPE: the change does what the goal asks and nothing more, restore any line it needlessly altered (compare against currentFields).${isLangDeck ? ` If currentFields held a short direct ${studyLang}-to-English translation and proposedFields dropped it (folded into an example's parenthetical, or omitted), restore it as its own visible line, that direct gloss is what the learner relies on to recall the word at a glance and must never be removed just because the card gained a definition/example.` : ''}\n3. TAGS: proposedTags is the COMPLETE replacement list; restore any existing tag that was dropped without reason (a missing tag silently deletes it).${isLangDeck ? ` Verify every USAGE tag against where you have actually encountered that word rather than accepting the other model's claim: "region-global" only when you are confident every region uses it in this sense (otherwise demote it to the region(s) you can back), exactly one honest frequency tag ("freq-core" / "freq-common" / "freq-uncommon" / "freq-rare", choosing the LESS common level when it sits between two), and a register tag only for a word genuinely restricted to that context. Delete a usage tag you cannot back.` : ''}\n4. CLARITY (active improvement): even when nothing failed, make the proposed content clearer and easier to learn from, simpler wording, sharper examples, tighter phrasing, WITHOUT changing its meaning, scope, language, or line format. Keep text verbatim only when you genuinely cannot improve it.${allowDrop ? `\n\nIf a card never needed this change at all (the proposal is wrong or pointless), mark it with "drop": true instead of fixing it.` : ''}\n\nProposals (JSON):\n${JSON.stringify(payload)}\n\nReturn the SAME JSON array (same noteIds, same order) with "proposedFields"/"proposedTags"/"reason" corrected in place ("reason" stays in ${userLangName()}, the owner's language)${allowDrop ? ' and "drop": true on proposals to discard' : ''}. NEVER change a noteId. Use plain text with newlines (no HTML). Output ONLY raw JSON.`
       const text = await aiCall(apiKey, 'You review proposed flashcard edits. Always respond with valid JSON only.', prompt, resolveJobModel('deck.bulkVerify'), { maxTokens: 8000 })
-      const parsed = parseAiJson(text)
+      const parsed = asList(parseAiJson(text), ['noteId']) // wrapped in one key, or one row alone, is still the list
       if (!Array.isArray(parsed)) return recs
       const byId = new Map(parsed.filter((p) => p && p.noteId != null).map((p) => [Number(p.noteId), p]))
       const cleanTag = (tg) => String(tg).trim().replace(/\s+/g, '-')
@@ -6384,7 +6357,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             ? `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
             : `These are flashcard fronts from a "${activeMode.name}" study deck that look similar (possible duplicates: typo variants, an abbreviation vs its expansion, or the same term/concept written differently). For each cluster, identify which cards are truly the SAME term/concept and should be merged. DISTINCT concepts that merely look or sound similar (e.g. "encoding" vs "encryption", "TCP" vs "UDP") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same term/concept. Output ONLY raw JSON, no markdown.`
           const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveJobModel('deck.duplicates'), { maxTokens: 8000 })
-          const parsed = parseAiJson(text)
+          const parsed = asList(parseAiJson(text)) // a list wrapped in one key is still the list
           if (Array.isArray(parsed)) {
             // IDENTITY GUARD, like the rest of this pipeline: a confirmed set must lie inside ONE cluster it
             // was shown. A set bridging clusters ("casa" from one, "caza" from another) became a group and
@@ -6480,7 +6453,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, headword: htmlToPlain(frontOf(notes[0])), cards: notes.map(plainFields) }))
         const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "headword": "<echo the same group's headword verbatim>", "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nThe "group" number, "headword", and "mergedFields" MUST all belong to the SAME group, never mix one group's content with another's.\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
         const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt, resolveJobModel('deck.duplicates'))
-        const parsed = parseAiJson(text)
+        const parsed = asList(parseAiJson(text), ['group']) // wrapped in one key, or one row alone, is still the list
         if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = { fields: p.mergedFields, headword: p.headword || '' } })
       } catch (e) {
         console.warn('[Deck] AI merge failed, using naive merge:', e.message)
@@ -6830,6 +6803,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // Notes of ANOTHER note type (an imported "Vocab" with Meaning/Example/Audio next to a Basic): the
         // merge fills only the survivor's fields, so deleting the other note lost everything in fields the
         // survivor does not have. Refused when such a field holds anything.
+        // A group note we hold NO copy of (the re-read failed and the list on screen is no longer this deck's) cannot be
+        // merged: the survivor's text read as empty, so every merged field was "changed", written without its labels,
+        // and the duplicates (their images, audio, tags and note-type fields unseen) were deleted.
+        if (!g.noteIds.every((id) => noteById.get(id)?.fields)) { failures.push({ noteIds: g.noteIds, error: t('deck_changedSinceSuggest') }); continue }
         {
           const keepNames = new Set(Object.keys(noteById.get(keepId)?.fields || {}))
           const lostField = g.noteIds.slice(1).some((id) => Object.entries(noteById.get(id)?.fields || {})
@@ -8920,7 +8897,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     for (let attempt = extra.fallbackOnly ? 3 : 0; attempt < 3; attempt++) {
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt + leakRetryNote, resolveJobModel('study.questions'))
-      const parsed = parseAiJson(text)
+      const parsed = asList(parseAiJson(text), ['question']) // wrapped in one key, or one row alone, is still the list
       // An empty array is a failed generation too: a card with no questions can never be asked or finished.
       if (!Array.isArray(parsed) || !parsed.length) throw new Error('not array')
       // A row with no question text (null, a number, "question": "" or an object) showed a blank prompt
@@ -9308,7 +9285,7 @@ Return JSON: [{"question": "...", "type": "recall", "hint1": "X letters", "hint2
 Output ONLY raw JSON. No markdown, no backticks.`
     try {
       const text = await aiCall(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveJobModel('study.conjugation'))
-      const parsed = parseAiJson(text)
+      const parsed = asList(parseAiJson(text), ['question']) // wrapped in one key, or one row alone, is still the list
       if (!Array.isArray(parsed) || !parsed.length) throw new Error('not array') // empty = unfinishable card, use the fallback
       // Rows with no question text are dropped (a blank prompt; a null row crashed on q.hint1).
       const usable = parsed.filter((q) => (typeof q === 'string' ? q.trim() : (q && typeof q === 'object' && typeof q.question === 'string' && q.question.trim())))
@@ -13727,7 +13704,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
       try {
         const prompt = `Generate exactly 3 short example chat prompts (3-6 words each) a user could tap to start chatting with an AI tutor about this study mode. Mix a concept question, a "make a flashcard" request, and a "quiz me" request, all specific to the subject.\nMode name: "${activeMode.name}"\nSubject/description: "${activeMode.description || activeMode.name}"\nType: ${activeMode.type}\nWrite all 3 prompts in ${userLangName()} (the app language), like the rest of the catered experience.\nOutput ONLY a raw JSON array of 3 strings. No markdown, no backticks.`
         const text = await aiCall(apiKey, 'You suggest example chat prompts. Respond with valid JSON only.', prompt, resolveJobModel('chat.suggest'), { silent: true })
-        const arr = parseAiJson(text)
+        const arr = asList(parseAiJson(text))
         // Text (an object item became a "[object Object]" chip for good), and only if nothing set chips meanwhile
         // (Ebi Studio or an edit during this call).
         const live = modesRef.current.find((m) => m.id === modeId)
@@ -13774,7 +13751,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     setChatTabImage(null)
     setChatPlusOpen(false)
     setChatTabLoading(true)
-    setTimeout(() => { scrollChatToLatestTurn(); chatTabInputRef.current?.focus() }, 60)
+    setTimeout(() => { scrollChatToLatestTurn(); focusUnlessCovered(chatTabInputRef.current) }, 60) // not behind a modal the send opened (utils/focusGuard)
     try {
       let systemPrompt = `You are Ebi, a helpful study assistant. The user is studying with mode "${activeMode.name}".
 
@@ -14529,7 +14506,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const connected = await srs.ping()
       setAnkiConnected(connected)
       if (!connected) {
-        const msg = t('d_errAnkiClosed') // was English-only in every app language
+        const msg = tLiveRef.current('d_errAnkiClosed') // was English-only in every app language
         console.log('[Anki] sync failed:', msg)
         if (pinGen === pinGenRef.current) setAnkiError(msg)
         return
@@ -14568,18 +14545,28 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setDeepExplaining(true)
     setDeepExplanation(null)
     try {
-      const prompt = `Word: "${word.text}" (translated: "${word.translation}")
+      // Framed by the mode, like the short explanation: in a general mode (a CompTIA or pilot screen) it asked why a
+      // term "means" itself (its translation is the term) and answered as a language tutor, without the mode's material.
+      const isLang = activeMode.type === 'language'
+      const prompt = isLang
+        ? `Word: "${word.text}" (translated: "${word.translation}")
 Context: "${getContext()}"
 
 In 3-4 short sentences, explain why "${word.text}" means "${word.translation}" in this context. Be concise and direct. No filler, no repetition, no grammar analysis, no examples. Just the meaning and why. Answer in ${userLangName()}.`
-      const text = await aiCall(apiKey, 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.', prompt, resolveJobModel('picture.explain'))
+        : `Term: "${word.text}"
+Context: "${getContext()}"
+Study subject: ${activeMode.description || activeMode.name}${knowledgeBlock(4000)}
+
+In 3-4 short sentences, explain what "${word.text}" means here and why it matters in ${activeMode.name}. Be concise and direct. No filler, no repetition. Answer in ${userLangName()}.`
+      const system = isLang ? 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.' : `You are a concise ${activeMode.name} tutor. Explain in 3-4 sentences max. No fluff.`
+      const text = await aiCall(apiKey, system, prompt, resolveJobModel('picture.explain'))
       if (gen === pinGenRef.current) setDeepExplanation(popupDash(text))
     } catch (err) {
       if (gen === pinGenRef.current) { setDeepExplanation(null); raiseNotice(tLiveRef.current('pic_explainFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
     } finally {
       if (gen === pinGenRef.current) setDeepExplaining(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
-  }, [apiKey, deepExplaining, ocrWords, appLanguage]) // appLanguage: the answer language
+  }, [apiKey, deepExplaining, ocrWords, appLanguage, activeMode, modeKnowledge]) // appLanguage: the answer language; mode + knowledge: the framing
 
   // ─── Word Study (conjugations, usage, regional) ────────────────────────────
   const fetchWordStudy = useCallback(async (word) => {
@@ -14609,14 +14596,34 @@ REGISTER: One word: formal/informal/neutral/slang.
 RELATED: 3 related words with a brief ${userLangName()} meaning, one per line.
 
 No paragraphs. No explanations. Just the facts. Use the section labels above. Write the labels and notes in ${userLangName()}.`
-      const text = await aiCall(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt, resolveJobModel('picture.wordStudy'))
+      // A general mode studies the TERM in its subject (a language word study gave a CompTIA acronym "plural forms",
+      // a register and regional variants).
+      const generalPrompt = `Term: "${word.text}"
+Study subject: ${activeMode.description || activeMode.name}
+Context: "${getContext()}"${knowledgeBlock(4000)}
+
+Give a quick-reference study of this term for ${activeMode.name}. Be CONCISE: short bullet points, 1-3 lines per section.
+
+DEFINITION: One line.
+
+KEY POINTS: 2-3 facts worth remembering.
+
+EXAMPLE: One short real use.
+
+DON'T CONFUSE WITH: 1-2 similar terms and the difference, one line each.
+
+RELATED: 3 related terms with a brief meaning, one per line.
+
+No paragraphs. Keep the term itself, code and formulas as written. Write the labels and notes in ${userLangName()}.`
+      const isLang = activeMode.type === 'language'
+      const text = await aiCall(apiKey, isLang ? 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.' : `You are a concise ${activeMode.name} reference. Short bullet points only. No paragraphs, no filler.`, isLang ? prompt : generalPrompt, resolveJobModel('picture.wordStudy'))
       if (gen === pinGenRef.current) setWordStudy(popupDash(text))
     } catch (err) {
       if (gen === pinGenRef.current) { setWordStudy(null); raiseNotice(tLiveRef.current('pic_explainFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
     } finally {
       if (gen === pinGenRef.current) setWordStudyLoading(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
-  }, [apiKey, wordStudyLoading, ocrWords, language, providerConfig, activeMode, appLanguage])
+  }, [apiKey, wordStudyLoading, ocrWords, language, providerConfig, activeMode, modeKnowledge, appLanguage])
 
   // ─── Conjugation ───────────────────────────────────────────────────────────
   const fetchConjugation = useCallback(async (word) => {
@@ -15388,7 +15395,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           {!compactHeader && <span style={S.badge}>{t('badge_local')}</span>}
           {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
-          <button onClick={() => setAskEbiSignal((n) => n + 1)} data-tip={t('hdr_talkToEbiTip')} className="ui-btn tip tip-b" aria-label={t('hdr_talkToEbi')}
+          <button onClick={() => setAskEbiSignal((n) => n + 1)} data-tip={t('hdr_talkToEbiTip')} className={phoneHeader ? 'ui-btn tip tip-b tip-r' : 'ui-btn tip tip-b'} aria-label={t('hdr_talkToEbi')}
             style={{ ...S.ghostBtn, marginLeft: compactHeader ? 2 : 8, color: 'var(--c-ink)', borderColor: 'var(--c-border)', background: 'var(--c-surface)', borderRadius: 999, padding: phoneHeader ? '6px 9px' : '7px 15px 7px 12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: phoneHeader ? 6 : 8, boxShadow: 'var(--sh-sm)' }}>
             <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--c-brand)', boxShadow: '0 0 0 3px var(--c-brand-tint)' }} />
             {phoneHeader ? <span aria-hidden="true" style={{ lineHeight: 1 }}>💬</span> : t('hdr_talkToEbi')}
@@ -15598,7 +15605,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           provider={provider} setProvider={setProvider}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} validateKey={validateKey} providerConfig={providerConfig}
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
-          aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
+          aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels} allModels={allModels}
           presetModel={(tier) => presetModel(providerConfig, provider, tier)}
           refreshModels={refreshModels} checkNewModels={checkNewModels} modelsLoading={modelsLoading} modelsError={modelsError}
           intelligence={intelligence} setIntelligence={selectIntelligence}
@@ -15831,14 +15838,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     onClick={() => analyzeDeck()}
                     disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                     className="tip tip-r" data-tip={t('deck_analyzeTip')}
-                    style={{ background: 'var(--c-surface)', color: 'var(--c-purple)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                    style={{ background: 'var(--c-surface)', color: 'var(--c-purple)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 'default' : 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                   >
                     {deckAnalyzeLoading && deckAnalyzeKind === 'ambiguous' ? t('deck_analyzing') : t('deck_analyze')}
                   </button>
                   <button
                     onClick={scanDuplicates}
                     disabled={deckDupLoading || !apiKey || deckDupGroups.length > 0}
-                    style={{ background: 'var(--c-surface)', color: 'var(--c-warning)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckDupLoading || !apiKey || deckDupGroups.length > 0) ? 0.5 : 1 }}
+                    style={{ background: 'var(--c-surface)', color: 'var(--c-warning)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: (deckDupLoading || !apiKey || deckDupGroups.length > 0) ? 'default' : 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckDupLoading || !apiKey || deckDupGroups.length > 0) ? 0.5 : 1 }}
                   >
                     {deckDupLoading ? t('deck_scanning') : t('deck_scanDup')}
                   </button>
@@ -15847,7 +15854,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       onClick={() => analyzeDeck('custom', dialectAuditInstruction())}
                       disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                       className="tip tip-r" data-tip={t('deck_dialectAuditTip', { lang: dialectName() || learnLangName() })}
-                      style={{ background: 'var(--c-surface)', color: 'var(--c-teal)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                      style={{ background: 'var(--c-surface)', color: 'var(--c-teal)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 'default' : 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                     >
                       {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeDialectAudit ? t('deck_auditing') : t('deck_dialectAudit')}
                     </button>
@@ -15860,7 +15867,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       onClick={() => analyzeDeck('custom', usageTagAuditInstruction())}
                       disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                       className="tip tip-r" data-tip={t('deck_tagAuditTip')}
-                      style={{ background: 'var(--c-surface)', color: 'var(--c-success)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                      style={{ background: 'var(--c-surface)', color: 'var(--c-success)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 'default' : 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                     >
                       {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeInstruction === usageTagAuditInstruction() ? t('deck_tagAuditing') : t('deck_tagAudit')}
                     </button>
@@ -16025,13 +16032,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 </div>
 
                 {/* Optional AI generation from a word */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>{/* wraps on a phone: the button ran off the screen */}
                   <input value={deckAddTerm} onChange={(e) => setDeckAddTerm(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) generateAddCard() }}
                     placeholder={t('deck_typeWordGen')}
-                    style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+                    style={{ ...S.keyInput, flex: '1 1 160px', minWidth: 0, fontSize: 12 }} />
                   <button onClick={generateAddCard} disabled={deckAddGenerating || !deckAddTerm.trim() || !apiKey}
-                    style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: (deckAddGenerating || !deckAddTerm.trim() || !apiKey) ? 0.5 : 1 }}>
+                    style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: (deckAddGenerating || !deckAddTerm.trim() || !apiKey) ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: (deckAddGenerating || !deckAddTerm.trim() || !apiKey) ? 0.5 : 1 }}>
                     {deckAddGenerating ? t('deck_generating') : t('deck_generateWithAI')}
                   </button>
                 </div>
@@ -16387,6 +16394,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                               <div key={name}>
                                 <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>{name}</div>
                                 <textarea value={deckBrowserEditFields[name] || ''}
+                                  rows={Math.min(12, Math.max(2, String(deckBrowserEditFields[name] || '').split(/\n/).length + 1))} /* a five-line back opened as a two-line slot */
                                   onChange={(e) => setDeckBrowserEditFields((prev) => ({ ...prev, [name]: e.target.value }))}
                                   style={{ ...S.keyInput, fontSize: 12, minHeight: 50, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
                                 />
@@ -16416,7 +16424,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 {deckBrowserRefining ? t('deck_refining') : t('deck_refineWithAI')}
                               </button>
                             </div>
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                               <button onClick={() => saveEditNote(note.noteId)} disabled={deckBrowserSaveStatus === 'saving'} style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 12px', opacity: deckBrowserSaveStatus === 'saving' ? 0.6 : 1 }}>{deckBrowserSaveStatus === 'saving' ? t('deck_saving') : t('save')}</button>
                               <button onClick={() => { setDeckBrowserEditing(null); setDeckBrowserRefineInput(''); setDeckBrowserSaveStatus(null) }} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('cancel')}</button>
                               {deckBrowserSaveStatus === 'error' && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{t('deck_saveFailedAnki')}</span>}
@@ -16432,10 +16440,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         ) : (
                           <>
                           {/* Row header — click anywhere (except the buttons) to expand the full card */}
-                          <div onClick={() => setDeckBrowserExpanded(deckBrowserExpanded === note.noteId ? null : note.noteId)}
+                          <div className="dk-row-head" onClick={() => setDeckBrowserExpanded(deckBrowserExpanded === note.noteId ? null : note.noteId)}
                             style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                             <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0, width: 10 }}>{deckBrowserExpanded === note.noteId ? '▾' : '▸'}</span>
-                            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div className="dk-row-text" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <span dir="auto" style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)' }}>{front}</span>
                               {activeMode.type === 'language' && !noteOwnedElsewhere(note) && (
                                 <span onClick={(e) => e.stopPropagation()}>
@@ -16447,7 +16455,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             </div>
                             {/* Scheduling badges — from the per-card stats already loaded for sorting */}
                             {note.stats && (
-                              <span style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                              <span className="dk-row-badges" style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
                                 {note.stats.reps === 0 ? (
                                   <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-info)', border: '1px solid rgba(59,130,246,.35)', borderRadius: 999, padding: '1px 7px' }}>{t('deck_new')}</span>
                                 ) : note.stats.interval > 0 ? (
@@ -16464,7 +16472,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 )}
                               </span>
                             )}
-                            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                            <div className="dk-row-actions" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                               <button onClick={() => startEditNote(note)} style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-ink-dim)' }}>{t('edit')}</button>
                               <button onClick={() => {
                                 if (deckBrowserCopying === note.noteId) { setDeckBrowserCopying(null); return }
@@ -16472,7 +16480,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 setDeckBrowserCopyStatus(null)
                                 setDeckBrowserCopyTarget(ankiDecks.find(d => d !== deckBrowserDeck) || '')
                               }} style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: deckBrowserCopying === note.noteId ? 'var(--c-border)' : 'transparent', color: 'var(--c-ink-dim)' }}>{t('copyTo')}</button>
-                              <button onClick={async () => { if (await confirmDialog(t('deck_deleteConfirm', { front }))) deleteNote(note.noteId) }}
+                              <button onClick={async () => {
+                                if (deletingNotesRef.current.has(note.noteId)) return
+                                deletingNotesRef.current.add(note.noteId) // claimed BEFORE the question (see deleteNote)
+                                let ok = false
+                                try { ok = await confirmDialog(t('deck_deleteConfirm', { front })) } finally { deletingNotesRef.current.delete(note.noteId) }
+                                if (ok) deleteNote(note.noteId)
+                              }}
                                 style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-danger)' }}>{t('deck_del')}</button>
                             </div>
                           </div>
@@ -16723,12 +16737,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       // Esc's unmount blurs: the cancelled title was saved. Enter's too: the success closed the box and its
                       // blur (a handler from before the list showed the new title) re-read and re-posted the whole chat.
                       onBlur={(e) => { if (e.currentTarget.dataset.cancel || e.currentTarget.dataset.sent === e.currentTarget.value) return; chatTabRenameSession(s.id, e.target.value) }}
-                      style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 3, fontSize: 10, padding: '2px 4px', width: '100%', fontFamily: 'inherit' }}
+                      style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 6, fontSize: 12.5, padding: '2px 6px', width: '100%', fontFamily: 'inherit', boxSizing: 'border-box' }} /* the row's own size: at 10px the title being renamed shrank to half */
                     />
                   ) : (
                     <button type="button" className="chat-session-title" aria-current={chatTabSessionId === s.id ? 'true' : undefined}
                       onClick={(e) => { e.stopPropagation(); chatTabLoadSession(s) }}
                       onDoubleClick={(e) => { e.stopPropagation(); setChatTabEditingTitle(s.id) }}
+                      // F2 renames too: a double click was the only way, so a keyboard could never rename a chat.
+                      onKeyDown={(e) => { if (e.key === 'F2') { e.preventDefault(); e.stopPropagation(); setChatTabEditingTitle(s.id) } }}
                       // Explicit resets, not `all: unset` (inline it would also wipe the global :focus-visible ring).
                       style={{ background: 'none', border: 'none', padding: 0, margin: 0, font: 'inherit', color: 'inherit', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 4 }}>
                       {s.type === 'help' && <span style={{ color: 'var(--c-brand)', marginRight: 4, fontSize: 9 }}>?</span>}
@@ -18395,12 +18411,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
       {/* ── Expanded Fullscreen ───────────────────────────────────────────────── */}
       {expanded && (
-        <div style={S.backdrop} onClick={() => { setExpanded(false); setHoveredIdx(null) }}>
+        <div style={{ ...S.backdrop, width: 'calc(100vw / var(--app-zoom, 1))', height: 'calc(100vh / var(--app-zoom, 1))', boxSizing: 'border-box' }} onClick={() => { setExpanded(false); setHoveredIdx(null) }}>
           <div style={S.closeBadge}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            <span style={{ marginLeft: 6 }}>{t('pic_escClose')}</span>
+            <span style={{ marginLeft: 6 }}>{t(isPhoneWidth(viewportW) ? 'close' : 'pic_escClose')}{/* a phone has no Esc key */}</span>
           </div>
           <div style={S.expandedWrap} onClick={(e) => e.stopPropagation()}>
             <img src={screenshot} alt={t('img_expanded')} style={S.expandedImg} />
@@ -18418,26 +18434,20 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         // Keep the pinned popup fully on-screen: clamp its top-left to the viewport (in layout
         // px, accounting for body zoom) and let it scroll if the content is taller than the screen.
         const ttZoom = getZoom()
-        const estW = hasExpanded ? 520 : 340
-        const estH = hasExpanded ? 580 : 460
         const vw = (typeof window !== 'undefined' ? window.innerWidth : 1280) / ttZoom
         const vh = (typeof window !== 'undefined' ? window.innerHeight : 800) / ttZoom
-        const maxH = Math.round(vh - 20)
-        // estH is only a guess — the real content (explanation + generated card) can be much
-        // taller. So besides clamping the top, cap maxHeight to the space BELOW the clamped top:
-        // the popup then always ends ≥10px above the screen edge and scrolls internally instead
-        // of getting cut off at the bottom.
-        const clampedTop = Math.max(10, Math.min(pinnedTooltipPos?.y ?? 10, vh - estH - 10))
-        const pinnedStyle = isPinned && pinnedTooltipPos
+        // The content height is only a guess (explanation + generated card can be much taller): the top is
+        // clamped, the height capped to the room below it (it scrolls inside), and the WIDTH capped by the
+        // viewport (a phone showed half the popup). src/utils/ocrBoxes.js, tested.
+        const pin = pinnedTooltipBox(pinnedTooltipPos || { x: 10, y: 10 }, vw, vh, !!hasExpanded)
+        const pinnedStyle = isPinned
           ? { ...S.tooltip, ...S.tooltipExpanded,
-              left: Math.max(10, Math.min(pinnedTooltipPos.x, vw - estW - 10)),
-              top: clampedTop,
-              transform: 'none', maxHeight: Math.min(maxH, Math.round(vh - clampedTop - 10)), overflowY: 'auto',
-              ...(hasExpanded ? { maxWidth: 900, width: 500 } : { maxWidth: 400, width: 'auto', minWidth: 300 }),
+              left: pin.left, top: pin.top,
+              transform: 'none', maxHeight: pin.maxHeight, overflowY: 'auto',
+              ...(pin.padding ? { padding: pin.padding } : {}),
+              ...(hasExpanded ? { maxWidth: pin.maxWidth, width: pin.width, minWidth: 0 } : { maxWidth: pin.maxWidth, width: 'auto', minWidth: pin.minWidth }),
             }
-          : isPinned
-            ? { ...S.tooltip, ...S.tooltipExpanded, maxHeight: maxH, overflowY: 'auto', ...(hasExpanded ? { maxWidth: 900, width: '92vw' } : { maxWidth: 400, width: 'auto' }) }
-            : null
+          : null
         const tooltipStyle = pinnedStyle || { ...S.tooltip, left: tooltipPos.x, top: tooltipPos.y, transform: hoverTransform }
         return (
         <>
@@ -18448,8 +18458,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           {/* Drag handle for pinned tooltip */}
           {isPinned && (
             <div
-              onMouseDown={handleTooltipDragStart}
-              style={{ cursor: 'grab', padding: '2px 0 4px', display: 'flex', justifyContent: 'center', userSelect: 'none' }}
+              onPointerDown={handleTooltipDragStart}
+              style={{ cursor: 'grab', padding: '2px 0 4px', display: 'flex', justifyContent: 'center', userSelect: 'none', touchAction: 'none' }}
             >
               <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--c-border-strong)' }} />
             </div>
@@ -18468,7 +18478,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 const catColor = CATEGORY_COLORS[activeWord.category]
                 const showCat = activeWord.category === 'name'
                 const tagColor = showCat ? catColor : posColor
-                const tagLabel = showCat ? t('pic_name') : t('pos_' + posKey)
+                // No tag before the word is read (local OCR, a failed translation): "OTHER" was a guess shown as a fact.
+                const tagLabel = showCat ? t('pic_name') : (activeWord._untranslated && !activeWord.partOfSpeech) ? null : t('pos_' + posKey)
                 return tagLabel ? (
                   <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: tagColor.text, background: tagColor.bg, border: `1px solid ${tagColor.border}`, padding: '2px 6px', borderRadius: 3 }}>
                     {tagLabel}
@@ -18483,7 +18494,18 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           {(activeWord.translation || activeWord._untranslated) && (
             activeWord._untranslated && !activeWord.translation && !apiKey
               ? <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 6 }}>{t('pic_noKeyMeaning')}</div>
-              : <div style={S.ttTrans}>→ {activeWord.translation || (activeWord._untranslated ? t('loading') : '')}</div>
+              : activeWord._untranslated && activeWord._translateFailed
+                // A failed translation says so (it read "Loading…" forever on a pinned word, which gets no new hover).
+                ? <div data-translate-failed="true" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--c-warning)', marginBottom: 6 }}>
+                    <span>{t('pic_translateFailed')}</span>
+                    {isPinned && (
+                      <button onClick={() => lazyTranslate(activeIdx)}
+                        style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'color-mix(in srgb, var(--c-warning) 35%, transparent)' }}>
+                        {t('tryAgain')}
+                      </button>
+                    )}
+                  </div>
+                : <div style={S.ttTrans}>→ {activeWord.translation || (activeWord._untranslated ? t('loading') : '')}</div>
           )}
           {/* In-context meaning (green) + other senses (purple), like the Study legend */}
           {activeWord.sense && (
@@ -18582,7 +18604,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {wordStudyLoading ? t('loading') : t('pic_studyWord', { word: activeWord.text })}
                     </button>
                   )}
-                  {!conjugation && (activeWord.partOfSpeech === 'verb' || activeWord.partOfSpeech === 'noun' || activeWord.partOfSpeech === 'adj') && (
+                  {!conjugation && activeMode.type === 'language' && (activeWord.partOfSpeech === 'verb' || activeWord.partOfSpeech === 'noun' || activeWord.partOfSpeech === 'adj') && (
                     <button
                       onClick={() => fetchConjugation(activeWord)}
                       disabled={conjugationLoading}
@@ -18808,6 +18830,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         /* ── Theme palettes (flip via <html data-theme="dark">) ───────── */
 ${PALETTE_CSS}
 
+        /* The body font on <html> too: the dropdown host, usage meter, voice layer and dialogs portal under <html>
+           (outside the zoomed body) and fell back to the browser default. Form controls do not inherit the
+           font by default (they rendered in Arial); one that sets its own font keeps it (class or inline wins). */
+        html { font-family: ${FONT.body}; }
+        button, input, select, textarea, optgroup { font-family: inherit; }
+
         @keyframes pulse {
           0%, 100% { transform: scale(1); opacity: 0.5; }
           50% { transform: scale(1.6); opacity: 0; }
@@ -19007,6 +19035,13 @@ ${PALETTE_CSS}
         /* Chat: a floating composer. */
         /* Toasts on a phone: one readable width each (the stack spans the window). */
         .toast-stack-phone > * { width: min(calc(92vw / var(--app-zoom, 1)), 420px); max-width: calc(92vw / var(--app-zoom, 1)) !important; box-sizing: border-box; }
+        /* Compact on a phone: the failover toast was ~11 lines tall at 390px and, lifted above a composer, covered the
+           screen's header. Smaller type and padding, actions wrap under the text, the message scrolls past a cap. */
+        .toast-stack-phone > .app-toast { padding: 8px 10px !important; font-size: 12px !important; gap: 6px 8px !important; flex-wrap: wrap; align-items: flex-start !important; }
+        .toast-stack-phone .toast-msg { flex: 1 1 0 !important; min-width: 70%; line-height: 1.35 !important; max-height: calc(22vh / var(--app-zoom, 1)); overflow-y: auto; }
+        .toast-stack-phone .app-toast > .toast-x { order: 2; }
+        .toast-stack-phone .app-toast > .ui-btn { order: 3; margin-left: auto; padding: 4px 10px; }
+        .toast-x { background: none; border: none; padding: 2px 6px; margin: -2px -4px -2px 0; font-size: 15px; line-height: 1; cursor: pointer; border-radius: 6px; flex: none; }
         .ch-composer { margin: 0 auto; width: 100%; max-width: 860px; box-sizing: border-box; background: var(--c-surface); border: 1px solid var(--c-border);
           border-radius: 22px; box-shadow: var(--sh-lg); padding: 8px; }
         @container chcol (max-width: 600px) { .ch-mascot { width: 52px !important; height: 52px !important; } }
@@ -19055,6 +19090,16 @@ ${PALETTE_CSS}
         .dk-list > div:not(.deck-row) { border: none !important; border-radius: 0 !important; border-bottom: 1px solid var(--c-border) !important; box-shadow: inset 3px 0 0 var(--c-brand) !important; }
         .dk-sticky { position: sticky; top: -20px; z-index: 6; margin: 0 -20px 14px; padding: 12px 20px; background: color-mix(in srgb, var(--c-bg) 86%, transparent);
           backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); border-bottom: 1px solid var(--c-border); }
+        /* Phones: the sticky strip (picker, search, sort, filter and six tools, all wrapped) covered more than half the
+           screen and rows scrolled by in a sliver under it; and a row's badge + Edit/Copy/Del took the whole width, so a
+           card's front showed as "g." Here the strip scrolls away and a row's tools drop to a second line. */
+        @media (max-width: 560px) {
+          .dk-sticky { position: static; }
+          .dk-row-head { flex-wrap: wrap; row-gap: 2px; }
+          .dk-row-text { flex-basis: calc(100% - 20px) !important; }
+          .dk-row-badges { margin-left: 20px; }
+          .dk-row-actions { margin-left: auto; }
+        }
 
         /* Discover: the suggestion is the top card of a stack. */
         .dc-stack { position: relative; max-width: 620px; margin: 8px auto 28px; }
@@ -19143,6 +19188,9 @@ ${PALETTE_CSS}
         /* Instant hover tooltip (the native title attribute has a ~1s delay and reads as dead).
            Usage: <span className="tip" data-tip="explanation">ⓘ</span> */
         .tip { position: relative; cursor: help; }
+        /* While its tip shows, the control rises above its later siblings: the header's Talk to Ebi tip opened UNDER the
+           mode and deck switch on a phone. An inline z-index still wins. */
+        .tip:hover, .tip:focus-visible { z-index: 90; }
         .tip:hover::after, .tip:focus-visible::after {
           content: attr(data-tip);
           position: absolute; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%);
@@ -19291,12 +19339,13 @@ ${PALETTE_CSS}
       {appConfirm && (
         <div data-app-dialog="1" onClick={() => resolveConfirm(false)}
           style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))', zIndex: 12002, /* above Ebi Studio (12000): a confirm raised during Apply opened hidden under it */ background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{
+          {/* A real modal for screen readers (it was an unnamed div): the message is its name. */}
+          <div onClick={(e) => e.stopPropagation()} role={appConfirm.notice ? 'alertdialog' : 'dialog'} aria-modal="true" aria-labelledby="ebiki-app-dialog-msg" style={{
             background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
             padding: '18px 20px', maxWidth: 440, width: 'calc(90vw / var(--app-zoom))', boxShadow: SHADOW.lg,
             display: 'flex', flexDirection: 'column', gap: 14, animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
           }}>
-            <div style={{ fontSize: 14, color: 'var(--c-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontWeight: 600 }}>{appConfirm.message}</div>
+            <div id="ebiki-app-dialog-msg" style={{ fontSize: 14, color: 'var(--c-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontWeight: 600 }}>{appConfirm.message}</div>
             {appConfirm.input && (
               <input autoFocus value={appConfirm.value}
                 onChange={(e) => { const v = e.target.value; setAppConfirm((cur) => (cur ? { ...cur, value: v } : cur)) }}
@@ -19373,21 +19422,21 @@ ${PALETTE_CSS}
           ? { right: 16, alignItems: 'flex-end', maxWidth: 'max(240px, calc((100vw / var(--app-zoom)) / 2 - 300px))' }
           : { left: '50%', transform: 'translateX(-50%)', alignItems: 'center' }) }}>
       {modelHealNotice && (
-        <div style={{
+        <div className="app-toast" role="status" style={{
           pointerEvents: 'auto',
           background: C.surface, border: `1px solid ${C.successTint}`, borderRadius: RADIUS.md,
           padding: '10px 14px', fontSize: 12, color: C.success, maxWidth: 420, fontWeight: 600,
           boxShadow: SHADOW.lg, display: 'flex', alignItems: 'center', gap: 10,
         }}>
-          <span style={{ flex: 1 }}>🔧 {modelHealNotice}</span>
-          <span onClick={() => setModelHealNotice(null)} style={{ cursor: 'pointer', color: C.inkFaint }}>×</span>
+          <span className="toast-msg" style={{ flex: 1 }}>🔧 {modelHealNotice}</span>
+          <button type="button" className="toast-x" aria-label={t('close')} onClick={() => setModelHealNotice(null)} style={{ color: C.inkFaint }}>×</button>
         </div>
       )}
 
       {/* Green success toast (mode created, etc.) — auto-dismisses. Above the settings modal
           (z 10001 > backdrop 1000) so it's visible even while Settings is open. */}
       {successNotice && (
-        <div style={{
+        <div className="app-toast" role="status" style={{
           pointerEvents: 'auto',
           background: C.surface, border: `1px solid ${C.success}`, borderRadius: RADIUS.md,
           padding: '12px 16px', fontSize: 13, color: C.success, maxWidth: 460, fontWeight: 600,
@@ -19395,21 +19444,21 @@ ${PALETTE_CSS}
           animation: 'slideUp .25s ease',
         }}>
           <span style={{ fontSize: 15 }}>✅</span>
-          <span style={{ flex: 1, lineHeight: 1.45 }}>{successNotice}</span>
-          <span onClick={() => setSuccessNotice(null)} style={{ cursor: 'pointer', color: C.success, fontSize: 15, lineHeight: 1 }}>×</span>
+          <span className="toast-msg" style={{ flex: 1, lineHeight: 1.45 }}>{successNotice}</span>
+          <button type="button" className="toast-x" aria-label={t('close')} onClick={() => setSuccessNotice(null)} style={{ color: C.success, fontSize: 15, lineHeight: 1 }}>×</button>
         </div>
       )}
 
       {/* Runtime model failover: a model went down mid-session and Ebi switched to a working one. */}
       {modelFailover && (
-        <div style={{
+        <div className="app-toast" role="status" style={{
           pointerEvents: 'auto',
           background: C.surface, border: `1px solid var(--c-warning)`, borderRadius: RADIUS.md,
           padding: '12px 16px', fontSize: 13, color: 'var(--c-warning)', maxWidth: 480, fontWeight: 600,
           boxShadow: SHADOW.lg, display: 'flex', alignItems: 'center', gap: 10, animation: 'slideUp .25s ease',
         }}>
           <span style={{ fontSize: 15 }}>⚠</span>
-          <span style={{ flex: 1, lineHeight: 1.45 }}>{t('fo_body', { down: modelFailover.down, alt: modelFailover.alt })}</span>
+          <span className="toast-msg" style={{ flex: 1, lineHeight: 1.45 }}>{t('fo_body', { down: modelFailover.down, alt: modelFailover.alt })}</span>
           <button className="ui-btn" onClick={async () => {
             const prov = modelFailover.provider, down = modelFailover.down
             const ok = await probeModel(prov, down, apiKeys[prov])
@@ -19418,13 +19467,13 @@ ${PALETTE_CSS}
               setModelFailover(null)
             }
           }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(179,106,0,.35)' }}>{t('fo_retry')}</button>
-          <span onClick={() => setModelFailover(null)} style={{ cursor: 'pointer', color: 'var(--c-warning)', fontSize: 15, lineHeight: 1 }}>×</span>
+          <button type="button" className="toast-x" aria-label={t('close')} onClick={() => setModelFailover(null)} style={{ color: 'var(--c-warning)', fontSize: 15, lineHeight: 1 }}>×</button>
         </div>
       )}
 
       {/* AI request error (out of credits / rate limit / bad key) — stays until dismissed */}
       {aiErrorNotice && (
-        <div style={{
+        <div className="app-toast" role="status" style={{
           pointerEvents: 'auto',
           background: C.surface, border: `1px solid ${C.danger}`, borderRadius: RADIUS.md,
           padding: '12px 16px', fontSize: 13, color: C.danger, maxWidth: 460, fontWeight: 600,
@@ -19434,9 +19483,10 @@ ${PALETTE_CSS}
           <span style={{ fontSize: 15 }}>⚠️</span>
           {/* The body is clickable: most AI errors are a bad/missing key or a model choice, so tapping
               the message jumps to Settings, AI models where the user can fix the key or switch model. */}
-          <span onClick={() => { openAiSettings(); setAiErrorNotice(null) }} className="click-dim"
+          <span onClick={() => { openAiSettings(); setAiErrorNotice(null) }} className="click-dim toast-msg" role="button" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAiSettings(); setAiErrorNotice(null) } }}
             style={{ flex: 1, lineHeight: 1.45, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'color-mix(in srgb, var(--c-danger) 40%, transparent)' }}>{aiErrorNotice}</span>
-          <span onClick={() => setAiErrorNotice(null)} style={{ cursor: 'pointer', color: C.danger, fontSize: 15, lineHeight: 1 }}>×</span>
+          <button type="button" className="toast-x" aria-label={t('close')} onClick={() => setAiErrorNotice(null)} style={{ color: C.danger, fontSize: 15, lineHeight: 1 }}>×</button>
         </div>
       )}
       </div>

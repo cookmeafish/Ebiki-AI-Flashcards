@@ -15,6 +15,9 @@ import { buildDrillPrompt, DRILL_ROLE, DRILL_JOB, DRILL_MAX_TOKENS, DRILL_SIZE }
 
 import { LISTEN_FEATURE_ID } from './featureId'
 import { aiErrorText } from '../kit/aiError'
+import { pickList } from '../../utils/aiJson'
+// A model's flag as text ("true", "yes") is a flag too.
+const yes = (v) => v === true || /^(true|yes)$/i.test(String(v ?? '').trim())
 export { LISTEN_FEATURE_ID }
 const MIN_QUESTIONS = 3
 const KNOWLEDGE_CAP = 3000
@@ -51,11 +54,11 @@ export default function ListenScreen({ onExit }) {
       const items = await pickCardItems(ctx, DRILL_SIZE)
       const { system, user } = buildDrillPrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), slips: subject.isLanguage ? subject.grammarSlips(SLIPS) : '', level: await learnerLevelLine(ctx, { context: true }) })
       const j = ai.json(await ai.call(system, user, { role: DRILL_ROLE, job: DRILL_JOB, maxTokens: DRILL_MAX_TOKENS }))
-      const qs = sanitizeQuestions((Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []).filter((q) => q && typeof q === 'object').map((q) => ({
+      const qs = sanitizeQuestions(pickList(j, 'questions', ['question'], ['question', 'explanation', 'say', 'speak', 'open']).map((q) => ({
         // Text fields only as text: a list or object there was read aloud and shown as "[object Object]".
         ...q, question: ai.clean(txt(q.question)), explanation: ai.clean(txt(q.explanation)), say: ai.clean(txt(q.say)),
-        speak: q.speak === true && !!engines.stt, // no way to listen → typed instead
-        open: q.open === true && q.speak === true && !q.say, // only "explain out loud" is open; a dictation has one answer
+        speak: yes(q.speak) && !!engines.stt, // no way to listen → typed instead ("true" as text counts)
+        open: yes(q.open) && yes(q.speak) && !q.say, // only "explain out loud" is open; a dictation has one answer
       // A general subject is explained out loud in the app language: the recognizer must listen for it, not the browser's.
       })), { audioLang: voiceLang, speakLang: voiceLang, clean: ai.clean })
       if (qs.length < MIN_QUESTIONS) throw new Error(t('ls_badWorkout'))

@@ -13,6 +13,7 @@
 //   3 Use        interval 7 to 20 days    (Anki's young cards)
 //   4 Produce    interval 21 to 89 days   (Anki's mature cards)
 //   5 Master     interval 90 days or more
+import { canonKeys } from './aiJson'
 
 export const TIERS = [
   { id: 0, key: 'meet', icon: '🌱' },
@@ -137,10 +138,15 @@ const okFlag = (v) => v === true || v === 1 || /^(true|yes|1|ok|pass|valid)$/i.t
 // parsed: the reply through parseAiJson. → { complete, fails: [{ i, reason }] }. complete = every question got a
 // verdict; a question without one is NOT a pass (the caller treats it as unreviewed).
 export function parseQuestionReview(parsed, count) {
-  const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.verdicts) ? parsed.verdicts : null
+  // The list under another key ({"results": [...]}), or ONE verdict object for a one-question card.
+  const isRow = (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).some((k) => /^ok$/i.test(k))
+  const other = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? Object.values(parsed).find((v) => Array.isArray(v) && v.some(isRow)) : null
+  const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.verdicts) ? parsed.verdicts : other || (count === 1 && isRow(parsed) ? [parsed] : null)
   const seen = new Set()
   const fails = []
-  if (list) list.forEach((v, pos) => {
+  if (list) list.forEach((row, pos) => {
+    const v = canonKeys(row, ['i', 'ok', 'reason'])
     if (!v || typeof v !== 'object') return
     const i = Number.isInteger(Number(v.i)) && v.i !== '' && v.i !== null && v.i !== undefined ? Number(v.i) : pos
     if (i < 0 || i >= count || seen.has(i)) return
@@ -214,11 +220,18 @@ export function buildOpenChoicesPrompt({ front = '', back = '', question = '', i
 // parsed: the reply through parseAiJson → { choices, answerIdx } or null (exactly 4 distinct non-empty options and a
 // valid index, "2" read as 2).
 export function parseOpenChoices(parsed) {
-  const list = Array.isArray(parsed?.choices) ? parsed.choices : null
-  if (!list || list.length !== 4) return null
+  // Index under another name ("answerIndex", "answer_idx", "correctIndex", a numeric "answer"), and options written as
+  // objects ([{"text": "...", "correct": true}]): read as the same thing.
+  const p = canonKeys(parsed, ['choices', 'answerIdx', 'answerIndex', 'correctIndex', 'answer'])
+  const raw = Array.isArray(p?.choices) ? p.choices : Array.isArray(p?.options) ? p.options : null
+  if (!raw || raw.length !== 4) return null
+  const list = raw.map((c) => (c && typeof c === 'object' ? (c.text ?? c.option ?? c.choice ?? '') : c))
   const choices = list.map((c) => String(c ?? '').trim())
   if (choices.some((c) => !c) || new Set(choices.map((c) => c.toLowerCase())).size !== 4) return null
-  const idx = Number(parsed.answerIdx)
+  const flagged = raw.findIndex((c) => c && typeof c === 'object' && /^(true|yes|1)$/i.test(String(c.correct ?? c.isCorrect ?? '')))
+  const given = [p.answerIdx, p.answerIndex, p.correctIndex].find((v) => v != null && v !== '')
+    ?? (p.answer != null && /^\s*\d\s*$/.test(String(p.answer)) ? p.answer : undefined)
+  const idx = given != null ? Number(given) : flagged
   if (!Number.isInteger(idx) || idx < 0 || idx > 3) return null
   return { choices, answerIdx: idx }
 }

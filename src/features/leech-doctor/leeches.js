@@ -1,4 +1,5 @@
 // Finding leeches (cards you keep failing) and reading the doctor's reply. Pure, tested.
+import { pickList } from '../../utils/aiJson'
 export const LEECH_LAPSES = 4       // same threshold as the deck browser's ⚠ badge
 export const MAX_PATIENTS = 8       // cards diagnosed per visit (one AI call)
 export const CAUSES = ['confusable', 'unpinned', 'thin', 'hook', 'wrong']
@@ -18,12 +19,13 @@ export function findLeeches(cards, min = LEECH_LAPSES) {
 export function parseDiagnoses(json, patients) {
   const ids = new Set((patients || []).map((p) => String(p.noteId)))
   const out = new Map()
-  for (const d of Array.isArray(json?.diagnoses) ? json.diagnoses : []) {
+  // A bare list, another key, or keys in another case ("NoteId") read the same; a cause in capitals too.
+  for (const d of pickList(json, 'diagnoses', ['noteId', 'explanation'], ['noteId', 'cause', 'confusedWith', 'explanation', 'mentor', 'fix'])) {
     const id = String(d?.noteId ?? '')
     if (!ids.has(id) || !d.explanation) continue
     const fix = d.fix && typeof d.fix === 'object' ? { front: String(d.fix.front || '').trim(), back: String(d.fix.back || '').trim() } : null
     out.set(id, {
-      cause: CAUSES.includes(d.cause) ? d.cause : 'hook',
+      cause: CAUSES.includes(String(d.cause || '').trim().toLowerCase()) ? String(d.cause).trim().toLowerCase() : 'hook',
       confusedWith: String(d.confusedWith || '').trim(),
       explanation: String(d.explanation).trim(),
       mentor: String(d.mentor || '').trim(),
