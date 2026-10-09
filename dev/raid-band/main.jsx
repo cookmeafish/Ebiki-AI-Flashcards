@@ -10,7 +10,7 @@ import { impactFor } from '../../src/features/legends/impact/styles'
 import { paletteTint } from '../../src/features/legends/art'
 
 const t = makeT('en')
-const NAMES = { ribbon: 'Ribbon', beam: 'Energy beam', lightning: 'Lightning', sigil: 'Sigil chain', chevron: 'Chevrons (current)', sheen: 'Sheen', hazard: 'Refined hazard' }
+const NAMES = { line: 'Title line (current)', ribbon: 'Ribbon', beam: 'Energy beam', lightning: 'Lightning', sigil: 'Sigil chain', chevron: 'Chevrons', sheen: 'Sheen', hazard: 'Refined hazard' }
 const forest = paletteTint('forest')
 const SAMPLES = [
   { label: t('lg_raid'), main: impactFor('ophanim').color, deep: impactFor('ophanim').accent, who: 'Raid: Ophanim' },

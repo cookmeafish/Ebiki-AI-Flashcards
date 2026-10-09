@@ -6,8 +6,8 @@
 // uses. Every look is on one live page for comparing: /dev/raid-band/ (dev server).
 import { C, FONT } from '../../config/tokens'
 
-export const BAND_VARIANTS = ['ribbon', 'beam', 'lightning', 'sigil', 'chevron', 'sheen', 'hazard']
-export const BAND_STYLE = 'chevron'
+export const BAND_VARIANTS = ['line', 'ribbon', 'beam', 'lightning', 'sigil', 'chevron', 'sheen', 'hazard']
+export const BAND_STYLE = 'line'
 const PERIODS = 50 // a strip is 50 periods wide; moving it 2% moves exactly one period
 
 export const BAND_CSS = `
@@ -18,6 +18,7 @@ export const BAND_CSS = `
 @keyframes lgBandFlickA { 0%, 18%, 52%, 70%, 100% { opacity: 1 } 19%, 51% { opacity: 0 } 71%, 99% { opacity: .15 } }
 @keyframes lgBandFlickB { 0%, 18%, 52%, 70%, 100% { opacity: 0 } 19%, 51% { opacity: 1 } 71%, 99% { opacity: .85 } }
 @keyframes lgBandWave { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-1.5px) } }
+@keyframes lgBandGlint { 0% { transform: translateX(-25%); opacity: 0 } 8% { opacity: 1 } 55% { transform: translateX(100%); opacity: 0 } 100% { transform: translateX(100%); opacity: 0 } }
 @keyframes lgBandPulseOut { 0% { transform: translateX(0); opacity: 0 } 15% { opacity: 1 } 100% { transform: translateX(100%); opacity: 0 } }
 `
 
@@ -46,7 +47,31 @@ export function RaidBand({ variant = BAND_STYLE, main, deep, label, calm = false
   }
   let plateExtra = null
 
-  if (variant === 'ribbon') {
+  if (variant === 'line') {
+    // A title rule: no strip behind it. Two thin glowing lines fade out from the label, a hairline under each, a small
+    // diamond at each side of the label, and a glint that runs outward along the lines now and then.
+    const side = (dir) => (
+      <span style={{ position: 'relative', flex: '1 1 0', minWidth: 0, height: h, transform: dir === 'left' ? 'scaleX(-1)' : 'none' }}>
+        <span style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 2, marginTop: -1, borderRadius: 2, background: `linear-gradient(90deg, ${c}, color-mix(in srgb, ${c} 45%, transparent) 55%, transparent)`, boxShadow: `0 0 6px color-mix(in srgb, ${c} 70%, transparent)` }} />
+        <span style={{ position: 'absolute', left: 0, width: '62%', top: '50%', height: 1, marginTop: 4, background: `linear-gradient(90deg, color-mix(in srgb, ${c} 55%, transparent), transparent)` }} />
+        <span style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+          <span style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '100%', animation: anim('lgBandGlint 3.4s cubic-bezier(.3,.6,.4,1) infinite') }}>
+            <span style={{ position: 'absolute', top: '50%', height: 4, marginTop: -2, left: 0, width: '22%', borderRadius: 4, background: `linear-gradient(90deg, transparent, white 60%, transparent)`, filter: `drop-shadow(0 0 4px ${c})` }} />
+          </span>
+        </span>
+      </span>
+    )
+    const gem = <span aria-hidden="true" style={{ flex: 'none', width: Math.round(h * 0.22), height: Math.round(h * 0.22), transform: 'rotate(45deg)', background: c, boxShadow: `0 0 8px ${c}` }} />
+    return (
+      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', gap: Math.round(h * 0.3), padding: '0 6%' }}>
+        {side('left')}
+        {gem}
+        <span style={{ flex: 'none', fontFamily: FONT.display, fontWeight: 900, fontSize: Math.round(h * 0.46), letterSpacing: '.5em', marginRight: '-.5em', color: C.white, textTransform: 'uppercase', whiteSpace: 'nowrap', textShadow: `0 0 10px ${c}, 0 1px 2px rgba(0,0,0,.8)` }}>{label}</span>
+        {gem}
+        {side('right')}
+      </span>
+    )
+  } else if (variant === 'ribbon') {
     // A heraldic ribbon: a cloth banner in the boss's color with swallowtail ends and light trim, the name stitched
     // on it, a slow shimmer across the cloth and a gentle sway.
     const W = 400

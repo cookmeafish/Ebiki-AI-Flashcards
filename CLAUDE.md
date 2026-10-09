@@ -1360,8 +1360,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   tap never picks the tile), hint, answer, note, explanation, each its own source; `startChoices(q)` opens a dual
   question on its choices. Taunts, raid debrief, all-answers list and Learn-it panel are tappable too. General-mode
   lookups explain in the app language, no card or hook.
-- **Warning bands** (`RaidBand.jsx`, `BAND_STYLE` 'chevron'; 'sheen'/'hazard' kept as alternatives): chevrons
-  stream out of a framed plate, in the boss's colors (raid boss: `impactFor(motif)` color/accent; Legends boss: its
+- **Warning bands** (`RaidBand.jsx`, `BAND_STYLE` 'line'; the owner found the chevrons ugly, the other looks stay as
+  alternatives): a title rule, no strip behind it: glowing lines fade out from the label with a glint, in the boss's colors (raid boss: `impactFor(motif)` color/accent; Legends boss: its
   palette `paletteTint`; Legendary: warning gold; else danger), and the stage light + aura take the same color. Used
   by BossIntro and the Practice raid hero. Loops move strips by a PERCENTAGE (exact at any zoom). Preview all looks:
   `dev/raid-band/harness.jsx`.
