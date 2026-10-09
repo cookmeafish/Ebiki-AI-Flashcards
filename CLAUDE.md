@@ -536,6 +536,18 @@ restarts), so a forgotten server serves stale config. SHORTCUT launches only:
 - **No auto-exit while `updateRunning`** (a killed git left `index.lock`). The update's npm install has its own 300s
   tree-kill timer (`taskkill /T`), never execFile's timeout (killed only cmd.exe). A restart POST calls
   `requestShutdown` 1.5s after answering (another tab kept the old server alive). The overlay sweep dies at 10s.
+- **The built app (shortcut launches)**: the PAGE comes from an optimized `vite build` in `.ebiki-build/`
+  (`src/server/builtApp.js`, tested; gitignored): about 2 MB at start instead of 12 to 22 MB of dev modules, React's
+  production build (about 25% less script work on a tour, 40% less memory). Served only when its `.stamp` equals
+  `sourceFingerprint` (src/, index.html, vite.config.js, package*.json; tests and `.scratch` excluded) of the code at
+  START; else that session runs on the dev server as before and `startAppBuild` builds in the background (15 s after
+  start, below-normal priority, into `.ebiki-build.tmp`, swapped in whole, stamped only if the code did not change
+  meanwhile; also right after `/api/update` installs; log `logs/app-build.log`). Only `/`, `/index.html` and
+  `/_app/*` (`builtFileFor`, never outside the folder) come from the build; /api, public files, `/node_modules`
+  (pdf cmaps) and dev pages stay with the dev server. `EBIKI_AUTO_EXIT=1` or `EBIKI_BUILT=1` turns it on,
+  `EBIKI_BUILT=0` off; a manual `npm run dev` never serves it (hot reload). **No HMR socket in the build**: pages
+  answer the server's liveness ping through `platform.serverPings` (HMR in dev, the `/api/alive-stream` event stream
+  in the build; `pingPages` writes to both). Never use `import.meta.hot` directly for it.
 - **The app notices its server dying**: 3 missed beats (~15s) → a QUIET amber line opening Settings > Data & updates
   (`openConnectionSettings`); `UpdatesCard` shows `down` (`serverDown`) with **Restart now** (same two-path restart).
   A beat succeeding again reloads the page (may be an old build).
@@ -1145,7 +1157,8 @@ logic through App.jsx**; App only provides context, renders slots, emits facts.
   `tCount`, `depthBorder` (never mix `border` with `borderBottomWidth`). Tunables are named constants at module top.
 - `features.test.js`: no own strings, labels translated, slot components, known events, distinct data entries, NO
   imports of App internals (`App`, `components/`, `shell/`, `dev/`; listed exceptions in the test).
-- **Heavy screens load ON DEMAND** (`lazyComponent(loader, { prefetchMs })`, registry.jsx: still a plain function for
+- **Heavy screens load ON DEMAND** (`lazyComponent(loader, { prefetchMs })`, registry.jsx; the prefetch waits for an
+  idle moment after `prefetchMs`, at most 5 s more: still a plain function for
   the slot contract, own Suspense, renders direct once loaded, a null `Comp` after Fast Refresh falls back to
   Suspense): Legends, raid run/hero, asset view, Ebi Call, Roleplay, Scenes, Listen & Speak, Leech Doctor; feature ids
   live in small `featureId.js` files. App lazy-loads SettingsModal/OnboardingWizard/ModeStudio the same way.
@@ -1595,6 +1608,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   (`peekSnap`), else the one the localStorage index (`ebiki-art-snap-index`, base → newest key) names; the HEAD runs
   AFTER and only replaces a snapshot whose file changed (the tab switch waited on 26 HEADs). Size from the box's
   LAYOUT width x `currentCSSZoom` x dpr, never its rect (a tile mid-animation missed its snapshot).
+  **Warming**: every small still drawing shown is remembered (`noteSnapUse`, `ebiki-art-snap-used`, CSS size); 20 s
+  after start, at idle moments, `warmSnaps` redraws the ones whose file or zoom/density changed, so no screen waits.
+  Art files are fetched once for every user (`artText`). **Ready-made preview pictures were TRIED and rejected**: any
+  fixed-size raster shrunk to a tile (even from 2x, lossless, high-quality filter) measured visibly softer than the
+  exact per-screen snapshot; the owner's rule is full quality on every display.
   26 raid tiles: about 1.8 s of fetch + sanitize + raster before, about 0.1 s from the kept snapshots.
   `__ebikiNoSnap` (and `__ebikiArtEager`/`__ebikiNoBake`) turn it off.
 - **Art loads near the screen and pauses off it** (`useArtInView`: comes in within `ART_NEAR` (1) screens, leaves past
@@ -1700,7 +1718,7 @@ Capacitor (web UI in a WebView) or React Native (UI rebuilt, logic reused). Both
 - **Routes an on-device router must answer**: `config`, `modes`, `modes/knowledge`, `knowledge-sections`,
   `ankiformat`, `deck-progress`, `discover-store`, `question-bank`, `chats`, `chat-load`, `keys`, `players`,
   `player-local`, `feature-data`, `usage`, `log`, `web-search` (CORS-free), `tts`, `anki` (AnkiConnect-like backend
-  only). **Desktop-only** ("not available"): `alive`, `bye`, `datadir`, `offline`, `sync-backup`, `update`,
+  only). **Desktop-only** ("not available"): `alive`, `alive-stream`, `bye`, `datadir`, `offline`, `sync-backup`, `update`,
   `launchmode`, `launch-overlay`, `overlay-hide`, `overlay-screenshot`, `game-inbox` (the overlay's XP relay),
   `ankiconnect`, `anki-focus`, `anki-start`.
   Keep this list current when adding a route. Electron, launchers, Alt+Q overlay and the Anki updater are desktop-only.

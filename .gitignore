@@ -63,3 +63,5 @@ game-inbox.json
 # Instruction/skill copies other coding tools generate (CLAUDE.md and .claude/skills are the real ones)
 /AGENTS.md
 /.agents/
+.ebiki-build/
+.ebiki-build.tmp/

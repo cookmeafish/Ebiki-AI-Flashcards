@@ -41,7 +41,7 @@ export default class ErrorBoundary extends React.Component {
       this.bye = (e) => { if (e && e.persisted) return; try { platform.beacon('/api/bye', '') } catch { /* leaving anyway */ } }
       this.sendBeat()
       this.beat = setInterval(this.sendBeat, 5000)
-      if (import.meta.hot) import.meta.hot.on('ebiki:ping', this.sendBeat)
+      this.stopPings = platform.serverPings(this.sendBeat)
       window.addEventListener('pagehide', this.bye)
     }
     // A crashed overlay would otherwise be an invisible full-screen window swallowing clicks.
@@ -60,7 +60,7 @@ export default class ErrorBoundary extends React.Component {
 
   componentWillUnmount() {
     if (this.beat) clearInterval(this.beat)
-    if (this.sendBeat && import.meta.hot) import.meta.hot.off('ebiki:ping', this.sendBeat)
+    if (this.stopPings) this.stopPings()
     if (this.bye) window.removeEventListener('pagehide', this.bye)
     if (this.showAgain) { window.removeEventListener('overlay-reset', this.showAgain); window.removeEventListener('overlay-capture', this.showAgain) }
   }

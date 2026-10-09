@@ -23,6 +23,7 @@ import { createDeckProgressRoute } from './src/server/deckProgressRoute.js'
 import { createDiscoverStoreRoute } from './src/server/discoverStoreRoute.js'
 import { createChatsRoute, createChatLoadRoute } from './src/server/chatsRoute.js'
 import { createKnowledgeRoutes } from './src/server/knowledgeRoute.js'
+import { sourceFingerprint, builtFileFor, contentTypeOf, BUILD_DIR, BUILD_TMP, BUILD_ASSETS, STAMP_FILE } from './src/server/builtApp.js'
 import { mergePlayers } from './src/features/game/engine.js'
 
 // Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
@@ -1676,6 +1677,80 @@ function apiPlugin() {
         if (!apiRequestAllowed(req.headers)) { res.statusCode = 403; res.end('forbidden'); return }
         next()
       })
+      // ── THE BUILT APP (src/server/builtApp.js) ─────────────────────────────
+      // A shortcut launch (EBIKI_AUTO_EXIT=1, or EBIKI_BUILT=1; EBIKI_BUILT=0 turns it off) serves the PAGE from an
+      // optimized build whose stamp matches the code as it is now; everything else (/api, art, public files, dev
+      // pages) stays with the dev server. No matching build: this session runs as before and one is made in the
+      // background (low priority, into BUILD_TMP, swapped in whole) for the next start. Decided ONCE at start: a page
+      // never mixes a build with dev modules. A manual `npm run dev` never serves a build (hot reload stays).
+      const builtWanted = process.env.EBIKI_BUILT === '1' || (process.env.EBIKI_AUTO_EXIT === '1' && process.env.EBIKI_BUILT !== '0')
+      const buildDir = path.join(SELF_DIR, BUILD_DIR)
+      const fsDeps = { fs, path, crypto }
+      let servingBuilt = false
+      let appBuilding = null
+      const startAppBuild = (why) => {
+        if (appBuilding || !builtWanted) return appBuilding
+        const fp = sourceFingerprint(SELF_DIR, fsDeps)
+        const tmp = path.join(SELF_DIR, BUILD_TMP)
+        let log = null
+        try { fs.mkdirSync(path.join(SELF_DIR, 'logs'), { recursive: true }); log = fs.openSync(path.join(SELF_DIR, 'logs', 'app-build.log'), 'w') } catch { /* no log */ }
+        console.log(`[Ebiki] building the optimized app in the background (${why})`)
+        appBuilding = new Promise((resolve) => {
+          let child
+          try {
+            child = spawn(process.execPath, [path.join(SELF_DIR, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--logLevel', 'warn'], {
+              cwd: SELF_DIR, windowsHide: true, stdio: ['ignore', log ?? 'ignore', log ?? 'ignore'],
+              env: { ...process.env, EBIKI_BUILD_OUT: BUILD_TMP, EBIKI_AUTO_EXIT: '', EBIKI_BUILT: '' },
+            })
+          } catch (e) { console.log('[Ebiki] app build could not start:', e.message); resolve(false); return }
+          try { os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL) } catch { /* keep normal */ }
+          child.on('error', (e) => { console.log('[Ebiki] app build failed to run:', e.message); resolve(false) })
+          child.on('exit', (code) => {
+            try { if (log != null) fs.closeSync(log) } catch { /* closed */ }
+            // The code may have changed while it built: stamp only what it was built from.
+            if (code === 0 && sourceFingerprint(SELF_DIR, fsDeps) === fp && fs.existsSync(path.join(tmp, 'index.html'))) {
+              try {
+                fs.writeFileSync(path.join(tmp, STAMP_FILE), fp)
+                fs.rmSync(buildDir, { recursive: true, force: true })
+                fs.renameSync(tmp, buildDir)
+                console.log('[Ebiki] optimized app ready for the next start')
+                resolve(true)
+                return
+              } catch (e) { console.log('[Ebiki] app build could not be put in place:', e.message) }
+            } else console.log(`[Ebiki] app build not used (exit ${code})`)
+            try { fs.rmSync(tmp, { recursive: true, force: true }) } catch { /* next time */ }
+            resolve(false)
+          })
+        }).finally(() => { appBuilding = null })
+        return appBuilding
+      }
+      if (builtWanted) {
+        let stamp = ''
+        try { stamp = fs.readFileSync(path.join(buildDir, STAMP_FILE), 'utf8').trim() } catch { /* no build yet */ }
+        const fp = sourceFingerprint(SELF_DIR, fsDeps)
+        servingBuilt = !!stamp && stamp === fp && fs.existsSync(path.join(buildDir, 'index.html'))
+        console.log(servingBuilt ? '[Ebiki] serving the optimized app' : '[Ebiki] no optimized app for this code yet: this session runs on the dev server')
+        if (!servingBuilt) {
+          const t = setTimeout(() => startAppBuild(stamp ? 'the code changed' : 'first start'), 15000) // after the start's own rush
+          if (t.unref) t.unref()
+        }
+      }
+      server.middlewares.use((req, res, next) => {
+        if (!servingBuilt || (req.method !== 'GET' && req.method !== 'HEAD')) return next()
+        const file = builtFileFor((req.url || '').split('?')[0], buildDir, path)
+        if (!file) return next()
+        fs.readFile(file, (err, buf) => {
+          if (err) { next(); return }
+          res.setHeader('Content-Type', contentTypeOf(file))
+          // The page: always asked again (it names this build's files). Build files have hashed names: kept for good.
+          res.setHeader('Cache-Control', file.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable')
+          res.setHeader('X-Frame-Options', 'DENY')
+          res.setHeader('Content-Security-Policy', "frame-ancestors 'none'")
+          res.setHeader('X-Content-Type-Options', 'nosniff')
+          res.end(req.method === 'HEAD' ? undefined : buf)
+        })
+      })
+
       // One size cap for every /api body (src/server/bodyLimit.js): 413 before a handler reads a runaway body.
       server.middlewares.use('/api', limitBody())
       server.middlewares.use('/api', (req, _res, next) => { try { req.setEncoding('utf8') } catch { /* already consumed */ } next() })
@@ -1755,6 +1830,20 @@ function apiPlugin() {
       // timer below is gated, so the client never needs to know which it is.
       let lastBeat = 0        // last /api/alive from a real browser tab
       let byeAt = 0           // last /api/bye beacon (a tab closing OR reloading)
+      // The BUILT app has no HMR socket: its pages hold this event stream open instead and get the same ping
+      // (platform.serverPings). The overlay never opens one.
+      const aliveStreams = new Set()
+      server.middlewares.use('/api/alive-stream', (req, res) => {
+        if (req.method !== 'GET') { res.statusCode = 405; res.end(''); return }
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
+        res.write(': ok\n\n')
+        aliveStreams.add(res)
+        req.on('close', () => aliveStreams.delete(res))
+      })
+      const pingPages = () => {
+        try { (server.hot || server.ws).send({ type: 'custom', event: 'ebiki:ping' }) } catch { /* no client connected */ }
+        for (const st of aliveStreams) { try { st.write('event: ping\ndata: 1\n\n') } catch { aliveStreams.delete(st) } }
+      }
       server.middlewares.use('/api/alive', (req, res) => {
         // GET is read-only on purpose: "is a tab actually checking in?" is the
         // first question to ask when a server exits (or refuses to) unexpectedly.
@@ -1829,7 +1918,7 @@ function apiPlugin() {
           if (!closed && !silent) { probeAt = 0; return }
           if (!probeAt) {
             probeAt = now
-            try { (server.hot || server.ws).send({ type: 'custom', event: 'ebiki:ping' }) } catch { /* no client connected */ }
+            pingPages()
             return
           }
           if (now - probeAt < PROBE_MS) return          // give them a moment to answer
@@ -2115,6 +2204,7 @@ function apiPlugin() {
                   // The installed-dependencies fingerprint (scripts/deps-fingerprint.mjs): the launchers install at start
                   // when it differs, so code changed outside an update never runs on old dependencies.
                   import(pathToFileURL(path.join(SELF_DIR, 'scripts', 'deps-fingerprint.mjs')).href).then((m) => m.writeStamp(SELF_DIR)).catch(() => {})
+                  startAppBuild('an update') // the restart then starts on the optimized app (when it is done in time)
                   finish({ ok: true, updated: true, restartRequired: true, canRestart: canSelfRestart(), output: String(out || '').slice(0, 600) })
                 }
                 // Marked BEFORE it runs, cleared on success: a server that stopped mid-install (the install
@@ -3145,7 +3235,10 @@ export default defineConfig({
   // A production build (`vite build`; the app itself runs on the dev server): libraries in their own long-lived
   // chunks, apart from the app code that changes every release. Heavy feature screens split themselves
   // (lazyComponent in src/features/registry.jsx).
+  // EBIKI_BUILD_OUT: the server's own background build of the app (src/server/builtApp.js): its own folder, the
+  // build's files under /_app (never mixed with public/assets, which the dev server keeps serving), no public copy.
   build: {
+    ...(process.env.EBIKI_BUILD_OUT ? { outDir: process.env.EBIKI_BUILD_OUT, assetsDir: BUILD_ASSETS, copyPublicDir: false, emptyOutDir: true } : {}),
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -3182,7 +3275,7 @@ export default defineConfig({
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
       // *.tmp: writeFileAtomic's temp files (e.g. .env.<pid>.tmp next to the app files).
-      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/applang.json', '**/.cache/**', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp',
+      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/applang.json', '**/.cache/**', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp', '**/.ebiki-build/**', '**/.ebiki-build.tmp/**',
         // Feature data and local files live at the ROOT of the app folder. Anchored there: as "**/features/**" the
         // feature data folder also ignored src/features/**, so no feature code edit ever reloaded (stale modules until
         // a restart).

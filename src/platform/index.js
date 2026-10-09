@@ -13,6 +13,9 @@
 //   audio              play(blob) an audio clip.
 //   kind               'electron' | 'browser' | whatever a port sets ('ios', 'android').
 //   onDeviceZoom(fn)   zoom keys the device took before the page (Electron forwards Ctrl + = - 0).
+//   serverPings(fn)    the local server asking "anyone there?" before it acts on a silence (it exits when no page is
+//                      left): the dev server's HMR socket, or /api/alive-stream for the BUILT app (no HMR there).
+//                      Returns a stop function. A phone build has no such server: a no-op.
 //   history            the device's Back/Forward history for src/nav (window.history here): push/replace/go/onPop,
 //                      plus onDeviceNav for back/forward buttons the device does not turn into history steps itself
 //                      (a mouse's back button and Alt+Left inside Electron). A phone port without browser history can
@@ -38,6 +41,14 @@ const web = {
     remove: (key) => { try { localStorage.removeItem(key) } catch { /* private window */ } },
     getJson: (key, fallback = null) => { try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v) } catch { return fallback } },
     setJson: (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); return true } catch { return false } },
+  },
+  serverPings: (fn) => {
+    if (!hasWindow) return () => {}
+    if (import.meta.hot) { import.meta.hot.on('ebiki:ping', fn); return () => import.meta.hot.off('ebiki:ping', fn) }
+    if (typeof EventSource !== 'function') return () => {}
+    let es = null
+    try { es = new EventSource('/api/alive-stream'); es.addEventListener('ping', fn) } catch { return () => {} }
+    return () => { try { es.close() } catch { /* already closed */ } }
   },
   isHidden: () => hasWindow && typeof document !== 'undefined' && !!document.hidden,
   randomId: () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/[^a-z0-9]/gi, '').toLowerCase(),

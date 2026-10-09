@@ -592,14 +592,14 @@ export default function App() {
       if (e && e.persisted) return
       try { platform.beacon('/api/bye', '') } catch { /* the page is going away regardless */ }
     }
-    // The server pings over the HMR socket before it acts on a goodbye or a
+    // The server pings (HMR socket, or the built app's alive stream) before it acts on a goodbye or a
     // silence, so a tab the browser has throttled still gets to say "I'm here".
-    if (import.meta.hot) import.meta.hot.on('ebiki:ping', beat)
+    const stopPings = platform.serverPings(beat)
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('pagehide', bye)
     return () => {
       clearInterval(timer)
-      if (import.meta.hot) import.meta.hot.off('ebiki:ping', beat)
+      stopPings()
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('pagehide', bye)
     }

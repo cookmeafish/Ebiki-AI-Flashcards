@@ -52,7 +52,9 @@ export function lazyComponent(loader, { prefetchMs = 0 } = {}) {
   // Only in a page (tests and other hosts import the registry without wanting the screens fetched). `gate` (set by
   // createRegistry for an OPTIONAL feature's components) skips the prefetch while that feature is switched off.
   if (prefetchMs > 0 && typeof window !== 'undefined' && typeof setTimeout === 'function') {
-    setTimeout(() => { if (typeof LazyComponent.gate === 'function' && !LazyComponent.gate()) return; load().catch(() => {}) }, prefetchMs)
+    // Then at an IDLE moment (never in the middle of the learner's clicks or a scroll), at most 5 s later.
+    const idle = (fn) => (typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(fn, { timeout: 5000 }) : setTimeout(fn, 0))
+    setTimeout(() => idle(() => { if (typeof LazyComponent.gate === 'function' && !LazyComponent.gate()) return; load().catch(() => {}) }), prefetchMs)
   }
   return LazyComponent
 }

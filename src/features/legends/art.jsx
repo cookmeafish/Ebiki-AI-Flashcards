@@ -20,7 +20,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from './artPace'
 import { densityBucket } from './bakePlan'
 import { bakeArt } from './bake/web'
-import { fileSig, readSnap, makeSnap, snapBase, snapKeyOf, peekSnap, findSnap, adoptSnap, indexedKey } from './snap/web'
+import { noteSnapUse, warmSnaps, artText, fileSig, readSnap, makeSnap, snapBase, snapKeyOf, peekSnap, findSnap, adoptSnap, indexedKey } from './snap/web'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RADIUS } from '../../config/tokens'
@@ -274,7 +274,7 @@ let sanitizeQueue = Promise.resolve()
 const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0))
 function loadArt(url) {
   if (!cache.has(url)) {
-    cache.set(url, Promise.all([fetch(url).then((r) => (r.ok ? r.text() : '')), import('../../components/Markdown'),
+    cache.set(url, Promise.all([artText(url), import('../../components/Markdown'),
       url === PHOTO_FILE ? checkPhotoSprites() : false])
       .then(([text, m, photos]) => {
         const job = sanitizeQueue.then(nextTask).then(() => {
@@ -577,6 +577,15 @@ const BOSS_HEADROOM_NEG = `-${HEADROOM_SHARE * 100}%`
 const SNAP_FIGURE_SPAN = `${(1 + 2 * HEADROOM_SHARE) * 100}%`
 // Still drawings up to this size (CSS px, before the app zoom) are shown as snapshots (STILL SNAPSHOTS in LegendsArt).
 const SNAP_MAX_PX = 260
+// Snapshots a learner has seen are checked (and redrawn if their file changed or the zoom did) at idle moments a while
+// after startup (snap/web.js WARMING). Not for the dev gallery or comparisons, which drive raw files.
+const SNAP_WARM_AFTER_MS = 20000
+if (typeof window !== 'undefined' && typeof setTimeout === 'function') {
+  setTimeout(() => {
+    if (window.__ebikiArtEager || window.__ebikiNoSnap || window.__ebikiNoBake) return
+    warmSnaps(artVars, HEADROOM_SHARE).catch(() => {})
+  }, SNAP_WARM_AFTER_MS)
+}
 // Bumps when the app theme changes (a snapshot holds the colors it resolved, so a new theme needs new snapshots).
 function useThemeTick() {
   const read = () => (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') || '' : '')
@@ -625,6 +634,7 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     const pxW = Math.round((parseFloat(cs.width) || box.offsetWidth) * zoom * dpr)
     const pxH = Math.round((parseFloat(cs.height) || box.offsetHeight) * zoom * dpr)
     if (!pxW || !pxH) { setSnapNeed({ ident, key: '' }); return undefined }
+    noteSnapUse({ url, palette: palette || '', w: parseFloat(cs.width) || box.offsetWidth, h: parseFloat(cs.height) || box.offsetHeight, figure })
     const base = snapBase(url, box, pxW, pxH)
     const quick = peekSnap(base)
     if (quick) setSnap({ ident, href: quick })
