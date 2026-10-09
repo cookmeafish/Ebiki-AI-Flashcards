@@ -73,5 +73,47 @@ export default {
    under reduced motion). */
 @keyframes lgrReaperLineClimb { 0% { transform: translateY(5px) } 55% { transform: translateY(-2px) } 100% { transform: none } }
 .lg-boss[data-fx="climb"] [class*="lg-ab-line-"] { transform-box: fill-box; transform-origin: center; animation: lgrReaperLineClimb 320ms cubic-bezier(.22,1,.36,1) both }
+/* THE DRAWING'S OWN PARTS (raids/reaper.svg lg-reaper-*): their pivots, his attack on the player, how each ability
+   moment moves them, and his knockout. Ability rules carry a doubled class (.lg-boss.lg-boss) so they win over a plain
+   strike moment playing on the same part at the same time. */
+.lg-boss[data-motif="reaper"] [class*="lg-reaper-"] { transform-box: fill-box; transform-origin: 50% 85% }
+.lg-boss[data-motif="reaper"] .lg-reaper-scythe { transform-origin: 20% 30% }
+.lg-boss[data-motif="reaper"] .lg-reaper-lantern { transform-origin: 50% 0 }
+.lg-boss[data-motif="reaper"] .lg-reaper-jaw { transform-origin: 50% 0 }
+/* His attack on the player (impact/AssaultFx: the scythe swings across the card in an arc and leaves a gash). The
+   drawing does it: he hauls the scythe back over his shoulder and leans in grinning, then the blade comes down and
+   across at you in one sweep, follows through past the heart, and is drawn back. */
+@keyframes lgrReaperAsScythe { 0% { transform: none } 16% { transform: rotate(-42deg) translateY(-6%) } 38% { transform: rotate(62deg) translate(6%, 6%) scale(1.08) } 50% { transform: rotate(74deg) translate(7%, 7%) scale(1.08) } 75% { transform: rotate(30deg) translate(3%, 3%) } 100% { transform: none } }
+@keyframes lgrReaperAsHead { 0% { transform: none } 16% { transform: translateY(-8%) rotate(-8deg) } 40% { transform: translateY(8%) rotate(6deg) scale(1.22) } 70% { transform: translateY(4%) scale(1.1) } 100% { transform: none } }
+@keyframes lgrReaperAsJaw { 0% { transform: none } 16% { transform: translateY(-6%) } 40%, 70% { transform: translateY(26%) rotate(-6deg) } 100% { transform: none } }
+.lg-boss[data-motif="reaper"][data-assault-on] .lg-reaper-scythe { animation: lgrReaperAsScythe 820ms cubic-bezier(.55,0,.2,1) both }
+.lg-boss[data-motif="reaper"][data-assault-on] .lg-reaper-head { animation: lgrReaperAsHead 820ms cubic-bezier(.4,0,.2,1) both }
+.lg-boss[data-motif="reaper"][data-assault-on] .lg-reaper-jaw { animation: lgrReaperAsJaw 820ms ease-out both }
+/* Climb: the line creeps toward his health; he glances down at it, the scythe trembles in his hand. */
+@keyframes lgrReaperNervous { 0%, 100% { transform: none } 40% { transform: rotate(8deg) translateY(5%) } 75% { transform: rotate(4deg) } }
+@keyframes lgrReaperTremble { 0%, 100% { transform: none } 20% { transform: rotate(3deg) } 40% { transform: rotate(-3deg) } 60% { transform: rotate(2deg) } 80% { transform: rotate(-1deg) } }
+.lg-boss.lg-boss[data-fx="climb"] .lg-reaper-head { animation: lgrReaperNervous 330ms ease-out both }
+.lg-boss.lg-boss[data-fx="climb"] .lg-reaper-scythe { animation: lgrReaperTremble 330ms linear both }
+/* Reap: your line reaches him and he is executed in kind: the skull is struck clean up and back with the jaw hanging,
+   the scythe is torn from his grip and spins away, the lantern swings wild and gutters; then he pulls himself back. */
+@keyframes lgrReaperReapHead { 0% { transform: none } 12% { transform: translate(-6%, -22%) rotate(-24deg) scale(.9) } 45% { transform: translate(-4%, -16%) rotate(-18deg) scale(.92) } 62% { transform: translate(2%, 4%) rotate(6deg) } 100% { transform: none } }
+@keyframes lgrReaperReapJaw { 0% { transform: none } 12%, 55% { transform: translateY(34%) rotate(12deg) } 100% { transform: none } }
+@keyframes lgrReaperReapScythe { 0% { transform: none } 14% { transform: rotate(-70deg) translate(-10%, -8%) } 34% { transform: rotate(-150deg) translate(-14%, -6%) scale(.92) } 60% { transform: rotate(-40deg) } 100% { transform: none } }
+@keyframes lgrReaperReapLantern { 0% { transform: none; filter: none } 12% { transform: rotate(48deg); filter: brightness(2) } 30% { transform: rotate(-36deg); filter: brightness(.4) } 50% { transform: rotate(22deg); filter: brightness(1.3) } 70% { transform: rotate(-10deg); filter: brightness(.6) } 100% { transform: none; filter: none } }
+.lg-boss.lg-boss[data-fx="reap"] .lg-reaper-head { animation: lgrReaperReapHead 1150ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss.lg-boss[data-fx="reap"] .lg-reaper-jaw { animation: lgrReaperReapJaw 1150ms ease-out both }
+.lg-boss.lg-boss[data-fx="reap"] .lg-reaper-scythe { animation: lgrReaperReapScythe 1150ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss.lg-boss[data-fx="reap"] .lg-reaper-lantern { animation: lgrReaperReapLantern 1150ms ease-out both }
+/* THE KNOCKOUT (data-moment="ko", kept here because its 2200 ms outlasts the shortest knockout and the impact layer
+   style is shared by every boss): his own scythe turns on him (its swing at 150 ms), he reels, the lantern gutters
+   out, and at the climax (1250) the scythe drops from his hand, the jaw falls and the skull sags as the souls flee. */
+@keyframes lgrReaperKoScythe { 0% { transform: none } 10% { transform: rotate(-30deg) } 24% { transform: rotate(40deg) } 40%, 54% { transform: rotate(18deg) } 60% { transform: rotate(70deg) translate(14%, 26%) } 66% { transform: rotate(64deg) translate(14%, 24%) } 92% { transform: rotate(66deg) translate(14%, 25%) } 100% { transform: none } }
+@keyframes lgrReaperKoHead { 0% { transform: none } 12% { transform: translateY(-10%) rotate(-12deg) } 40%, 54% { transform: translateY(-4%) rotate(-6deg) } 62% { transform: translateY(16%) rotate(14deg) scale(.92) } 92% { transform: translateY(14%) rotate(12deg) scale(.92) } 100% { transform: none } }
+@keyframes lgrReaperKoJaw { 0% { transform: none } 12%, 54% { transform: translateY(14%) } 62%, 92% { transform: translateY(36%) rotate(14deg) } 100% { transform: none } }
+@keyframes lgrReaperKoLantern { 0% { transform: none; filter: none } 14% { transform: rotate(30deg); filter: brightness(1.8) } 30% { transform: rotate(-20deg); filter: brightness(.7) } 46% { transform: rotate(10deg); filter: brightness(1.2) } 58% { transform: rotate(-4deg); filter: brightness(.25) saturate(0) } 92% { transform: none; filter: brightness(.25) saturate(0) } 100% { transform: none; filter: none } }
+.lg-boss[data-motif="reaper"][data-moment="ko"] .lg-reaper-scythe { animation: lgrReaperKoScythe 2200ms linear both }
+.lg-boss[data-motif="reaper"][data-moment="ko"] .lg-reaper-head { animation: lgrReaperKoHead 2200ms linear both }
+.lg-boss[data-motif="reaper"][data-moment="ko"] .lg-reaper-jaw { animation: lgrReaperKoJaw 2200ms linear both }
+.lg-boss[data-motif="reaper"][data-moment="ko"] .lg-reaper-lantern { animation: lgrReaperKoLantern 2200ms linear both }
 `,
 }

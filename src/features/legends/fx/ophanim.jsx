@@ -95,5 +95,33 @@ export default {
 .lg-boss[data-fx="grace"] .lgo-wa { animation: lgrOphanimTurnA 1100ms ease-in-out both }
 .lg-boss[data-fx="grace"] .lgo-wb { animation: lgrOphanimTurnB 1100ms ease-in-out both }
 .lg-boss[data-fx="grace"] .lgo-eye { animation: lgrOphanimEyeGlow 1100ms ease-in-out both }
+/* THE ATTACK ON THE PLAYER (impact/assault.js arc + blast; data-assault-on, the wheels leave at 120 ms and land near
+   420 ms): every wheel winds back a little, then WHIRLS a full turn as the sweep leaves for your heart, the wings draw
+   in and lash out wide behind it, the great eye leans after it. Outer wrappers (lg-ophanim-wheelA / -wingA / -eyeA),
+   so the strike moment's own moves on the lgo-* groups play over it. */
+.lg-boss .lg-ophanim-wheelA { transform-box: view-box; transform-origin: 60px 57px }
+.lg-boss .lg-ophanim-wingA { transform-box: view-box; transform-origin: 60px 54px }
+.lg-boss .lg-ophanim-eyeA { transform-box: view-box; transform-origin: 60px 55px }
+@keyframes lgrOphanimWhirl { 0% { transform: none } 7% { transform: rotate(-26deg) scale(.94) } 26% { transform: rotate(210deg) scale(1.1) } 50% { transform: rotate(320deg) scale(1.03) } 100% { transform: rotate(360deg) } }
+@keyframes lgrOphanimLash { 0% { transform: none } 7% { transform: scale(.88, .94) } 22% { transform: scale(1.2, 1.1) } 50% { transform: scale(1.06, 1.03) } 100% { transform: none } }
+@keyframes lgrOphanimLean { 0% { transform: none } 7% { transform: scale(.92) } 24% { transform: translateX(4%) scale(1.14) } 60% { transform: translateX(2%) scale(1.05) } 100% { transform: none } }
+.lg-boss[data-motif="ophanim"][data-assault-on] .lg-ophanim-wheelA { animation: lgrOphanimWhirl 1500ms cubic-bezier(.3,.7,.3,1) both }
+.lg-boss[data-motif="ophanim"][data-assault-on] .lg-ophanim-wingA { animation: lgrOphanimLash 1300ms cubic-bezier(.3,.7,.3,1) both }
+.lg-boss[data-motif="ophanim"][data-assault-on] .lg-ophanim-eyeA { animation: lgrOphanimLean 1300ms cubic-bezier(.3,.7,.3,1) both }
+/* More of the drawing in each ability (the eye alone was too small to read at arena size): open = the wings lift and
+   the wheels part to unveil the eye; blink = the wings flick and the eye shivers; beam = the spear of light shoves the
+   wings back. */
+@keyframes lgrOphanimUnveil { 0% { transform: none } 35% { transform: scale(1.1, 1.08) translateY(-3%) } 100% { transform: none } }
+@keyframes lgrOphanimPartA { 0% { transform: none } 35% { transform: rotate(24deg) scale(1.06) } 100% { transform: none } }
+@keyframes lgrOphanimPartB { 0% { transform: none } 35% { transform: rotate(-24deg) scale(1.06) } 100% { transform: none } }
+@keyframes lgrOphanimWingFlick { 0%, 100% { transform: none } 45% { transform: scale(1.04, .9) } }
+@keyframes lgrOphanimShiver { 0%, 100% { transform: none } 25% { transform: translateX(-2%) } 50% { transform: translateX(2%) } 75% { transform: translateX(-1%) } }
+@keyframes lgrOphanimShoved { 0% { transform: none } 18% { transform: scale(.82, .9) translateY(-2%) } 55% { transform: scale(.94, .96) } 100% { transform: none } }
+.lg-boss[data-motif="ophanim"][data-fx="open"] .lgo-wing { animation: lgrOphanimUnveil 640ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-motif="ophanim"][data-fx="open"] .lgo-wa { animation: lgrOphanimPartA 640ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-motif="ophanim"][data-fx="open"] .lgo-wb { animation: lgrOphanimPartB 640ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-motif="ophanim"][data-fx="blink"] .lgo-wing { animation: lgrOphanimWingFlick 320ms ease-in-out both }
+.lg-boss[data-motif="ophanim"][data-fx="blink"] .lgo-eye { animation: lgrOphanimShiver 320ms linear both }
+.lg-boss[data-motif="ophanim"][data-fx="beam"] .lgo-wing { animation: lgrOphanimShoved 1100ms cubic-bezier(.2,.9,.3,1) both }
 `,
 }

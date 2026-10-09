@@ -337,8 +337,9 @@ trophies work. Do not recreate it.
 - **Concept**: a smug, swaggering, gold-dripping sewer rat king (long-snouted wedge skull, torn ear with gold hoops,
   scar, gold grill, buck teeth, round rat pupils, crown, shades). Smug in EVERY phase.
 - **Phases**: 1 holding court on his coin throne before an emerald vault, cigar, scepter, henchmen on the hoard.
-  2 High Roller: neon casino, three-quarter lean over the felt, royal flush, roulette halo. 3 The Gold Wyrm: his hoard
-  alive as a serpent-dragon of coins coiling round him under a full moon, goblet in hand.
+  2 High Roller: neon casino, three-quarter lean over the felt, royal flush, roulette halo. 3 The Gold Emperor (2026-10-08
+  redraw, "phase 3 is bad"): the peak of his rise, still smug: from below, chin up, head turned right, crowned in full
+  regalia on a gold throne in his vault, rat-skull scepter, a goblet of coins raised in a toast, gold raining down.
 - **Ability (hoard, decision)**: a right answer takes a coin, a miss loses one; Cheese Bomb (3 coins) deals 3; Lucky Tail
   (2 coins) saves the next heart; at 5 coins the rats throw a bomb for you. Art: `lg-ab-hoard-0..2`.
 - **Tint**: the red velvet. **Card**: `lgCoinToss`.
@@ -357,14 +358,18 @@ trophies work. Do not recreate it.
 
 ## 26. Showman: the Infernal Impresario
 
-- **Concept**: a lanky ash-grey demon conjurer (ember slit eyes, gold star under the eye, horns ringed with gold,
-  emerald sequin tailcoat, long bare hands), clearly not the Legends Grand Illusionist. Transparent canvas: only the
-  trick is drawn behind him. One trick per phase.
-- **Phases**: 1 the Ember Doves: tears a burning silk, flame-winged doves burst out. 2 the Levitation: floats over a rune
-  circle, cold and mean. 3 the Infernal Encore: saws himself in half, manic grin (his cool snaps).
+- **Concept**: a smug ash-grey demon showman (ember slit eyes, gold star under the eye, swept silver pompadour, ringed
+  black horns, emerald sequin tailcoat, white gloves with claws through the tips), clearly not the Legends Grand
+  Illusionist. ONE character per phase, big in frame; Comedy and Tragedy are his act. Smug in every phase.
+- **Phases**: 1 the Overture: between crimson drapes, Comedy raised on a gold baton beside his face, Tragedy floating
+  over his glove. 2 the Swap (the owner asked for it back): backstage at a bulb-rimmed mirror, dutch angle, head three
+  quarters, cold violet eyes; the masks float mid switch and the idle swaps them across his face. 3 the Grand Finale:
+  center stage from below, crossing spotlights, a fan of giant cards, cape and chain of office, both masks raised like
+  trophies, a broad smug grin, roses and cards raining. Never a doubled head or a sawn box again ("two of the same
+  character", "looks broken").
 - **Ability (encore)**: right answers win applause, the 4th = Encore +3; misses shed tears, the 2nd tear is a Plot Twist
-  leaving the applause one short of an Encore. Art: `lg-ab-comedy`, `lg-ab-tragedy`.
-- **Tint**: the ember silk. **Card**: `lgCurtainPart`. **Owner**: a different magic trick per phase.
+  leaving the applause one short of an Encore. Art: `lg-ab-comedy`, `lg-ab-tragedy`, `lgfa-showman-comedy`.
+- **Tint**: the ember ascot. **Card**: `lgCurtainPart`. **Owner**: masks are the core of his act.
 
 ## 27. Cerberus: the Hound of the Last Gate
 

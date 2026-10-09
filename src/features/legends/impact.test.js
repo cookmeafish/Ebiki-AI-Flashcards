@@ -11,6 +11,8 @@ import { POWER_FX, PowerFx } from './impact/PowerFx'
 import { POWERS } from './powers'
 import en from '../../i18n/locales/en'
 
+const BOSS_PART_FILES = import.meta.glob('./impact/bosses/*.parts.jsx', { eager: true })
+
 const MOMENTS = ['hit', 'crit', 'sharpen', 'hurt', 'hurtBig', 'block', 'shield', 'wind', 'ko']
 const sig = (parts) => JSON.stringify(parts.map(([p, o]) => [p, o?.glyph || '', o?.dir || '', !!o?.inward, !!o?.cut, !!o?.collapse]))
 
@@ -151,10 +153,10 @@ describe('raid impact styles', () => {
       }
     })
     it('everything it plays has finished when the cinematic ends (nothing is cut off, nothing stays over the boss)', () => {
-      for (const m of RAID_ORDER) {
-        const html = renderToStaticMarkup(createElement(StrikeFxLayer, { t: (k) => k, moment: 'ko', motif: m, n: 1 }))
+      // The last moment any `animation:` in the text ends (delay + duration x count).
+      const latestEnd = (text) => {
         let latest = 0
-        for (const [, list] of html.matchAll(/animation:([^;"]+)/g)) {
+        for (const [, list] of text.matchAll(/animation:([^;"}]+)/g)) {
           for (const one of list.split(/,(?![^(]*\))/)) {
             const toks = one.trim().split(/\s+(?![^(]*\))/)
             const times = toks.filter((x) => /^[\d.]+m?s$/.test(x)).map((x) => (x.endsWith('ms') ? parseFloat(x) : parseFloat(x) * 1000))
@@ -162,7 +164,19 @@ describe('raid impact styles', () => {
             latest = Math.max(latest, (times[1] || 0) + (times[0] || 0) * count)
           }
         }
-        expect(latest, `${m}: an effect still plays after the knockout`).toBeLessThanOrEqual(RAID_IMPACT[m].koMs)
+        return latest
+      }
+      for (const m of RAID_ORDER) {
+        const html = renderToStaticMarkup(createElement(StrikeFxLayer, { t: (k) => k, moment: 'ko', motif: m, n: 1 }))
+        // The <style> block holds EVERY boss's own CSS (impact/bosses/*.parts.jsx): checked per boss below, never
+        // against another boss's knockout length.
+        const inline = html.replace(/<style[^>]*>[\s\S]*?<\/style>/g, '')
+        expect(latestEnd(inline), `${m}: an effect still plays after the knockout`).toBeLessThanOrEqual(RAID_IMPACT[m].koMs)
+      }
+      for (const [file, mod] of Object.entries(BOSS_PART_FILES)) {
+        const m = file.match(/([^/]+)\.parts\.jsx$/)[1]
+        if (!RAID_IMPACT[m]) continue
+        expect(latestEnd(mod.css || ''), `${m}: its own CSS still plays after its knockout`).toBeLessThanOrEqual(RAID_IMPACT[m].koMs)
       }
     })
     it('every boss falls its own way (a knockout body move of its own)', () => {

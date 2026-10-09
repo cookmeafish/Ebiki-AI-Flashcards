@@ -56,7 +56,7 @@ export function RaidBand({ variant = BAND_STYLE, main, deep, label, calm = false
         <span style={{ position: 'absolute', left: 0, width: '62%', top: '50%', height: 1, marginTop: 4, background: `linear-gradient(90deg, color-mix(in srgb, ${c} 55%, transparent), transparent)` }} />
         <span style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
           <span style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '100%', animation: anim('lgBandGlint 3.4s cubic-bezier(.3,.6,.4,1) infinite') }}>
-            <span style={{ position: 'absolute', top: '50%', height: 4, marginTop: -2, left: 0, width: '22%', borderRadius: 4, background: `linear-gradient(90deg, transparent, white 60%, transparent)`, filter: `drop-shadow(0 0 4px ${c})` }} />
+            <span style={{ position: 'absolute', top: '50%', height: 4, marginTop: -2, left: 0, width: '22%', borderRadius: 4, background: `linear-gradient(90deg, transparent, color-mix(in srgb, ${c} 65%, white) 60%, transparent)`, filter: `drop-shadow(0 0 4px ${c})`, opacity: 0.8 }} />
           </span>
         </span>
       </span>

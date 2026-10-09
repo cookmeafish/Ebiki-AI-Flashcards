@@ -6,6 +6,7 @@
 // the knockout's parts, which play staged over the boss's whole death (styles.js koMs, at most KO_MS_MAX).
 import { cloneElement, isValidElement } from 'react'
 import { Glyph } from './glyphs'
+import { BOSS_PARTS, BOSS_PARTS_CSS } from './bosses/allParts'
 
 const RAINBOW = ['#ff4a4a', '#ffb23a', '#ffe94a', '#5dff9a', '#4ac8ff', '#9a6bff']
 const CONFETTI = ['#ff4fb0', '#ffe94a', '#4ac8ff', '#5dff9a', '#ff8a3a', '#ffffff']
@@ -86,7 +87,7 @@ export const PARTS_CSS = `
 @keyframes lgkCross { 0% { transform: translateX(95cqw) scale(.9); opacity: 0 } 12% { opacity: 1 } 50% { transform: translateX(0) scale(1) } 88% { opacity: 1 } 100% { transform: translateX(-95cqw) scale(.9); opacity: 0 } }
 @keyframes lgkCoal { 0% { transform: scale(0); opacity: 0; filter: brightness(2) saturate(1) } 15% { transform: scale(1.2); opacity: 1; filter: brightness(1.8) saturate(1) } 50% { transform: scale(1); filter: brightness(1.2) saturate(1) } 85% { opacity: .85; filter: brightness(.55) saturate(.6) } 100% { transform: scale(.9); opacity: 0; filter: brightness(.3) saturate(.3) } }
 @keyframes lgkSing { 0% { transform: scale(.2) rotate(0deg); opacity: 0 } 14% { transform: scale(1) rotate(60deg); opacity: .95 } 74% { transform: scale(.08) rotate(600deg); opacity: 1 } 86% { transform: scale(.08) rotate(700deg); opacity: 1 } 89% { transform: scale(.02) rotate(720deg); opacity: 1 } 90% { opacity: 0 } 100% { transform: scale(.02) rotate(720deg); opacity: 0 } }
-`
+` + BOSS_PARTS_CSS
 
 // A STAGED part (the knockout's stages, StrikeFxLayer): every animation inside it starts `at` ms later (its own delay
 // kept), so the whole cinematic is plain CSS: it plays the same every time and a paused page (the dev sheet's
@@ -1026,4 +1027,6 @@ export const PARTS = {
     )
   },
 }
+// Every raid boss's own drawn parts (impact/bosses/<motif>.parts.jsx), named <motif><Name>, join the shared ones.
+Object.assign(PARTS, BOSS_PARTS)
 export const PART_NAMES = Object.keys(PARTS)

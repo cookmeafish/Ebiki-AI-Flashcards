@@ -23,7 +23,7 @@ Every boss, raid boss and banner brief starts from these.
    phases tell apart by silhouette alone at 120 px.
 5. **Personality is constant across phases.** Escalate with status, scale, power and spectacle, never by turning a
    smug or sly character into a screaming maw. Approved exception (2026-10-03): phase 3 may change MOOD when it tells
-   the boss's story, the character staying recognizable (the rat king furious as his fortune drains; the showman's
+   the boss's story, the character staying recognizable (the rat king's furious phase 3 was later redrawn smug; the showman's
    cool snapping into a manic grin). Ask the owner before doing this for another boss.
 6. **The phases are ONE creature** ("they look like brothers", berserker): phase 2 is what phase 1 becomes when it
    breaks, phase 3 what phase 2 becomes. Keep head shape, eyes, signature mark, helm or crown; transform what makes it
@@ -272,7 +272,9 @@ The cases behind the top rules, per boss (Legends and raid). Each lesson applies
   small figures stand on something ("why are the mice floating"). A true form must not REPLACE the character: a gold
   statue rat read as "a gold cat statue"; his hoard rising as a gold dragon coiling round him landed. Sketch three
   120 px silhouette concepts per phase first. 2026-10-03: phase 3 low angle, chin up, a gold wyrm pet, violet treasury,
-  then much more idle motion. A rat is a wedge (long snout, nose at the TIP, high thin round ears, buck teeth); the
+  then much more idle motion. 2026-10-08 "phase 3 is bad" (that wyrm scene, then a furious version: a cluttered mess,
+  small lost face): redrawn as one clear picture, the smug Gold Emperor on his vault throne (big face, chin up, crown,
+  scepter, goblet toast, coin rain). A rat is a wedge (long snout, nose at the TIP, high thin round ears, buck teeth); the
   sewer kingpin's round head and short muzzle read as a cat. Check the species at 120 px first.
 - **Infernal Impresario (`raids/showman.svg`, from stage, "I LOVE THE DESIGN OF STAGE ... GOES ALL OUT")**: keeping the
   parent's bust, costume and stage read as the parent through v1 to v6; a hellfire circus ringmaster was too close, then
@@ -284,7 +286,13 @@ The cases behind the top rules, per boss (Legends and raid). Each lesson applies
   legs, shoes, coat tails behind the legs, a contact shadow); props carrying the concept are ARTIFACTS (masks with
   filigree, gems, carved brows), unique designs not recolors; "PHASE 3 IS REALLY UNEVENTFUL" on a frontal bust: a final
   phase is an event (diagonal action, something breaking open, things flying, foreground debris, idle that keeps it
-  happening).
+  happening). v9 then got "the character looks weird ... what happened to him swapping masks for phase 2? ... phase 3
+  has 2 of the same character ... looks broken" (thin stretched limbs, small head, odd bare hands, a ghosted second head
+  and a sawn box read as two of him). v10: a big bust every phase (head ~1.3 to 1.4x, thick tapered sleeves with a round
+  elbow, white gloves with claws through the tips, masks on gold batons or floating), ONE character per phase; the
+  masks are the act: the Overture (presenting), the Swap (an earlier draft's mask carousel the owner remembered: masks
+  float mid switch and the idle swaps them across his face), the Grand Finale (spotlights, card fan, masks raised like
+  trophies, still smug). Never draw a second copy of a character's head or body as a "trick".
 - **Sugar queen (`raids/sugarqueen.svg`)**: one front half figure with a scepter, a sword, a halo was "boring"; a leap
   and a float keeping her head the same size in the same place still "need to be more interesting"; a small figure
   surfing a caramel wave was "too far away". The fix is a new camera ANGLE and pose at the SAME closeness. A villainess

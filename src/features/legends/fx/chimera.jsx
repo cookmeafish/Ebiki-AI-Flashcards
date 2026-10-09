@@ -79,5 +79,65 @@ export default {
 /* aim 0 = Lion (centre: no glance), 1 = Goat (right), 2 = Serpent (left) */
 .lg-boss[data-ab-aim="1"] .lgr-chimera-aim, .lg-boss[data-ab-aim="1"] .lgr-chimera-maul { --lgr-look: 7deg }
 .lg-boss[data-ab-aim="2"] .lgr-chimera-aim, .lg-boss[data-ab-aim="2"] .lgr-chimera-maul { --lgr-look: -7deg }
+/* THE DRAWING'S OWN PARTS (raids/chimera.svg lg-chimera-*): their pivots, its attack on the player, how each ability
+   moment moves them, and its knockout. Ability rules carry a doubled class (.lg-boss.lg-boss) so they win over a plain
+   strike moment playing on the same part at the same time. */
+.lg-boss[data-motif="chimera"] [class*="lg-chimera-"] { transform-box: fill-box; transform-origin: 50% 90% }
+.lg-boss[data-motif="chimera"] .lg-chimera-jaw { transform-origin: 50% 0 }
+.lg-boss[data-motif="chimera"] .lg-chimera-goat { transform-origin: 30% 95% }
+.lg-boss[data-motif="chimera"] .lg-chimera-serpent { transform-origin: 70% 100% }
+.lg-boss[data-motif="chimera"] .lg-chimera-body { transform-origin: 50% 100% }
+.lg-boss[data-motif="chimera"] .lg-chimera-pawL { transform-origin: 60% 0 }
+.lg-boss[data-motif="chimera"] .lg-chimera-pawR { transform-origin: 40% 0 }
+.lg-boss[data-motif="chimera"] .lg-chimera-wingL { transform-origin: 100% 100% }
+.lg-boss[data-motif="chimera"] .lg-chimera-wingR { transform-origin: 0 100% }
+/* Its attack on the player (impact/AssaultFx: a pounce, then claw rakes across the screen). The drawing does it: the
+   Lion crouches with its jaws shut, then lunges at you with them wide and snaps them on your heart, while the right
+   paw rakes down across the screen and the left braces. */
+@keyframes lgrChimeraAsLion { 0% { transform: none } 16% { transform: translateY(-10%) scale(.86) rotate(-4deg) } 40% { transform: translateY(18%) scale(1.5) rotate(3deg) } 52% { transform: translateY(15%) scale(1.42) } 78% { transform: translateY(6%) scale(1.14) } 100% { transform: none } }
+@keyframes lgrChimeraAsJaw { 0% { transform: none } 16% { transform: scaleY(.5) } 36% { transform: scaleY(2) scaleX(1.12) } 46% { transform: scaleY(.55) } 70% { transform: scaleY(.8) } 100% { transform: none } }
+@keyframes lgrChimeraAsRake { 0% { transform: none } 20% { transform: rotate(40deg) translateY(-14%) } 44% { transform: rotate(-36deg) translateY(10%) scale(1.15) } 62% { transform: rotate(-26deg) translateY(7%) } 100% { transform: none } }
+@keyframes lgrChimeraAsBrace { 0% { transform: none } 20% { transform: rotate(-10deg) translateY(4%) } 50% { transform: rotate(8deg) translateY(6%) } 100% { transform: none } }
+.lg-boss[data-motif="chimera"][data-assault-on] .lg-chimera-lion { animation: lgrChimeraAsLion 800ms cubic-bezier(.45,0,.2,1) both }
+.lg-boss[data-motif="chimera"][data-assault-on] .lg-chimera-jaw { animation: lgrChimeraAsJaw 800ms cubic-bezier(.45,0,.2,1) both }
+.lg-boss[data-motif="chimera"][data-assault-on] .lg-chimera-pawR { animation: lgrChimeraAsRake 800ms cubic-bezier(.5,0,.2,1) both }
+.lg-boss[data-motif="chimera"][data-assault-on] .lg-chimera-pawL { animation: lgrChimeraAsBrace 800ms ease-out both }
+/* A head falls: THAT head is struck down in the drawing (it snaps back, then slumps and hangs) while the other two
+   rear up in rage. */
+@keyframes lgrChimeraLionFall { 0% { transform: none } 10% { transform: translateY(-14%) rotate(-12deg) scale(.9) } 30% { transform: translateY(22%) rotate(14deg) scale(.86) } 70% { transform: translateY(18%) rotate(10deg) scale(.88) } 100% { transform: none } }
+@keyframes lgrChimeraJawHang { 0% { transform: none } 30%, 70% { transform: scaleY(1.5) rotate(6deg) } 100% { transform: none } }
+@keyframes lgrChimeraGoatFall { 0% { transform: none } 10% { transform: rotate(-16deg) translateY(-10%) } 30% { transform: rotate(38deg) translate(10%, 22%) scale(.9) } 70% { transform: rotate(32deg) translate(8%, 18%) scale(.9) } 100% { transform: none } }
+@keyframes lgrChimeraSerpentFall { 0% { transform: none } 10% { transform: rotate(14deg) scaleY(1.1) } 30% { transform: rotate(-34deg) scaleY(.6) translateX(-10%) } 70% { transform: rotate(-28deg) scaleY(.66) translateX(-8%) } 100% { transform: none } }
+@keyframes lgrChimeraRage { 0% { transform: none } 14% { transform: scale(1.18) translateY(-6%) } 30% { transform: scale(1.1) translateY(-3%) rotate(-4deg) } 50% { transform: scale(1.12) rotate(4deg) } 100% { transform: none } }
+.lg-boss.lg-boss[data-fx="fallLion"] .lg-chimera-lion { animation: lgrChimeraLionFall 1150ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss.lg-boss[data-fx="fallLion"] .lg-chimera-jaw { animation: lgrChimeraJawHang 1150ms ease-out both }
+.lg-boss.lg-boss[data-fx="fallLion"] .lg-chimera-goat, .lg-boss.lg-boss[data-fx="fallLion"] .lg-chimera-serpent { animation: lgrChimeraRage 1150ms ease-out both }
+.lg-boss.lg-boss[data-fx="fallGoat"] .lg-chimera-goat { animation: lgrChimeraGoatFall 1150ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss.lg-boss[data-fx="fallGoat"] .lg-chimera-lion, .lg-boss.lg-boss[data-fx="fallGoat"] .lg-chimera-serpent { animation: lgrChimeraRage 1150ms ease-out both }
+.lg-boss.lg-boss[data-fx="fallSerpent"] .lg-chimera-serpent { animation: lgrChimeraSerpentFall 1150ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss.lg-boss[data-fx="fallSerpent"] .lg-chimera-lion, .lg-boss.lg-boss[data-fx="fallSerpent"] .lg-chimera-goat { animation: lgrChimeraRage 1150ms ease-out both }
+/* Goat block: the Goat swings its horns down in front of the others and takes the blow, braced. */
+@keyframes lgrChimeraGoatGuard { 0% { transform: none } 18% { transform: rotate(-30deg) translate(-18%, 8%) scale(1.12) } 34% { transform: rotate(-26deg) translate(-14%, 10%) scale(1.06, .94) } 60% { transform: rotate(-28deg) translate(-16%, 8%) scale(1.1) } 100% { transform: none } }
+@keyframes lgrChimeraDuck { 0% { transform: none } 18%, 60% { transform: translateY(8%) scale(.92) } 100% { transform: none } }
+.lg-boss.lg-boss[data-fx="goatBlock"] .lg-chimera-goat { animation: lgrChimeraGoatGuard 760ms cubic-bezier(.3,0,.2,1) both }
+.lg-boss.lg-boss[data-fx="goatBlock"] .lg-chimera-lion, .lg-boss.lg-boss[data-fx="goatBlock"] .lg-chimera-serpent { animation: lgrChimeraDuck 760ms ease-out both }
+/* Aim: the head you aim at leans out and bares itself at you. Maul: that head is struck and snaps back. */
+@keyframes lgrChimeraAimLean { 0%, 100% { transform: none } 40% { transform: scale(1.22) translateY(6%) } 70% { transform: scale(1.12) translateY(3%) } }
+@keyframes lgrChimeraMauled { 0%, 100% { transform: none } 25% { transform: translateY(-14%) rotate(-14deg) scale(.82) } 60% { transform: translateY(-4%) rotate(5deg) } }
+.lg-boss.lg-boss[data-fx="aim"]:not([data-ab-aim="1"]):not([data-ab-aim="2"]) .lg-chimera-lion, .lg-boss.lg-boss[data-fx="aim"][data-ab-aim="1"] .lg-chimera-goat, .lg-boss.lg-boss[data-fx="aim"][data-ab-aim="2"] .lg-chimera-serpent { animation: lgrChimeraAimLean 340ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss.lg-boss[data-fx="maul"]:not([data-ab-aim="1"]):not([data-ab-aim="2"]) .lg-chimera-lion, .lg-boss.lg-boss[data-fx="maul"][data-ab-aim="1"] .lg-chimera-goat, .lg-boss.lg-boss[data-fx="maul"][data-ab-aim="2"] .lg-chimera-serpent { animation: lgrChimeraMauled 340ms cubic-bezier(.2,.8,.3,1) both }
+/* THE KNOCKOUT (data-moment="ko", kept here because its 2300 ms outlasts the shortest knockout and the impact layer
+   style is shared by every boss): three last roars, Lion (280 ms), Goat (630), Serpent (980), each head rearing up
+   as its roar ring goes out, then at the climax (1400) all three drop and the body sinks. */
+@keyframes lgrChimeraKoLion { 0% { transform: none } 12%, 20% { transform: translateY(-14%) rotate(-6deg) scale(1.12) } 30%, 58% { transform: translateY(-4%) } 64% { transform: translateY(20%) rotate(12deg) scale(.9) } 90% { transform: translateY(16%) rotate(10deg) scale(.9) } 100% { transform: none } }
+@keyframes lgrChimeraKoJaw { 0% { transform: none } 12%, 20% { transform: scaleY(2) } 30%, 60% { transform: scaleY(1.2) } 66%, 90% { transform: scaleY(1.5) rotate(8deg) } 100% { transform: none } }
+@keyframes lgrChimeraKoGoat { 0%, 22% { transform: none } 28%, 36% { transform: rotate(-24deg) translate(6%, -14%) } 46%, 58% { transform: rotate(-6deg) } 64% { transform: rotate(40deg) translate(10%, 24%) scale(.88) } 90% { transform: rotate(34deg) translate(8%, 20%) scale(.88) } 100% { transform: none } }
+@keyframes lgrChimeraKoSerpent { 0%, 37% { transform: none } 43%, 52% { transform: scaleY(1.25) rotate(16deg) } 58% { transform: scaleY(1.1) } 64% { transform: scaleY(.55) rotate(-36deg) translateX(-10%) } 90% { transform: scaleY(.6) rotate(-30deg) translateX(-8%) } 100% { transform: none } }
+@keyframes lgrChimeraKoSink { 0%, 58% { transform: none } 64% { transform: translateY(8%) scaleY(.92) } 90% { transform: translateY(6%) scaleY(.94) } 100% { transform: none } }
+.lg-boss[data-motif="chimera"][data-moment="ko"] .lg-chimera-lion { animation: lgrChimeraKoLion 2300ms linear both }
+.lg-boss[data-motif="chimera"][data-moment="ko"] .lg-chimera-jaw { animation: lgrChimeraKoJaw 2300ms linear both }
+.lg-boss[data-motif="chimera"][data-moment="ko"] .lg-chimera-goat { animation: lgrChimeraKoGoat 2300ms linear both }
+.lg-boss[data-motif="chimera"][data-moment="ko"] .lg-chimera-serpent { animation: lgrChimeraKoSerpent 2300ms linear both }
+.lg-boss[data-motif="chimera"][data-moment="ko"] .lg-chimera-body, .lg-boss[data-motif="chimera"][data-moment="ko"] .lg-chimera-wingL, .lg-boss[data-motif="chimera"][data-moment="ko"] .lg-chimera-wingR { animation: lgrChimeraKoSink 2300ms ease-out both }
 `,
 }

@@ -1,7 +1,7 @@
 // RAID ABILITY (design v2.1): Hydra, Many Heads. Family: count down, misses regrow.
 // Every right answer (or a blocked attack) cuts a head. Cut all three and the stumps are burned (Cauterize) for
-// K.burn, and three heads stand again. A missed raid answer grows K.grow heads back (at most K.max). Nothing happens
-// at a phase line. Inserted questions: none. A missed attack grows nothing (its 2-life cost is enough).
+// K.burn, and three heads stand again. A missed raid answer grows K.grow heads back (at most K.max; at K.max nothing
+// grows and no Grow plays). Nothing happens at a phase line. Inserted questions: none. A missed attack grows nothing (its 2-life cost is enough).
 import { tuned } from './_rules'
 
 const K = { base: 3, grow: 2, max: 6, burn: 2 }
@@ -24,13 +24,18 @@ export default {
         res.fxVars = { n: k.burn }
       } else res.fx = 'sever'
     } else if (ctx.kind === 'normal') {
-      s.ab.heads = Math.min(k.max, s.ab.heads + k.grow)
+      // The heads that really grew (one at five heads, none at the cap): the floater and the art's sprout count them.
+      const grew = Math.max(0, Math.min(k.max, s.ab.heads + k.grow) - s.ab.heads)
+      if (!grew) return
+      s.ab.heads += grew
+      s.ab.grew = grew
       res.fx = 'grow'
-      res.fxVars = { n: k.grow }
+      res.fxVars = { n: grew }
     }
   },
   // Only when the next right answer burns the stumps.
   hint: (s, q) => (!q._inserted && s.ab.heads === 1 ? { icon: '🔥', key: 'lg_hint_lastHead' } : null),
   hud: (s, ctx) => [{ type: 'pips', n: s.ab.heads, max: tuned(K, ctx).max, icon: '🐍', labelKey: 'lg_hud_heads', vars: { n: s.ab.heads }, tone: 'success', ready: s.ab.heads === 1 }],
-  artState: (s) => ({ 'data-ab-heads': s.ab.heads }),
+  // data-ab-grew: how many slots the last Grow added (fx/hydra.jsx sprouts exactly those; read only while Grow plays).
+  artState: (s) => ({ 'data-ab-heads': s.ab.heads, 'data-ab-grew': s.ab.grew || 0 }),
 }

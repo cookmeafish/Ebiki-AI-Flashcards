@@ -6,6 +6,7 @@
 // Since 2026-10 every strike moment has its OWN set (the owner: "every impact needs to be different"): a critical
 // knocks the boss back harder than a hit, a Sharpen cuts it, a heavy blow is a bigger lunge than its plain strike, a
 // block jars it backwards, a save makes it glance off, Second wind makes it falter. `body.<moment>` in styles.js.
+import { BOSS_DATA } from './bosses'
 export const BODY_MS = { hit: 520, crit: 640, sharpen: 600, strike: 560, heavy: 720, block: 600, shield: 640, wind: 900, ko: 2200 }
 
 const HIT = {
@@ -420,7 +421,12 @@ export const KO_FRAMES = {
   ]],
 }
 const KO = Object.fromEntries(Object.entries(KO_FRAMES).map(([name, [pose, rest, opts]]) => [name, ko(pose, rest, opts)]))
-export const BODY_KEYFRAMES = { hit: HIT, crit: CRIT, sharpen: SHARPEN, strike: STRIKE, heavy: HEAVY, block: BLOCK, shield: SHIELD, wind: WIND, ko: KO }
+// The shared moves, plus every raid boss's OWN moves (impact/bosses/<motif>.js `body`, keyframe strings, named
+// <motif><Move>): a boss's style may name either.
+const SHARED_BODY = { hit: HIT, crit: CRIT, sharpen: SHARPEN, strike: STRIKE, heavy: HEAVY, block: BLOCK, shield: SHIELD, wind: WIND, ko: KO }
+export const BODY_KEYFRAMES = Object.fromEntries(Object.entries(SHARED_BODY).map(([mo, set]) => [mo, {
+  ...set, ...Object.assign({}, ...Object.values(BOSS_DATA).map((d) => d.body?.[mo] || {})),
+}]))
 const NAME = { hit: 'lgBodyHit_', crit: 'lgBodyCrit_', sharpen: 'lgBodySharp_', strike: 'lgBodyStrike_', heavy: 'lgBodyHeavy_', block: 'lgBodyBlock_', shield: 'lgBodyShield_', wind: 'lgBodyWind_', ko: 'lgBodyKO_' }
 export const bodyAnimName = (moment, name) => `${NAME[moment]}${name}`
 // The body key of a strike moment (strikeFx.js): a plain miss plays the boss's strike, a missed attack its heavy blow.

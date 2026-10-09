@@ -10,34 +10,71 @@ const EMBER = '#ffd23f'
 // THE REAL PARTS: raids/hydra.svg draws exactly data-ab-heads heads in every phase (the king + slot heads
 // lg-hydra-s2..s6; a cut s2/s3 is a seared stump, lg-hydra-stump2/3). The moments move those heads, keyed on the head
 // count AFTER the strike:
-//   grow       the two newest slots (N-1, N) burst up out of the body;
+//   grow       the slots that just grew (data-ab-grew of them: N-grew+1..N) burst up out of the body;
 //   sever      the slot just cut (N+1) is lopped off and falls away, a fresh stump flares;
-//   cauterize  s2 and s3 regrow out of the flames.
+//   cauterize  the two stumps flare white-hot and burn away while s2 and s3 regrow out of the flames.
+// The state changes the moment the answer is judged, but the arena starts the moment JUICE.delay later (data-fx).
+// BossArena marks that gap with data-fx-pending="<key>", and the HOLD rules below keep the BEFORE picture for it
+// (else a grown head popped in whole, vanished and sprouted again, and a cut head blinked out and came back to fall).
 // Played only while data-fx is set (never in focus mode, with Still bosses or under reduced motion); the head count
 // itself always shows (a static change). Transforms go only on slot groups (they carry no transform attribute; a CSS
-// transform would replace one), stumps get filters (the phase 3 stumps carry a transform).
+// transform would replace one), stumps get filters and opacity (the phase 3 stumps carry a transform).
 export const HYDRA_MAX_HEADS = 6
+// Where each slot's neck meets the body, per phase (raids/hydra.svg user units: the pivot of the slot's own idle sway; hydraArt.test.js keeps them equal).
+// A head sprouts out of THAT point (transform-box: view-box), so it grows along its neck: from the fill-box's bottom
+// centre a sideways neck (phase 3's young head, phase 2's sixth head) slid in from the middle of its own length.
+export const HYDRA_ROOTS = {
+  1: { 2: [33, 99], 3: [87, 99], 4: [46, 97], 5: [74, 97], 6: [66, 97] },
+  2: { 2: [60, 74], 3: [68, 68], 4: [66, 64], 5: [62, 72], 6: [67, 66] },
+  3: { 2: [60, 92], 3: [60, 92], 4: [60, 92], 5: [60, 92], 6: [50, 90] },
+}
 const slot = (k) => `.lg-hydra-s${k}`
-const at = (fx, n) => `.lg-boss[data-fx="${fx}"][data-ab-heads="${n}"]`
+const at = (fx, n, extra = '', attr = 'data-fx') => `.lg-boss[${attr}="${fx}"][data-ab-heads="${n}"]${extra}`
 export function headCss() {
   const grow = []
   const lop = []
   const sear = []
-  for (let n = 3; n <= HYDRA_MAX_HEADS; n++) grow.push(`${at('grow', n)} ${slot(n - 1)}, ${at('grow', n)} ${slot(n)}`)
+  const holdGrow = []
+  const holdCut = []
+  const holdStump = []
+  for (let n = 2; n <= HYDRA_MAX_HEADS; n++) {
+    for (let g = 1; g <= 2 && n - g >= 1; g++) {
+      for (let k = n - g + 1; k <= n; k++) {
+        grow.push(`${at('grow', n, `[data-ab-grew="${g}"]`)} ${slot(k)}`)
+        holdGrow.push(`${at('grow', n, `[data-ab-grew="${g}"]`, 'data-fx-pending')} ${slot(k)}`)
+      }
+    }
+  }
   for (let n = 1; n < HYDRA_MAX_HEADS; n++) {
     lop.push(`${at('sever', n)} ${slot(n + 1)}`)
-    if (n + 1 <= 3) sear.push(`${at('sever', n)} .lg-hydra-stump${n + 1}`)
+    holdCut.push(`${at('sever', n, '', 'data-fx-pending')} ${slot(n + 1)}`)
+    if (n + 1 <= 3) {
+      sear.push(`${at('sever', n)} .lg-hydra-stump${n + 1}`)
+      holdStump.push(`${at('sever', n, '', 'data-fx-pending')} .lg-hydra-stump${n + 1}`)
+    }
   }
+  const burn = '.lg-boss[data-fx="cauterize"]'
+  const preBurn = '.lg-boss[data-fx-pending="cauterize"]'
   return [
     '@keyframes lgrHydraSprout { 0% { transform: translateY(14px) scale(.15, .3); opacity: 0 } 35% { opacity: 1 } 65% { transform: translateY(-3px) scale(1.12, 1.08) } 82% { transform: translateY(1px) scale(.97) } 100% { transform: none } }',
     '@keyframes lgrHydraLop { 0% { transform: none; opacity: 1 } 16% { transform: translateY(-4px) rotate(6deg) } 70% { opacity: .9 } 100% { transform: translateY(42px) rotate(-24deg) scale(.55, .35); opacity: 0 } }',
-    '@keyframes lgrHydraSear { 0%, 100% { filter: none } 25% { filter: brightness(2.2) drop-shadow(0 0 3px #ff8a1f) } 60% { filter: brightness(1.5) drop-shadow(0 0 2px #ffd23f) } }',
+    '@keyframes lgrHydraSear { 0% { filter: brightness(1.8) drop-shadow(0 0 3px #ffd23f) } 25% { filter: brightness(2.2) drop-shadow(0 0 3px #ff8a1f) } 60% { filter: brightness(1.5) drop-shadow(0 0 2px #ffd23f) } 100% { filter: none } }',
+    '@keyframes lgrHydraBurn { 0% { filter: none; opacity: 1 } 18% { filter: brightness(2.4) drop-shadow(0 0 3px #ff8a1f) } 40% { filter: brightness(3) saturate(.4) drop-shadow(0 0 4px #ffd23f); opacity: 1 } 62% { filter: brightness(3.4) saturate(0) drop-shadow(0 0 4px #fff); opacity: 0 } 100% { filter: none; opacity: 0 } }',
     [2, 3, 4, 5, 6].map((k) => `.lg-boss ${slot(k)}`).join(', ') + ' { transform-box: fill-box; transform-origin: 50% 100% }',
+    ...Object.entries(HYDRA_ROOTS).flatMap(([ph, roots]) => Object.entries(roots).map(([k, [x, y]]) => `.lg-boss[data-phase="${ph}"] ${slot(k)} { transform-box: view-box; transform-origin: ${x}px ${y}px }`)),
     `${grow.join(', ')} { animation: lgrHydraSprout 760ms cubic-bezier(.22,1,.36,1) both }`,
     // The head just cut stays on screen while it falls (the state rule already hides it: this one is more specific).
-    `${lop.join(', ')} { display: inline !important; transform-origin: 50% 25%; animation: lgrHydraLop 680ms cubic-bezier(.45,0,.8,.3) forwards }`,
+    `${lop.join(', ')} { display: inline !important; transform-box: fill-box; transform-origin: 50% 25%; animation: lgrHydraLop 680ms cubic-bezier(.45,0,.8,.3) forwards }`,
+    // Its stump shows from the cut on, white-hot (filled from the first frame, so it never waits dark behind the head).
     `${sear.join(', ')} { animation: lgrHydraSear 700ms ease-out both }`,
-    '.lg-boss[data-fx="cauterize"] .lg-hydra-s2, .lg-boss[data-fx="cauterize"] .lg-hydra-s3 { animation: lgrHydraSprout 820ms 260ms cubic-bezier(.22,1,.36,1) both }',
+    // Cauterize: the count is back at three, yet the burn must show the stumps it burns, so they stay up and flare out.
+    `${burn} .lg-hydra-stump2, ${burn} .lg-hydra-stump3 { display: inline !important; animation: lgrHydraBurn 900ms ease-out forwards }`,
+    `${burn} .lg-hydra-s2, ${burn} .lg-hydra-s3 { animation: lgrHydraSprout 820ms 260ms cubic-bezier(.22,1,.36,1) both }`,
+    // THE HOLD (data-fx-pending): the picture from before the strike until the moment starts.
+    `${holdGrow.join(', ')} { opacity: 0 }`,
+    `${holdCut.join(', ')} { display: inline !important }`,
+    `${holdStump.join(', ')}, ${preBurn} .lg-hydra-s2, ${preBurn} .lg-hydra-s3 { display: none !important }`,
+    `${preBurn} .lg-hydra-stump2, ${preBurn} .lg-hydra-stump3 { display: inline !important }`,
   ].join('\n')
 }
 const HEAD_CSS = headCss()
@@ -66,7 +103,7 @@ export default {
   // The asset view's Try it: the head count right after each moment (a cut from 3, a growth from 3, a burn).
   demo: {
     sever: { kind: 'hit', damage: 2, lives: 0, ab: { heads: 2, burns: 0 } },
-    grow: { kind: 'miss', damage: 0, lives: 1, fxVars: { n: 2 }, ab: { heads: 5, burns: 0 } },
+    grow: { kind: 'miss', damage: 0, lives: 1, fxVars: { n: 2 }, ab: { heads: 5, grew: 2, burns: 0 } },
     cauterize: { kind: 'hit', damage: 4, lives: 0, fxVars: { n: 2 }, ab: { heads: 3, burns: 1 } },
   },
   floaters: { sever: 'lg_fx_sever', grow: 'lg_fx_grow', cauterize: 'lg_fx_cauterize' },
@@ -87,5 +124,100 @@ export default {
 .lgr-hydra-cauterize { transform-origin: 50% 100%; animation: lgrHydraWhip 800ms cubic-bezier(.22,1,.36,1) both }
 .lg-boss[data-phase="3"] .lgr-hydra-cauterize { animation-name: lgrHydraWhipP3; animation-duration: 950ms }
 ${HEAD_CSS}
+/* THE DRAWING ACTS IT OUT (moments, the attack, and the king's and the body's share of each ability). These move only
+   the wrappers raids/hydra.svg added for them: lg-hydra-king (the crowned head and its neck), lg-hydra-neck lg-hydra-n<k>
+   (INSIDE each slot group, so the head rules above keep the slot groups to themselves) and lg-hydra-coils (the body in
+   the water). Every neck pivots where it meets the body (HYDRA_ROOTS, per phase), the king at the base of its neck.
+   --hy-dir: which way a neck leans out (-1 left of the king, 1 right), so the heads fan apart, never into each other.
+   Played only while data-moment / data-assault-on / data-fx is set. */
+.lg-hydra-king, .lg-hydra-neck { transform-box: view-box }
+.lg-p1 .lg-hydra-king { transform-origin: 60px 97px } .lg-p2 .lg-hydra-king { transform-origin: 58px 74px } .lg-p3 .lg-hydra-king { transform-origin: 60px 92px }
+.lg-p1 .lg-hydra-n2 { transform-origin: 33px 99px; --hy-dir: -1 } .lg-p1 .lg-hydra-n3 { transform-origin: 87px 99px; --hy-dir: 1 } .lg-p1 .lg-hydra-n4 { transform-origin: 46px 97px; --hy-dir: -1 } .lg-p1 .lg-hydra-n5 { transform-origin: 74px 97px; --hy-dir: 1 } .lg-p1 .lg-hydra-n6 { transform-origin: 66px 97px; --hy-dir: 1 }
+.lg-p2 .lg-hydra-n2 { transform-origin: 60px 74px; --hy-dir: -1 } .lg-p2 .lg-hydra-n3 { transform-origin: 68px 68px; --hy-dir: 1 } .lg-p2 .lg-hydra-n4 { transform-origin: 66px 64px; --hy-dir: -1 } .lg-p2 .lg-hydra-n5 { transform-origin: 62px 72px; --hy-dir: 1 } .lg-p2 .lg-hydra-n6 { transform-origin: 67px 66px; --hy-dir: 1 }
+.lg-p3 .lg-hydra-n2 { transform-origin: 60px 92px; --hy-dir: -1 } .lg-p3 .lg-hydra-n3 { transform-origin: 60px 92px; --hy-dir: 1 } .lg-p3 .lg-hydra-n4 { transform-origin: 60px 92px; --hy-dir: -1 } .lg-p3 .lg-hydra-n5 { transform-origin: 60px 92px; --hy-dir: 1 } .lg-p3 .lg-hydra-n6 { transform-origin: 50px 90px; --hy-dir: -1 }
+.lg-hydra-coils { transform-box: fill-box; transform-origin: 50% 100% }
+.lg-hydra-n3 { --hy-lag: 60ms } .lg-hydra-n4 { --hy-lag: 110ms } .lg-hydra-n5 { --hy-lag: 150ms } .lg-hydra-n6 { --hy-lag: 190ms }
+
+/* ITS STRIKE (data-assault-on from the first frame, then data-moment="hurt"): every head rears back and coils (100 ms),
+   then they STRIKE at you one after another, the king first, jaws coming at the camera (the fangs and the venom fly
+   from them), and snap back; the body heaves under them. */
+@keyframes lgrHyRear { 0% { transform: none } 11% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 0) * -10deg)) scale(.92) } 17% { transform: translateY(-5px) rotate(calc(var(--hy-dir, 0) * -12deg)) scale(.9) }
+  25% { transform: translateY(16px) rotate(calc(var(--hy-dir, 0) * 9deg)) scale(1.22) } 31% { transform: translateY(14px) rotate(calc(var(--hy-dir, 0) * 6deg)) scale(1.17) } 38% { transform: translateY(15px) rotate(calc(var(--hy-dir, 0) * 8deg)) scale(1.2) }
+  64% { transform: translateY(4px) scale(1.05) } 100% { transform: none } }
+@keyframes lgrHyHeave { 0% { transform: none } 14% { transform: translateY(2px) scale(1.04, .94) } 28% { transform: translateY(-3px) scale(.97, 1.06) } 46% { transform: translateY(1px) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-assault-on] :is(.lg-hydra-king, .lg-hydra-neck), .lg-boss[data-motif="hydra"][data-moment="hurt"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyRear 900ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
+.lg-boss[data-motif="hydra"][data-assault-on] .lg-hydra-coils, .lg-boss[data-motif="hydra"][data-moment="hurt"] .lg-hydra-coils { animation: lgrHyHeave 900ms ease-out both }
+
+/* ITS HEAVY BLOW (data-moment="hurtBig", 100 ms in, from the reared pose): a frenzy: every head strikes TWICE, the
+   second bite deeper, the whole body surging up out of the water behind them. */
+@keyframes lgrHyFrenzy { 0% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 0) * -10deg)) scale(.92) } 12% { transform: translateY(-6px) rotate(calc(var(--hy-dir, 0) * -14deg)) scale(.88) }
+  22% { transform: translateY(16px) rotate(calc(var(--hy-dir, 0) * 10deg)) scale(1.22) } 30% { transform: translateY(-3px) rotate(calc(var(--hy-dir, 0) * -6deg)) scale(1) }
+  40% { transform: translateY(24px) rotate(calc(var(--hy-dir, 0) * 12deg)) scale(1.34) } 46% { transform: translateY(21px) rotate(calc(var(--hy-dir, 0) * 9deg)) scale(1.28) } 52% { transform: translateY(23px) rotate(calc(var(--hy-dir, 0) * 11deg)) scale(1.31) }
+  78% { transform: translateY(6px) scale(1.07) } 100% { transform: none } }
+@keyframes lgrHySurge { 0% { transform: none } 20% { transform: translateY(-5px) scale(1.04, 1.08) } 40% { transform: translateY(-7px) scale(1.06, 1.1) } 60% { transform: translateY(2px) scale(1.04, .94) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="hurtBig"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyFrenzy 1150ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
+.lg-boss[data-motif="hydra"][data-moment="hurtBig"] .lg-hydra-coils { animation: lgrHySurge 1150ms ease-out both }
+
+/* HIT: your blow snaps the king's head back; the other heads flinch away from it, out to the sides. */
+@keyframes lgrHyKingHit { 0% { transform: none } 12% { transform: translateY(-3px) rotate(-10deg) scale(.95) } 30% { transform: rotate(5deg) } 50% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrHyFlinch { 0% { transform: none } 14% { transform: rotate(calc(var(--hy-dir, 0) * 14deg)) scale(.94) } 40% { transform: rotate(calc(var(--hy-dir, 0) * -4deg)) } 64% { transform: rotate(calc(var(--hy-dir, 0) * 2deg)) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="hit"] .lg-hydra-king { animation: lgrHyKingHit 700ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="hydra"][data-moment="hit"] .lg-hydra-neck { animation: lgrHyFlinch 700ms cubic-bezier(.2,.8,.3,1) both }
+
+/* CRIT: the king's head is knocked right round on its neck and lolls back up; the other heads whip wildly, the body
+   lurches. */
+@keyframes lgrHyKingCrit { 0% { transform: none } 10% { transform: translate(-3px, -4px) rotate(-26deg) scale(.9) } 26% { transform: rotate(14deg) scale(1.02) } 42% { transform: rotate(-8deg) } 60% { transform: rotate(4deg) } 78% { transform: rotate(-1deg) } 100% { transform: none } }
+@keyframes lgrHyWhip { 0% { transform: none } 10% { transform: rotate(calc(var(--hy-dir, 0) * 22deg)) } 24% { transform: rotate(calc(var(--hy-dir, 0) * -16deg)) } 40% { transform: rotate(calc(var(--hy-dir, 0) * 10deg)) } 58% { transform: rotate(calc(var(--hy-dir, 0) * -5deg)) } 100% { transform: none } }
+@keyframes lgrHyLurch { 0% { transform: none } 12% { transform: translateX(-4px) skewX(5deg) } 30% { transform: translateX(3px) skewX(-3deg) } 50% { transform: none } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="crit"] .lg-hydra-king { animation: lgrHyKingCrit 1000ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="hydra"][data-moment="crit"] .lg-hydra-neck { animation: lgrHyWhip 1000ms ease-out both }
+.lg-boss[data-motif="hydra"][data-moment="crit"] .lg-hydra-coils { animation: lgrHyLurch 1000ms ease-out both }
+
+/* SHARPEN: honed cuts across the necks: each one is struck and jerks, the king's head is cut one way then the other. */
+@keyframes lgrHyCut { 0% { transform: none } 8% { transform: translateX(calc(var(--hy-dir, 1) * 4px)) rotate(calc(var(--hy-dir, 1) * 8deg)) } 20% { transform: none } 32% { transform: translateX(calc(var(--hy-dir, 1) * -4px)) rotate(calc(var(--hy-dir, 1) * -8deg)) } 48% { transform: rotate(calc(var(--hy-dir, 1) * 2deg)) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="sharpen"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyCut 760ms cubic-bezier(.2,.8,.3,1) both }
+
+/* BLOCK: the heads strike and you parry: they snap in and are batted back high, jaws reeling. */
+@keyframes lgrHyParried { 0% { transform: none } 14% { transform: translateY(15px) rotate(calc(var(--hy-dir, 0) * 8deg)) scale(1.2) } 22% { transform: translateY(15px) rotate(calc(var(--hy-dir, 0) * 8deg)) scale(1.21) }
+  32% { transform: translateY(-6px) rotate(calc(var(--hy-dir, 0) * -16deg)) scale(.9) } 50% { transform: translateY(-2px) rotate(calc(var(--hy-dir, 0) * -6deg)) } 70% { transform: rotate(calc(var(--hy-dir, 0) * 3deg)) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="block"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyParried 800ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
+
+/* SHIELD: the bites glance off the dome: each head strikes and skids past to the side, the body sways after them. */
+@keyframes lgrHyGlance { 0% { transform: none } 14% { transform: translateY(-3px) scale(.94) } 26% { transform: translateY(13px) scale(1.16) } 38% { transform: translate(calc(var(--hy-dir, 1) * 6px), 10px) rotate(calc(var(--hy-dir, 1) * 20deg)) scale(1.08) } 62% { transform: rotate(calc(var(--hy-dir, 1) * 6deg)) } 100% { transform: none } }
+@keyframes lgrHySway { 0% { transform: none } 38% { transform: skewX(-4deg) translateX(2px) } 64% { transform: skewX(2deg) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="shield"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyGlance 820ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
+.lg-boss[data-motif="hydra"][data-moment="shield"] .lg-hydra-coils { animation: lgrHySway 820ms ease-out both }
+
+/* SECOND WIND: you got back up: the heads rise tall and hiss, swaying like cobras, the king looming over them. */
+@keyframes lgrHyHiss { 0% { transform: none } 18% { transform: translateY(-4px) scale(1.06, 1.1) } 34% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 1) * 6deg)) scale(1.06, 1.1) } 52% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 1) * -6deg)) scale(1.06, 1.1) } 70% { transform: translateY(-3px) rotate(calc(var(--hy-dir, 1) * 3deg)) scale(1.04, 1.06) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="wind"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyHiss 900ms ease-in-out var(--hy-lag, 0ms) both }
+
+/* KNOCKOUT, SEVERED: the heads give out one after another, each neck sagging out to its side and down into the water,
+   the king last: it sways, topples forward and sinks; the body settles under the waves. */
+@keyframes lgrHyDroop { 0% { transform: none } 14% { transform: rotate(calc(var(--hy-dir, 1) * -6deg)) } 34% { transform: rotate(calc(var(--hy-dir, 1) * 30deg)) translateY(6px) scale(.96) }
+  44% { transform: rotate(calc(var(--hy-dir, 1) * 26deg)) translateY(5px) scale(.96) } 64% { transform: rotate(calc(var(--hy-dir, 1) * 46deg)) translateY(14px) scale(.9) } 100% { transform: rotate(calc(var(--hy-dir, 1) * 48deg)) translateY(15px) scale(.9) } }
+@keyframes lgrHyKingKo { 0% { transform: none } 12% { transform: rotate(-8deg) translateY(-3px) } 30% { transform: rotate(6deg) } 44% { transform: rotate(-4deg) } 58% { transform: rotate(10deg) translateY(4px) }
+  70% { transform: rotate(22deg) translateY(16px) scale(.92) } 78% { transform: rotate(19deg) translateY(14px) scale(.92) } 100% { transform: rotate(21deg) translateY(17px) scale(.92) } }
+@keyframes lgrHySink { 0% { transform: none } 55% { transform: none } 75% { transform: translateY(5px) scale(1, .9) } 100% { transform: translateY(6px) scale(1, .88) } }
+.lg-boss[data-motif="hydra"][data-moment="ko"] .lg-hydra-neck { animation: lgrHyDroop 2100ms cubic-bezier(.4,0,.6,1) calc(var(--hy-lag, 0ms) * 2) both }
+.lg-boss[data-motif="hydra"][data-moment="ko"] .lg-hydra-king { animation: lgrHyKingKo 2450ms cubic-bezier(.4,0,.6,1) both }
+.lg-boss[data-motif="hydra"][data-moment="ko"] .lg-hydra-coils { animation: lgrHySink 2450ms ease-in both }
+
+/* THE ABILITIES: the slot heads are the head rules' (above); the king and the body react around them. */
+/* sever: a head is cut off: the king rears back screaming, the body recoils. */
+@keyframes lgrHyKingScream { 0% { transform: none } 16% { transform: translateY(-5px) rotate(-8deg) scale(1.06) } 40% { transform: translateY(-4px) rotate(-6deg) scale(1.05) } 64% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgrHyRecoil { 0% { transform: none } 16% { transform: translateY(3px) scale(1.04, .94) } 44% { transform: translateY(-1px) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-fx="sever"] .lg-hydra-king { animation: lgrHyKingScream 800ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="hydra"][data-fx="sever"] .lg-hydra-coils { animation: lgrHyRecoil 800ms ease-out both }
+/* grow: new heads burst out: the king rises up tall and roars in triumph, the body swells. */
+@keyframes lgrHyKingRoar { 0% { transform: none } 22% { transform: translateY(-6px) scale(1.1, 1.14) } 36% { transform: translateY(-5px) rotate(4deg) scale(1.1, 1.14) } 50% { transform: translateY(-5px) rotate(-4deg) scale(1.1, 1.14) } 72% { transform: translateY(-2px) scale(1.04) } 100% { transform: none } }
+@keyframes lgrHySwell { 0% { transform: none } 26% { transform: scale(1.06, 1.1) } 56% { transform: scale(1.03, 1.05) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-fx="grow"] .lg-hydra-king { animation: lgrHyKingRoar 800ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-motif="hydra"][data-fx="grow"] .lg-hydra-coils { animation: lgrHySwell 800ms cubic-bezier(.22,1,.36,1) both }
+/* cauterize: the stumps are seared shut: the king writhes in agony, the body thrashes in the water. */
+@keyframes lgrHyKingWrithe { 0% { transform: none } 12% { transform: rotate(-12deg) translateY(-3px) } 26% { transform: rotate(10deg) } 40% { transform: rotate(-9deg) translateY(-2px) } 54% { transform: rotate(6deg) } 70% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lgrHyThrash { 0% { transform: none } 14% { transform: translateX(-4px) skewX(6deg) } 28% { transform: translateX(4px) skewX(-6deg) } 42% { transform: translateX(-3px) skewX(4deg) } 58% { transform: translateX(2px) skewX(-2deg) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-fx="cauterize"] .lg-hydra-king { animation: lgrHyKingWrithe 1150ms ease-out both }
+.lg-boss[data-motif="hydra"][data-fx="cauterize"] .lg-hydra-coils { animation: lgrHyThrash 1150ms ease-out both }
 `,
 }

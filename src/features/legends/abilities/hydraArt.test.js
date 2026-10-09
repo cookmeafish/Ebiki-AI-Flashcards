@@ -7,7 +7,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { newFight, strike } from '../fight'
 import { abilityCss } from '../fx'
-import { headCss, HYDRA_MAX_HEADS } from '../fx/hydra'
+import { headCss, HYDRA_MAX_HEADS, HYDRA_ROOTS } from '../fx/hydra'
 import mod from './hydra'
 
 const SVG = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../public/assets/legends/raids/hydra.svg'), 'utf8')
@@ -96,11 +96,53 @@ describe('raids/hydra.svg draws the head count', () => {
   })
   it('the moments move the real heads: grow sprouts the newest slots, sever drops the one cut', () => {
     const css = headCss()
-    expect(css).toContain('.lg-boss[data-fx="grow"][data-ab-heads="5"] .lg-hydra-s4, .lg-boss[data-fx="grow"][data-ab-heads="5"] .lg-hydra-s5')
+    expect(css).toContain('.lg-boss[data-fx="grow"][data-ab-heads="5"][data-ab-grew="2"] .lg-hydra-s4, .lg-boss[data-fx="grow"][data-ab-heads="5"][data-ab-grew="2"] .lg-hydra-s5')
+    // five to six grows ONE head: only s6 sprouts (s5 was already standing)
+    expect(css).toContain('.lg-boss[data-fx="grow"][data-ab-heads="6"][data-ab-grew="1"] .lg-hydra-s6')
+    expect(css).not.toContain('.lg-boss[data-fx="grow"][data-ab-heads="6"][data-ab-grew="1"] .lg-hydra-s5')
     expect(css).toMatch(/\.lg-boss\[data-fx="sever"\]\[data-ab-heads="2"\] \.lg-hydra-s3[^{]*\{ display: inline !important;[^}]*animation: lgrHydraLop/)
     expect(css).toContain('.lg-boss[data-fx="sever"][data-ab-heads="1"] .lg-hydra-stump2')
     expect(css).toContain('.lg-boss[data-fx="cauterize"] .lg-hydra-s2')
+    // the burn shows the stumps it burns (the count is already back at three)
+    expect(css).toMatch(/\.lg-boss\[data-fx="cauterize"\] \.lg-hydra-stump2, \.lg-boss\[data-fx="cauterize"\] \.lg-hydra-stump3 \{ display: inline !important;[^}]*lgrHydraBurn/)
     expect(css).not.toContain('lg-hydra-s1') // the king is never cut or grown
     expect(abilityCss('heads', { 'data-ab-heads': 4 })).toContain(css)
+  })
+  it('between the strike and its moment (data-fx-pending) the drawing holds the picture from BEFORE the strike', () => {
+    const css = headCss()
+    // a grown head stays hidden until it sprouts; a cut head stays up (its stump hidden) until it falls
+    expect(css).toMatch(/\.lg-boss\[data-fx-pending="grow"\]\[data-ab-heads="5"\]\[data-ab-grew="2"\] \.lg-hydra-s5[^{]*\{ opacity: 0 \}/)
+    expect(css).toMatch(/\.lg-boss\[data-fx-pending="sever"\]\[data-ab-heads="2"\] \.lg-hydra-s3[^{]*\{ display: inline !important \}/)
+    expect(css).toMatch(/\.lg-boss\[data-fx-pending="sever"\]\[data-ab-heads="2"\] \.lg-hydra-stump3[^{]*\{ display: none !important \}/)
+    // a burn: still the lone king on his two stumps
+    expect(css).toMatch(/\.lg-boss\[data-fx-pending="cauterize"\] \.lg-hydra-stump2, \.lg-boss\[data-fx-pending="cauterize"\] \.lg-hydra-stump3 \{ display: inline !important \}/)
+  })
+  it('heads sprout from their neck roots: each phase\'s pivot is the slot\'s own idle sway pivot in the SVG', () => {
+    // the first rotate pivot inside each slot group of each phase group (lines of the file are its top-level groups)
+    const phaseOf = (line) => (/^<g class="lg-p1"/.test(line) ? 1 : /^<g class="lg-p2 lg-p12"/.test(line) ? 2 : /^<g class="lg-p3"/.test(line) ? 3 : 0)
+    let checked = 0
+    for (const line of SVG.split(/\r?\n/)) {
+      const ph = phaseOf(line)
+      if (!ph) continue
+      for (const m of line.matchAll(/<g class="lg-hydra-s(\d)[ "]/g)) {
+        const rot = line.slice(m.index, m.index + 1500).match(/type="rotate" values="[-\d.]+ ([-\d.]+) ([-\d.]+)/)
+        if (!rot) continue
+        expect(HYDRA_ROOTS[ph][m[1]], `phase ${ph} s${m[1]}`).toEqual([Number(rot[1]), Number(rot[2])])
+        checked++
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(14)
+    expect(headCss()).toContain('.lg-boss[data-phase="3"] .lg-hydra-s4 { transform-box: view-box; transform-origin: 60px 92px }')
+  })
+  it('Grow names the heads that really grew: one at five heads, none (no moment) at six', () => {
+    const at = (heads) => ({ ...newFight(), ab: { heads, burns: 0 } })
+    const five = strike(at(5), hit('miss'), o)
+    expect(five.ab.heads).toBe(6)
+    expect(five.last.fx).toBe('grow')
+    expect(five.last.fxVars).toEqual({ n: 1 })
+    expect(mod.artState(five)['data-ab-grew']).toBe(1)
+    const six = strike(at(6), hit('miss'), o)
+    expect(six.ab.heads).toBe(6)
+    expect(six.last.fx).toBeFalsy()
   })
 })

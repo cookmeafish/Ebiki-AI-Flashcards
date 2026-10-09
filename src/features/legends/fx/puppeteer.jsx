@@ -67,5 +67,30 @@ export default {
    under reduced motion). */
 @keyframes lgrPuppeteerPuppetFlash { 0%, 100% { filter: none } 35% { filter: brightness(1.9) drop-shadow(0 0 3px #fff3c4) } }
 .lg-boss[data-fx="kick"] [class*="lg-ab-puppets-"], .lg-boss[data-fx="steal"] [class*="lg-ab-puppets-"] { transform-box: fill-box; transform-origin: center; animation: lgrPuppeteerPuppetFlash 320ms cubic-bezier(.22,1,.36,1) both }
+/* THE ATTACK ON THE PLAYER (impact/assault.js chain + drain; data-assault-on while it plays, land at about 400 ms):
+   the right hand winds back, then FLINGS its strings out of the box at your heart, the left hand follows, and both reel
+   it in with hard jerks (the drain) while the mask leans after it grinning. Inner wrappers (-handRA/-handLA/-maskA), so
+   the strike moment's own moves on the outer ones play over it. */
+@keyframes lgrPuppeteerFlingR { 0% { transform: none } 8% { transform: translate(-7%, -10%) rotate(-18deg) } 24% { transform: translate(16%, 8%) rotate(18deg) scale(1.12) } 30% { transform: translate(13%, 6%) rotate(14deg) scale(1.08) } 42% { transform: translate(3%, -2%) rotate(2deg) } 50% { transform: translate(9%, 3%) rotate(9deg) } 58% { transform: translate(1%, -3%) rotate(0) } 66% { transform: translate(7%, 2%) rotate(7deg) } 76% { transform: translate(-1%, -3%) rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrPuppeteerFlingL { 0% { transform: none } 12% { transform: translate(-4%, -6%) rotate(-10deg) } 28% { transform: translate(9%, 6%) rotate(12deg) } 44% { transform: translate(1%, -2%) rotate(-2deg) } 54% { transform: translate(6%, 3%) rotate(6deg) } 64% { transform: translate(0, -2%) } 74% { transform: translate(4%, 1%) rotate(3deg) } 100% { transform: none } }
+@keyframes lgrPuppeteerLeer { 0% { transform: none } 8% { transform: rotate(-7deg) scale(.96) } 26% { transform: translateX(7%) rotate(9deg) scale(1.1) } 50% { transform: translateX(5%) rotate(6deg) scale(1.07) } 66% { transform: translateX(6%) rotate(8deg) scale(1.1) } 100% { transform: none } }
+.lg-boss[data-motif="puppeteer"][data-assault-on] .lg-puppeteer-handRA { animation: lgrPuppeteerFlingR 1350ms cubic-bezier(.3,.7,.3,1) both }
+.lg-boss[data-motif="puppeteer"][data-assault-on] .lg-puppeteer-handLA { animation: lgrPuppeteerFlingL 1350ms cubic-bezier(.3,.7,.3,1) 40ms both }
+.lg-boss[data-motif="puppeteer"][data-assault-on] .lg-puppeteer-maskA { animation: lgrPuppeteerLeer 1350ms cubic-bezier(.3,.7,.3,1) both }
+/* THE ABILITY ON THE REAL PARTS: kick = the marionette's shin is kicked out (it buckles sideways, the mask glares);
+   steal = the left hand's strings snap and it jerks up EMPTY, clutching air, while the mask gapes; yank = the right hand
+   reels a string in hard over its shoulder, the mask grinning after it. */
+@keyframes lgrPuppeteerBuckle { 0% { transform: none } 18% { transform: translateX(-6%) rotate(-10deg) translateY(3%) } 40% { transform: translateX(3%) rotate(5deg) } 70% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrPuppeteerGlare { 0%, 100% { transform: none } 25% { transform: rotate(-5deg) scale(1.04, .96) } }
+@keyframes lgrPuppeteerSnapUp { 0% { transform: none } 12% { transform: translate(-3%, -16%) rotate(-24deg) } 22% { transform: translate(-2%, -12%) rotate(-14deg) } 30% { transform: translate(-3%, -15%) rotate(-22deg) } 40% { transform: translate(-2%, -12%) rotate(-12deg) } 70% { transform: translate(0, -4%) rotate(-4deg) } 100% { transform: none } }
+@keyframes lgrPuppeteerGape { 0% { transform: none } 14% { transform: scale(.94, 1.14) translateY(-3%) } 60% { transform: scale(.97, 1.07) translateY(-1%) } 100% { transform: none } }
+@keyframes lgrPuppeteerReelR { 0% { transform: none } 22% { transform: translate(6%, 6%) rotate(10deg) } 48% { transform: translate(-6%, -14%) rotate(-26deg) } 62% { transform: translate(-4%, -11%) rotate(-20deg) } 100% { transform: none } }
+@keyframes lgrPuppeteerSmirk { 0% { transform: none } 40% { transform: translateX(3%) rotate(7deg) } 100% { transform: none } }
+.lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-doll, .lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-spider { animation: lgrPuppeteerBuckle 420ms cubic-bezier(.2,.9,.3,1) 120ms both }
+.lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-mask { animation: lgrPuppeteerGlare 420ms ease-out 120ms both }
+.lg-boss[data-motif="puppeteer"][data-fx="steal"] .lg-puppeteer-handL { animation: lgrPuppeteerSnapUp 1100ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-motif="puppeteer"][data-fx="steal"] .lg-puppeteer-mask { animation: lgrPuppeteerGape 1000ms ease-out both }
+.lg-boss[data-motif="puppeteer"][data-fx="yank"] .lg-puppeteer-handR { animation: lgrPuppeteerReelR 780ms cubic-bezier(.3,.8,.3,1) both }
+.lg-boss[data-motif="puppeteer"][data-fx="yank"] .lg-puppeteer-mask { animation: lgrPuppeteerSmirk 780ms ease-out both }
 `,
 }

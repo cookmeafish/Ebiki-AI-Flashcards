@@ -64,5 +64,58 @@ export default {
    under reduced motion). */
 @keyframes lgrGorgonGazeGlare { 0%, 100% { transform: none; filter: none } 40% { transform: scale(1.18); filter: brightness(1.7) saturate(1.3) } }
 .lg-boss[data-fx="charge"] [class*="lg-ab-gaze-"] { transform-box: fill-box; transform-origin: center; animation: lgrGorgonGazeGlare 320ms cubic-bezier(.22,1,.36,1) both }
+/* THE DRAWING'S OWN PARTS (raids/gorgon.svg lg-gorgon-*): their pivots, her attack on the player, and how each ability
+   moment moves them. The ability rules carry a doubled class (.lg-boss.lg-boss) so they win over a plain strike
+   moment playing on the same part at the same time. */
+.lg-boss[data-motif="gorgon"] [class*="lg-gorgon-"] { transform-box: fill-box; transform-origin: 50% 50% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-face, .lg-boss[data-motif="gorgon"] .lg-gorgon-face2 { transform-origin: 50% 88% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-maw { transform-origin: 50% 0 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-crown { transform-origin: 50% 95% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-front, .lg-boss[data-motif="gorgon"] .lg-gorgon-wings { transform-origin: 50% 85% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-armR { transform-origin: 8% 92% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-armL { transform-origin: 92% 12% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-halfL { transform-origin: 100% 100% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-halfR { transform-origin: 0 100% }
+/* Her attack on the player (impact/AssaultFx: her gaze travels to your heart as a beam and stone frosts the screen).
+   The drawing does it: she rears back and squints (the charge), then thrusts her head at you with her eyes blazing and
+   her jaws wide as the gaze leaves her, holding the glare while it lands. */
+@keyframes lgrGorgonAsHead { 0% { transform: none } 16% { transform: translateY(-16%) rotate(-9deg) scale(.92) } 40% { transform: translateY(12%) rotate(3deg) scale(1.34) } 52% { transform: translateY(9%) scale(1.28) } 80% { transform: translateY(4%) scale(1.12) } 100% { transform: none } }
+@keyframes lgrGorgonAsEyes { 0% { transform: none; filter: none } 16% { transform: scaleY(.2) scaleX(1.15); filter: brightness(1.4) } 34% { transform: scale(2.3); filter: brightness(3) saturate(1.5) drop-shadow(0 0 3px #5dff9a) } 70% { transform: scale(1.8); filter: brightness(2.2) drop-shadow(0 0 3px #5dff9a) } 100% { transform: none; filter: none } }
+@keyframes lgrGorgonAsMaw { 0% { transform: none } 16% { transform: scaleY(.5) } 38% { transform: scaleY(2.4) scaleX(1.15) } 75% { transform: scaleY(1.9) } 100% { transform: none } }
+@keyframes lgrGorgonAsEye3 { 0% { transform: none; filter: none } 16% { transform: scale(.7) scaleY(.3); filter: brightness(1.3) } 36% { transform: scale(1.6); filter: brightness(2.8) saturate(1.5) } 72% { transform: scale(1.35); filter: brightness(1.8) } 100% { transform: none; filter: none } }
+.lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-face, .lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-face2 { animation: lgrGorgonAsHead 800ms cubic-bezier(.4,0,.2,1) both }
+.lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-eye { animation: lgrGorgonAsEyes 800ms cubic-bezier(.4,0,.2,1) both }
+.lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-maw { animation: lgrGorgonAsMaw 800ms cubic-bezier(.4,0,.2,1) both }
+.lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-eye3 { animation: lgrGorgonAsEye3 800ms cubic-bezier(.4,0,.2,1) both }
+/* Charge: her eyes swell and burn brighter (the gaze filling). */
+@keyframes lgrGorgonChargeEyes { 0%, 100% { transform: none; filter: none } 40% { transform: scale(1.45); filter: brightness(2.2) drop-shadow(0 0 2px #5dff9a) } }
+.lg-boss.lg-boss[data-fx="charge"] .lg-gorgon-eye, .lg-boss.lg-boss[data-fx="charge"] .lg-gorgon-eye3 { animation: lgrGorgonChargeEyes 340ms cubic-bezier(.22,1,.36,1) both }
+/* Reflect: her own beam slams back into her face (snapped back, eyes shut tight), she locks rigid as stone, the snakes
+   frozen mid-writhe, then a crack-shake runs through the statue and she breaks free. */
+@keyframes lgrGorgonReflectFace { 0% { transform: none } 14% { transform: translateY(-7%) rotate(-11deg) scale(.92) } 22%, 52% { transform: translateY(-6%) rotate(-9deg) scale(.93) } 55% { transform: translateY(-6%) rotate(-7deg) translateX(-3%) } 58% { transform: translateY(-6%) rotate(-11deg) translateX(3%) } 62% { transform: translateY(-5%) rotate(-8deg) } 80% { transform: translateY(-1%) rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrGorgonReflectEyes { 0% { transform: none } 12%, 70% { transform: scaleY(.06) scaleX(1.15) } 85% { transform: scaleY(1.2) } 100% { transform: none } }
+@keyframes lgrGorgonReflectRigid { 0% { transform: none } 14% { transform: scale(1.16) } 22%, 52% { transform: scale(1.12) } 56% { transform: scale(1.12) translateX(-2%) } 60% { transform: scale(1.12) translateX(2%) } 64% { transform: scale(1.06) translateY(3%) } 100% { transform: none } }
+.lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-face, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-face2, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-eye3 { animation: lgrGorgonReflectFace 1200ms linear both }
+.lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-eye { animation: lgrGorgonReflectEyes 1200ms linear both }
+.lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-crown, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-front, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-wings, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-knot3, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-heads3 { animation: lgrGorgonReflectRigid 1200ms linear both }
+/* Stoned (her gaze took your heart): she coils back smug, the snakes sway and the cobra hood fans out in triumph. */
+@keyframes lgrGorgonSmugSway { 0%, 100% { transform: none } 22% { transform: rotate(-6deg) scale(1.08) } 48% { transform: rotate(5deg) scale(1.1) } 74% { transform: rotate(-2deg) scale(1.04) } }
+@keyframes lgrGorgonHoodFan { 0%, 100% { transform: none } 30% { transform: scaleX(1.32) scaleY(1.06) } 70% { transform: scaleX(1.22) } }
+.lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-crown, .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-front, .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-heads3 { animation: lgrGorgonSmugSway 800ms ease-in-out both }
+.lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-hood, .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-wings { animation: lgrGorgonHoodFan 800ms ease-in-out both }
+/* THE KNOCKOUT (data-moment="ko"): kept here, not in impact/bosses/gorgon.parts.jsx, because its 2300 ms outlasts the
+   shortest knockout and the impact layer's style is shared by every boss.
+   the knockout: her own gaze turns her to stone, the snakes stiffen and sag, the head cracks and drops at the climax */
+@keyframes lgrGorgonKoFace { 0% { transform: none } 8%, 55% { transform: translateY(-4%) rotate(-6deg) } 62% { transform: translateY(5%) rotate(5deg) } 66% { transform: translateY(4%) rotate(3deg) } 88% { transform: translateY(3%) rotate(2deg) } 100% { transform: none } }
+@keyframes lgrGorgonKoSnakes { 0% { transform: none } 10%, 55% { transform: scale(1.12) } 63% { transform: scaleY(.84) translateY(9%) } 88% { transform: scaleY(.88) translateY(7%) } 100% { transform: none } }
+@keyframes lgrGorgonKoWings { 0% { transform: none } 10%, 55% { transform: scaleX(1.1) } 63% { transform: translateY(7%) rotate(3deg) scaleX(.94) } 88% { transform: translateY(5%) rotate(2deg) } 100% { transform: none } }
+@keyframes lgrGorgonKoEyes { 0% { transform: none } 10%, 55% { transform: scale(1.5) } 60% { transform: scaleY(.1) } 90% { transform: scaleY(.1) } 100% { transform: none } }
+@keyframes lgrGorgonKoEye3 { 0% { transform: none } 10%, 55% { transform: scale(1.3) } 62% { transform: scale(.7) scaleY(.15) } 90% { transform: scale(.7) scaleY(.15) } 100% { transform: none } }
+.lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-face, .lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-face2 { animation: lgrGorgonKoFace 2300ms cubic-bezier(.3,.6,.4,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-crown, .lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-front, .lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-heads3 { animation: lgrGorgonKoSnakes 2300ms cubic-bezier(.3,.6,.4,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-wings, .lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-hood { animation: lgrGorgonKoWings 2300ms cubic-bezier(.3,.6,.4,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-eye { animation: lgrGorgonKoEyes 2300ms cubic-bezier(.3,.6,.4,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-eye3 { animation: lgrGorgonKoEye3 2300ms cubic-bezier(.3,.6,.4,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-knot3 { animation: lgrGorgonKoSnakes 2300ms cubic-bezier(.3,.6,.4,1) both }
 `,
 }

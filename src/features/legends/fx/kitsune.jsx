@@ -60,5 +60,35 @@ export default {
    under reduced motion). */
 @keyframes lgrKitsuneRallyPop { 0% { transform: none } 35% { transform: scale(1.25) } 65% { transform: scale(.94) } 100% { transform: none } }
 .lg-boss[data-fx="volley"] [class*="lg-ab-rally-"] { transform-box: fill-box; transform-origin: center; animation: lgrKitsuneRallyPop 320ms cubic-bezier(.22,1,.36,1) both }
+/* THE ATTACK ON THE PLAYER (impact/assault.js orb + burn; data-assault-on, the fire leaves at 120 ms and lands near
+   520 ms): she draws her fox-fire ring in tight, then FLINGS it open as the orb leaves for your heart, her face turning
+   after it with a smile and the tails flaring behind her. Inner wrappers (-headA/-hairA/-tailsA/-firesA). */
+@keyframes lgrKitsuneGather { 0% { transform: none } 7% { transform: scale(.72) rotate(-70deg) } 15% { transform: scale(1.4) rotate(30deg) } 32% { transform: scale(1.12) rotate(120deg) } 100% { transform: rotate(360deg) } }
+@keyframes lgrKitsuneSend { 0% { transform: none } 7% { transform: rotate(-7deg) } 16% { transform: rotate(10deg) translateX(3%) scale(1.07) } 45% { transform: rotate(7deg) translateX(2%) scale(1.04) } 100% { transform: none } }
+@keyframes lgrKitsuneFlare { 0% { transform: none } 7% { transform: scale(.93) } 16% { transform: scale(1.13) rotate(5deg) } 50% { transform: scale(1.04) rotate(2deg) } 100% { transform: none } }
+.lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-firesA { animation: lgrKitsuneGather 1600ms cubic-bezier(.3,.7,.3,1) both }
+.lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-headA, .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-hairA { animation: lgrKitsuneSend 1500ms cubic-bezier(.3,.7,.3,1) both }
+.lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-tailsA { animation: lgrKitsuneFlare 1500ms cubic-bezier(.3,.7,.3,1) both }
+/* THE ABILITY ON THE REAL PARTS: volley = her right tails swat the ball back and her head flicks after it; starfall =
+   the ball bursts in her face (head knocked back, tails blown wide, the fox-fires flare); caught = she plucks it out of
+   the air: a crisp double lash of every tail and a smug tilt. */
+@keyframes lgrKitsuneSwatR { 0% { transform: none } 30% { transform: rotate(16deg) } 60% { transform: rotate(-4deg) } 100% { transform: none } }
+@keyframes lgrKitsuneFlickHead { 0%, 100% { transform: none } 35% { transform: rotate(6deg) translateX(2%) } }
+@keyframes lgrKitsuneBlownBack { 0% { transform: none } 14% { transform: rotate(-13deg) translateY(-4%) scale(.95) } 50% { transform: rotate(-5deg) translateY(-1%) } 100% { transform: none } }
+@keyframes lgrKitsuneBlownL { 0% { transform: none } 14% { transform: rotate(-18deg) } 50% { transform: rotate(-6deg) } 100% { transform: none } }
+@keyframes lgrKitsuneBlownR { 0% { transform: none } 14% { transform: rotate(18deg) } 50% { transform: rotate(6deg) } 100% { transform: none } }
+@keyframes lgrKitsuneFlareUp { 0% { transform: none; opacity: 1 } 14% { transform: scale(1.45); opacity: 1 } 50% { transform: scale(1.1) } 100% { transform: none } }
+@keyframes lgrKitsuneLashL { 0%, 100% { transform: none } 18% { transform: rotate(-12deg) } 36% { transform: rotate(6deg) } 54% { transform: rotate(-8deg) } 72% { transform: rotate(2deg) } }
+@keyframes lgrKitsuneLashR { 0%, 100% { transform: none } 18% { transform: rotate(12deg) } 36% { transform: rotate(-6deg) } 54% { transform: rotate(8deg) } 72% { transform: rotate(-2deg) } }
+@keyframes lgrKitsuneSmug { 0%, 100% { transform: none } 40% { transform: rotate(-7deg) translateY(-2%) } }
+.lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-tailR { animation: lgrKitsuneSwatR 340ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-hair { animation: lgrKitsuneFlickHead 340ms ease-out both }
+.lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-hair { animation: lgrKitsuneBlownBack 900ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-tailL { animation: lgrKitsuneBlownL 900ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-tailR { animation: lgrKitsuneBlownR 900ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-fires { animation: lgrKitsuneFlareUp 800ms ease-out both }
+.lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-tailL { animation: lgrKitsuneLashL 620ms ease-out both }
+.lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-tailR { animation: lgrKitsuneLashR 620ms ease-out both }
+.lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-hair { animation: lgrKitsuneSmug 620ms ease-out both }
 `,
 }

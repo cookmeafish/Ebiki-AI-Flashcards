@@ -3,7 +3,7 @@
 // answer is a hit, every wrong one costs a life. Lives = the misses the pass mark allows + 1, so losing the last one
 // is exactly the miss that makes the boss unbeatable: the fight ends there, and at 0 health it ends in a win. The
 // pass itself is still decided by applyNodeResult. Nothing moves for people who asked for reduced motion.
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton } from '../ui'
 import { BossArt, LegendsArt, paletteTint, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE, holdArt } from './art'
@@ -18,6 +18,8 @@ import { strikeMoment, STRIKE_FX } from './strikeFx'
 import StrikeFxLayer, { KoTag } from './StrikeFxLayer'
 import { impactFor, koTiming } from './impact/styles'
 import { BODY_CSS, bodyAnimation } from './impact/body'
+import AssaultFx, { hitShake } from './impact/AssaultFx'
+import { assaultFor, assaultMs } from './impact/assault'
 import { PowerFx, PowerBadges, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
@@ -65,7 +67,7 @@ function Lives({ t, lives, left, last, size = 16, popFrom = 0, bonus = 0 }) {
         const justLost = last?.kind === 'miss' && i === left
         const pop = popFrom ? `lgPopIn .35s cubic-bezier(.3,1.6,.5,1) ${popFrom + i * 0.12}s both` : undefined
         const extra = i >= lives - bonus
-        const heart = <span key={`${i}-${justLost ? last.n : 0}`} aria-hidden="true" style={{ display: 'inline-block', filter: lost ? 'grayscale(1) opacity(.35)' : 'none', animation: justLost ? 'lgHeartLose .5s ease-out both' : pop }}>{extra ? '💖' : '❤️'}</span>
+        const heart = <span key={`${i}-${justLost ? last.n : 0}`} aria-hidden="true" data-heart={i} style={{ display: 'inline-block', filter: lost ? 'grayscale(1) opacity(.35)' : 'none', animation: justLost ? 'lgHeartLose .5s ease-out both' : pop }}>{extra ? '💖' : '❤️'}</span>
         if (!extra) return heart
         return (
           <span key={`x${i}`} style={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', boxShadow: lost ? 'none' : `0 0 0 2px ${C.warning}, 0 0 12px color-mix(in srgb, ${C.warning} 70%, transparent)`, padding: 1 }}>
@@ -434,11 +436,25 @@ const IDLE_JUICE = { fx: '', ofx: '', moment: '', show: false, fading: false, sh
 // `ko`: the knockout's clock (impact/styles.js koTiming) when `moment` is the knockout.
 // The knockout's hit-stop is longer than any other: the killing blow freezes the boss (its body move holds it too).
 const KO_HITSTOP = 180
+// The ability floater starts this far DOWN the boss box: lgJuicePop lifts it 36 px, so starting at the top edge it rose
+// past the arena and was cut off (a pinned arena sits at the top of its scroll box). From here it ends inside the box.
+const ABILITY_FLOATER_TOP = 38
+// It also stays as wide as the boss box plus its headroom at the pop's 1.25 peak: it wraps at word gaps, and a long
+// word gets a smaller size ("-4 Cauterize!" ran past the compact arena's edge). CJK text breaks anywhere, so only
+// the other letters of a word count. 0.62 em = a wide Baloo letter plus its outline.
+const FLOATER_PEAK = 1.25
+const FLOATER_CJK = /[⺀-鿿가-힯豈-﫿＀-￯]/
+function abilityFloaterFit(text, box, base) {
+  const room = Math.floor((box + 2 * headroomPx(box)) / FLOATER_PEAK)
+  const word = Math.max(1, ...String(text || '').split(/\s+/).map((w) => [...w].filter((ch) => !FLOATER_CJK.test(ch)).length))
+  return { maxWidth: room, fontSize: Math.max(13, Math.min(base, Math.floor(room / (word * 0.62)))) }
+}
 function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
   const [st, setSt] = useState(IDLE_JUICE)
   const key = last?.fx || moment ? `${last?.n}:${last?.wn || 0}:${last?.fx || ''}:${moment}` : ''
   const timers = useRef([])
   const lastFlashAt = useRef(-Infinity)
+  const started = useRef('') // the key whose moment has started (JUICE.delay after the strike)
   useEffect(() => {
     const clear = () => { timers.current.forEach(clearTimeout); timers.current = [] }
     const later = (ms, f) => { timers.current.push(setTimeout(f, ms)) }
@@ -449,6 +465,7 @@ function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
     const n = last.n
     const j = moment === 'ko' || !fx ? juiceOf(STRIKE_FX[moment]) : juiceFor(ability, fx)
     later(JUICE.delay, () => {
+      started.current = key
       const now = Date.now()
       // Photosensitivity: at most 2 flashes a second, whatever the data asks.
       const flash = j.flash && now - lastFlashAt.current >= JUICE.flashGap ? j.flash : 0
@@ -487,7 +504,11 @@ function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
     const id = setTimeout(() => setSt((x) => (x.fading ? IDLE_JUICE : x)), JUICE.fade)
     return () => clearTimeout(id)
   }, [questionKey])
-  return st
+  // `pend`: the ability fx judged but not started yet (the JUICE.delay gap). Computed in render, so the very first paint
+  // of the new state already has it: an ability whose art state changes with the strike (the hydra's head count) keeps
+  // its BEFORE picture through the gap (data-fx-pending, fx/<motif>.jsx css) instead of jumping to the result early.
+  const pend = on && key && last?.fx && started.current !== key ? last.fx : ''
+  return pend ? { ...st, pend } : st
 }
 
 // Hit-stop also pauses the boss's SMIL idle (CSS play-state cannot reach it); only the drawings it paused itself are
@@ -601,6 +622,39 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
     const id = setTimeout(() => setProcShow((x) => (x?.n === proc.n ? null : x)), procMs(proc.id) + 100)
     return () => clearTimeout(id)
   }, [proc?.n]) // eslint-disable-line react-hooks/exhaustive-deps
+  // THE BOSS'S ATTACK ON THE PLAYER (impact/AssaultFx.jsx): every strike that takes a heart travels from the boss to
+  // that heart and lands on the screen. Measured from the card when it fires (layout px of the card).
+  const rootRef = useRef(null)
+  const bossBoxRef = useRef(null)
+  const [assault, setAssault] = useState(null) // { n, big, geo }
+  const assaultSeen = useRef(last?.n || 0)
+  const assaultOn = kind === 'raids' && animOk && !down && !!last && last.lives > 0 && !last.shielded
+  useLayoutEffect(() => {
+    if (!last?.n || last.n === assaultSeen.current) return undefined
+    assaultSeen.current = last.n
+    if (!assaultOn) return undefined
+    const root = rootRef.current, box = bossBoxRef.current
+    if (!root || !box) return undefined
+    const r = root.getBoundingClientRect()
+    const z = root.offsetWidth ? r.width / root.offsetWidth : 1
+    const b = box.getBoundingClientRect()
+    const heart = root.querySelector(`[data-heart="${Math.max(0, Math.min(lives - 1, left))}"]`) || root.querySelector('[data-heart]')
+    const h = heart ? heart.getBoundingClientRect() : { left: r.right - 40, top: r.top + r.height / 2, width: 0, height: 0 }
+    const geo = {
+      W: root.offsetWidth, H: root.offsetHeight,
+      bx: (b.left + b.width / 2 - r.left) / z, by: (b.top + b.height / 2 - r.top) / z,
+      tx: (h.left + h.width / 2 - r.left) / z, ty: (h.top + h.height / 2 - r.top) / z,
+      S: Math.max(20, Math.min(64, (b.height / z) * 0.3)),
+    }
+    const big = last.lives >= 2
+    setAssault({ n: last.n, big, geo })
+    const id = setTimeout(() => setAssault((x) => (x?.n === last.n ? null : x)), assaultMs(assaultFor(area.motif).travel) + 100)
+    return () => clearTimeout(id)
+  }, [last?.n]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The next question: an attack still playing goes at once.
+  useEffect(() => { setAssault(null) }, [questionKey])
+  const assaultShake = assault && !quiet ? `${hitShake(assaultFor(area.motif).travel, assault.big)}` : ''
+  const assaultLayer = assault && !quiet ? <AssaultFx key={`as${assault.n}`} motif={area.motif} geo={assault.geo} big={assault.big} /> : null
   const fxNow = juice.fx
   const artRef = useRef(null)
   useHitStop(artRef, juice.stop)
@@ -624,15 +678,15 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   if (slim) {
     const thumb = BOSS.arenaSlim
     return (
-      <div data-arena-slim="" className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} {...abAttrs} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '3px 8px 3px 3px', borderRadius: RADIUS.lg, minWidth: 0,
+      <div ref={rootRef} data-arena-slim="" data-motif={area.motif} data-moment={juice.show && juice.moment ? juice.moment : undefined} data-assault-on={assault && !quiet ? 1 : undefined} data-down={down ? 1 : undefined} className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} {...abAttrs} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '3px 8px 3px 3px', borderRadius: RADIUS.lg, minWidth: 0,
         background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s',
-        animation: shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined }}>
+        animation: assaultShake || (shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined) }}>
         <BossStyle />
         {(abMod || kind === 'raids') && <style>{JUICE_CSS}</style>}
         {kind === 'raids' && <style>{BODY_CSS}</style>}
         {abCssText && <style>{abCssText}</style>}
         {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
-        <div style={{ position: 'relative', flexShrink: 0, width: thumb, height: thumb, borderRadius: RADIUS.md, overflow: 'hidden', background: C.surfaceSunken }}>
+        <div ref={bossBoxRef} style={{ position: 'relative', flexShrink: 0, width: thumb, height: thumb, borderRadius: RADIUS.md, overflow: 'hidden', background: C.surfaceSunken }}>
           <div key={`b${last?.n || 0}`} style={{ animation: down || quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : 'none',
             filter: down ? 'grayscale(.8) opacity(.6)' : rage ? 'saturate(1.3)' : 'none' }}>
             <div ref={artRef} className={juice.stop ? 'lg-hitstop' : undefined} style={{ animation: flashSpec ? `lgJuiceFlash${juice.flash} ${flashSpec.ms}ms steps(1, end)` : undefined }}>
@@ -675,21 +729,22 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
             {!focus && st.combo >= 2 && <span style={{ fontSize: 11, fontWeight: 800, color: C.warning, whiteSpace: 'nowrap' }}>🔥 {st.combo}</span>}
             <MotionToggle t={t} small />
         </div>
+        {assaultLayer}
       </div>
     )
   }
   return (
-    <div className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} data-fx={fxNow || undefined} data-fx-size={fxNow ? fxSize : undefined} {...abAttrs} style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
+    <div ref={rootRef} data-motif={area.motif} data-moment={juice.show && juice.moment ? juice.moment : undefined} data-assault-on={assault && !quiet ? 1 : undefined} data-down={down ? 1 : undefined} className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} data-fx={fxNow || undefined} data-fx-pending={!fxNow && juice.pend ? juice.pend : undefined} data-fx-size={fxNow ? fxSize : undefined} {...abAttrs} style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
       background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s',
       // The shake moves the ARENA box only (the question card below never moves).
-      animation: shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined }}>
+      animation: assaultShake || (shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined) }}>
       <BossStyle />
       {(abMod || kind === 'raids') && <style>{JUICE_CSS}</style>}
       {kind === 'raids' && <style>{BODY_CSS}</style>}
       {abCssText && <style>{abCssText}</style>}
       {/* F2 flash: a 25% white veil over the arena for one frame */}
       {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
-      <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
+      <div ref={bossBoxRef} style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
         <div key={`b${last?.n || 0}`} style={{ animation: down ? ((raidBody && bodyAnimation(raidBody, 'ko', koClock.ms, JUICE.delay)) || (kind === 'raids' ? 'none' : 'lgBossDown .6s ease-out both')) : quiet ? 'none' : (raidBody && moment && bodyAnimation(raidBody, moment)) || (hitNow ?((raidBody && bodyAnimation(raidBody, 'hit')) || 'lgBossHit .5s ease-out') : missNow ? ((raidBody && bodyAnimation(raidBody, 'strike')) || 'lgBossLunge .45s ease-out') : 'none'),
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
@@ -731,7 +786,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
             {juice.fx && <AbilityFx fx={last?.fx || ''} ability={ability} />}
             {!focus && floaterKeyFor(ability, last?.fx) && (
-              <div style={{ position: 'absolute', left: '50%', top: 0, width: 'max-content', maxWidth: 'calc(100% + 40px)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900, fontSize: floaterPxFor(fxSize, abFloater),
+              <div data-ab-floater="" style={{ position: 'absolute', left: '50%', top: ABILITY_FLOATER_TOP, width: 'max-content', ...abilityFloaterFit(abFloater, compact ? BOSS.arenaCompact : BOSS.arena, floaterPxFor(fxSize, abFloater)), whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900,
                 color: FLOATER_FILL[floaterToneFor(ability, last.fx)] || FLOATER_FILL.purple, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', zIndex: 2,
                 animation: `lgJuicePop 900ms cubic-bezier(.22,1,.36,1) ${JUICE.floaterDelay}ms both` }}>
                 {abFloater}
@@ -792,6 +847,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         </div>
         {!down && (abHud || AbHud) && <AbilityHud t={t} items={abHud} compact={compact} calm={!animOk}>{AbHud && <AbHud t={t} state={abS} ctx={abCtx} compact={compact} />}</AbilityHud>}
       </div>
+      {assaultLayer}
     </div>
   )
 }

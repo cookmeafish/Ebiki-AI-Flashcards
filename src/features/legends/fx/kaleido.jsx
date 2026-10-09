@@ -2,6 +2,62 @@
 // Fixed bright colors; BossArena skips all of it in focus mode, with Still bosses and under reduced motion. The floater
 // already starts with the answer's damage, so the texts never repeat the number.
 import { anim, around, ring } from './_kit'
+import { pivots, FALLEN } from '../impact/bosses/kaleido.parts'
+
+// THE KNIGHT'S OWN PARTS (raids/kaleido.svg hook classes; pivots in impact/bosses/kaleido.parts.jsx) for what is not a
+// plain strike moment: his prism ray at the player (data-assault-on, from the moment it fires: he hunches and draws
+// back, the reflections lean in to focus the light; then he THRUSTS: the helm drives forward, the phase 3 sword cuts
+// down and the gauntlet punches out, the reflections flash forward with him; a heavy blow thrusts twice), his ability
+// reactions (.lgr-kaleido-<fx>) and his fallen pose after the knockout. Off with every effect (lg-fx-off).
+const P = '.lg-boss[data-motif="kaleido"]'
+const A = `${P}[data-assault-on]`
+const H = `${P}[data-assault-on][data-moment="hurtBig"]`
+const on = (sel, parts, anim) => `${parts.map((p) => `${sel} .lg-kaleido-${p}`).join(', ')} { animation: ${anim} }`
+const PARTS_CSS = `
+@keyframes lgrKaleidoRayHead { 0% { transform: none } 7% { transform: translateY(-8%) rotate(-5deg) scale(.94) } 10% { transform: translateY(6%) rotate(3deg) scale(1.18) } 14% { transform: translateY(5%) rotate(2deg) scale(1.15) } 40% { transform: translateY(4%) scale(1.12) } 60% { transform: translateY(-1%) } 100% { transform: none } }
+@keyframes lgrKaleidoRayHunchL { 0% { transform: none } 7% { transform: translateY(-12%) rotate(-10deg) } 10% { transform: translateY(4%) rotate(8deg) scale(1.1) } 40% { transform: translateY(3%) rotate(6deg) } 70% { transform: none } 100% { transform: none } }
+@keyframes lgrKaleidoRayHunchR { 0% { transform: none } 7% { transform: translateY(-12%) rotate(10deg) } 10% { transform: translateY(4%) rotate(-8deg) scale(1.1) } 40% { transform: translateY(3%) rotate(-6deg) } 70% { transform: none } 100% { transform: none } }
+@keyframes lgrKaleidoRayFocusL { 0% { transform: none } 7% { transform: translateX(12%) rotate(8deg) } 11% { transform: translateX(16%) rotate(10deg) scale(1.1) } 40% { transform: translateX(13%) rotate(8deg) scale(1.08) } 70% { transform: translateX(2%) } 100% { transform: none } }
+@keyframes lgrKaleidoRayFocusR { 0% { transform: none } 7% { transform: translateX(-12%) rotate(-8deg) } 11% { transform: translateX(-16%) rotate(-10deg) scale(1.1) } 40% { transform: translateX(-13%) rotate(-8deg) scale(1.08) } 70% { transform: translateX(-2%) } 100% { transform: none } }
+@keyframes lgrKaleidoRayCut { 0% { transform: none } 7% { transform: rotate(-28deg) } 10% { transform: rotate(38deg) } 14% { transform: rotate(44deg) } 40% { transform: rotate(36deg) } 65% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lgrKaleidoRayPunch { 0% { transform: none } 7% { transform: translate(6%, -6%) scale(.9) } 10% { transform: translate(-4%, 6%) scale(1.3) } 40% { transform: translate(-3%, 5%) scale(1.25) } 65% { transform: none } 100% { transform: none } }
+${on(A, ['head'], 'lgrKaleidoRayHead 1300ms cubic-bezier(.3,.7,.4,1) both')}
+${on(A, ['pauldl'], 'lgrKaleidoRayHunchL 1300ms ease-out both')}
+${on(A, ['pauldr'], 'lgrKaleidoRayHunchR 1300ms ease-out both')}
+${on(A, ['refl'], 'lgrKaleidoRayFocusL 1300ms ease-out both')}
+${on(A, ['refr'], 'lgrKaleidoRayFocusR 1300ms ease-out both')}
+${on(A, ['sword'], 'lgrKaleidoRayCut 1300ms cubic-bezier(.3,.7,.4,1) both')}
+${on(A, ['gauntlet'], 'lgrKaleidoRayPunch 1300ms cubic-bezier(.3,.7,.4,1) both')}
+@keyframes lgrKaleidoRay2Head { 0% { transform: translateY(-8%) rotate(-5deg) scale(.94) } 3% { transform: translateY(7%) rotate(3deg) scale(1.22) } 24% { transform: translateY(5%) scale(1.15) } 28% { transform: translateY(-5%) rotate(-3deg) scale(1) } 36% { transform: translateY(8%) rotate(4deg) scale(1.26) } 56% { transform: translateY(4%) scale(1.12) } 80% { transform: none } 100% { transform: none } }
+@keyframes lgrKaleidoRay2Cut { 0% { transform: rotate(-28deg) } 3% { transform: rotate(42deg) } 24% { transform: rotate(34deg) } 29% { transform: rotate(-24deg) } 36% { transform: rotate(48deg) } 56% { transform: rotate(36deg) } 80% { transform: none } 100% { transform: none } }
+${on(H, ['head'], 'lgrKaleidoRay2Head 1300ms cubic-bezier(.3,.7,.4,1) both')}
+${on(H, ['sword'], 'lgrKaleidoRay2Cut 1300ms cubic-bezier(.3,.7,.4,1) both')}
+
+@keyframes lgrKaleidoShardHead { 0%, 100% { transform: none } 40% { transform: rotate(-9deg) translate(4%, -4%) } }
+@keyframes lgrKaleidoShardChest { 0%, 100% { transform: none } 45% { transform: scale(1.1) } }
+${on('.lgr-kaleido-shard', ['head'], 'lgrKaleidoShardHead 330ms ease-out both')}
+${on('.lgr-kaleido-shard', ['chest'], 'lgrKaleidoShardChest 330ms ease-out both')}
+@keyframes lgrKaleidoOverFlare { 0%, 100% { transform: none } 35% { transform: scale(1.12) } }
+@keyframes lgrKaleidoOverHunchL { 0%, 100% { transform: none } 35% { transform: translateY(-12%) rotate(-8deg) } }
+@keyframes lgrKaleidoOverHunchR { 0%, 100% { transform: none } 35% { transform: translateY(-12%) rotate(8deg) } }
+${on('.lgr-kaleido-overcharge', ['refl', 'refr'], 'lgrKaleidoOverFlare 330ms ease-out both')}
+${on('.lgr-kaleido-overcharge', ['pauldl', 'gauntlet'], 'lgrKaleidoOverHunchL 330ms ease-out both')}
+${on('.lgr-kaleido-overcharge', ['pauldr', 'sword'], 'lgrKaleidoOverHunchR 330ms ease-out both')}
+@keyframes lgrKaleidoPrismChest { 0% { transform: none } 25% { transform: scale(.88) } 40% { transform: scale(1.16) } 55% { transform: scale(1.08) } 100% { transform: none } }
+@keyframes lgrKaleidoPrismHead { 0% { transform: none } 40% { transform: translateY(-14%) rotate(-10deg) scale(1.06) } 70% { transform: translateY(-8%) rotate(-6deg) } 100% { transform: none } }
+@keyframes lgrKaleidoPrismFlingL { 0% { transform: none } 40% { transform: rotate(-26deg) translateY(-10%) } 70% { transform: rotate(-14deg) } 100% { transform: none } }
+@keyframes lgrKaleidoPrismFlingR { 0% { transform: none } 40% { transform: rotate(26deg) translateY(-10%) } 70% { transform: rotate(14deg) } 100% { transform: none } }
+@keyframes lgrKaleidoPrismReflL { 0% { transform: none } 25% { transform: translateX(16%) scale(.92) } 40% { transform: translateX(-16%) scale(1.12) rotate(-8deg) } 70% { transform: translateX(-6%) } 100% { transform: none } }
+@keyframes lgrKaleidoPrismReflR { 0% { transform: none } 25% { transform: translateX(-16%) scale(.92) } 40% { transform: translateX(16%) scale(1.12) rotate(8deg) } 70% { transform: translateX(6%) } 100% { transform: none } }
+${on('.lgr-kaleido-prism', ['chest'], 'lgrKaleidoPrismChest 1100ms ease-out both')}
+${on('.lgr-kaleido-prism', ['head'], 'lgrKaleidoPrismHead 1100ms ease-out both')}
+${on('.lgr-kaleido-prism', ['pauldl', 'gauntlet'], 'lgrKaleidoPrismFlingL 1100ms ease-out both')}
+${on('.lgr-kaleido-prism', ['pauldr', 'sword'], 'lgrKaleidoPrismFlingR 1100ms ease-out both')}
+${on('.lgr-kaleido-prism', ['refl'], 'lgrKaleidoPrismReflL 1100ms ease-out both')}
+${on('.lgr-kaleido-prism', ['refr'], 'lgrKaleidoPrismReflR 1100ms ease-out both')}
+
+${Object.entries(FALLEN).map(([p, t]) => `${P}:not(.lg-fx-off):has([data-ko-tag]):not([data-moment]) .lg-kaleido-${p} { transform: ${t} }`).join('\n')}
+`
 
 const RGB = ['#ff3b5c', '#3dff8a', '#3aa8ff']
 
@@ -71,5 +127,5 @@ export default {
    under reduced motion). */
 @keyframes lgrKaleidoPrismGlint { 0%, 100% { transform: none; filter: none } 40% { transform: scale(1.18); filter: brightness(1.7) saturate(1.3) } }
 .lg-boss[data-fx="shard"] [class*="lg-ab-prism-"], .lg-boss[data-fx="overcharge"] [class*="lg-ab-prism-"] { transform-box: fill-box; transform-origin: center; animation: lgrKaleidoPrismGlint 320ms cubic-bezier(.22,1,.36,1) both }
-`,
+` + pivots + PARTS_CSS,
 }

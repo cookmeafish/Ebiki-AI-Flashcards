@@ -1585,6 +1585,20 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 26:
     `/dev/raid-impact/?moment=hurt` (dev only; `freeze(ms)` in the console). Asset view: "Impact moments" and
     "Powers" buttons under the phase demo.
+  - **ONE FOLDER PER BOSS: `impact/bosses/<motif>.js` + `<motif>.parts.jsx`** (README there): `style` (what was
+    `RAID_IMPACT`, now built from these), `assault`, own `body` moves, own drawn parts + CSS. Editing a boss never
+    touches another's file.
+  - **THE BOSS ATTACKS THE PLAYER** (the owner: "show them actually doing something to harm the player"): every
+    heart lost in a raid plays `impact/AssaultFx.jsx`: the attack TRAVELS from the boss to the heart it takes and LANDS
+    on the screen (claws, bite, crack, burn, flood...), the heart shatters, the card edges flash red; bigger on a heavy
+    blow. Each boss a unique travel + impact pair (`impact/assault.js`, `assault.test.js`). Measured in a layout effect
+    (`rootRef`, `bossBoxRef`, `data-heart`), skipped in calm modes and on a shield save.
+  - **THE DRAWING ITSELF ACTS EVERY MOMENT** (the owner: "goes hard with animation of the boss svg", all unique): the
+    arena root carries `data-motif`, `data-moment` (while a moment plays), `data-assault-on` (its attack),
+    `data-fx`/`data-fx-pending` (abilities) and `data-down` (knocked out); every raid SVG has `lg-<motif>-<part>`
+    wrapper groups (added around existing art, never redrawn) that each boss's CSS moves: wind-up and blow toward the
+    hearts, its own reaction per moment and ability, a staged death held in the fallen pose. Where that CSS lives:
+    `impact/bosses/README.md`.
   - **Every knockout is a themed CINEMATIC** (the owner: "very dramatic", "creative, dramatic, and unique"): 1.6 to
     2.6s, the killing-blow freeze, a build-up, the boss's OWN death (Chronos shatters into sand, the Lich's phylactery
     breaks, the Void becomes a black hole...), a shockwave + debris at the climax, a weighty DEFEATED! plate, then a
