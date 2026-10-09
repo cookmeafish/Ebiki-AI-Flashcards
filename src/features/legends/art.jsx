@@ -407,6 +407,21 @@ function clockAttach(svg, box, same) {
   } catch { return }
   clockSchedule()
 }
+// THE ART CLOCK is OFF (the owner: at 30 redraws a second and less, shared across the page, every boss and the whole app
+// looked choppy on a 480 Hz screen). Kept behind the flag for slow devices if ever wanted; the sprite-rig bake alone keeps
+// native playback cheap. Native playback keeps one thing from it, continuity (keepTimeline): the box remembers when its
+// drawing's timeline started, and a new SVG of the SAME drawing (the baked rig swapping in, a phase change) jumps to that
+// time instead of restarting its entrance.
+const ART_CLOCK = false
+function keepTimeline(svg, box, same) {
+  if (!box || svg.__lgKept) return
+  svg.__lgKept = true
+  try {
+    const prev = box.__lgClock && box.__lgClock.same === same ? box.__lgClock.start : null
+    if (prev != null) svg.setCurrentTime((clockNow() - prev) / 1000)
+    else box.__lgClock = { same, start: clockNow() - svg.getCurrentTime() * 1000 }
+  } catch { /* not an SVG document */ }
+}
 // Freeze (on = true) or resume one drawing for `who` (a hold per reason, so two reasons never release each other).
 export function holdArt(svg, who, on) {
   const e = clocked.get(svg)
@@ -617,7 +632,8 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // check-art drive their own clocks (window.__ebikiArtEager).
   useEffect(() => {
     if (!shown || !mode || !boxRef.current || (typeof window !== 'undefined' && window.__ebikiArtEager)) return
-    for (const v of artSvgs(boxRef.current)) clockAttach(v, boxRef.current, `${url}|${mode}`)
+    // ART_CLOCK off: native playback at the display's rate, continuity only (keepTimeline).
+    for (const v of artSvgs(boxRef.current)) (ART_CLOCK ? clockAttach : keepTimeline)(v, boxRef.current, `${url}|${mode}`)
   }, [shown, svg, mode, url])
   // Pixels per drawing unit on THIS screen: the box's layout width (never its transformed size: an entrance that starts
   // small would bake a blurry boss) times the app zoom and the screen's density. It only ever goes UP while shown: a

@@ -1589,6 +1589,10 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   drawings sit on their own layer (`will-change`); NEVER pause them for scrolling (the owner: looks broken); `sanitizeQueue` one file per task,
   `pauseAnimations` off screen): mounting every raid boss at once lagged the owner's computer. The dev gallery sets
   `window.__ebikiArtEager = true` (check-art needs it); keep that line.
+- **The art clock is OFF (`ART_CLOCK = false`)**: paced at 30 redraws a second and a shared page budget, every boss and the
+  whole app looked choppy on the owner's 480 Hz screen. Drawings play NATIVELY at the display's rate; `keepTimeline` only
+  keeps continuity (a baked rig or phase swap carries on at the old SVG's time). The bake keeps native playback cheap.
+  Never turn the clock back on by default. What it was:
 - **The art clock** (art.jsx THE ART CLOCK): SMIL in inline SVG is never composited, so EVERY frame of a playing boss
   re-rasterized the whole drawing (the ophanim lagged on any machine). Now each drawing is PAUSED and set to the real
   elapsed time with `svg.setCurrentTime` from one shared `setTimeout` loop (never rAF), CSS animations in its box too
