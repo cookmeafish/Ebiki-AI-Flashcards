@@ -115,8 +115,9 @@ export default function SceneScreen({ onExit }) {
     const last = shown >= scene.lines.length
     return (
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 420, gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1, fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: C.ink }}>📖 {scene.title}</div>
+        {/* Wraps: at phone width the translation toggle squeezed the title to one word per line. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px 12px', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 180px', minWidth: 0, overflowWrap: 'anywhere', fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: C.ink }}>📖 {scene.title}</div>
           {subject.isLanguage && (
             <label style={{ fontSize: 12.5, color: C.inkDim, display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
               <input type="checkbox" checked={gloss} onChange={(e) => { setGloss(e.target.checked); platform.kv.set(GLOSS_KEY, e.target.checked ? '1' : '0') }} style={{ accentColor: C.brand }} />

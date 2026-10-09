@@ -10,6 +10,14 @@ import { apiFetch } from '../../platform'
 const NAME_MAX = 40
 const NAME_SAVE_MS = 600
 
+// A planned rest date in the app language ("Oct 12, 2026"), not the stored key ("2026-10-12"). Noon: no time zone or
+// DST shift moves it to the day before.
+function restDateLabel(key, lang) {
+  const [y, m, d] = String(key).split('-').map(Number)
+  if (!y || !m || !d) return key
+  try { return new Intl.DateTimeFormat(lang || 'en', { dateStyle: 'medium' }).format(new Date(y, m - 1, d, 12)) } catch { return key }
+}
+
 // Rest days: weekdays that never break the streak (every week), plus single dates (a trip, a busy day). A rest day
 // keeps the streak without spending a freeze; playing on one still counts.
 function RestDays({ t, lang, player }) {
@@ -37,7 +45,7 @@ function RestDays({ t, lang, player }) {
         <button type="button" onClick={addDate} disabled={!pick} style={{ padding: '5px 10px', borderRadius: RADIUS.sm, border: `1px solid ${C.info}`, background: 'transparent', color: C.info, fontSize: 12, fontWeight: 800, cursor: pick ? 'pointer' : 'default', opacity: pick ? 1 : 0.5 }}>＋ {t('game_restAdd')}</button>
         {dates.map((d) => (
           <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}`, fontSize: 12 }}>
-            {d}<button type="button" aria-label={t('game_restRemove')} onClick={() => updateProfile({ restDates: all.filter((x) => x !== d) })} style={{ border: 'none', background: 'transparent', color: C.inkDim, cursor: 'pointer', fontSize: 13 }}>×</button>
+            {restDateLabel(d, lang)}<button type="button" aria-label={t('game_restRemove')} onClick={() => updateProfile({ restDates: all.filter((x) => x !== d) })} style={{ border: 'none', background: 'transparent', color: C.inkDim, cursor: 'pointer', fontSize: 13 }}>×</button>
           </span>
         ))}
       </div>
@@ -67,9 +75,12 @@ export default function GameSettingsCard({ card, fieldLabel, hint }) {
   const { t } = ctx
   const goal = g.player.goalXp || DEFAULT_GOAL
   // Switching = forget this computer's choice and ask again.
+  // A refused or failed request leaves this player picked (initGame reads the choice back), never an unhandled error.
   const switchPlayer = async () => {
-    await saveGameNow()
-    await apiFetch('/api/player-local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: '' }) })
+    try {
+      await saveGameNow()
+      await apiFetch('/api/player-local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: '' }) })
+    } catch { /* still this player */ }
     initGame()
   }
   return (

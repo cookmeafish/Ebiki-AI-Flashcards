@@ -96,3 +96,8 @@ export function startOrder(list, state) {
   }
   return [...ready, ...later]
 }
+
+// What an ability may ask AGAIN (a Chronos loop, a Lich minion: raid.js raidStep finds the card's question here): each
+// card's question as the review left it (finalQuestion). The written list still holds rejected questions and empty
+// placeholders (`_redo`: prompt ''), and one of those came back as an inserted question with nothing to answer.
+export const askableQuestions = (list, state) => (list || []).map((q) => finalQuestion(q, state)).filter((q) => q && !q._redo)

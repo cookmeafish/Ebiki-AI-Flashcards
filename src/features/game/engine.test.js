@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   dateKey, addDays, weekStart, dayTotals, eventDelta, mergePlayers, pickQuests, questProgress,
-  computeStreak, weekRow, weekXp, tierFor, leagueBoard, friendStreak, CHAT_XP_CAP, MAX_FREEZES, XP, LEGENDS_AREA_XP, LEGENDS_AREA_CAP, LEVEL_UP_CAP,
+  computeStreak, weekRow, weekXp, tierFor, leagueBoard, friendStreak, firstPlayed, CHAT_XP_CAP, MAX_FREEZES, XP, LEGENDS_AREA_XP, LEGENDS_AREA_CAP, LEVEL_UP_CAP,
 } from './engine'
 
 // A player with XP on the given days (one machine), optionally with that day's quests.
@@ -58,6 +58,20 @@ describe('quests', () => {
     expect(q[0]).toBe('xp:45')
     expect(q.some((id) => /^(gym|legends|call):/.test(id))).toBe(false)
     expect(new Set(q.map((id) => id.split(':')[0])).size).toBe(3)
+  })
+  it('never pick an activity the player cannot run today (no AI key, card store known to be off)', () => {
+    const all = { 'mistake-gym': true, legends: true, 'ebi-call': true, roleplay: true }
+    const kinds = (f) => new Set(Array.from({ length: 40 }, (_, i) => pickQuests('p1', addDays('2026-09-01', i), 30, f)).flat().map((id) => id.split(':')[0]))
+    const withKey = kinds({ ...all, ai: true, cards: true })
+    expect(['gym', 'legends', 'call', 'roleplay'].every((k) => withKey.has(k))).toBe(true)
+    const noKey = kinds({ ...all, ai: false })
+    expect(['gym', 'legends', 'call', 'roleplay'].some((k) => noKey.has(k))).toBe(false)
+    expect(noKey.has('cards')).toBe(true)
+    const noCards = kinds({ ...all, ai: true, cards: false })
+    expect(noCards.has('call')).toBe(false)
+    expect(noCards.has('roleplay')).toBe(true)
+    // Unknown (not answered yet) keeps them: same picks as before the flags existed.
+    expect(pickQuests('p1', '2026-09-28', 30, all)).toEqual(pickQuests('p1', '2026-09-28', 30, { ...all, ai: true, cards: true }))
   })
   it('favor preferred kinds when available', () => {
     expect(pickQuests('p1', '2026-09-28', 30, { 'mistake-gym': true }, ['gym'])[1]).toBe('gym:1')
@@ -204,5 +218,31 @@ describe('what the game screens show', () => {
     const p = player({ '2026-09-28': 10, '2026-09-30': 30, '2026-10-02': 50, '2026-10-05': 15, '2026-10-07': 5 })
     const ghost = leagueBoard(p, [], '2026-10-07').rows.find((r) => r.kind === 'ghost')
     expect(ghost).toMatchObject({ weeksAgo: 1, xp: 40, finalXp: 90 }) // Mon..Wed of last week vs its whole week
+  })
+  it('firstPlayed is the first day computeStreak counts, up to a date (junk keys and zero-XP days skipped)', () => {
+    const p = player({ '2026-09-20': 0, '2026-09-22': 10, '2026-09-25': 5 })
+    p.days.junk = { m1: { xp: 9 } }
+    expect(firstPlayed(p, '2026-10-01')).toBe('2026-09-22')
+    expect(firstPlayed(p, '2026-09-21')).toBe(null)
+    expect(firstPlayed(p, '2026-10-01')).toBe(computeStreak(player({ '2026-09-20': 0, '2026-09-22': 10, '2026-09-25': 5 }), '2026-10-01').first)
+    expect(firstPlayed(null, '2026-10-01')).toBe(null)
+  })
+  it('the tier history over years matches a week-by-week recount (each week summed once now)', () => {
+    const days = {}
+    for (let i = 0; i < 400; i++) { const k = addDays('2026-10-05', -i); if (i % 7 !== 3) days[k] = (i * 37) % 90 }
+    const p = player(days)
+    // A straightforward recount of the rule, for comparison.
+    const first = computeStreak(p, '2026-10-04').first
+    let tier = 0
+    for (let w = weekStart(first); w < '2026-10-05'; w = addDays(w, 7)) {
+      const me = weekXp(p, w)
+      const ghosts = [1, 2, 3, 4].map((n) => addDays(w, -7 * n)).filter((g) => g >= weekStart(first)).map((g) => weekXp(p, g))
+      if (me === 0) tier = Math.max(0, tier - 1)
+      else if (!ghosts.length) { if (me >= 30 * 5) tier = Math.min(6, tier + 1) }
+      else if (me > Math.max(...ghosts)) tier = Math.min(6, tier + 1)
+      else if (me < Math.min(...ghosts)) tier = Math.max(0, tier - 1)
+    }
+    expect(tierFor(p, '2026-10-05')).toBe(tier)
+    expect(leagueBoard(p, [], '2026-10-07').tier).toBe(tier)
   })
 })

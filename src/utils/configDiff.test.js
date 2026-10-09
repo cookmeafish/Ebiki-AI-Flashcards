@@ -108,3 +108,30 @@ describe('lostConfigPatch (two computers saving in the same instant)', () => {
     expect(mergeConfigPatch(before, again)).toEqual({ aiModels: { anthropic: { chat: 'x' } } })
   })
 })
+
+describe('mergeConfigPatch never takes a prototype key', () => {
+  it('a posted "__proto__" sets no prototype and no setting, at the top or inside a map', () => {
+    const body = JSON.parse('{"__proto__": {"polluted": 1}, "aiModels": {"__proto__": {"x": 1}, "gemini": {"__proto__": {"y": 1}, "job:study.question": "m"}}}')
+    const out = mergeConfigPatch({ aiModels: { gemini: { chat: 'c' } } }, body)
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype)
+    expect(Object.getPrototypeOf(out.aiModels)).toBe(Object.prototype)
+    expect(Object.getPrototypeOf(out.aiModels.gemini)).toBe(Object.prototype)
+    expect(out.polluted).toBeUndefined()
+    expect(out.aiModels.gemini).toEqual({ chat: 'c', 'job:study.question': 'm' })
+    expect({}.polluted).toBeUndefined()
+  })
+  it('an unset path through "__proto__" or a non-text segment removes nothing', () => {
+    const before = { aiModels: { gemini: { chat: 'c' } } }
+    const out = mergeConfigPatch(before, { __unset: [['aiModels', '__proto__', 'toString'], ['aiModels', { a: 1 }, 'chat'], ['aiModels', 'gemini', 'chat']] })
+    expect(out).toEqual({ aiModels: { gemini: {} } })
+    expect(typeof Object.prototype.toString).toBe('function')
+  })
+  it('a per-job model override (aiModels[provider]["job:<id>"]) diffs and unsets like a role override', () => {
+    const loaded = { aiModels: { openai: { chat: 'a', 'job:study.grade': 'g1' } } }
+    const mine = { aiModels: { openai: { chat: 'a' } } }
+    const d = diffConfig(flattenConfig(loaded), flattenConfig(mine), mine)
+    expect(d.body).toEqual({ __unset: [['aiModels', 'openai', 'job:study.grade']] })
+    expect(mergeConfigPatch({ aiModels: { openai: { chat: 'a', 'job:study.grade': 'g1', 'job:x': 'other' } } }, d.body))
+      .toEqual({ aiModels: { openai: { chat: 'a', 'job:x': 'other' } } })
+  })
+})

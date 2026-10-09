@@ -6,9 +6,10 @@
 // disk (engine.mergePlayers), so a stale or repeated save can never lower a counter.
 import { useSyncExternalStore } from 'react'
 import { platform, apiFetch } from '../../platform'
-import { dateKey, addDays, dayTotals, eventDelta, mergePlayers, pickQuests, COUNTERS, DEFAULT_GOAL, dayMeta } from './engine'
+import { dateKey, addDays, dayTotals, eventDelta, mergePlayers, pickQuests, computeStreak, COUNTERS, DEFAULT_GOAL, dayMeta } from './engine'
 
 const SAVE_DEBOUNCE_MS = 1500
+const SAVE_RETRY_MS = 30000        // a failed save tries again (else it waited for the next award or the page closing)
 const SEND_DAYS = 14               // a save carries only recent days: the server merges into the full file
 const REFRESH_MS = 120000          // pull friends' progress (and this player's other computers) this often
 const LOCAL_BACKUP_KEY = 'ebiki-game-unsaved' // this computer's unsaved player, if the last save failed
@@ -225,9 +226,9 @@ function outgoing() {
   return { ...p, days: Object.fromEntries(Object.entries(p.days || {}).filter(([k]) => k >= from)) }
 }
 
-function scheduleSave() {
+function scheduleSave(ms = SAVE_DEBOUNCE_MS) {
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(save, SAVE_DEBOUNCE_MS)
+  saveTimer = setTimeout(save, ms)
 }
 
 // Save now (before a player switch, so awards still waiting in the debounce are not lost).
@@ -250,6 +251,10 @@ async function save() {
   } catch {
     dirty = true
     platform.kv.setJson(LOCAL_BACKUP_KEY, state.player) // storage full: in memory only
+    // Tried again on its own: a share that blinked out (503) left the day's XP unsaved on this computer, invisible to
+    // the player's other computers and friends, until the next award or the page closing. An award meanwhile re-arms the
+    // short debounce (it replaces this timer).
+    scheduleSave(SAVE_RETRY_MS)
   } finally { saving-- }
 }
 
@@ -263,3 +268,17 @@ platform.onPageHide(() => {
 
 // Convenience for components.
 export const todayTotals = (player) => dayTotals(player, dateKey())
+
+// Today's streak for a player object, computed once per object and day. The header chip, the rail cards, the week dots
+// and the streak modal each walked every day since the first one on every app render (about 4 ms each after a few years
+// of play). Safe because this store never edits a player in place: every change makes a new object.
+const streakMemo = new WeakMap()
+export function streakOf(player) {
+  if (!player || typeof player !== 'object') return computeStreak(player)
+  const day = dateKey()
+  const hit = streakMemo.get(player)
+  if (hit && hit.day === day) return hit.s
+  const s = computeStreak(player, day)
+  streakMemo.set(player, { day, s })
+  return s
+}

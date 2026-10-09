@@ -217,6 +217,9 @@ describe('/api/chats + /api/chat-load', () => {
     expect((await call(chats, { method: 'DELETE', url: `/?id=${id}` })).json).toEqual({ ok: true })
     expect(fs.existsSync(dataPath('chats', `${id}.json`))).toBe(false)
   })
+  it('DELETE of a chat already gone (another computer removed it) is a done delete', async () => {
+    expect((await call(chats, { method: 'DELETE', url: '/?id=never_existed' })).json).toEqual({ ok: true })
+  })
   it('chat-load: 404 only when missing, 500 when unreadable, 400 for an unsafe id, BOM stripped', async () => {
     expect((await call(load, { url: '/?id=nope' })).statusCode).toBe(404)
     unreadable(dataPath('chats', 'dir.json'))
@@ -290,6 +293,17 @@ describe('/api/modes/knowledge + /api/knowledge-sections', () => {
     expect(fs.readdirSync(kdir())).toEqual(['d.txt'])
     expect((await call(knowledge, { method: 'DELETE', url: '/?mode=Book&file=..' })).statusCode).toBe(400)
     expect((await call(knowledge, { method: 'DELETE', url: '/?mode=Book' })).statusCode).toBe(400)
+  })
+  it('a GET reads each knowledge file once (content and outline share it; a book on a share was read twice)', async () => {
+    await up('once.md', ['# First part', 'alpha', '# Second part', 'beta'].join('\n'))
+    const reads = []
+    const counting = createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8: (f) => { reads.push(path.basename(f)); return readUtf8(f) }, writeFileAtomic, fs, path })
+    const g = (await call(counting.knowledge, { url: '/?mode=Book' })).json
+    expect(g.content).toContain('alpha')
+    expect(g.outline.map((h) => h.title)).toEqual(expect.arrayContaining(['First part', 'Second part']))
+    const perFile = reads.filter((n) => n.endsWith('.md') || n.endsWith('.txt')).reduce((m, n) => ({ ...m, [n]: (m[n] || 0) + 1 }), {})
+    for (const n of Object.keys(perFile)) expect(perFile[n]).toBe(1)
+    expect(perFile['once.md']).toBe(1)
   })
   it('sections caps are bounded and indices limited to 8', async () => {
     await up('b.md', Array.from({ length: 12 }, (_, i) => `# H${i}\n${'x'.repeat(50)}`).join('\n'))

@@ -166,21 +166,23 @@ export function openTierGradingRule({ isLanguage = false, grammarOn = false } = 
 // punctuation aside) or to another candidate is skipped. → { choices, answerIdx } (answer first; the caller's
 // buildChoices verifies and shuffles) or null when the deck has too few others. Open questions get none.
 const choiceKey = (s) => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
-export function choicesFromPool(q, pool = [], { need = 3, maxLen = 40 } = {}) {
+// `fill`: a second, weaker pool used only for the options `pool` could not supply (App: other cards' ANSWERS first, the
+// same kind of thing as this answer, then the deck's fronts, which may be in the learner's own language).
+export function choicesFromPool(q, pool = [], { need = 3, maxLen = 40, fill = [] } = {}) {
   if (!q || typeof q !== 'object' || q.type === 'explanation') return null
   const accepted = (Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : []).map((a) => String(a ?? '').trim()).filter(Boolean)
   const answer = accepted[0]
   if (!answer) return null
   const taken = new Set(accepted.map(choiceKey))
   const picks = []
-  const cands = (Array.isArray(pool) ? pool : []).map((c) => String(c ?? '').trim()).filter((c) => c && c.length <= maxLen)
-  const ranked = cands.map((c, i) => ({ c, i, d: Math.abs([...c].length - [...answer].length) })).sort((a, b) => a.d - b.d || a.i - b.i)
-  for (const { c } of ranked) {
+  const rank = (list) => (Array.isArray(list) ? list : []).map((c) => String(c ?? '').trim()).filter((c) => c && c.length <= maxLen)
+    .map((c, i) => ({ c, i, d: Math.abs([...c].length - [...answer].length) })).sort((a, b) => a.d - b.d || a.i - b.i)
+  for (const { c } of [...rank(pool), ...rank(fill)]) {
+    if (picks.length >= need) break
     const k = choiceKey(c)
     if (!k || taken.has(k)) continue
     taken.add(k)
     picks.push(c)
-    if (picks.length >= need) break
   }
   if (picks.length < need) return null
   return { choices: [answer, ...picks], answerIdx: 0 }
@@ -190,14 +192,20 @@ export function choicesFromPool(q, pool = [], { need = 3, maxLen = 40 } = {}) {
 // "explain" question that arrived without options gets them from one small extra call: 4 short options, exactly one
 // correct. For a sentence task: one sentence using the card's word correctly with its meaning, three that misuse it or
 // use a wrong word.
-export function buildOpenChoicesPrompt({ front = '', back = '', question = '', isLanguage = false, learnLang = '', quizLang = '' } = {}) {
+// `answer`: a WORD question (it has an accepted answer) that neither the model nor the deck's other answers could give
+// options (a long general-mode term, a small deck): the correct option is that answer, word for word, and the other
+// three are the same kind of term (the caller's buildChoices checks the right one against the accepted answers).
+export function buildOpenChoicesPrompt({ front = '', back = '', question = '', isLanguage = false, learnLang = '', quizLang = '', answer = '' } = {}) {
+  const word = String(answer || '').trim()
   return [
     `Card front: "${front}"`,
     `Card back: "${String(back).slice(0, 600)}"`,
-    `Open question shown to the learner: "${question}"`,
+    `${word ? 'Question' : 'Open question'} shown to the learner: "${question}"`,
     '',
     'Write 4 answer options for this question so the learner can pick instead of typing. EXACTLY ONE is correct; the other three are clearly WRONG (never defensible), the same kind of thing, similar length, and tempting only to someone who half-knows it.',
-    isLanguage
+    word
+      ? `The correct option is exactly "${word}" (word for word). The three wrong options are other ${isLanguage ? `${learnLang || 'learned-language'} words or phrases` : 'terms from the same subject'} of the same kind (same part of speech or category), never a synonym or another form of "${word}".`
+      : isLanguage
       ? `If the question asks for a ${learnLang || 'learned-language'} sentence: the correct option is one short natural ${learnLang || ''} sentence that uses the card's word correctly with the card's meaning; the wrong ones misuse it (wrong meaning or impossible use) or use a different word. Options in ${learnLang || 'the learned language'}.`
       : `Options are short statements in ${quizLang || 'the learner\'s language'}: one states the right idea, three state common misconceptions.`,
     'Return ONLY JSON: {"choices":["...","...","...","..."],"answerIdx":0}',

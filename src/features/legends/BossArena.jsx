@@ -6,7 +6,7 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton } from '../ui'
-import { BossArt, LegendsArt, paletteTint, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE, holdArt } from './art'
+import { BossArt, LegendsArt, paletteTint, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE, holdArt, ArtLabels } from './art'
 import { useFeatureCtx } from '../registry'
 import { LEGENDS_ID } from './store'
 import { AbilityFx } from './AbilityFx'
@@ -15,7 +15,7 @@ import { abilityById, ABILITY_BY_ID } from './abilities'
 import { abilityCss, floaterKeyFor, floaterToneFor, fxForAbility, juiceFor } from './fx'
 import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE, juiceOf, floaterPxFor } from './fx/_juice'
 import { strikeMoment, STRIKE_FX } from './strikeFx'
-import StrikeFxLayer, { KoTag } from './StrikeFxLayer'
+import StrikeFxLayer, { KoTag, MOMENT_LABEL } from './StrikeFxLayer'
 import { impactFor, koTiming } from './impact/styles'
 import { BODY_CSS, bodyAnimation } from './impact/body'
 import AssaultFx, { hitShake } from './impact/AssaultFx'
@@ -436,9 +436,10 @@ const IDLE_JUICE = { fx: '', ofx: '', moment: '', show: false, fading: false, sh
 // `ko`: the knockout's clock (impact/styles.js koTiming) when `moment` is the knockout.
 // The knockout's hit-stop is longer than any other: the killing blow freezes the boss (its body move holds it too).
 const KO_HITSTOP = 180
-// The ability floater starts this far DOWN the boss box: lgJuicePop lifts it 36 px, so starting at the top edge it rose
-// past the arena and was cut off (a pinned arena sits at the top of its scroll box). From here it ends inside the box.
-const ABILITY_FLOATER_TOP = 38
+// The ability floater sits ABOVE the boss's face: its bottom edge just inside the top of the boss box, the text in the
+// headroom over the head (lgJuicePop lifts it only 14 px, so a pinned arena at the top of its scroll box keeps it).
+// It started 38 px down the box and rose across the face: the owner saw words covering every boss's eyes.
+const ABILITY_FLOATER_BOTTOM = '90%'
 // It also stays as wide as the boss box plus its headroom at the pop's 1.25 peak: it wraps at word gaps, and a long
 // word gets a smaller size ("-4 Cauterize!" ran past the compact arena's edge). CJK text breaks anywhere, so only
 // the other letters of a word count. 0.62 em = a wide Baloo letter plus its outline.
@@ -755,9 +756,13 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           <div className={fxNow ? `lgr-${area.motif}-${fxNow}` : undefined}>
           <div className={idleKey ? `lgr-${area.motif}-idle-${idleKey}` : undefined}>
           <div style={abStyle}>
+          {/* No file-name tag under the fighting boss, even in the asset view (ArtLabels): its knockout body move
+              dragged the "raids/hydra.svg" tag up past the arena's bottom edge, a stray piece under the defeated boss. */}
+          <ArtLabels.Provider value={false}>
           {kind === 'bosses'
             ? <BossArt area={area} size={compact ? BOSS.arenaCompact : BOSS.arena} animated={down ? false : 'idle'} roomed />
             : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={compact ? BOSS.arenaCompact : BOSS.arena} width={compact ? BOSS.arenaCompact : BOSS.arena} round={0} animated={down ? false : 'idle'} phase={phase} roomed />}
+          </ArtLabels.Provider>
           </div>
           </div>
           </div>
@@ -781,12 +786,12 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         )}
         {juice.show && juice.moment && <StrikeFxLayer t={t} moment={juice.moment} motif={area.motif} n={juice.n} fading={juice.fading} last={last} />}
         {/* a beaten raid boss: the defeated tag under it (after its knockout cinematic; at once and still when effects are off) */}
-        {down && kind === 'raids' && <KoTag key={`k${last?.n || 0}`} t={t} motif={area.motif} delay={animOk ? JUICE.delay + koClock.ms - 200 : null} />}
+        {down && kind === 'raids' && <KoTag key={`k${last?.n || 0}`} t={t} motif={area.motif} small={compact} delay={animOk ? JUICE.delay + koClock.ms - 200 : null} />}
         {juice.show && juice.ofx && (
           <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
             {juice.fx && <AbilityFx fx={last?.fx || ''} ability={ability} />}
             {!focus && floaterKeyFor(ability, last?.fx) && (
-              <div data-ab-floater="" style={{ position: 'absolute', left: '50%', top: ABILITY_FLOATER_TOP, width: 'max-content', ...abilityFloaterFit(abFloater, compact ? BOSS.arenaCompact : BOSS.arena, floaterPxFor(fxSize, abFloater)), whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900,
+              <div data-ab-floater="" style={{ position: 'absolute', left: '50%', bottom: ABILITY_FLOATER_BOTTOM, width: 'max-content', transformOrigin: 'center bottom', ...abilityFloaterFit(abFloater, compact ? BOSS.arenaCompact : BOSS.arena, floaterPxFor(fxSize, abFloater)), whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900,
                 color: FLOATER_FILL[floaterToneFor(ability, last.fx)] || FLOATER_FILL.purple, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', zIndex: 2,
                 animation: `lgJuicePop 900ms cubic-bezier(.22,1,.36,1) ${JUICE.floaterDelay}ms both` }}>
                 {abFloater}
@@ -800,7 +805,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         {/* the plain damage floater. An ability's own floater plays with its effect (above) while effects are on; with
             them off (Still bosses) its text still shows here, so the numbers say what happened */}
         {!focus && (motion || !reducedMotion()) && last && (hitNow || last.shielded || last.kind === 'block' || last.fx) && !(animOk && !last.shielded && last.fx && floaterKeyFor(ability, last.fx)) && (
-          <div key={`d${last.n}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: last.crit || last.fx ? 26 : 22, color: last.shielded ? C.info : last.fx ? (FLOAT_TONE[floaterToneFor(ability, last.fx)] || C.purple) : last.crit ? C.warning : C.danger, animation: 'lgBossFloat .9s ease-out both', pointerEvents: 'none' }}>
+          <div key={`d${last.n}`} aria-hidden="true" data-dmg-floater="" style={{ position: 'absolute', left: animOk && MOMENT_LABEL[moment] ? '86%' : '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: last.crit || last.fx ? 26 : 22, color: last.shielded ? C.info : last.fx ? (FLOAT_TONE[floaterToneFor(ability, last.fx)] || C.purple) : last.crit ? C.warning : C.danger, animation: 'lgBossFloat .9s ease-out both', pointerEvents: 'none' }}>
             {last.shielded ? '🛡' : last.fx && floaterKeyFor(ability, last.fx) ? `${last.damage ? `-${last.damage} ` : ''}${t(floaterKeyFor(ability, last.fx), last.fxVars || {})}` : `-${last.damage}${last.crit ? '!' : ''}`}
           </div>
         )}

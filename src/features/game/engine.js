@@ -187,11 +187,16 @@ const QUESTS = {
   correct: { metric: 'correct', targets: [5, 8, 12] },
   added: { metric: 'added', targets: [2, 3, 5] },
   chat: { metric: 'chat', targets: [5, 10] },
-  gym: { metric: 'gymDone', targets: [1], feature: 'mistake-gym' },
-  legends: { metric: 'legends', targets: [1, 2], feature: 'legends' },
-  call: { metric: 'calls', targets: [1], feature: 'ebi-call' },
-  roleplay: { metric: 'roleplays', targets: [1], feature: 'roleplay' },
+  gym: { metric: 'gymDone', targets: [1], feature: 'mistake-gym', needs: ['ai'] },
+  legends: { metric: 'legends', targets: [1, 2], feature: 'legends', needs: ['ai'] },
+  call: { metric: 'calls', targets: [1], feature: 'ebi-call', needs: ['ai', 'cards'] },
+  roleplay: { metric: 'roleplays', targets: [1], feature: 'roleplay', needs: ['ai'] },
 }
+// `needs`: what the activity cannot run without, as pseudo-feature flags in pickQuests' `features` ('ai' = an AI key,
+// 'cards' = the card store answering). Only a flag known to be FALSE removes the quest (unknown, e.g. Anki not answered
+// yet at the day's first touch, keeps it): without a key "Do an Ebi Call" could never be done and the day's all-quests
+// freeze was out of reach.
+const questUsable = (q, features) => (!q.feature || features[q.feature]) && !(q.needs || []).some((n) => features[n] === false)
 export const questKinds = () => Object.keys(QUESTS)
 
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) } return h >>> 0 }
@@ -199,11 +204,11 @@ function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>>
 
 // Three quests: always "earn XP" (a bit above the goal), plus two others the player can actually do today.
 // `features` = ids of the installed features (src/features/index.js): a quest that needs a feature only
-// appears once it exists. `prefer` = quest kinds to favor (weak spots).
+// appears once it exists; plus the `needs` flags above. `prefer` = quest kinds to favor (weak spots).
 export function pickQuests(seed, key, goalXp = DEFAULT_GOAL, features = {}, prefer = []) {
   const r = rng(hashStr(`${seed}|${key}`))
   const xpTarget = Math.max(goalXp + 10, Math.round((goalXp * 1.5) / 5) * 5)
-  const pool = Object.keys(QUESTS).filter((k) => k !== 'xp' && (!QUESTS[k].feature || features[QUESTS[k].feature]))
+  const pool = Object.keys(QUESTS).filter((k) => k !== 'xp' && questUsable(QUESTS[k], features || {}))
   const out = [`xp:${xpTarget}`]
   const ordered = [...prefer.filter((k) => pool.includes(k)), ...pool.map((k) => [k, r()]).sort((a, b) => a[1] - b[1]).map(([k]) => k)]
   for (const k of ordered) {
@@ -267,8 +272,8 @@ export function computeStreak(player, today = dateKey()) {
 
 // Monday..Sunday of the current week: 'done' | 'frozen' | 'rest' | 'missed' | 'today' | 'future' | 'none'
 // ('none' = before the player's first day).
-export function weekRow(player, today = dateKey()) {
-  const s = computeStreak(player, today)
+// `s` = computeStreak(player, today) when the caller already has it (the rail shows both).
+export function weekRow(player, today = dateKey(), s = computeStreak(player, today)) {
   const frozen = new Set(s.frozen)
   const mon = weekStart(today)
   return Array.from({ length: 7 }, (_, i) => {
@@ -293,17 +298,30 @@ export function weekXp(player, monday, throughDay = 6) {
   return xp
 }
 
+// The first day with XP up to `through` (computeStreak's `first`, without walking every day since for it), or null.
+export function firstPlayed(player, through) {
+  for (const k of Object.keys(player?.days || {}).sort()) {
+    if (k > through) break
+    if (dayTotals(player, k).xp > 0) return k
+  }
+  return null
+}
+
 // The tier for the week starting `monday`, from every completed week before it. A week promotes when it
 // beats all of its ghosts (the four weeks before it that the player was around for) and demotes when it
 // falls below all of them or earns nothing. With no ghosts yet, five days' worth of goal promotes.
 export function tierFor(player, monday, goalXp = DEFAULT_GOAL) {
-  const s = computeStreak(player, addDays(monday, -1))
-  if (!s.first) return 0
-  const firstWeek = weekStart(s.first)
+  const first = firstPlayed(player, addDays(monday, -1))
+  if (!first) return 0
+  const firstWeek = weekStart(first)
+  // Each week's XP once: every week is also four later weeks' ghost (two years of play summed each week five times,
+  // about 10 ms on every render of the rail).
+  const weekMemo = new Map()
+  const xpOf = (w) => { if (!weekMemo.has(w)) weekMemo.set(w, weekXp(player, w)); return weekMemo.get(w) }
   let tier = 0
   for (let w = firstWeek; w < monday; w = addDays(w, 7)) {
-    const me = weekXp(player, w)
-    const ghosts = [1, 2, 3, 4].map((n) => addDays(w, -7 * n)).filter((g) => g >= firstWeek).map((g) => weekXp(player, g))
+    const me = xpOf(w)
+    const ghosts = [1, 2, 3, 4].map((n) => addDays(w, -7 * n)).filter((g) => g >= firstWeek).map(xpOf)
     if (me === 0) tier = Math.max(0, tier - 1)
     else if (!ghosts.length) {
       // Against the goal THAT week had (recorded on its days), never today's: changing the goal later moved the whole
@@ -321,8 +339,8 @@ export function tierFor(player, monday, goalXp = DEFAULT_GOAL) {
 export function leagueBoard(player, friends = [], today = dateKey(), goalXp = DEFAULT_GOAL) {
   const mon = weekStart(today)
   const dayIdx = daysBetween(mon, today)
-  const s = computeStreak(player, today)
-  const firstWeek = s.first ? weekStart(s.first) : mon
+  const first = firstPlayed(player, today)
+  const firstWeek = first ? weekStart(first) : mon
   const rows = [{ kind: 'me', id: player?.id, name: player?.name, xp: weekXp(player, mon, dayIdx) }]
   for (const n of [1, 2, 3, 4]) {
     const g = addDays(mon, -7 * n)

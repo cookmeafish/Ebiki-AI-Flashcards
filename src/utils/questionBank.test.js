@@ -34,6 +34,16 @@ describe('questionSignature', () => {
     expect(new Set([key.sig, ...tiers]).size).toBe(6)
     expect(questionSignature({ ...parts, tier: 4 }).text).toBe(key.text)
   })
+  it('a tier is read like the ladder reads it: whole and clamped, so one tier never has two signatures', () => {
+    const sig = (tier) => questionSignature({ ...parts, tier }).sig
+    expect(sig(2.4)).toBe(key.sig)
+    expect(sig('2')).toBe(key.sig)
+    expect(sig('')).toBe(key.sig)
+    expect(sig(null)).toBe(key.sig)
+    expect(sig(9)).toBe(sig(5))
+    expect(sig(-3)).toBe(sig(0))
+    expect(sig(3.2)).toBe(sig(3))
+  })
   it('the pronunciation Ebiki embeds on first play is not a card edit', () => {
     const embedded = 'dog\n[sound:ebiki-perro-1a2b.mp3]\n🔊 Some Speaker · CC BY-SA 4.0'
     expect(cardTextKey('perro', embedded)).toBe(cardTextKey('perro', 'dog'))

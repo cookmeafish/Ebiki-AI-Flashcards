@@ -105,4 +105,15 @@ describe('the question ladder letter count', () => {
     expect(stripLetterCues('傘は日本語で？（「か」で始まる）')).toBe('傘は日本語で？')
     expect(stripLetterCues('No cue here (a sense note)')).toBe('No cue here (a sense note)')
   })
+  it('the choices view also drops a letter cue written as its own sentence (only for an answer initial)', () => {
+    expect(stripLetterCues('How do you say "house"? It starts with "c".', ['casa'])).toBe('How do you say "house"?')
+    expect(stripLetterCues('¿Cómo se dice "run away"? Empieza con "h". (h···)', ['huir'])).toBe('¿Cómo se dice "run away"?')
+    expect(stripLetterCues('How do you say "house"? It starts with "c". Think of a home.', ['casa'])).toBe('How do you say "house"? Think of a home.')
+    expect(stripLetterCues('Completa: "Voy ___ la playa." Pista: empieza con «a».', ['a'])).toBe('Completa: "Voy ___ la playa."')
+    // Not a cue: the subject of the question, another letter, the only sentence, or no answers given.
+    expect(stripLetterCues('Listen. How do you say "I"?', ['yo'])).toBe('Listen. How do you say "I"?')
+    expect(stripLetterCues('How do you say "dog"? Starts with "x".', ['perro'])).toBe('How do you say "dog"? Starts with "x".')
+    expect(stripLetterCues('It starts with "c".', ['casa'])).toBe('It starts with "c".')
+    expect(stripLetterCues('How do you say "house"? It starts with "c".')).toBe('How do you say "house"? It starts with "c".')
+  })
 })

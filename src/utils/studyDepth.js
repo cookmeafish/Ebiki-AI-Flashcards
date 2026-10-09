@@ -82,8 +82,13 @@ export function depthPlan(card, rules, kind = 'flashcards') {
 // Every other card keeps the COUNT rule: 0 wrong Easy, 1 Good, more Hard, all Again ("all wrong" first: on a
 // one-question card it equals "one wrong"). MC/PBQ cards that record to Anki cap at Good; an accent slip caps at Good.
 // cs.byChoice ({ qi: bool }, the question ladder's per-question "Show choices"): which answers were PICKED from
-// options; without it a multiple-choice card (cs.mc) counts as answered by choice throughout (sessions saved before).
-export const answeredByChoice = (cs, qi) => (cs?.byChoice && typeof cs.byChoice === 'object' ? !!cs.byChoice[qi] : !!cs?.mc)
+// options. Per ENTRY: a question with no entry (answered in a session saved before byChoice existed, or given up)
+// counts as picked on a multiple-choice card (cs.mc). Per object it was wrong: a session restored across the update
+// whose mc card got ONE typed answer ("Type it instead") lost the Good cap of the answers it had already picked.
+export const answeredByChoice = (cs, qi) => {
+  const v = cs?.byChoice && typeof cs.byChoice === 'object' ? cs.byChoice[qi] : undefined
+  return typeof v === 'boolean' ? v : !!cs?.mc
+}
 export function rateStudyCard(cs, results, grammarOn = false) {
   const list = Array.isArray(results) ? results : []
   const anyChoice = list.some((_, qi) => answeredByChoice(cs, qi))

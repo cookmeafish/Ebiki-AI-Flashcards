@@ -78,16 +78,17 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
           return { name, disabled, size }
         }).filter(Boolean)
         const enabledFiles = allFiles.filter(f => f.match(/\.(txt|md)$/i))
-        const content = enabledFiles.map(f => {
-          let text
-          try { text = readUtf8(path.join(knowledgeDir, f)) } catch (e) { if (gone(e)) return null; throw e }
-          return `--- ${f} ---\n${text}`
-        }).filter((x) => x !== null).join('\n\n')
+        // Each file is read ONCE, for the content and the outline alike: a whole book on a shared folder was read twice
+        // per load. Same listing order (and skips) as readKnowledgeFiles, so outline indices still match the sections route.
+        const texts = enabledFiles.map((f) => {
+          try { return { name: f, text: readUtf8(path.join(knowledgeDir, f)) } } catch (e) { if (gone(e)) return null; throw e }
+        }).filter(Boolean)
+        const content = texts.map(({ name, text }) => `--- ${name} ---\n${text}`).join('\n\n')
         // Outline (capped) so the client can offer TOC-guided section retrieval for big KBs.
         // Over the cap, keep the TOP levels of the whole book rather than the first 400 entries:
         // a straight slice made every chapter after entry 400 unreachable. Each entry carries its
         // original index `i`, which is what /api/knowledge-sections slices by.
-        let full = extractOutline(readKnowledgeFiles(knowledgeDir)).map((h, i) => ({ ...h, i }))
+        let full = extractOutline(texts).map((h, i) => ({ ...h, i }))
         for (let maxLevel = 3; full.length > 400 && maxLevel >= 1; maxLevel--) full = full.filter((h) => h.level <= maxLevel)
         const outline = full.slice(0, 400).map(({ file, title, level, i }) => ({ file, title, level, i }))
         res.end(JSON.stringify({ files, content: content || null, fileCount: enabledFiles.length, outline }))

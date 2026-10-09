@@ -1,7 +1,7 @@
 // SPEECH SETTINGS: which engine turns speech into text and text into speech, with prices. Every voice
 // feature (voice typing, voice chat, listening drills, scenes) reads these through src/speech.
 // VOICE CHAT (optional): talk to Ebi out loud in Ebi Call and Roleplay (speech in, spoken replies out).
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, RADIUS } from '../../config/tokens'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { speechEngines, speak, COSTS, SPEECH_SETTINGS_ID } from '../../speech'
@@ -31,13 +31,24 @@ function EngineSelect({ kind, value, onChange, t, keys }) {
 function SpeechSettingsCard({ card, fieldLabel, hint }) {
   const ctx = useFeatureCtx()
   const [trying, setTrying] = useState(false)
+  // The sample stops when Settings closes or the pane changes (an AI voice kept talking after the card was gone), and
+  // a second press restarts it instead of queuing another.
+  const sampleRef = useRef(null)
+  const aliveRef = useRef(false)
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; sampleRef.current?.stop() } }, [])
   if (!ctx) return null
   const { t } = ctx
   const cfg = featureCfg(ctx, SPEECH_SETTINGS_ID)
   const using = speechEngines(ctx)
   const set = (patch) => ctx.setFeatureSettings(SPEECH_SETTINGS_ID, patch)
   const nameOf = (e) => (!e ? t('speech_none') : NAME[e].startsWith('speech_') ? t(NAME[e]) : NAME[e])
-  const tryIt = async () => { setTrying(true); try { await speak(ctx, t('speech_sample'), { lang: ctx.lang }).done } finally { setTrying(false) } }
+  const tryIt = async () => {
+    sampleRef.current?.stop()
+    const line = speak(ctx, t('speech_sample'), { lang: ctx.lang })
+    sampleRef.current = line
+    setTrying(true)
+    try { await line.done } finally { if (aliveRef.current && sampleRef.current === line) setTrying(false) }
+  }
   return (
     <div style={card}>
       {fieldLabel(t('speech_title'))}

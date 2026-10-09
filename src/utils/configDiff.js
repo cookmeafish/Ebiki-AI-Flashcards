@@ -77,10 +77,13 @@ export function diffConfig(sent, cur, curObj) {
   return { body, paths }
 }
 
+// A JSON "__proto__" key, assigned with out[k] = ..., set the merged map's PROTOTYPE instead of an entry (and an unset
+// walked into Object.prototype). Never a setting name: skipped on the way in and in removals.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 const mergeAt = (e, v, level) => {
   if (level >= DEPTH || !isPlain(e) || !isPlain(v)) return v
   const out = { ...e }
-  for (const [k, sv] of Object.entries(v)) out[k] = mergeAt(e[k], sv, level + 1)
+  for (const [k, sv] of Object.entries(v)) { if (!UNSAFE_KEYS.has(k)) out[k] = mergeAt(Object.hasOwn(e, k) ? e[k] : undefined, sv, level + 1) }
   return out
 }
 
@@ -88,12 +91,13 @@ const mergeAt = (e, v, level) => {
 export function mergeConfigPatch(existing, data) {
   const merged = { ...(existing || {}) }
   for (const [k, v] of Object.entries(data || {})) {
-    if (k === '__unset') continue
+    if (k === '__unset' || UNSAFE_KEYS.has(k)) continue
     merged[k] = NESTED.has(k) && isPlain(v) && isPlain(merged[k]) ? mergeAt(merged[k], v, 0) : v
   }
   const unset = Array.isArray(data?.__unset) ? data.__unset : []
   for (const s of unset) {
     if (!Array.isArray(s) || s.length < 2 || s.length > DEPTH + 1 || !NESTED.has(s[0]) || !isPlain(merged[s[0]])) continue
+    if (s.some((seg) => typeof seg !== 'string' || UNSAFE_KEYS.has(seg))) continue
     // Copy the maps on the way down, then delete the entry.
     merged[s[0]] = { ...merged[s[0]] }
     let node = merged[s[0]]

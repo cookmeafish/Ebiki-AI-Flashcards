@@ -1213,6 +1213,7 @@ export default {
   game_chooseHint: 'Pick yourself if you use Ebiki on another computer too, so your streak follows you.',
   game_chooseNew: 'I am someone new',
   game_namePlaceholder: 'Your name',
+  game_chooseFailed: 'That did not save. Check that Ebiki is still running and try again.',
   game_start: 'Start',
   game_player: 'Player',
   game_unnamed: 'Ebiki learner',

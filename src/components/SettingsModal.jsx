@@ -13,6 +13,7 @@ import { fileSizeLabel } from '../utils/fileSize'
 import { checkStateFor, updateResultState, verifyOutcome, restartOffered, pollUntilAnswered } from './updatesState'
 import { imeActive } from '../utils/keys'
 import JobModelSettings from './JobModelSettings'
+import { UsageDetails } from './TokenUsageMeter'
 import { jobOverridesOf } from '../config/aiJobs'
 
 // ── Data folder (optional shared data directory) ──
@@ -857,12 +858,17 @@ export default function SettingsModal(p) {
 
       {/* Token and cost counter: OFF unless the user turns it on here. */}
       <div style={card}>
+        {cardTitle(t('usage_title'))}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
           <input type="checkbox" checked={!!showTokenUsage} onChange={(e) => setShowTokenUsage?.(e.target.checked)}
             style={{ width: 16, height: 16, accentColor: C.brand, cursor: 'pointer' }} />
           <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>{t('usage_setting')}</span>
         </label>
         <div style={{ fontSize: 11, color: C.inkDim, marginTop: 6, lineHeight: 1.5 }}>{t('usage_settingDesc')}</div>
+        {/* The totals themselves, always here (the counter only adds a shortcut at the bottom right). */}
+        <div data-usage-settings="" style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+          <UsageDetails t={t} confirmDialog={confirmDialog} />
+        </div>
       </div>
 
       {/* Question reuse: OFF unless the user turns it on here (or ticks it in onboarding). */}

@@ -13,7 +13,10 @@ const asOption = (name) => (isDistinctSpoken(name) ? name : (langFromName(name)?
 const LANG_OPTIONS = LANGS.filter((l) => l.code !== 'auto').map((l) => l.label)
 
 // `runSize` (raids): { value, options, onChange } = questions per run (a features.legends setting, not a study rule).
-export default function FightSettings({ ctx, allowStyle = false, busy = false, deckLocked = false, runSize = null }) {
+// `busy`: the questions are being rewritten (controls off, says so). `locked`: controls off, nothing said (a raid's
+// questions are being checked after Fight was pressed: a change then would start the fight on the old questions).
+export default function FightSettings({ ctx, allowStyle = false, busy: rewriting = false, locked = false, deckLocked = false, runSize = null }) {
+  const busy = rewriting || locked
   const { t, subject, cards } = ctx
   const f = ctx.fight
   const [open, setOpen] = useState(false)
@@ -134,10 +137,10 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
               </div>
             </div>
           )}
-          <div style={{ fontSize: 11.5, color: C.inkFaint }}>{busy ? `✍ ${t('lg_fsRewriting')}` : t('lg_fsShared')}</div>
+          <div style={{ fontSize: 11.5, color: C.inkFaint }}>{rewriting ? `✍ ${t('lg_fsRewriting')}` : t('lg_fsShared')}</div>
         </div>
       )}
-      {!open && busy && <div role="status" style={{ padding: '0 14px 9px', fontSize: 12, fontWeight: 700, color: C.purple }}>✍ {t('lg_fsRewriting')}</div>}
+      {!open && rewriting && <div role="status" style={{ padding: '0 14px 9px', fontSize: 12, fontWeight: 700, color: C.purple }}>✍ {t('lg_fsRewriting')}</div>}
     </div>
   )
 }

@@ -96,7 +96,19 @@ export function withLetterCount(q, { isLanguage = false, open = false } = {}) {
 const LQ = `${CUE_QUOTES_PLAIN}${CUE_APOS}`
 const LETTER_CLAUSE = new RegExp(`\\s*[;,，；]\\s*[^;,，；()（）]*?[${LQ}]\\s*\\p{L}\\s*[${LQ}][^;,，；()（）]*(?=[)）])`, 'gu')
 const LETTER_PAREN = new RegExp(`\\s*[(（][^()（）]*?[${LQ}]\\s*\\p{L}\\s*[${LQ}][^()（）]*[)）]`, 'gu')
-export const stripLetterCues = (text) => stripLetterSkeleton(String(text || ''))
-  .replace(/\s*[(（]\s*\p{L}·\s*[)）]/gu, '')
-  .replace(LETTER_CLAUSE, '')
-  .replace(LETTER_PAREN, '')
+// `answers` (the question's accepted answers): a letter cue written as its OWN sentence after the question ('How do you
+// say "house"? It starts with "c".') goes too, but only when its quoted letter starts an answer, and never the first
+// sentence (a quoted "I" in 'Listen. How do you say "I"?' is the subject, not a cue).
+const LETTER_SENTENCE = new RegExp(`([.?!。？！][${CUE_QUOTES_PLAIN}’]*\\s*)(?![${LQ}])([^.?!。？！()（）_\\n]{0,60}?[${LQ}]\\s*(\\p{L})\\s*[${LQ}][^.?!。？！()（）_\\n]{0,40}?(?:[.?!。？！]|$))`, 'gu')
+export const stripLetterCues = (text, answers = null) => {
+  let out = stripLetterSkeleton(String(text || ''))
+    .replace(/\s*[(（]\s*\p{L}·\s*[)）]/gu, '')
+    .replace(LETTER_CLAUSE, '')
+    .replace(LETTER_PAREN, '')
+  const firsts = Array.isArray(answers) && answers.length ? answerInitials({ acceptedAnswers: answers }) : null
+  if (firsts && firsts.size) {
+    const cut = out.replace(LETTER_SENTENCE, (all, lead, _s, letter) => (firsts.has(cueFold(letter)) ? lead.trimEnd() : all)).trimEnd()
+    if (cut.trim()) out = cut
+  }
+  return out
+}

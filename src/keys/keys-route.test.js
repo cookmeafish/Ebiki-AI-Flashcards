@@ -74,3 +74,35 @@ describe('/api/keys POST', () => {
     expect(readEnvFile(ENV_FILE).openai).toBe(OAI)
   })
 })
+
+function get(url) {
+  return new Promise((resolve) => {
+    const req = new EventEmitter()
+    Object.assign(req, { method: 'GET', url, originalUrl: url, headers: { host: 'localhost:3000' } })
+    req.setEncoding = () => {}
+    const res = { statusCode: 200, headers: {}, setHeader(k, v) { this.headers[k.toLowerCase()] = v }, getHeader(k) { return this.headers[k.toLowerCase()] }, end(b) { resolve({ status: this.statusCode, body: String(b ?? '') }) } }
+    mw.handle(req, res)
+  })
+}
+
+describe('/api/keys GET', () => {
+  it('a key file that cannot be read answers 500 JSON (never a thrown handler, never "no keys")', async () => {
+    const aside = `${ENV_FILE}.aside`
+    const had = fs.existsSync(ENV_FILE)
+    if (had) fs.renameSync(ENV_FILE, aside)
+    fs.mkdirSync(ENV_FILE) // reading a folder throws EISDIR, like a locked file
+    try {
+      const r = await get('/api/keys')
+      expect(r.status).toBe(500)
+      expect(JSON.parse(r.body).error).toMatch(/could not be read/)
+    } finally {
+      fs.rmSync(ENV_FILE, { recursive: true, force: true })
+      if (had) fs.renameSync(aside, ENV_FILE)
+    }
+  })
+  it('a readable key file answers its keys', async () => {
+    const r = await get('/api/keys')
+    expect(r.status).toBe(200)
+    expect(JSON.parse(r.body).openai).toBe(OAI)
+  })
+})

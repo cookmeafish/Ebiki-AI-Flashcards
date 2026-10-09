@@ -1154,6 +1154,7 @@ export default {
   game_chooseHint: '別のパソコンでも Ebiki を使っているなら自分を選んでください。連続記録が引き継がれます。',
   game_chooseNew: '新しい人です',
   game_namePlaceholder: 'あなたの名前',
+  game_chooseFailed: '保存できませんでした。Ebiki が動いているか確認して、もう一度お試しください。',
   game_start: 'はじめる',
   game_player: 'プレイヤー',
   game_unnamed: 'Ebiki 学習者',

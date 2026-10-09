@@ -196,8 +196,10 @@ export default function RoleplayScreen({ onExit, params }) {
   }
 
   const back = <button onClick={onExit} style={{ border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', marginBottom: 12, fontSize: 13 }}>← {t('rp_back')}</button>
-  // data-composer: the app toast stack sits above it (a toast covered the error and the retry beside it).
-  const errorLine = error && <div role="alert" data-composer="" style={{ color: C.danger, fontSize: 13, margin: '8px 0' }}>{error}</div>
+  // data-composer (the scene only, where it sits by the input): the app toast stack sits above it (a toast covered the
+  // error and the retry beside it). On the pick screen the error is near the TOP, and the mark lifted the toast up over
+  // Ebi's intro at phone width.
+  const errorLine = error && <div role="alert" data-composer={phase === 'play' || phase === 'scoring' ? '' : undefined} style={{ color: C.danger, fontSize: 13, margin: '8px 0' }}>{error}</div>
 
   if (phase === 'pick') {
     return (
@@ -250,9 +252,11 @@ export default function RoleplayScreen({ onExit, params }) {
         {card.summary && <div style={{ fontSize: 14, color: C.ink, lineHeight: 1.5, margin: '12px 0' }}>{card.summary}</div>}
         <div style={{ display: 'grid', gap: 8, margin: '12px 0' }}>
           {axes.filter((a) => card.scores[a]).map((a) => (
-            <div key={a} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 130, fontWeight: 800, fontSize: 13, color: C.inkDim }}>{t(`rp_axis_${a}`)}</div>
-              <div style={{ display: 'flex', gap: 4 }}>
+            // The label gives way before the bars do: at phone width the fixed 130px label pushed the fifth bar off
+            // the screen ("Communication" at zoom 2 too). A long label wraps above its bars instead.
+            <div key={a} style={{ display: 'flex', alignItems: 'center', gap: '4px 10px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 110px', maxWidth: 130, minWidth: 0, overflowWrap: 'anywhere', fontWeight: 800, fontSize: 13, color: C.inkDim }}>{t(`rp_axis_${a}`)}</div>
+              <div role="img" aria-label={`${card.scores[a]} / ${SCORE_MAX}`} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                 {Array.from({ length: SCORE_MAX }, (_, i) => <span key={i} style={{ width: 22, height: 10, borderRadius: 5, background: i < card.scores[a] ? C.success : C.border }} />)}
               </div>
             </div>
@@ -329,13 +333,14 @@ export default function RoleplayScreen({ onExit, params }) {
           </div>
         ))}
         {busy && <div style={{ color: C.inkFaint, fontSize: 14 }}>{t('rp_typing')}</div>}
-        {/* Ebi's line failed (opening or reply): ask again for the same turn instead of a dead scene. */}
-        {turnFailed && !busy && phase === 'play' && messages[messages.length - 1]?.role !== 'ebi' && (
-          <button data-composer="" onClick={() => turn(messages)} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>
-        )}
         {ended && !busy && <div style={{ alignSelf: 'center', color: C.success, fontWeight: 800, fontSize: 13.5 }}>🎬 {t('rp_sceneOver')}</div>}
       </div>
       {errorLine}
+      {/* Ebi's line failed (opening or reply): ask again for the same turn instead of a dead scene. Under the error, by the
+          input (like Ebi Call): inside the list a failed OPENER put it, and the toast stack lifted above it, at the top. */}
+      {turnFailed && !busy && phase === 'play' && messages[messages.length - 1]?.role !== 'ebi' && (
+        <button data-composer="" onClick={() => turn(messages)} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>
+      )}
       <div data-composer="" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
         {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ctx.lang || ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy || phase === 'scoring'} compact />}
         {/* Input and Send stay together (a narrow window puts the Talk button on its own line). */}

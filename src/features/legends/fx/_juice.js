@@ -57,7 +57,7 @@ ${Object.entries(JUICE.shake).map(([lvl, s]) => shakeKeyframes(lvl, s.px)).join(
 @keyframes lgJuiceFlash1 { 0%, 99% { filter: brightness(1.8) } 100% { filter: none } }
 @keyframes lgJuiceFlash2 { 0%, 99% { filter: brightness(4) saturate(0) } 100% { filter: none } }
 @keyframes lgJuiceVeil { 0%, 99% { opacity: ${JUICE.flash[2].veil} } 100% { opacity: 0 } }
-@keyframes lgJuicePop { 0% { transform: translateX(-50%) translateY(0) scale(0); opacity: 0 } 8% { opacity: 1 } 24% { transform: translateX(-50%) translateY(-6px) scale(1.25) } 30% { transform: translateX(-50%) translateY(-8px) scale(1) } 72% { opacity: 1 } 100% { transform: translateX(-50%) translateY(-36px) scale(1); opacity: 0 } }
+@keyframes lgJuicePop { 0% { transform: translateX(-50%) translateY(0) scale(0); opacity: 0 } 8% { opacity: 1 } 24% { transform: translateX(-50%) translateY(-6px) scale(1.25) } 30% { transform: translateX(-50%) translateY(-8px) scale(1) } 72% { opacity: 1 } 100% { transform: translateX(-50%) translateY(-14px) scale(1); opacity: 0 } }
 .lg-hitstop, .lg-hitstop * { animation-play-state: paused !important }
 `
 

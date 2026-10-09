@@ -1,11 +1,12 @@
 // Right-rail cards: streak week, daily goal, quests, league, friends. Each is its own slot entry, so any
 // one can be dropped from ./index.js without touching the others.
+import { useMemo } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx } from '../registry'
 import { Card, ProgressBar, tCount } from '../ui'
-import { useGame, openGamePanel, todayTotals, updateProfile } from './store'
-import { computeStreak, weekRow, questProgress, leagueBoard, friendStreak, isRestDay, TIERS, GOALS, DEFAULT_GOAL, MAX_FREEZES, dateKey, dayTotals, dayMeta } from './engine'
+import { useGame, openGamePanel, todayTotals, updateProfile, streakOf } from './store'
+import { weekRow, questProgress, leagueBoard, friendStreak, isRestDay, TIERS, GOALS, DEFAULT_GOAL, MAX_FREEZES, dateKey, dayTotals, dayMeta } from './engine'
 
 const DOT = 26                    // weekday circle size
 const LEAGUE_ROWS = 6             // board rows shown
@@ -21,7 +22,7 @@ export function weekdayLetters(lang, width = 'narrow') {
 
 // popToday: seconds after which today's dot pops in (the streak celebration), 0 = no animation.
 export function WeekDots({ player, lang, popToday = 0 }) {
-  const row = weekRow(player)
+  const row = weekRow(player, dateKey(), streakOf(player))
   const letters = weekdayLetters(lang)
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center' }}>
@@ -45,7 +46,7 @@ export function StreakCard() {
   const g = useGame()
   if (!ctx || !g.player) return null
   const { t } = ctx
-  const s = computeStreak(g.player)
+  const s = streakOf(g.player)
   return (
     <Card onClick={() => openGamePanel('streak')}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -105,7 +106,7 @@ export function QuestsCard() {
   const prog = quests.map((q) => questProgress(q, totals)).filter((p) => !p.unknown)
   if (!prog.length) return null
   const all = prog.every((p) => p.done)
-  const s = computeStreak(g.player)
+  const s = streakOf(g.player)
   return (
     <Card title={t('game_questsTitle')}>
       {prog.map((p) => (
@@ -127,9 +128,11 @@ export function QuestsCard() {
 export function LeagueCard() {
   const ctx = useFeatureCtx()
   const g = useGame()
-  if (!ctx || !g.player) return null
+  // Once per player change and day: every app render rebuilt the whole tier history.
+  const day = dateKey()
+  const b = useMemo(() => (g.player ? leagueBoard(g.player, g.others, day, g.player.goalXp || DEFAULT_GOAL) : null), [g.player, g.others, day])
+  if (!ctx || !b) return null
   const { t } = ctx
-  const b = leagueBoard(g.player, g.others, dateKey(), g.player.goalXp || DEFAULT_GOAL)
   const tierName = t(`game_tier_${TIERS[b.tier]}`)
   return (
     <Card>
@@ -172,7 +175,7 @@ export function FriendsCard() {
   return (
     <Card title={t('game_friendsTitle')}>
       {g.others.map((f) => {
-        const fs = computeStreak(f)
+        const fs = streakOf(f)
         const together = friendStreak(g.player, f)
         const studied = dayTotals(f, today).xp > 0
         return (

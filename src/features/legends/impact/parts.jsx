@@ -377,13 +377,14 @@ export const PARTS = {
       filter: `drop-shadow(0 0 2.5cqw ${ctx.color})`, opacity: 1 - g * 0.3, '--r0': p.reverse ? '160deg' : '-150deg', '--r1': p.reverse ? '-80deg' : '70deg',
       animation: `lgiSpin ${520 * ctx.speed}ms cubic-bezier(.3,.9,.3,1) ${g * 40}ms both` }} />
   )),
-  // Liquid blobs bursting and splatting.
+  // Liquid blobs bursting and splatting. p.y (cqw, + = down): burst from below the centre (a boss whose face sits at
+  // the centre: the Sugar Queen's pink splat covered her face).
   splat: (p, ctx) => Array.from({ length: p.n || 6 }, (_, i) => {
     const a = (Math.PI * 2 * i) / (p.n || 6) + rnd(i, 81) * 0.6
     const r = (p.big ? 46 : 34) * (p.reach || 1) * ctx.scale * (0.6 + rnd(i, 83) * 0.5)
     const c = colorOf(p, ctx)
     return fly(`spl${i}`, <div style={{ width: '100%', height: '100%', borderRadius: '50% 45% 55% 50%', background: `radial-gradient(circle at 35% 35%, #fff, ${c} 45%, ${c}aa)` }} />,
-      { x1: Math.cos(a) * r, y1: Math.sin(a) * r, s0: 0.5, s1: 1.4, w: (p.big ? 14 : 9) * (0.7 + rnd(i, 85) * 0.6), ms: 640 * ctx.speed, delay: rnd(i, 87) * 60 })
+      { y0: p.y || 0, x1: Math.cos(a) * r, y1: Math.sin(a) * r + (p.y || 0), s0: 0.5, s1: 1.4, w: (p.big ? 14 : 9) * (0.7 + rnd(i, 85) * 0.6), ms: 640 * ctx.speed, delay: rnd(i, 87) * 60 })
   }),
   // Leviathan: a wave crest sweeps across the box.
   wave: (p, ctx) => {
@@ -516,6 +517,7 @@ export const PARTS = {
   // ── MOMENT PARTS: what makes a critical, a Sharpen, a heavy blow, a block, a save and Second wind read as their own
   // moment (StrikeFxLayer). Each takes the boss's colors and its own params, so no two bosses play one the same way.
   // A critical: a jagged star (p.points tips, p.spin degrees) slams open behind the hit, a white star inside it.
+  // p.y (% of the box, default 48): where it opens; lower for a boss whose face sits at the centre (the white core hid it).
   starburst: (p, ctx) => {
     const n = p.points || 8
     const pts = Array.from({ length: n * 2 }, (_, i) => {
@@ -525,7 +527,7 @@ export const PARTS = {
     }).join(' ')
     const c = colorOf(p, ctx)
     return [0, 1].map((g) => (
-      <div key={`st${g}`} style={{ position: 'absolute', left: '50%', top: '48%', width: `${(g ? 34 : 84) * ctx.scale}cqw`, height: `${(g ? 34 : 84) * ctx.scale}cqw`, filter: `drop-shadow(0 0 2.5cqw ${c})`,
+      <div key={`st${g}`} style={{ position: 'absolute', left: '50%', top: `${p.y ?? 48}%`, width: `${(g ? 34 : 84) * ctx.scale}cqw`, height: `${(g ? 34 : 84) * ctx.scale}cqw`, filter: `drop-shadow(0 0 2.5cqw ${c})`,
         '--r0': `${g ? -(p.spin || 40) : 0}deg`, '--r1': `${g ? 0 : p.spin || 40}deg`, '--s0': 0.15, '--s1': g ? 1.15 : 1.35, animation: `lgiSpin ${(g ? 420 : 560) * ctx.speed}ms cubic-bezier(.1,.9,.25,1) ${g * 50}ms both` }}>
         <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><polygon points={pts} fill={g ? '#ffffff' : `${c}4d`} stroke={g ? c : '#ffffff'} strokeWidth={g ? 2 : 3.5} strokeLinejoin="round" opacity={g ? 0.9 : 1} /></svg>
       </div>

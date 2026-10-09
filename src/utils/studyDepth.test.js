@@ -211,6 +211,13 @@ describe('per-question choices (Show choices)', () => {
   it('without byChoice an mc card counts as picked (older saved sessions)', () => {
     expect(answeredByChoice({ mc: true }, 0)).toBe(true)
     expect(answeredByChoice({}, 0)).toBe(false)
-    expect(answeredByChoice({ mc: true, byChoice: {} }, 0)).toBe(false)
+    expect(answeredByChoice({ mc: true, byChoice: {} }, 0)).toBe(true) // no entry: answered before byChoice existed
+    expect(answeredByChoice({ byChoice: {} }, 0)).toBe(false)
+  })
+  it('a restored mc card keeps the cap of its old picks after one typed answer', () => {
+    const cs = { mc: true, byChoice: { 1: false } } // Q1 picked before the update, Q2 "Type it instead"
+    expect(answeredByChoice(cs, 0)).toBe(true)
+    expect(answeredByChoice(cs, 1)).toBe(false)
+    expect(rateStudyCard(cs, [ok, ok]).label).toBe('good')
   })
 })

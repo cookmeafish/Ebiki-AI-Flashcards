@@ -917,7 +917,7 @@ function readDeclined() {
 }
 function writeDeclined(list) {
   try {
-    if (list.length) fs.writeFileSync(ENV_DECLINED, JSON.stringify(list) + '\n', 'utf-8')
+    if (list.length) writeFileAtomic(ENV_DECLINED, JSON.stringify(list) + '\n') // atomic: a torn list read as [] and the share pull revived every cleared key
     else fs.rmSync(ENV_DECLINED, { force: true })
   } catch { /* best effort */ }
 }
@@ -938,6 +938,8 @@ const readEnvFile = (file) => {
   return keys
 }
 const hasKeys = (keys) => Object.values(keys).some((v) => v)
+// An API key never holds whitespace or a control character; one that does would split into extra .env lines.
+const BAD_KEY_CHARS = /[\s\u0000-\u001f\u007f]/
 
 // Rewrite `file` so its API-key lines are exactly `keys`, preserving every OTHER
 // line the file already had (it is a real .env and may hold unrelated settings).
@@ -995,7 +997,9 @@ function parseEnv() {
   const backup = readEnvFile(ENV_BAK)
   if (!hasKeys(backup)) return keys
   try {
-    fs.copyFileSync(ENV_BAK, ENV_FILE)
+    // Atomic like every other .env write: a copy cut off midway left half a key, which is not "no key", so the
+    // backup never healed it again.
+    writeFileAtomic(ENV_FILE, fs.readFileSync(ENV_BAK))
     console.log('[Keys] .env had lost its keys. Restored them from .env.bak')
     logKeys('restored', `from .env.bak: ${Object.keys(backup).join(', ')}`)
     return readEnvFile(ENV_FILE)
@@ -1025,7 +1029,14 @@ function writeEnv(keys, opts) {
   const cleared = []
   for (const [prov, val] of Object.entries(payload)) {
     if (typeof val !== 'string') continue          // never let a stray non-string delete a key
+    // Only the providers this build reads back. An unknown one (a NEWER computer's provider in the shared keys.json)
+    // was written as a VITE_<NAME>_API_KEY line that readEnvFile never returns, so every key sync "adopted" it again:
+    // .env rewritten and logged on every page load and backup tick, forever. And a name or value holding a line
+    // break wrote extra lines into .env (`openai: "sk-x\nVITE_ANTHROPIC_API_KEY=..."` replaced another provider's key
+    // with no "cleared" record). API keys never contain whitespace or control characters.
+    if (!Object.hasOwn(ENV_VAR, prov)) continue
     const v = val.trim()
+    if (BAD_KEY_CHARS.test(v)) continue
     if (v) { if (merged[prov] !== v) stored.push(prov); merged[prov] = v }
     else if (merged[prov]) { cleared.push(prov); delete merged[prov] }
   }
@@ -1116,6 +1127,8 @@ async function syncSharedKeys(opts) {
     const pulled = []
     const declined = readDeclined()
     for (const [prov, val] of Object.entries(shared)) {
+      // Known providers only (writeEnv stores no other): an unknown one was "pulled" again on every sync.
+      if (!Object.hasOwn(ENV_VAR, prov) || typeof val !== 'string' || BAD_KEY_CHARS.test(val.trim())) continue
       if (val && typeof val === 'string' && !merged[prov] && !declined.includes(prov)) { merged[prov] = val; pulled.push(prov) }
     }
     if (pulled.length) {
@@ -1508,8 +1521,16 @@ function readConfig() {
 // half-written file, and an interrupted write (share dropped, app closed) cannot leave a truncated
 // one behind. If the rename is refused (antivirus/indexer lock on Windows), fall back to a plain write.
 // Used for every whole-file data write: config, chats, mode configs, deck notes, Discover blobs.
+// The temp name is unique per WRITE, not only per process: two computers on one shared folder can run servers with
+// the SAME process id (Windows reuses small numbers), and two same-instant saves of config.json then wrote ONE temp
+// file; the first rename took the other computer's text and the second fell back to a plain, non-atomic write.
+// Still digits before ".tmp", the shape every sweep and merge skips (/\.\d+\.tmp$/). A function declaration (hoisted),
+// like writeFileAtomic itself.
+function atomicTmpName(file) {
+  return `${file}.${process.pid}${String(crypto.randomInt(0, 1e6)).padStart(6, '0')}.tmp`
+}
 function writeFileAtomic(file, text) {
-  const tmp = `${file}.${process.pid}.tmp`
+  const tmp = atomicTmpName(file)
   // A failed TEMP write (disk full, quota, share gone) throws WITHOUT touching the real file: falling back
   // to a plain write there truncated it first (O_TRUNC), leaving an empty config.json or mode config.
   try { fs.writeFileSync(tmp, text, 'utf-8') } catch (e) {
@@ -2441,7 +2462,9 @@ function apiPlugin() {
           // background call by at most its own probe timeout, never the response.
           syncSharedKeys().catch(() => {})   // a page load is the moment a blank machine should adopt the shared key
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify(parseEnv()))
+          // A .env that exists but cannot be read right now (locked by an editor or antivirus) threw out of the
+          // handler: no answer the page could tell from "no keys". A 500 keeps its key state as it was.
+          try { res.end(JSON.stringify(parseEnv())) } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: `the keys could not be read: ${e.code || e.message}` })) }
         } else if (req.method === 'POST') {
           let body = ''
           req.on('data', (chunk) => { body += chunk })
@@ -2503,10 +2526,10 @@ function apiPlugin() {
                 for (const f of old) fs.rmSync(path.join(LOG_DIR, f), { force: true })
               } catch { /* pruning is housekeeping only */ }
               res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ ok: true, file: logFile }))
+              res.end(JSON.stringify({ ok: true, file: path.basename(logFile) })) // the name only: no caller needs this computer's folder layout
             } catch (e) {
               res.statusCode = 500
-              res.end(JSON.stringify({ error: e.message }))
+              res.end(JSON.stringify({ error: e.code || 'the log could not be written' })) // e.message names the full path
             }
           })
         } else {
@@ -3064,13 +3087,14 @@ function apiPlugin() {
 
       server.middlewares.use('/api/overlay-screenshot', (req, res) => {
         const file = path.join(SELF_DIR, 'electron', 'last-capture.png') // same file main.cjs writes (next to itself)
-        if (fs.existsSync(file)) {
+        // Async and in one step: exists-then-read threw out of the handler when the overlay replaced the file between
+        // the two calls (an uncaught middleware error), and a sync read of a big capture held every other request.
+        fs.readFile(file, (err, buf) => {
+          if (err) { res.statusCode = err.code === 'ENOENT' ? 404 : 500; res.end(''); return }
           res.setHeader('Content-Type', 'image/png')
-          res.end(fs.readFileSync(file))
-        } else {
-          res.statusCode = 404
-          res.end('')
-        }
+          res.setHeader('Cache-Control', 'no-store') // a new capture every time
+          res.end(buf)
+        })
       })
 
 
@@ -3241,6 +3265,15 @@ function apiPlugin() {
   }
 }
 
+// The app root's data entries and machine-local files, as anchored watcher globs (see server.watch.ignored below).
+const ROOT_GLOB = SELF_DIR.split(path.sep).join('/')
+const APP_ROOT_WATCH_IGNORED = [
+  ...DATA_ENTRIES.flatMap((e) => [`${ROOT_GLOB}/${e}`, `${ROOT_GLOB}/${e}/**`]),
+  ...['logs', 'electron/last-capture.png', 'launchmode.json', '.deps-installed', '.npm-install-pending', '.update-snooze',
+    '.anki-update-declined', '.app-ready', '.app-status', '.app-splash', '.app-answer', '.launcher.lock.d', '.env.bak', '.env.cleared', '.env.declined']
+    .flatMap((e) => [`${ROOT_GLOB}/${e}`, `${ROOT_GLOB}/${e}/**`]),
+]
+
 export default defineConfig({
   plugins: [react(), apiPlugin()],
   // vitest: never collect tests from the local scratch folder (tooling copies of src land there).
@@ -3293,10 +3326,15 @@ export default defineConfig({
         // Feature data and local files live at the ROOT of the app folder. Anchored there: as "**/features/**" the
         // feature data folder also ignored src/features/**, so no feature code edit ever reloaded (stale modules until
         // a restart).
-        ...featureDataEntries().map((e) => `${SELF_DIR.split(path.sep).join('/')}/${e}/**`), ...featureLocalFiles().map((l) => `${SELF_DIR.split(path.sep).join('/')}/${l}`)],
+        ...featureDataEntries().map((e) => `${SELF_DIR.split(path.sep).join('/')}/${e}/**`), ...featureLocalFiles().map((l) => `${SELF_DIR.split(path.sep).join('/')}/${l}`),
+        // Every other data entry and machine-local file the server or the launchers write at the app root, anchored the
+        // same way. With polling on, each watched file is stat'ed every 300 ms: keys.json, discover/, cache/ (one TTS clip
+        // per word), logs/ (the token counter rewrites its file every few seconds, 50 OCR logs), the launcher's
+        // handshake files and the overlay's last capture were all polled for nothing.
+        ...APP_ROOT_WATCH_IGNORED],
     },
   },
 })
 
 // Exported for the key-safety tests only; Vite consumes the default export above.
-export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, folderKey, modeFolderName, modeFolderForName, writeModeFolders, deepMergeJson, deepMergeInto, copyNewer, markJoinedFolder }
+export { readEnvFile, parseEnv, writeEnv, mirrorEnv, syncSharedKeys, writeFileAtomic, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, folderKey, modeFolderName, modeFolderForName, writeModeFolders, deepMergeJson, deepMergeInto, copyNewer, markJoinedFolder }

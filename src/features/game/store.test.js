@@ -85,6 +85,22 @@ describe('game store', () => {
     expect(srv.state.posts).toBe(0)
   })
 
+  it('tries a failed save again by itself (no later award needed)', async () => {
+    const srv = fakeServer()
+    const s = await freshStore()
+    await s.initGame()
+    const id = s.getGame().player.id
+    srv.state.failPost = true
+    s.award('card')
+    await vi.advanceTimersByTimeAsync(2000) // the debounced save fails
+    const failed = srv.state.posts
+    srv.state.failPost = false // the share is back
+    await vi.advanceTimersByTimeAsync(31000)
+    expect(srv.state.posts).toBeGreaterThan(failed)
+    expect(srv.disk.get(id).days[dateKey()].mach01.cards).toBe(1)
+    expect(localStorage.getItem('ebiki-game-unsaved')).toBe(null)
+  })
+
   it('pauses saving while the data folder is switching', async () => {
     const srv = fakeServer()
     const s = await freshStore()
@@ -122,5 +138,19 @@ describe('game store', () => {
     await vi.advanceTimersByTimeAsync(2000)
     expect(srv.disk.get('player-a1').days[dateKey()].mach01.cards).toBe(1)
     expect(localStorage.getItem('ebiki-game-unsaved')).toBe(null)
+  })
+
+  it('streakOf computes once per player object and again for a changed player', async () => {
+    fakeServer()
+    const s = await freshStore()
+    await s.initGame()
+    const p = s.getGame().player
+    const a = s.streakOf(p)
+    expect(s.streakOf(p)).toBe(a) // same object: no second walk
+    s.award('card')
+    const b = s.streakOf(s.getGame().player)
+    expect(b).not.toBe(a)
+    expect(b.todayDone).toBe(true)
+    expect(a.todayDone).toBe(false)
   })
 })

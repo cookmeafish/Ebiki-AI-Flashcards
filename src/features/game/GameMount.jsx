@@ -1,12 +1,12 @@
 // App-wide part of the game feature: loads the player, keeps today's quests ready across midnight, and
 // shows the modals (streak celebration, streak details, "who is studying?").
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx, useFocusHeld } from '../registry'
 import { Modal, ChunkyButton, tCount, depthBorder } from '../ui'
-import { useGame, initGame, configureGame, ensureToday, closeGamePanel, choosePlayer, createPlayer } from './store'
-import { computeStreak, dateKey } from './engine'
+import { useGame, initGame, configureGame, ensureToday, closeGamePanel, choosePlayer, createPlayer, streakOf } from './store'
+import { dateKey } from './engine'
 import { WeekDots } from './Rail'
 import StreakFlame, { StreakFxStyle } from './StreakFlame'
 import { celebrateWait } from './celebrate'
@@ -19,7 +19,7 @@ const CHOOSER_POSE = 'happy'
 
 // `celebrate`: the day's first XP just extended the streak, so the flame, the number and today's dot play their show.
 function StreakScreen({ player, t, lang, onClose, celebrate }) {
-  const s = computeStreak(player)
+  const s = streakOf(player)
   const rise = (delay) => (celebrate ? { animation: `gmRise .45s ease-out ${delay}s both` } : {})
   return (
     <div className="gm-fx" style={{ textAlign: 'center' }}>
@@ -45,7 +45,10 @@ function StreakScreen({ player, t, lang, onClose, celebrate }) {
 function Chooser({ g, t, onDone }) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
-  const run = async (fn) => { if (busy) return; setBusy(true); try { await fn() } finally { setBusy(false); onDone?.() } }
+  const [failed, setFailed] = useState(false)
+  // A choice that could not be saved (the local server gone a moment) says so: the click did nothing visible, in a
+  // dialog that cannot be closed, and the rejection went unhandled.
+  const run = async (fn) => { if (busy) return; setBusy(true); setFailed(false); try { await fn() } catch { setFailed(true) } finally { setBusy(false); onDone?.() } }
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
@@ -58,13 +61,14 @@ function Chooser({ g, t, onDone }) {
           display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', marginBottom: 8, textAlign: 'left',
           ...depthBorder(C.border, { bottomColor: C.border }), borderRadius: RADIUS.md, background: C.surface, cursor: busy ? 'default' : 'pointer',
           fontSize: 15, fontWeight: 800, color: C.ink, opacity: busy ? 0.5 : 1,
-        }}>🦐 {p.name || t('game_unnamed')} <span style={{ marginLeft: 'auto', color: C.warning }}>🔥 {computeStreak(p).streak}</span></button>
+        }}>🦐 {p.name || t('game_unnamed')} <span style={{ marginLeft: 'auto', color: C.warning }}>🔥 {streakOf(p).streak}</span></button>
       ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('game_namePlaceholder')} maxLength={40}
           style={{ flex: 1, padding: '10px 12px', borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 14 }} />
         <ChunkyButton disabled={busy} onClick={() => run(() => createPlayer(name))}>{t('game_chooseNew')}</ChunkyButton>
       </div>
+      {failed && <div role="alert" style={{ color: C.danger, fontSize: 12.5, marginTop: 10 }}>{t('game_chooseFailed')}</div>}
     </div>
   )
 }
@@ -77,18 +81,26 @@ export default function GameMount() {
   const owed = useRef(false)        // a celebration waiting for the user to finish what they're doing
   const dayRef = useRef(dateKey())
   // Ebi's Help knows the game on every screen (XP, goal, streak, quests, league): "how much XP until my goal?"
-  let helpText = ''
-  try { helpText = gameHelpText(g.player, g.others) } catch { helpText = '' }
+  // Built once per player change (and day), not on every app render: it walks the whole streak and league.
+  const helpDay = dateKey()
+  const helpText = useMemo(() => { try { return gameHelpText(g.player, g.others) } catch { return '' } }, [g.player, g.others, helpDay])
   useHelpEntry(ctx, 'game', helpText, '')
 
   // Load once; the store honors the data-folder switch and knows which features exist (for quests).
   const featureIds = ctx?.registry?.features?.filter((f) => ctx.registry.isActive(f.id)).map((f) => f.id).join(',') || ''
   const onboarded = !!ctx?.onboarded
+  // What today's quests may ask for (engine QUESTS `needs`), read live when the day's quests are picked: an activity
+  // that needs an AI key or the card store is not set as a quest while it is known to be unavailable.
+  const needsRef = useRef({})
+  needsRef.current = {
+    ai: !!ctx?.ai?.hasKey,
+    ...(ctx?.ankiConnected === false ? { cards: false } : ctx?.ankiConnected === true ? { cards: true } : {}),
+  }
   useEffect(() => {
     if (!ctx || !onboarded) return // no chooser or loading while onboarding is on screen
     configureGame({
       isBlocked: () => !!ctx.isDataSwitching?.(),
-      features: () => Object.fromEntries((featureIds ? featureIds.split(',') : []).map((id) => [id, true])),
+      features: () => ({ ...Object.fromEntries((featureIds ? featureIds.split(',') : []).map((id) => [id, true])), ...needsRef.current }),
     })
     initGame()
   }, [!!ctx, onboarded, featureIds]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -105,7 +117,7 @@ export default function GameMount() {
   }, [g.status])
 
   // The first XP of the day extends the streak: celebrate, but never in the middle of a question.
-  const done = g.player ? computeStreak(g.player).todayDone : null
+  const done = g.player ? streakOf(g.player).todayDone : null
   const playerIdRef = useRef(null)
   const doneDayRef = useRef(dateKey()) // the day `lastDone` describes
   useEffect(() => {

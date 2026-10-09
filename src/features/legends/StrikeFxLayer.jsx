@@ -13,7 +13,7 @@ import { impactFor, koTiming } from './impact/styles'
 import { PARTS, PARTS_CSS, withDelay, drawWithin } from './impact/parts'
 
 const LABEL_CSS = `
-@keyframes lgsLabel { 0% { transform: translateX(-50%) scale(2.4) rotate(-6deg); opacity: 0 } 16% { transform: translateX(-50%) scale(.9) rotate(2deg); opacity: 1 } 26% { transform: translateX(-50%) scale(1.08) rotate(-1deg) } 36% { transform: translateX(-50%) scale(1) rotate(0) } 78% { opacity: 1 } 100% { transform: translateX(-50%) translateY(-14px); opacity: 0 } }
+@keyframes lgsLabel { 0% { transform: translateX(-50%) scale(2.4) rotate(-6deg); opacity: 0 } 16% { transform: translateX(-50%) scale(.9) rotate(2deg); opacity: 1 } 26% { transform: translateX(-50%) scale(1.08) rotate(-1deg) } 36% { transform: translateX(-50%) scale(1) rotate(0) } 78% { opacity: 1 } 100% { transform: translateX(-50%) translateY(-8px); opacity: 0 } }
 @keyframes lgsStamp { 0% { transform: translate(-50%, -50%) scale(3.2) rotate(-16deg); opacity: 0 } 9% { transform: translate(-50%, -50%) scale(.9) rotate(-5deg); opacity: 1 } 14% { transform: translate(-50%, -50%) scale(1.07) rotate(-7deg) } 20% { transform: translate(-50%, -50%) scale(1) rotate(-6deg) } 74% { transform: translate(-50%, -50%) scale(1) rotate(-6deg); opacity: 1 } 100% { transform: translate(-50%, 40%) scale(.62) rotate(-4deg); opacity: 0 } }
 `
 // The defeated tag (under a beaten raid boss): the stamp's small, still form. It fades in as the knockout's stamp
@@ -22,18 +22,19 @@ const LABEL_CSS = `
 const KO_TAG_CSS = '@keyframes lgsKoTag { 0% { transform: translateX(-50%) rotate(-4deg) scale(1.3); opacity: 0 } 100% { transform: translateX(-50%) rotate(-4deg) scale(1); opacity: 1 } }'
 const plate = (color, big) => ({ whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, letterSpacing: '.06em', color: '#ffffff', WebkitTextStroke: `${big ? 2 : 1.5}px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill',
   background: '#1a1020e8', border: `${big ? 3 : 2}px solid ${color}`, borderRadius: big ? 10 : 7, boxShadow: big ? `0 0 18px ${color}, 0 4px 0 #000a` : '0 2px 0 #0008', pointerEvents: 'none' })
-// `delay` (ms): when it fades in (after a knockout cinematic); null = shown at once, still.
-export function KoTag({ t, motif, delay = null }) {
+// `delay` (ms): when it fades in (after a knockout cinematic); null = shown at once, still. `small`: the compact arena
+// (a 68 px boss): at 14 px the tag was wider than the boss and its headroom and hung past the arena's left edge.
+export function KoTag({ t, motif, delay = null, small = false }) {
   const s = impactFor(motif)
   return (
-    <div aria-hidden="true" data-ko-tag="" style={{ position: 'absolute', left: '50%', top: 'calc(100% - 10px)', transform: 'translateX(-50%) rotate(-4deg)', fontSize: 14, padding: '0 10px', zIndex: 2, ...plate(s.color, false),
+    <div aria-hidden="true" data-ko-tag="" style={{ position: 'absolute', left: '50%', top: 'calc(100% - 10px)', transform: 'translateX(-50%) rotate(-4deg)', fontSize: small ? 10.5 : 14, padding: small ? '0 6px' : '0 10px', zIndex: 2, ...plate(s.color, false),
       animation: delay == null ? undefined : `lgsKoTag 380ms cubic-bezier(.2,.9,.3,1) ${Math.round(delay)}ms both` }}>
       <style>{KO_TAG_CSS}</style>
       {t('lg_fxKo')}
     </div>
   )
 }
-const LABEL = { crit: 'lg_fxCrit', sharpen: 'lg_fxSharpen', block: 'lg_fxBlock', shield: 'lg_fxSaved', hurtBig: 'lg_fxHurtBig', wind: 'lg_fxWind', ko: 'lg_fxKo' } // the knockout's is its stamp
+export const MOMENT_LABEL = { crit: 'lg_fxCrit', sharpen: 'lg_fxSharpen', block: 'lg_fxBlock', shield: 'lg_fxSaved', hurtBig: 'lg_fxHurtBig', wind: 'lg_fxWind', ko: 'lg_fxKo' } // the knockout's is its stamp
 const LABEL_FILL = { crit: '#ffd23a', sharpen: '#ffd23a', block: '#8fe3ff', shield: '#6fc3ff', hurtBig: '#ff3b3b', wind: '#ff6b9a', ko: '#ffffff' }
 
 // Which parts a moment plays, and at what scale (the strike smaller under a block or a Shield, bigger on a heavy blow).
@@ -76,7 +77,7 @@ export default function StrikeFxLayer({ t, moment, motif, n, fading = false, las
     const node = ko ? drawWithin(draw, p, ctx, kt.ms - at) : draw(p, ctx)
     return <div key={`${name}${i}`} data-at={at || undefined} style={{ position: 'absolute', inset: 0, animation: at ? `lgiGate 1ms linear ${at}ms both` : undefined }}>{withDelay(node, at)}</div>
   })
-  const label = LABEL[moment]
+  const label = MOMENT_LABEL[moment]
   return (
     // A knockout's debris may fly past the box only as far as the boss's headroom (art.jsx BOSS_HEADROOM, 20%).
     <div key={`sf${n}`} aria-hidden="true" data-strike-fx={moment} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, containerType: 'size', clipPath: ko ? 'inset(-20%)' : 'inset(-30%)', opacity: fading ? 0 : 1, transition: 'opacity 200ms ease-in' }}>
@@ -95,7 +96,9 @@ export default function StrikeFxLayer({ t, moment, motif, n, fading = false, las
         </div>
       </>}
       {label && !ko && (
-        <div style={{ position: 'absolute', left: '50%', top: '20%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900,
+        // Over the boss's head, never across its face (at 20% down the box "HEAVY BLOW!" covered every boss's eyes): the
+        // label's bottom edge just inside the box top, the text in the headroom above (the layer clips at -30%).
+        <div data-strike-label="" style={{ position: 'absolute', left: '50%', bottom: '90%', transformOrigin: 'center bottom', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900,
           fontSize: 20, letterSpacing: '.04em', color: LABEL_FILL[moment], WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill',
           animation: `lgsLabel 950ms cubic-bezier(.22,1,.36,1) 60ms both`, zIndex: 2 }}>
           {t(label, labelVars(moment, last))}

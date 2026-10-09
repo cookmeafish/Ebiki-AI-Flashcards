@@ -109,7 +109,8 @@ export function createChatsRoute({ dataPath, readUtf8, writeFileAtomic, fs, path
       const file = path.join(chatsDir, `${id}.json`)
       res.setHeader('Content-Type', 'application/json')
       try {
-        if (fs.existsSync(file)) fs.unlinkSync(file)
+        // Gone already (another computer deleted it between a check and the unlink) is a done delete, not a 500.
+        try { fs.unlinkSync(file) } catch (e) { if (!e || e.code !== 'ENOENT') throw e }
         res.end(JSON.stringify({ ok: true }))
       } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
     } else { res.statusCode = 405; res.end('') }

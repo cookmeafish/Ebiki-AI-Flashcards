@@ -1,4 +1,5 @@
 import { apiFetch } from '../platform'
+import { MAX_TIER } from './questionTier'
 // Question reuse (opt-in: config `questionReuse` = { enabled, maxPerCard }). OFF (the default) means off:
 // no bank is read or written and every card gets a fresh generation, exactly as before. ON: the question
 // sets generated for a card are saved with the card's DECK (/api/question-bank, one file per note under
@@ -53,8 +54,11 @@ export function cardTextKey(front = '', back = '') {
 // tier 2.
 export function questionSignature({ kind = 'flash', front = '', back = '', learnLang = '', quizLang = '', choices = false, wordHints = false, perCard = 0, style = '', tier = 2 }) {
   const parts = [kind, String(learnLang).toLowerCase(), String(quizLang).toLowerCase(), !!choices, !!wordHints, kind === 'pbq' ? 1 : Number(perCard) || 0, String(style)]
-  const tn = Number(tier)
-  if (kind !== 'pbq' && tier !== null && tier !== undefined && Number.isFinite(tn) && tn !== 2) parts.push(`t${Math.round(tn)}`)
+  // Compared the way the ladder reads a tier (clamped to 0..MAX_TIER, whole): 2.4 is tier 2 and keeps the tier-2 signature, and an
+  // out-of-range 9 is the top tier (it made a signature of its own that no tier-5 set ever matched). Empty text is no tier.
+  const tn = tier === '' || tier === null || tier === undefined ? NaN : Number(tier)
+  const tc = Number.isFinite(tn) ? Math.max(0, Math.min(MAX_TIER, Math.round(tn))) : 2
+  if (kind !== 'pbq' && tc !== 2) parts.push(`t${tc}`)
   return {
     text: cardTextKey(front, back),
     sig: hashText(JSON.stringify(parts)),

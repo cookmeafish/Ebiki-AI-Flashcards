@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { useFeatureCtx } from '../registry'
 import { tCount } from '../ui'
-import { useGame, openGamePanel, todayTotals } from './store'
-import { computeStreak, DEFAULT_GOAL } from './engine'
+import { useGame, openGamePanel, todayTotals, streakOf } from './store'
+import { DEFAULT_GOAL } from './engine'
 
 const POP_MS = 1400 // how long "+XP" floats
 
@@ -20,7 +20,7 @@ export function StreakChip() {
   }, [g.lastXp])
   if (!ctx || !g.player) return null
   const { t } = ctx
-  const s = computeStreak(g.player)
+  const s = streakOf(g.player)
   const xp = todayTotals(g.player).xp
   const goal = g.player.goalXp || DEFAULT_GOAL
   const lit = s.todayDone

@@ -1154,6 +1154,7 @@ export default {
   game_chooseHint: 'Elígete a ti si también usas Ebiki en otra computadora, para que tu racha te siga.',
   game_chooseNew: 'Soy alguien nuevo',
   game_namePlaceholder: 'Tu nombre',
+  game_chooseFailed: 'No se guardó. Comprueba que Ebiki sigue abierto y vuelve a intentarlo.',
   game_start: 'Empezar',
   game_player: 'Jugador',
   game_unnamed: 'Estudiante de Ebiki',

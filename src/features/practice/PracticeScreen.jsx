@@ -1,6 +1,6 @@
 // The Practice hub: a tile per activity other features contribute (practiceActivities slot). Opening a tile
 // shows its Screen here; nothing in the hub knows what the activities are.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS, SHADOW } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx, useIntent, useNavEntry, activityIdle, SLOT } from '../registry'
@@ -12,12 +12,21 @@ const TILE_MIN = 260
 const HEADER_POSE = 'work'
 export const PRACTICE_INTENT = 'practice' // = the nav id
 
+// The box that scrolls this screen (<main>), never the window.
+const scrollBoxOf = (el) => {
+  for (let p = el?.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (/^(auto|scroll|overlay)$/.test(getComputedStyle(p).overflowY)) return p
+  }
+  return null
+}
+
 export default function PracticeScreen() {
   const ctx = useFeatureCtx()
   const [open, setOpen] = useState(null)
   const [params, setParams] = useState(null)
+  const hubScroll = useRef(0) // where the hub's tiles were scrolled when an activity opened
   // Another surface asked for an activity (e.g. Chat's "+" menu → Roleplay): { activity: '<feature>:<id>', params }
-  useIntent(PRACTICE_INTENT, (p) => { if (p.activity) { setParams(p.params || null); setOpen(p.activity) } })
+  useIntent(PRACTICE_INTENT, (p) => { if (p.activity) { hubScroll.current = 0; setParams(p.params || null); setOpen(p.activity) } })
   // A mode switch closes the open activity: every activity reads the LIVE subject, so a workout, scene or call
   // started in one mode filed its results, level change and new cards under the other.
   const modeId = ctx?.subject?.modeId
@@ -46,17 +55,30 @@ export default function PracticeScreen() {
   useHelpEntry(ctx, 'practice', !ctx ? '' : current
     ? `Practice hub: the activity "${ctx.t(current.titleKey)}" is open.`
     : `Practice hub (no activity open). Activities offered: ${acts.map((a) => `${ctx.t(a.titleKey)} (${ctx.t(a.descKey)})`).join('; ')}`)
+  // An activity opens at its TOP (its Back button and intro): on a phone the tiles sit below the raid hero, and the
+  // activity opened scrolled as far down as the tile was. Back to the hub returns to where the tiles were.
+  const boxRef = useRef(null)
+  const shownKey = current?.Screen ? open : ''
+  const lastShown = useRef(shownKey)
+  useLayoutEffect(() => {
+    if (lastShown.current === shownKey) return
+    lastShown.current = shownKey
+    const box = scrollBoxOf(boxRef.current)
+    if (box) box.scrollTop = shownKey ? 0 : hubScroll.current
+  }, [shownKey])
+  // Taken at the click, while the hub is still on screen (after the switch the shorter activity has clamped it).
+  const rememberHub = () => { const box = scrollBoxOf(boxRef.current); hubScroll.current = box ? box.scrollTop : 0 }
   if (!ctx) return null
   const { t, subject } = ctx
   if (current?.Screen) {
     return (
-      <div style={{ maxWidth: MAX_W, margin: '0 auto', height: '100%' }}>
+      <div ref={boxRef} style={{ maxWidth: MAX_W, margin: '0 auto', height: '100%' }}>
         <current.Screen key={open} params={params} onExit={() => { setOpen(null); setParams(null) }} />
       </div>
     )
   }
   return (
-    <div style={{ maxWidth: MAX_W, margin: '0 auto' }}>
+    <div ref={boxRef} style={{ maxWidth: MAX_W, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
         <img src={shrimpUrl(poseFile(HEADER_POSE))} alt="" width={64} height={64} style={{ flexShrink: 0, objectFit: 'contain' }} />
         <div style={{ flex: '1 1 180px', minWidth: 0, overflowWrap: 'anywhere' }}>
@@ -64,11 +86,11 @@ export default function PracticeScreen() {
           <div style={{ fontSize: 14, color: C.inkDim, fontWeight: 600 }}>{t('practice_sub', { mode: subject?.name || '' })}</div>
         </div>
       </div>
-      {hero && <hero.Component key={`${heroKey}:${subject?.modeId ?? ''}`} onOpen={(p) => { setParams(p || null); setOpen(heroKey) }} />}
+      {hero && <hero.Component key={`${heroKey}:${subject?.modeId ?? ''}`} onOpen={(p) => { rememberHub(); setParams(p || null); setOpen(heroKey) }} />}
       {!acts.length && <div style={{ color: C.inkDim }}>{t('practice_empty')}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${TILE_MIN}px, 100%), 1fr))`, gap: 14 }}>
         {tiles.map((a) => (
-          <button key={`${a.feature}:${a.id}`} onClick={() => { setParams(null); setOpen(`${a.feature}:${a.id}`) }} className="btn-press ui-card ui-lift" style={{
+          <button key={`${a.feature}:${a.id}`} onClick={() => { rememberHub(); setParams(null); setOpen(`${a.feature}:${a.id}`) }} className="btn-press ui-card ui-lift" style={{
             textAlign: 'left', padding: 18, borderRadius: RADIUS.lg, background: C.surface, cursor: 'pointer',
             display: 'flex', gap: 14, alignItems: 'flex-start', // surface, hairline and shadow: .ui-card
           }}>

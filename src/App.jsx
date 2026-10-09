@@ -8756,6 +8756,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // option matching an accepted answer → that one is correct. Two matching → two right answers, so the
   // question goes typed (null). None matching (the options are phrased differently) → the model's pick.
   const buildChoices = (rawChoices, rawIdx, accepted) => {
+    // An index sent as the string "2" is the index (kit/grade.js reads it the same way), unless a choice IS "2": every
+    // question of such a reply lost its options (the ladder's "Show choices" with them).
+    if (typeof rawIdx === 'string' && /^\s*\d+\s*$/.test(rawIdx) && Array.isArray(rawChoices) && !rawChoices.some((c) => String(c ?? '').trim() === rawIdx.trim())) rawIdx = Number(rawIdx)
     if (!Array.isArray(rawChoices) || !Number.isInteger(rawIdx) || rawIdx < 0 || rawIdx >= rawChoices.length) return null
     const norm = (x) => String(x ?? '').normalize('NFC').toLowerCase().replace(/^["'“”«¿¡\s]+|["'“”»?!.。\s]+$/gu, '').replace(/\s+/g, ' ')
     let correctText = String(rawChoices[rawIdx] ?? '').trim()
@@ -9065,6 +9068,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // question carries `_reviewFixed` (the session's first card, already on screen, swaps to it while unanswered).
   const reviewAndRepair = async (card, rules, studyLang, knowledgeContext, wantChoices, qs) => {
     if (!Array.isArray(qs) || !qs.length || !Array.isArray(rules.questionTiers) || !apiKey) return qs
+    // The give-up set is safe by construction and nothing would replace it: no review call for it (it cost one per card
+    // whenever generation failed, e.g. while the provider was down).
+    if (qs.every((q) => q?._fallback)) return qs
     const r = await runQuestionReview(card, qs)
     if (!r) return qs.map((q) => (q?._fallback ? q : { ...q, _unreviewed: true }))
     const out = qs.map((q, i) => (r.reviewed.includes(i) || q?._fallback ? q : { ...q, _unreviewed: true }))
@@ -9130,13 +9136,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
   }
   // Other cards' answers in this session (their questions' first accepted answer, then the pool's fronts), the
   // distractors for a question that came without choices (utils/questionTier.js choicesFromPool).
+  // → { answers, fronts }: ladderFinish tries the ANSWERS alone first (the same kind of thing as this answer: a
+  // learned-language word in a language mode), the fronts only to fill up (choicesFromPool ranks by length, so a
+  // single mixed list let a front in the learner's own language beat a real word and stand out as wrong).
   const ladderChoicePool = (card) => {
     const own = card?.cardId
     const fromStates = (studyCardStateRef.current || []).filter((c) => c && c.cardId !== own && !c.pbq)
       .flatMap((c) => (c.questions || []).map((q) => (q && typeof q === 'object' && q.type !== 'explanation' ? q.acceptedAnswers?.[0] : null)).filter(Boolean))
     const fromCards = (studyAllCardsRef.current || []).filter((c) => c && c.cardId !== own)
       .map((c) => { try { return getCardFront(c).replace(/\s*\([^)]*\)\s*$/, '').trim() } catch { return '' } })
-    return [...fromStates, ...fromCards]
+    return { answers: fromStates, fronts: fromCards }
   }
   // THE LADDER'S GUARANTEE for every question of a set: (1) its tier (the set's tiers by position when it has none),
   // (2) verified choices whenever possible (a question without them borrows other cards' answers; buildChoices still
@@ -9145,7 +9154,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (!q || typeof q !== 'object' || q.type === 'pbq') return q
     let out = { ...q, tier: Number.isFinite(q.tier) ? q.tier : clampTier(tiers[Math.min(qi, tiers.length - 1)]) }
     if (!questionHasChoices(out)) {
-      const pooled = choicesFromPool(out, ladderChoicePool(card))
+      const pool = ladderChoicePool(card)
+      const pooled = choicesFromPool(out, pool.answers, { fill: pool.fronts })
       const built = pooled ? buildChoices(pooled.choices, pooled.answerIdx, out.acceptedAnswers) : null
       if (built) out = { ...out, choices: built.choices, answerIdx: built.answerIdx }
     }
@@ -9642,11 +9652,22 @@ Output ONLY raw JSON. No markdown, no backticks.`
         if (reviewStart) fullP.then((full) => {
           if (sid !== studySessionRef.current || studyEndedRef.current || !Array.isArray(full) || !full.length) return
           const isMine = (c) => c && c.cardId === firstCard.cardId && !c.relearn && !c.pendingRest
-          const untouched = (c) => !c.done && (c.questionIdx || 0) === 0 && !(c.questionAttempts?.[0] || []).length
+          // Untouched = unanswered AND still the question handed out: a "Fix question" rewrite made meanwhile is the
+          // learner's own pick and stays (the review's repair replaced it).
+          const handed = firstQuestions?.[0]?.question
+          const untouched = (c) => !c.done && (c.questionIdx || 0) === 0 && !(c.questionAttempts?.[0] || []).length && c.questions?.[0]?.question === handed
           const fixed = full.some((q) => q?._reviewFixed)
           const live = studyCardStateRef.current
           const li = live.findIndex(isMine)
           if (li < 0) return
+          // A Fix question on Q1 before this set was saved had no _bank to write through: write it now (same as the split
+          // path below), or the next session reusing this set asked the flagged question again.
+          const onScreen = live[li].questions?.[0]
+          if (onScreen && handed && onScreen.question !== handed && full[0]?._bank?.deck && reuseOn()) {
+            const { noteId, deck, setId, qi } = full[0]._bank
+            const epoch = questionBankEpochRef.current
+            updateBank(deck, noteId, (bank) => (reuseOn() && !dataSwitchingRef.current && questionBankEpochRef.current === epoch ? replaceQuestion(bank, setId, qi, storableQuestion({ ...onScreen, _bank: full[0]._bank })) : null))
+          }
           const swap = fixed && untouched(live[li])
           setStudyCardState((prev) => prev.map((c) => {
             if (!isMine(c)) return c
@@ -9674,7 +9695,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
             let qs = Array.isArray(full) && full.length > c.questions.length ? full : c.questions
             // Q1 as it is on screen (Fix question may have rewritten it), with the saved set's _bank.
             // Unless the review pass rejected Q1 and it is still unanswered: then the repaired one replaces it.
-            const q1Fixed = qs[0]?._reviewFixed && (c.questionIdx || 0) === 0 && !(c.questionAttempts?.[0] || []).length
+            // (A Fix question rewrite of Q1 made meanwhile is the learner's own pick: it stays.)
+            const q1Fixed = qs[0]?._reviewFixed && (c.questionIdx || 0) === 0 && !(c.questionAttempts?.[0] || []).length && c.questions[0]?.question === firstQuestions?.[0]?.question
             if (qs !== c.questions && qs[0] && c.questions[0] && qs[0].question !== c.questions[0].question && !q1Fixed) qs = [{ ...c.questions[0], ...(qs[0]._bank ? { _bank: qs[0]._bank } : {}) }, ...qs.slice(1)]
             const next = { ...base, questions: qs }
             // Nothing more came (the rest failed) and Q1 is answered: the card is finished now, like a last answer.
@@ -10315,7 +10337,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       return
     }
 
-    setStudyChoiceFlash({ question: stripLetterCues(getQuestionText(questionObj)), choices: questionObj.choices, picked: choiceIdx, answerIdx: questionObj.answerIdx })
+    setStudyChoiceFlash({ question: stripLetterCues(getQuestionText(questionObj), questionObj.acceptedAnswers), choices: questionObj.choices, picked: choiceIdx, answerIdx: questionObj.answerIdx })
     if (studyChoiceFlashTimer.current) clearTimeout(studyChoiceFlashTimer.current)
     studyChoiceFlashTimer.current = setTimeout(() => setStudyChoiceFlash(null), correct ? 700 : 1600)
 
@@ -10940,7 +10962,9 @@ Return ONLY raw JSON:
       // Whether THIS question kept usable choices, not whether the session wanted them: a reply with bad
       // choices is shown TYPED, and skipping the cue for it left a typed question with no first letter.
       if (qTier !== null ? (typedCue && needsLetterCue(newQ, isLanguage, false)) : needsLetterCue(newQ, isLanguage, questionHasChoices(newQ))) newQ = appendLetterCue(newQ) // and the first-letter cue guarantee
-      newQ = withLetterCount(newQ, { isLanguage, open: openQ }) // and the letter count, like every typed question
+      // and the letter count, like every typed question; a ladder question whose reply had no usable choices borrows
+      // them from the session's other answers (ladderFinish), so its "Show choices" does not vanish after a fix.
+      newQ = qTier !== null ? ladderFinish([newQ], [qTier], cs, isLanguage)[0] : withLetterCount(newQ, { isLanguage, open: openQ })
       // The student answered or moved on while this was generating: swapping the question now would
       // rewrite one they already answered (grading pairs it with the old answer) and wipe what they
       // are typing on the next one.
@@ -12301,7 +12325,8 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   }
 
   // THE LADDER'S CHOICES FOR OPEN QUESTIONS (the owner: multiple choice ALWAYS available): an unanswered open question
-  // (a tier 4 sentence, a general explain or give-up question) left without verified options gets them from one small
+  // (a tier 4 sentence, a general explain or give-up question, or a word question the deck could not give options)
+  // left without verified options gets them from one small
   // background call (utils/questionTier.js buildOpenChoicesPrompt/parseOpenChoices, then buildChoices). The question
   // shows at once; its "Show choices" toggle appears when they land, only on the same session, card, question text and
   // while still unanswered. Asked once per question (openChoicesAskedRef).
@@ -12314,7 +12339,10 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       if (!cs || cs.done || cs.pbq || cs.isConjugation || !Array.isArray(cs.questions)) continue
       cs.questions.forEach((q, qi) => {
         if (!q || typeof q !== 'object' || qi < (cs.questionIdx || 0) || questionHasChoices(q)) return
-        if (q.type !== 'explanation' && (q.acceptedAnswers || []).length) return // word questions: ladderFinish's pool
+        // A WORD question gets here only when neither its reply nor the deck's other answers gave it options
+        // (ladderFinish's pool: a long general-mode term, a small deck): asked for options around its exact answer, and
+        // kept only when the correct one IS an accepted answer.
+        const accepted = q.type !== 'explanation' ? (q.acceptedAnswers || []).map((a) => String(a ?? '').trim()).filter(Boolean) : []
         const text = getQuestionText(q)
         const key = `${sid}:${cs.cardId}:${qi}:${text}`
         if (!text || openChoicesAskedRef.current.has(key)) return
@@ -12323,10 +12351,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         ;(async () => {
           try {
             const reply = await aiCall(apiKey, 'You write multiple-choice options for a quiz question. Always respond with one valid JSON object.',
-              buildOpenChoicesPrompt({ front: cs.front, back: cs.back, question: text, isLanguage, learnLang: isLanguage ? learnLangName() : '', quizLang: interactionLangName(rules) }),
+              buildOpenChoicesPrompt({ front: cs.front, back: cs.back, question: text, isLanguage, learnLang: isLanguage ? learnLangName() : '', quizLang: interactionLangName(rules), answer: accepted[0] || '' }),
               resolveJobModel('study.choices'), { silent: true, maxTokens: 400 })
             const parsed = parseOpenChoices(parseAiJson(reply))
-            const built = parsed ? buildChoices(parsed.choices, parsed.answerIdx, []) : null
+            const built = parsed ? buildChoices(parsed.choices, parsed.answerIdx, accepted) : null
+            const fold = (x) => String(x ?? '').normalize('NFC').toLowerCase().replace(/^["'“”«¿¡\s]+|["'“”»?!.。\s]+$/gu, '').replace(/\s+/g, ' ')
+            if (built && accepted.length && !accepted.some((a) => fold(a) === fold(built.choices[built.answerIdx]))) return // the right option must be the answer
             if (!built || sid !== studySessionRef.current) return
             setStudyCardState((prev) => prev.map((c) => {
               const cq = c?.questions?.[qi]
@@ -12336,7 +12366,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
               return { ...c, questions }
             }))
           } catch (err) {
-            console.warn('[Study] open-question choices failed (stays typed):', err.message)
+            console.warn('[Study] choices for a question without them failed (stays typed):', err.message)
           }
         })()
       })
@@ -17398,7 +17428,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               const questionObj = cs ? cs.questions[cq.questionIdx] : null
               const showChoicesNow = !!(cs && cq && questionShowsChoices(cs, cq.questionIdx))
               // With its options showing, the letter cues go (the letters would pick the tile).
-              const question = showChoicesNow ? stripLetterCues(getQuestionText(questionObj)) : getQuestionText(questionObj)
+              const question = showChoicesNow ? stripLetterCues(getQuestionText(questionObj), questionObj?.acceptedAnswers) : getQuestionText(questionObj)
               // The question ladder's chip: the tier this question was written at (the card's, for a set saved before).
               const qTier = (studyMode === 'flashcards' && questionLadderOn(activeMode.studyRules) && questionObj?.type !== 'pbq')
                 ? (Number.isFinite(questionObj?.tier) ? questionObj.tier : (Number.isFinite(cs?.tier) ? cs.tier : null)) : null
@@ -19560,7 +19590,7 @@ ${PALETTE_CSS}
           const picking = questionShowsChoices(cs, currentQuestion.questionIdx)
           const tier = (studyMode === 'flashcards' && questionLadderOn(activeMode.studyRules)) ? (Number.isFinite(q.tier) ? q.tier : cs.tier) : undefined
           return {
-            question: picking ? stripLetterCues(getQuestionText(q)) : getQuestionText(q), type: q.type,
+            question: picking ? stripLetterCues(getQuestionText(q), q.acceptedAnswers) : getQuestionText(q), type: q.type,
             number: currentQuestion.questionIdx + 1, of: cs.questions.length,
             cardFront: cs.front, cardBack: String(cs.back || '').slice(0, 300),
             acceptedAnswers: q.acceptedAnswers || [],

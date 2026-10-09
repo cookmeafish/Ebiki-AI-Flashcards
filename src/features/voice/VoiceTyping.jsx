@@ -21,6 +21,9 @@ const SHORTCUT_KEY = 'v'        // Alt + this toggles recording on the focused f
 const Z_INDEX = 10003           // above modals (1000) and the confirm dialog (10002)
 const TIMER_TICK_MS = 250
 const NOTICE_MS = 6000          // a notice beside the badge ("heard nothing", an error) fades after this long
+const FOLLOW_MS = 700           // the badge follows its field frame by frame this long after something starts moving
+const TYPE_FOLLOW_MS = 250      // ... and this long after a keystroke (a growing textarea) or a quiet layout shift
+const SETTLE_CHECK_MS = 250     // with nothing moving, the field's box is checked this often (content loaded above it)
 const OVERLAP = { x: 0.7, y: 0.45 } // how far the badge sits over the field's top-right corner (x SIZE)
 const LAYER_ID = 'ebiki-voice-layer' // our element under <html>, outside the zoomed <body>
 const PULSE_CSS = '@keyframes ebiki-voice-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(229,57,46,.45) } 50% { box-shadow: 0 0 0 6px rgba(229,57,46,0) } } .ebiki-voice-rec { animation: ebiki-voice-pulse 1.2s ease-in-out infinite; }'
@@ -40,6 +43,8 @@ export default function VoiceTyping() {
   const enabled = !!ctx && featureCfg(ctx, VOICE_FEATURE_ID).enabled !== false
   const t = ctx?.t || ((k) => k)
   const getZoom = ctx?.getZoom
+  // Live, read inside the tracking effect: a new function each app render restarted the tracking every render.
+  const getZoomRef = useRef(getZoom); getZoomRef.current = getZoom
   // Ebi's Help knows dictation is available (on every screen), so "how do I talk instead of typing?" gets a real answer.
   useHelpEntry(ctx, 'voice', enabled ? t('voice_help') : '', '')
   const [field, setField] = useState(null)          // the focused dictatable element
@@ -78,32 +83,69 @@ export default function VoiceTyping() {
     return () => { document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut) }
   }, [enabled])
 
-  // Keep the badge on the field's top-right corner while it moves (scroll, resize, layout shifts).
+  // Keep the badge on the field's top-right corner while it moves (scroll, resize, layout shifts). Followed frame by
+  // frame only WHILE something moves (a scroll, a resize, a transition or animation starting, typing that may grow the
+  // field), for FOLLOW_MS after it; otherwise one cheap check every SETTLE_CHECK_MS catches a quiet layout shift. It used
+  // to read the field's box on every frame for as long as any field had focus (480 layout reads a second on a 480 Hz
+  // screen while the learner just typed in Chat).
   const target = state !== 'idle' ? fieldRef.current : field
   useEffect(() => {
     if (!target) { setPos(null); return }
     let raf = 0
     let last = ''
-    const tick = () => {
+    let until = 0
+    let gone = false
+    const measure = () => {
+      if (gone) return false
       if (!target.isConnected) {
         // The field left the screen mid-dictation: stop WITHOUT transcribing (the mic stayed open invisibly for up to
         // 90s, then a paid transcript was thrown away).
+        gone = true
         if (stateRef.current === 'recording') { recRef.current?.cancel(); setNotice(t('voice_fieldGone')) }
-        setPos(null); setField(null); return
+        setPos(null); setField(null); return false
       }
       const r = target.getBoundingClientRect()
-      const z = getZoom ? getZoom() : 1
+      const z = getZoomRef.current ? getZoomRef.current() : 1
       const s = SIZE * z
       const visible = r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight
       const left = Math.min(window.innerWidth - s - 2, Math.max(2, r.right - s * OVERLAP.x))
       const top = Math.max(2, r.top - s * OVERLAP.y)
       const key = visible ? `${Math.round(left)}|${Math.round(top)}|${z}` : 'hidden'
-      if (key !== last) { last = key; setPos(visible ? { left, top, z } : null) }
-      raf = requestAnimationFrame(tick)
+      if (key === last) return false
+      last = key; setPos(visible ? { left, top, z } : null)
+      return true
     }
-    tick()
-    return () => cancelAnimationFrame(raf)
-  }, [target, getZoom])
+    const frame = () => {
+      raf = 0
+      measure()
+      if (!gone && performance.now() < until) raf = requestAnimationFrame(frame)
+    }
+    const follow = (ms = FOLLOW_MS) => {
+      until = Math.max(until, performance.now() + ms)
+      if (!raf && !gone) raf = requestAnimationFrame(frame)
+    }
+    const onMove = () => follow()
+    const onType = () => follow(TYPE_FOLLOW_MS)
+    const opts = { capture: true, passive: true }
+    const MOVES = ['scroll', 'transitionrun', 'transitionend', 'animationstart', 'animationend']
+    for (const ev of MOVES) document.addEventListener(ev, onMove, opts)
+    document.addEventListener('input', onType, opts)
+    window.addEventListener('resize', onMove)
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(onMove) : null
+    ro?.observe(target)
+    const slow = setInterval(() => { if (!document.hidden && measure()) follow(TYPE_FOLLOW_MS) }, SETTLE_CHECK_MS) // never in a hidden tab
+    measure()
+    follow()
+    return () => {
+      gone = true
+      cancelAnimationFrame(raf)
+      clearInterval(slow)
+      ro?.disconnect()
+      for (const ev of MOVES) document.removeEventListener(ev, onMove, opts)
+      document.removeEventListener('input', onType, opts)
+      window.removeEventListener('resize', onMove)
+    }
+  }, [target]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Recording timer.
   useEffect(() => {
@@ -208,12 +250,14 @@ export default function VoiceTyping() {
       <button
         type="button"
         aria-label={tip}
-        title={tip}
+        // The app tooltip (no bare title: its 1s delay), below and right-aligned so it stays on screen over the field.
+        // While recording or transcribing the label beside the badge already says it.
+        data-tip={rec || busy ? undefined : tip}
         // mousedown would move focus off the field (and hide the badge) before the click lands.
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => toggle(field || fieldRef.current)}
         disabled={busy}
-        className={rec ? 'ebiki-voice-rec' : undefined}
+        className={rec ? 'ebiki-voice-rec' : busy ? undefined : 'tip tip-b tip-l'}
         style={{
           width: SIZE, height: SIZE, borderRadius: '50%', padding: 0, display: 'grid', placeItems: 'center',
           borderStyle: 'solid', borderWidth: '2px 2px 3px', borderColor: rec ? C.danger : C.border,

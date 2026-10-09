@@ -8,8 +8,9 @@ export default {
   style: {
       color: '#ff5fa2', accent: '#ffffff', glyph: 'candy',
       hit: [['burst', { n: 6, spin: 360, size: 0.8 }], ['confetti', { n: 8, sprinkles: true }]],
-      crit: [['splat', { n: 6, color: '#ff9cc7' }], ['burst', { n: 10, spin: 540 }], ['starburst', { points: 10, inner: 0.75, spin: 120 }]],
-      strike: [['sugarqueenBonbons', { n: 6 }], ['splat', { n: 10, color: '#ff2f87', big: true }], ['drops', { n: 8, glyph: 'candy', size: 0.5 }]],
+      // Her face sits at the centre of her box: the crit's splat and white core open on her gown, never over her face.
+      crit: [['splat', { n: 6, color: '#ff9cc7', y: 24 }], ['burst', { n: 10, spin: 540 }], ['starburst', { points: 10, inner: 0.75, spin: 120, y: 74 }]],
+      strike: [['sugarqueenBonbons', { n: 6 }], ['splat', { n: 10, color: '#ff2f87', big: true, y: 22 }], ['drops', { n: 8, glyph: 'candy', size: 0.5 }]],
       ko: [['speedlines', { color: '#ffffff', n: 24, rot: 22 }], ['flash', { big: true }], ['drip', { at: 150, n: 9, color: '#ff9cc7' }], ['puddle', { at: 600 }],
         ['confetti', { at: 1350, n: 34, sprinkles: true }], ['splat', { at: 1350, n: 10, color: '#ff9cc7', big: true }], ['ring', { at: 1400, scale: 2.4, color: '#ff9cc7' }], ['burst', { at: 1450, n: 12, spin: 720, reach: 1.3 }]],
       koMs: 2300, koPeak: 1350,

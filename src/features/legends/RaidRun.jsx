@@ -35,7 +35,7 @@ import { raidProfile } from './raidProfiles'
 import { POWERS, POWER_IDS, POWER_DEFAULTS, powerVars, procVars, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, powersHelpLine, fiftyFifty, powerHint } from './powers'
 import { abilityById } from './abilities'
 import { buildRaidPrompt, buildQuizCheckPrompt, parseQuizCheckWhy, RAID_ROLE, RAID_JOBS, RAID_MAX_TOKENS, ROLE, MAX_TOKENS } from './prompt'
-import { parseRaidQuestions, placeholderFor, reviewPlan, redoOutcome, finalQuestion, startOrder, REVIEW } from './raidQuestions'
+import { parseRaidQuestions, placeholderFor, reviewPlan, redoOutcome, finalQuestion, startOrder, askableQuestions, REVIEW } from './raidQuestions'
 import { tierOf } from '../../utils/questionTier'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
 
@@ -239,6 +239,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const answeredNotes = () => cardsRef.current.filter((c) => firstHit.current.has(c.cardId)).map((c) => c.noteId)
 
   const load = async () => {
+    introSeq.current++ // a Fight pressed before this (still waiting for the review) must not start the old questions
     setPhase('loading'); setError(''); setStudyBlocked(false)
     // Nothing answered yet: a Retry after midnight fights today's raid, not yesterday's.
     if (!firstHit.current.size) dateRef.current = todayKey()
@@ -283,7 +284,9 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   // The questions, written with the LIVE fight settings (learned language, "Ebi speaks", dialect). null = superseded.
   const writeSeq = useRef(0)
   const genKeyRef = useRef('')
+  const introSeq = useRef(0) // bumped by every reload and rewrite: what the intro's Fight would start
   const writeQuestions = async (cards, min = RAID.minCards) => {
+    introSeq.current++
     const my = ++writeSeq.current
     const c = ctxRef.current
     const s = c.subject
@@ -358,9 +361,13 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const startFight = async () => {
     if (rewriting || checking) return
     setChecking(true)
+    const seq = introSeq.current
     const list = await reviewedStart(segQs || questions || [])
     if (!alive.current) return
     setChecking(false)
+    // A reload (the mode deck changed elsewhere) or a rewrite started while the review was awaited: these questions are
+    // gone; the intro (or the loading screen) stays, and Fight starts the new ones.
+    if (seq !== introSeq.current) return
     if (!list.length) { setError(t('lg_errQuiz')); setPhase('error'); return }
     setSegQs(list)
     setPhase('fight')
@@ -434,6 +441,9 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       return (ids || []).filter((id) => !asked.has(String(id))).length
     } catch { return null }
   }
+  // The run's questions as the review left them (raidQuestions.js finalQuestion): what an ability may ask again (a loop,
+  // a minion) is the question the learner really saw or its replacement, never a rejected one or an empty placeholder.
+  const askableQs = () => askableQuestions(questions, reviewState.current)
   const unaskedQs = () => {
     const seen = new Set()
     return (questions || []).map((q) => finalQuestion(q, reviewState.current)).filter((q) => q && q._cardId != null && !firstHit.current.has(q._cardId) && !seen.has(q._cardId) && seen.add(q._cardId))
@@ -635,7 +645,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
         {testMotif && <TestTag t={t} note />}
         <BossIntro t={t} area={area} name={bossName} total={realCount} kind="raids" raidLives={maxHearts} raidLeft={startHearts} ability={ability} calm={focus} onFight={startFight} />
         {checking && <div role="status" data-raid-checking="" style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: C.purple }}>🔎 {t('lg_raidChecking')}</div>}
-        <FightSettings ctx={ctx} allowStyle busy={rewriting} runSize={runSizeOpt} />
+        <FightSettings ctx={ctx} allowStyle busy={rewriting} locked={checking} runSize={runSizeOpt} />
         <PowerLoadout t={t} beaten={beaten} loadout={loadout} onToggle={testMotif ? null : setLoadout} test={!!testMotif}
           bandage={!day?.won && bandageWorth && !bandageDone ? bandageNow : null} note={bandageNote} heal={profile.heal} cast={powerCast?.id === 'bandage' ? powerCast : null} pw={pw} damage={fightRules.damage} />
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>
@@ -723,7 +733,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     if (Object.keys(armedNow).length) setArmed({})
     const pa = powerArmedRef.current
     const { next, groups, boost } = raidStep(before, q, { verdict, mode, attackQ: info.attackQ, aid, aided }, {
-      ability, need, lives, dayHp, dayBefore: day ? day.damage : 0, dayAb: day?.ab || null, pos: pos.current, questions, armed: Object.keys(armedNow).length ? armedNow : null,
+      ability, need, lives, dayHp, dayBefore: day ? day.damage : 0, dayAb: day?.ab || null, pos: pos.current, questions: askableQs(), armed: Object.keys(armedNow).length ? armedNow : null,
       shield: !!pa.shield, sharpen: !!pa.sharpen, ward: !!pa.ward && !!q._attack,
       focus: pa.focus > 0, momentum: pa.momentum > 0, fury: pa.fury > 0, siphon: pa.siphon > 0,
     })

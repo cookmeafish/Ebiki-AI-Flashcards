@@ -101,6 +101,13 @@ describe('choices from the deck (a question that came without them)', () => {
   it('skips long fronts (a paragraph is not a choice)', () => {
     expect(choicesFromPool(q, ['gato', 'casa', 'x'.repeat(60)])).toBe(null)
   })
+  it('the fill pool only tops up what the main pool lacks (other answers before fronts)', () => {
+    // 'house' is closer in length to 'perro' than 'mariposa', but it is only a front: the answers come first.
+    const out = choicesFromPool(q, ['gato', 'mariposa'], { fill: ['house', 'cat', 'perro'] })
+    expect(out.choices).toEqual(['perro', 'gato', 'mariposa', 'house'])
+    expect(choicesFromPool(q, ['gato', 'casa', 'libro', 'mesa'], { fill: ['dog'] }).choices).not.toContain('dog')
+    expect(choicesFromPool(q, ['gato'], { fill: ['Perro'] })).toBe(null)
+  })
 })
 
 describe('choices for an open question', () => {
@@ -110,6 +117,14 @@ describe('choices for an open question', () => {
     expect(p).toMatch(/uses the card's word correctly/)
     expect(p).not.toMatch(/—/)
     expect(buildOpenChoicesPrompt({ question: 'Explain SSH' })).toMatch(/misconceptions/)
+  })
+  it('a word question names its exact answer as the correct option', () => {
+    const p = buildOpenChoicesPrompt({ front: 'DHCP', back: 'hands out IP addresses', question: 'Which protocol...?', answer: 'Dynamic Host Configuration Protocol' })
+    expect(p).toMatch(/The correct option is exactly "Dynamic Host Configuration Protocol"/)
+    expect(p).toMatch(/terms from the same subject/)
+    expect(p).not.toMatch(/misconceptions/)
+    expect(buildOpenChoicesPrompt({ question: 'Q', answer: 'huir', isLanguage: true, learnLang: 'Spanish' })).toMatch(/other Spanish words or phrases/)
+    expect(p).not.toMatch(/—/)
   })
   it('parses exactly 4 distinct options with a valid index', () => {
     expect(parseOpenChoices({ choices: ['a', 'b', 'c', 'd'], answerIdx: '2' })).toEqual({ choices: ['a', 'b', 'c', 'd'], answerIdx: 2 })

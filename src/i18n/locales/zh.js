@@ -1154,6 +1154,7 @@ export default {
   game_chooseHint: '如果你也在另一台电脑上使用 Ebiki，请选择你自己，这样你的连续天数会跟着你。',
   game_chooseNew: '我是新用户',
   game_namePlaceholder: '你的名字',
+  game_chooseFailed: '没有保存成功。请确认 Ebiki 仍在运行，然后再试一次。',
   game_start: '开始',
   game_player: '玩家',
   game_unnamed: 'Ebiki 学习者',
