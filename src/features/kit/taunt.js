@@ -7,6 +7,7 @@
 // repeat these", and a reply that shares a 3+ word phrase with any of them (or with the boss's sample line) is
 // rejected (`sharesPhrase`); one retry, then nothing is shown rather than a repeat.
 
+export const TAUNT_JOB = 'fight.taunt'
 export const TAUNT_ROLE = 'help' // the cheap tier (providers.js ROLE_TIER): one line per miss
 export const TAUNT_MAX_TOKENS = 160
 export const TAUNT_MAX_CHARS = 220

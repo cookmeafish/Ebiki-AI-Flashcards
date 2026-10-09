@@ -11,7 +11,7 @@ import { EVENTS } from '../events'
 import { ChunkyButton, Card, EbiSays, tCount } from '../ui'
 import { findLeeches, parseDiagnoses, MAX_PATIENTS, cardTextOnly, soundTags, fixChangesCard, isTreated, mentorLabelKey } from './leeches'
 import { readTreated, saveTreated, DOCTOR_FEATURE_ID } from './store'
-import { buildDoctorPrompt, DOCTOR_ROLE, DOCTOR_MAX_TOKENS } from './prompt'
+import { buildDoctorPrompt, DOCTOR_ROLE, DOCTOR_JOB, DOCTOR_MAX_TOKENS } from './prompt'
 import { aiErrorText } from '../kit/aiError'
 
 const INFO_BATCH = 300        // cardsInfo per request
@@ -127,7 +127,7 @@ export default function LeechScreen({ onExit }) {
     setDiagnosing(true); setError('')
     try {
       const { system, user } = buildDoctorPrompt(subject, seen, { others })
-      const raw = await ai.call(system, user, { role: DOCTOR_ROLE, maxTokens: DOCTOR_MAX_TOKENS })
+      const raw = await ai.call(system, user, { role: DOCTOR_ROLE, job: DOCTOR_JOB, maxTokens: DOCTOR_MAX_TOKENS })
       const m = parseDiagnoses(ai.json(raw), seen)
       for (const [id, d] of m) {
         d.explanation = ai.clean(d.explanation); d.mentor = ai.clean(d.mentor); d.confusedWith = ai.clean(d.confusedWith || '')

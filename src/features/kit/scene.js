@@ -4,6 +4,8 @@
 import { sanitizeQuestions } from './grade'
 
 export const SCENE_ROLE = 'study'
+// One scene writer, two jobs: a Legends story step and the Scenes practice activity.
+export const SCENE_JOBS = { legends: 'legends.scene', practice: 'practice.scenes' }
 export const SCENE_MAX_TOKENS = 5000
 export const SCENE_LINES = { min: 6, max: 16 }
 export const SCENE_QUESTIONS = 4

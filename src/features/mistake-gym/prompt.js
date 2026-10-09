@@ -2,6 +2,7 @@
 // "using the knowledge" means (a language is used by producing it; CompTIA, music theory or pilot training by
 // applying the concept). The model diagnoses the pattern behind the misses and tests THAT, freshly.
 export const WORKOUT_ROLE = 'study'
+export const WORKOUT_JOB = 'practice.mistakeGym'
 export const WORKOUT_MAX_TOKENS = 6000
 export const QUESTIONS = 8
 

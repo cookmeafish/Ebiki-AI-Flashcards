@@ -2292,6 +2292,15 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
 - **Adding an AI role**: `AI_ROLE_META` (label + hint), `ROLE_DEFAULTS`'s uniform map, a `ROLE_TIER` tier
   (memorized/graded → `max`, conversational/reviewed → `normal`, trivial/every-message → `cheap`); call
   `resolveModel('role')` (or `resolveModelFast` for latency-sensitive read/translate).
+- **Every AI call names its JOB** (`src/config/aiJobs.js`, tested by `aiJobs.test.js`, which fails an `aiCall` without
+  `resolveJobModel(...)` or a feature `ai.call` without `job:`). A job = `{ id, role (parent), group, base
+  ('role'|'fast'|'cheap'), vision?, speech? }`; Settings > AI & cost > "Models per job" (`JobModelSettings.jsx`) picks a
+  model per job per provider, stored as `aiModels[provider]['job:<id>']` (same config diff, heal, Custom detection). No
+  pick = exactly its role's model, so a new job changes nothing. App: `resolveJobModel('<id>')`; features:
+  `ctx.ai.call(sys, user, { role, job: '<id>' })` (job wins, role = fallback for an unknown id). A pinned job heals at
+  its parent role's tier (`pinnedTierFor`); the Model Advisor plan stays per role. Speech jobs (`speech.stt/tts`) pick
+  the engine model via `ctx.speechModel(kind, engine)` (default `src/speech` `MODELS`). **Adding a job**: one registry
+  entry + `aiJob_<id_with_underscores>` / `aiJobHint_<...>` in all four locales + pass it at the call site.
 - **Model Advisor** (`src/config/modelAdvisor.js` + App): `selectIntelligence(preset)` applies a CACHED plan
   (`modelPlans[prov][preset].plan`) at once; `ensurePresetPlan` re-lists models in the background and, only if new
   models appeared or nothing was decided, researches them (`modelCards[id]`), lets the strongest model decide a

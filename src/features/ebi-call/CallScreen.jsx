@@ -13,7 +13,7 @@ import { useFeatureCtx, useFocusHold, useActivityBusy } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, tCount, depthBorder } from '../ui'
 import { splitReply, applyGrades, ratingsFrom, onePerNote, VERDICTS, CALL_CARDS } from './grades'
-import { buildCallSystem, buildCallTurn, CALL_ROLE, CALL_MAX_TOKENS } from './prompt'
+import { buildCallSystem, buildCallTurn, CALL_ROLE, CALL_JOB, CALL_MAX_TOKENS } from './prompt'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { recordCall } from './recorder'
 import { useHelpEntry } from '../kit/useHelp'
@@ -140,7 +140,7 @@ export default function CallScreen({ onExit }) {
 
   const say = async (history, done = {}) => {
     const system = buildCallSystem(subject, targets, { practice, done: Object.keys(done), slips: subject.isLanguage ? subject.grammarSlips(SLIPS) : '', level: await learnerLevelLine(ctx, { context: true }) })
-    const raw = await ai.call(system, buildCallTurn(history), { role: CALL_ROLE, maxTokens: CALL_MAX_TOKENS })
+    const raw = await ai.call(system, buildCallTurn(history), { role: CALL_ROLE, job: CALL_JOB, maxTokens: CALL_MAX_TOKENS })
     return splitReply(raw, targets.map((tg) => tg.cardId), ai.json)
   }
 

@@ -7,6 +7,8 @@ import { MAX_SCENARIOS, MAX_CARDS, MAX_TIPS, SCORE_MAX } from './scoring'
 export const RP_ROLE = 'chat'           // the scene itself
 export const RP_MAX_TOKENS = 600
 export const RP_SETUP_ROLE = 'general'  // scenario ideas + the scorecard
+// Jobs (Settings > AI & cost > Models per job): the scene, the scenario ideas/setup, the scorecard.
+export const RP_JOBS = { scene: 'practice.roleplay', setup: 'practice.roleplaySetup', score: 'practice.roleplayScore' }
 export const RP_SETUP_MAX_TOKENS = 1500
 export const RP_SCORE_MAX_TOKENS = 2000
 export const HISTORY_TURNS = 20

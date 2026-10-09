@@ -88,6 +88,7 @@ export function evidenceText(snap, budget = EVIDENCE_BUDGET) {
 // ── A level judged from the evidence (instead of a placement exam) ─────────────────────────────────────────────
 // Same scale and bands as the exam (kit/learner.js), so a level read from evidence means what an exam level means.
 export const EVIDENCE_ROLE = 'general'
+export const EVIDENCE_JOB = 'learner.level'
 export const EVIDENCE_MAX_TOKENS = 900
 const NO_DASH = 'No dashes. Never write a shrimp emoji.'
 

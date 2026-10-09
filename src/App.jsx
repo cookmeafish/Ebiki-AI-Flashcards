@@ -17,6 +17,8 @@ import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendi
 import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
+import { resolveJob, pinnedTierFor, speechJobModel } from './config/aiJobs'
+import { MODELS as SPEECH_MODELS } from './speech/engines'
 import { LANGS, langFromName, isDistinctSpoken, langDisplayName } from './config/languages'
 import { splitTapTokens, tapClean, tapLongEnough, tapAllowed, splitCueParts } from './utils/tapTokens'
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
@@ -1005,7 +1007,7 @@ export default function App() {
     const key = aiStateRef.current.apiKeys[prov]
     if (!key) { const f = fallback(); setter?.(f); return f }
     try {
-      const out = await aiCall(key, POSE_SYS, clean.slice(0, 800), resolveModel('pose'), { silent: true })
+      const out = await aiCall(key, POSE_SYS, clean.slice(0, 800), resolveJobModel('mascot.pose'), { silent: true })
       const name = String(out || '').trim().toLowerCase().replace(/[^a-z]/g, '')
       const f = poseFile(name) || fallback()
       setter?.(f)
@@ -1807,6 +1809,23 @@ export default function App() {
     const overrides = aiStateRef.current.aiModels[prov]
     return (overrides && overrides[role]) || presetModel(pc, prov, 'normal') || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence, prov)[role]
   }
+  // Per-JOB models (src/config/aiJobs.js): every AI call names its job; a model the user picked for that job in
+  // Settings wins, else the job's parent role decides exactly as before. `fallbackRole` = the caller's role when the
+  // job id is unknown (a feature from a newer build).
+  const resolveJobModel = (jobId, prov = aiStateRef.current.provider, fallbackRole = 'general') => {
+    const pc = PROVIDERS[prov]
+    return resolveJob(jobId, {
+      overrides: aiStateRef.current.aiModels[prov] || {},
+      resolveRole: (r) => resolveModel(r, prov),
+      resolveRoleFast: (r) => resolveModelFast(r, prov),
+      cheap: presetModel(pc, prov, 'cheap'),
+      fallbackRole,
+    })
+  }
+  // Speech models (speech.stt / speech.tts jobs): per ENGINE provider, the engine's built-in model unless picked.
+  const speechModelFor = (kind, engine) => speechJobModel(kind, engine, {
+    overrides: aiStateRef.current.aiModels[engine] || {}, builtIn: SPEECH_MODELS, cheap: presetModel(PROVIDERS[engine], engine, 'cheap'),
+  })
 
   // Ask the provider for its current model list (used by the "Check for new models"
   // button and an auto-fetch when the AI Settings panel opens). Stores per provider.
@@ -1975,7 +1994,8 @@ export default function App() {
     // Match the replacement's strength to what died: a cheap-tier model heals to a cheap one.
     // A model the user PINNED for a feature heals at that feature's tier: aiCall always passes 'question', and
     // a retired cheap Mascot model was replaced with the strongest (most expensive) model for every message.
-    const pinnedTier = !healedTier && pinnedRoles.length ? ROLE_TIER[pinnedRoles[0]] : null
+    // A per-JOB pick ('job:<id>') heals at its parent role's tier (a speech job has none and is skipped).
+    const pinnedTier = !healedTier && pinnedRoles.length ? pinnedTierFor(pinnedRoles, ROLE_TIER) : null
     const tierFor = healedTier || pinnedTier
     const replacement = await discoverCurrentModel(tierFor === 'cheap' ? 'general' : tierFor === 'normal' ? 'normal' : tierFor === 'max' ? 'question' : role, prov, failedModel,
       // the models of the tiers ABOVE the one that died (see discoverCurrentModel)
@@ -3323,7 +3343,7 @@ export default function App() {
         // Two-way in language modes (as on every other path): an own-language word got a card for the user's word.
         const payload = JSON.stringify({ words: indexedWords, from: fromLabel, to: toLabel, context: fullContext, ...(activeMode?.type === 'language' ? { bidirectional: true } : {}) })
         if (stale()) return // cancelled, or a new picture: the remaining chunks were still paid for
-        const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload, resolveModel('picture'), { maxTokens: 8000 })
+        const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload, resolveJobModel('picture.translate'), { maxTokens: 8000 })
         if (stale()) return
         if (!text) { ocrLog(`Chunk ${i}: empty reply`); continue } // its words retry on hover like any miss
 
@@ -3656,9 +3676,8 @@ export default function App() {
             // Through presetModel, never providers.js's `.model` constant directly: the constant is
             // only a floor, and reading it bypassed the adopted/healed cheap tier, so a retired id
             // there failed (and re-triggered a heal) on every clean-image scan.
-            const listProv = aiStateRef.current.provider
-            const listModel = (aiStateRef.current.aiModels[listProv] || {}).picture
-              || presetModel(PROVIDERS[listProv], listProv, 'cheap') || resolveModelFast('picture')
+            // (picture.wordList job: its own pick, else the picture override, else the cheap preset.)
+            const listModel = resolveJobModel('picture.wordList')
             const listText = await aiCall(apiKey, WORDLIST_TRANSLATE_PROMPT, listPayload, listModel, { maxTokens: 8000 })
             if (stale()) return
             const listParsed = parseAiJson(listText)
@@ -3717,7 +3736,7 @@ export default function App() {
 
       const payload = JSON.stringify({ from: fromLabel, to: toLabel, context: '' })
 
-      const text = await aiCall(apiKey, VISION_OCR_PROMPT, payload, resolveModelFast('picture'), { images: [imagePart], maxTokens: 8000 })
+      const text = await aiCall(apiKey, VISION_OCR_PROMPT, payload, resolveJobModel('picture.scan'), { images: [imagePart], maxTokens: 8000 })
       if (stale()) return
       ocrLog(`Vision returned (${String(text).length} chars): ${String(text).slice(0, 1200)}`)
 
@@ -4090,7 +4109,7 @@ export default function App() {
       // Two-way in language modes (like the scan's word list): a word in the user's OWN language came back as
       // "target", and its card, word study and conjugation were made for the user's word.
       const payload = JSON.stringify({ words: [{ i: idx, w: word.text }], from: fromLabel, to: toLabel, context, ...(activeMode?.type === 'language' ? { bidirectional: true } : {}) })
-      const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload, resolveModel('picture'))
+      const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload, resolveJobModel('picture.translate'))
       // A failed or empty answer frees the index again: it stayed marked "in flight" for the rest of
       // the scan, so that word could never be translated by hovering it again.
       if (!text) { if (gen === scanGenRef.current) lazyTranslateRef.current.delete(idx); return }
@@ -4142,7 +4161,7 @@ export default function App() {
         word: word.text, translation: word.translation,
         from: fromLabel, to: toLabel, context: ocrWords.map((w) => w.text).join(' '),
       })
-      const text = await aiCall(apiKey, WORD_ENRICH_PROMPT, payload, resolveModelFast('picture'))
+      const text = await aiCall(apiKey, WORD_ENRICH_PROMPT, payload, resolveJobModel('picture.enrich'))
       const parsed = parseAiJson(text)
       if (gen !== scanGenRef.current) return // a new scan reused this index
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -4288,7 +4307,7 @@ Context: "${getContext()}"
 Study subject: ${activeMode.description || activeMode.name}${knowledgeBlock(4000)}
 
 In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.name}. Answer in ${userLangName()}. No markdown.`
-      const text = await aiCall(apiKey, activeMode.type === 'language' ? 'You are a concise language tutor. Answer in 1-2 sentences max.' : `You are a concise ${activeMode.name} tutor. Answer in 1-2 sentences max.`, prompt, resolveModel('picture'))
+      const text = await aiCall(apiKey, activeMode.type === 'language' ? 'You are a concise language tutor. Answer in 1-2 sentences max.' : `You are a concise ${activeMode.name} tutor. Answer in 1-2 sentences max.`, prompt, resolveJobModel('picture.explain'))
       if (gen === pinGenRef.current) setExplanation(popupDash(text))
     } catch (err) {
       // Not stored as the result: its button renders only while the result is empty, so a failure could never be retried.
@@ -4507,7 +4526,7 @@ Rules for this audit:
       const prompt = !isLang
         ? `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a wrong fact, definition, date, number, acronym expansion, formula or example; a term that is misspelled or does not exist; an explanation that is misleading or too thin to learn from. Keep the card's structure, labels and language, and keep its tags exactly as given. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
         : `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. VERIFY THE USAGE TAGS CARD BY CARD: the learner reads them as fact and picks their words by them, so a guessed tag is worse than none. For EACH card, first recall where you have actually encountered that word (everyday conversation, news, textbooks, novels, technical or legal texts, one particular country) and then check each tag against that evidence, fixing or adding what is wrong or missing: (a) WHERE: "region-global" ONLY if you are confident natives across all regions use the word in this sense, otherwise the correct "region-<place>" tag(s), when in doubt DEMOTE "region-global" to the region(s) actually known to use it (a too-narrow honest tag is fine, a false "global" is not); (b) HOW OFTEN: exactly one of "freq-core" (top everyday vocabulary), "freq-common", "freq-uncommon" (known but rarely said; natives usually pick another word), "freq-rare" (literature, specialized fields or older texts), never infer this from how long or advanced the word looks, and when the honest answer sits between two levels choose the LESS common one; (c) WHAT CONTEXT: a register tag from ${REGISTERS.join(', ')} ONLY when the word is genuinely restricted to that context, and REMOVE any register tag on a word that is really neutral. Delete any usage tag you cannot actually back. Also enforce PREFERRED-TERM HONESTY, a check that is NOT about correctness: for EACH translation on a card, ask whether a DIFFERENT word is what natives of the studied variant more commonly say for that meaning in everyday speech. If so, the back MUST carry a usage line naming that more common word and what the headword usually means instead (add or fix the line, e.g. "barro" translated as "mud" needs a note that everyday Latin American Spanish prefers "lodo" and barro leans clay/ceramic), and the translation line must lead with the meanings the headword IS the default term for (reorder if needed). A card that silently teaches the headword as the everyday word for a synonym-dominated meaning is WRONG even when every fact on it is technically true. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
-      const text = await aiCall(apiKey, prompt, JSON.stringify(cards), resolveModel('deck'), { maxTokens: 8000 })
+      const text = await aiCall(apiKey, prompt, JSON.stringify(cards), resolveJobModel('deck.verify'), { maxTokens: 8000 })
       const parsed = parseAiJson(text)
       const arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.cards) ? parsed.cards : null)
       if (!arr || !arr.length) return cards
@@ -4586,7 +4605,7 @@ Rules for this audit:
     for (let i = 0; i < list.length; i += 8) {
       const batch = list.slice(i, i + 8)
       try {
-        const text = await aiCall(apiKey, prompt + knowledge, JSON.stringify({ words: batch }), resolveModel('deck'), { maxTokens: 8000 })
+        const text = await aiCall(apiKey, prompt + knowledge, JSON.stringify({ words: batch }), resolveJobModel('deck.generate'), { maxTokens: 8000 })
         const parsed = parseAiJson(text)
         // {"cards": [...]} too (verifyCards already took that shape): wrapped as one object it had no front,
         // and a paid call ended in "no cards generated".
@@ -4719,7 +4738,7 @@ ${fieldRequests.map((f) => `- ${f}`).join('\n')}
 Output ONLY raw JSON. No markdown, no backticks.${dialectRule()}${preferredTermRule()}`
 
     console.log('[Anki] generating card with AI...')
-    const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+    const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt, resolveJobModel('deck.generate'))
     const cardData = parseAiJson(text)
     console.log('[Anki] AI card data:', cardData)
     // An unreadable reply used to surface as "Cannot read properties of null (reading 'tags')".
@@ -4852,7 +4871,7 @@ The user wants this change: "${instruction}"
 Return a JSON object with the updated card: { "front": "...", "back": "...", "tags": [...] }
 Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
-      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveJobModel('deck.refine'))
       const updated = parseAiJson(text)
       if (!updated || typeof updated !== 'object') throw new Error(tLiveRef.current('d_errUnusable'))
       if (gen !== pinGenRef.current) return // the popup moved to another word
@@ -5506,7 +5525,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const fieldsDesc = Object.entries(deckBrowserEditFields).map(([name, val]) => `${name}:\n${val}`).join('\n\n')
       const prompt = `Here is an Anki flashcard:\n\n${fieldsDesc}\n\nThe user wants this change: "${instruction}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(deckBrowserEditFields).map(k => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
-      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveJobModel('deck.refine'))
       const updated = parseAiJson(text)
       if (!updated || typeof updated !== 'object' || Array.isArray(updated)) throw new Error(tLiveRef.current('err_replyUnreadable'))
       // Cancelled, or another card opened, while Ebi worked: the result belongs to a card that is no
@@ -5875,7 +5894,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           // keepDashes: the integrity guard matches the model's echoed `front` VERBATIM against the
           // deck — the global dash strip would make any dash-containing front unmatchable and
           // silently drop its rec. Suggestion CONTENT is stripped post-guard instead.
-          const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', buildPrompt(batches[bi]), resolveModel('deck'), { keepDashes: true, maxTokens: 8000 })
+          const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', buildPrompt(batches[bi]), resolveJobModel('deck.bulkEdit'), { keepDashes: true, maxTokens: 8000 })
           // parseAiJson, not bare JSON.parse: models sometimes append commentary after the array or
           // truncate mid-row — the tolerant parser strips the noise and salvages complete objects.
           const parsed = parseAiJson(text)
@@ -5943,7 +5962,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           ? `The proposals were produced for this owner request: "${instruction}".`
           : `The proposals fix ambiguous/underspecified cards.`
       const prompt = `You are a skeptical senior reviewer double-checking ANOTHER model's proposed flashcard edits BEFORE the deck owner reviews them. These edits will be WRITTEN onto the owner's cards, so a wrong or sloppy proposal is harmful. ${isLangDeck ? `The deck teaches ${studyLang}.${dialectRule()}${preferredTermRule()}` : `The deck studies "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}.`}\n${goal}\n\nFor EACH proposal, check IN ORDER:\n1. TRUTH: every claim in proposedFields is factually correct${isLangDeck ? ` in ${studyLang}, including REGIONAL honesty: never say a word is "only slang/colloquial" or "only means X" when some region genuinely uses it for the literal sense too; state the per-region reality precisely` : ''}. Fix anything wrong.\n2. SCOPE: the change does what the goal asks and nothing more, restore any line it needlessly altered (compare against currentFields).${isLangDeck ? ` If currentFields held a short direct ${studyLang}-to-English translation and proposedFields dropped it (folded into an example's parenthetical, or omitted), restore it as its own visible line, that direct gloss is what the learner relies on to recall the word at a glance and must never be removed just because the card gained a definition/example.` : ''}\n3. TAGS: proposedTags is the COMPLETE replacement list; restore any existing tag that was dropped without reason (a missing tag silently deletes it).${isLangDeck ? ` Verify every USAGE tag against where you have actually encountered that word rather than accepting the other model's claim: "region-global" only when you are confident every region uses it in this sense (otherwise demote it to the region(s) you can back), exactly one honest frequency tag ("freq-core" / "freq-common" / "freq-uncommon" / "freq-rare", choosing the LESS common level when it sits between two), and a register tag only for a word genuinely restricted to that context. Delete a usage tag you cannot back.` : ''}\n4. CLARITY (active improvement): even when nothing failed, make the proposed content clearer and easier to learn from, simpler wording, sharper examples, tighter phrasing, WITHOUT changing its meaning, scope, language, or line format. Keep text verbatim only when you genuinely cannot improve it.${allowDrop ? `\n\nIf a card never needed this change at all (the proposal is wrong or pointless), mark it with "drop": true instead of fixing it.` : ''}\n\nProposals (JSON):\n${JSON.stringify(payload)}\n\nReturn the SAME JSON array (same noteIds, same order) with "proposedFields"/"proposedTags"/"reason" corrected in place ("reason" stays in ${userLangName()}, the owner's language)${allowDrop ? ' and "drop": true on proposals to discard' : ''}. NEVER change a noteId. Use plain text with newlines (no HTML). Output ONLY raw JSON.`
-      const text = await aiCall(apiKey, 'You review proposed flashcard edits. Always respond with valid JSON only.', prompt, resolveModel('deck'), { maxTokens: 8000 })
+      const text = await aiCall(apiKey, 'You review proposed flashcard edits. Always respond with valid JSON only.', prompt, resolveJobModel('deck.bulkVerify'), { maxTokens: 8000 })
       const parsed = parseAiJson(text)
       if (!Array.isArray(parsed)) return recs
       const byId = new Map(parsed.filter((p) => p && p.noteId != null).map((p) => [Number(p.noteId), p]))
@@ -6013,7 +6032,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const fieldsDesc = Object.entries(rec.recommendedFields).map(([k, v]) => `${k}:\n${v}`).join('\n\n')
       const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nTags: ${parseRecTags(rec).join(' ') || '(none)'}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')}, "tags": ["the", "complete", "tag-list"] }\nKeep any fields/tags the user didn't ask to change ("tags" is the FULL replacement list, so carry unchanged tags over). Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
-      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveJobModel('deck.refine'))
       const updated = parseAiJson(text)
       // An unreadable reply threw a TypeError deep in here (Object.entries(null)), and the row just stopped
       // refining with no word of why.
@@ -6364,7 +6383,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           const prompt = activeMode.type === 'language'
             ? `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
             : `These are flashcard fronts from a "${activeMode.name}" study deck that look similar (possible duplicates: typo variants, an abbreviation vs its expansion, or the same term/concept written differently). For each cluster, identify which cards are truly the SAME term/concept and should be merged. DISTINCT concepts that merely look or sound similar (e.g. "encoding" vs "encryption", "TCP" vs "UDP") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same term/concept. Output ONLY raw JSON, no markdown.`
-          const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveModel('deck'), { maxTokens: 8000 })
+          const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveJobModel('deck.duplicates'), { maxTokens: 8000 })
           const parsed = parseAiJson(text)
           if (Array.isArray(parsed)) {
             // IDENTITY GUARD, like the rest of this pipeline: a confirmed set must lie inside ONE cluster it
@@ -6460,7 +6479,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       try {
         const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, headword: htmlToPlain(frontOf(notes[0])), cards: notes.map(plainFields) }))
         const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "headword": "<echo the same group's headword verbatim>", "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nThe "group" number, "headword", and "mergedFields" MUST all belong to the SAME group, never mix one group's content with another's.\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
-        const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+        const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt, resolveJobModel('deck.duplicates'))
         const parsed = parseAiJson(text)
         if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = { fields: p.mergedFields, headword: p.headword || '' } })
       } catch (e) {
@@ -7057,7 +7076,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         evidence,
         userLanguage: userLangName(),
       })
-      const text = await aiCall(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, resolveModel('discover'))
+      const text = await aiCall(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, resolveJobModel('discover.profile'))
       const profile = parseAiJson(text)
       if (!live()) return null
       // An unreadable reply used to return null in silence: Discover just sat there with nothing
@@ -7146,7 +7165,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         userLanguage: userLangName(),
         learnerLevel: activeMode.discoverUseLevel === true && legendsLevel ? learnerLine(legendsLevel, (activeMode.type || 'general') === 'language') : '',
       }) + dialectRule() // regional-variant safeguard — suggestions must fit the studied dialect
-      const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
+      const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveJobModel('discover.suggest'))
       let suggestion = parseAiJson(text)
       if (!live()) return
       // Text fields as TEXT, a list or wrapped reply read as its first item (src/discover/suggestion.js).
@@ -7193,7 +7212,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           if (searchData.results?.length > 0) {
             setDiscoverSources(searchData.results.slice(0, 4))
             setDiscoverStatus('verifying')
-            const vText = await aiCall(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5), userLanguage: userLangName() }), resolveModel('discover'))
+            const vText = await aiCall(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5), userLanguage: userLangName() }), resolveJobModel('discover.verify'))
             const v = parseAiJson(vText) // never bare JSON.parse on AI replies — commentary/truncation killed verification silently
             suggestion = textify({ ...suggestion, translation: v.translation || suggestion.translation, draftMeaning: v.draftMeaning || suggestion.draftMeaning, verified: v.verified === true || /^(true|yes|1)$/i.test(String(v.verified ?? '').trim()), verifyNote: asText(v.note) }) // the string "false" is not verified
           }
@@ -7372,7 +7391,7 @@ Design 4-6 DISCOVERY CATEGORIES a tutor could draw from when suggesting new flas
 
 Return ONLY a JSON array (no markdown):
 [{ "key": "short-kebab-slug", "label": "<chip label, 1-3 words, in ${APP_LANG_NAME[appLanguage] || 'English'}>", "rule": "<one imperative sentence telling the tutor exactly what kind of item to suggest and what to put in term/translation/explanation>" }]`
-      const text = await aiCall(apiKey, 'You design study-content category systems. Respond with valid JSON only.', prompt, resolveModel('discover'))
+      const text = await aiCall(apiKey, 'You design study-content category systems. Respond with valid JSON only.', prompt, resolveJobModel('discover.kinds'))
       const kinds = parseAiJson(text)
       // As text and one chip per key: an object label rendered "[object Object]", two categories with one
       // key lit up together, and one keyed "both" was indistinguishable from the Anything chip.
@@ -7754,7 +7773,7 @@ Return ONLY a JSON array (no markdown):
         const sel = await aiCall(apiKey,
           'You route study tasks to the relevant sections of study material. Respond ONLY with a raw JSON array of section numbers.',
           `TABLE OF CONTENTS:\n${toc}\n\nTASK:\n${task}\n\nReturn a JSON array with the numbers of the 1-4 sections most relevant to this task, most relevant first (e.g. [12,3]). ONLY the raw JSON array, no markdown.`,
-          resolveModel('general'))
+          resolveJobModel('modes.knowledgePick'))
         const parsed = parseAiJson(sel) // tolerant of "Here you go: [12, 3]"-style replies
         // Numbers as strings ("12") or a wrapper ({"sections":[12,3]}) count too: read strictly, the picks were dropped and
         // every task on a whole-book knowledge base paid another selector call for nothing.
@@ -8059,7 +8078,7 @@ User request: "${instruction}"
 
 Return ONLY updated JSON with these exact keys: ${meta.map((f) => f.key).join(', ')}. Keep anything the user didn't ask to change identical to the current value.${scope === 'cards' ? ' "fields" is an object of {fieldName: boolean}.' : ''}
 Output ONLY raw JSON. No markdown, no backticks.`
-      const text = await aiCall(apiKey, 'You modify study-mode settings. Respond with valid JSON only.', prompt, resolveModel('general'))
+      const text = await aiCall(apiKey, 'You modify study-mode settings. Respond with valid JSON only.', prompt, resolveJobModel('modes.edit'))
       const cfg = parseAiJson(text)
       if (!cfg || typeof cfg !== 'object') throw new Error(tLiveRef.current('err_replyUnreadable'))
       if (activeModeIdRef.current !== modeId) return // switched modes while Ebi was thinking
@@ -8897,7 +8916,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     })
     for (let attempt = extra.fallbackOnly ? 3 : 0; attempt < 3; attempt++) {
     try {
-      const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt + leakRetryNote, resolveModel('study'))
+      const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt + leakRetryNote, resolveJobModel('study.questions'))
       const parsed = parseAiJson(text)
       // An empty array is a failed generation too: a card with no questions can never be asked or finished.
       if (!Array.isArray(parsed) || !parsed.length) throw new Error('not array')
@@ -9033,7 +9052,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         buildQuestionReviewPrompt({
           front: getCardFront(card), back: getCardBack(card).slice(0, 1500), questions: qs, isLanguage,
           learnLang: isLanguage ? learnLangName() : '', subject: `${activeMode.name}${activeMode.description ? ` (${String(activeMode.description).slice(0, 300)})` : ''}`,
-        }), resolveModel('qcheck'), { silent: true, maxTokens: 500 })
+        }), resolveJobModel('study.review'), { silent: true, maxTokens: 500 })
       return parseQuestionReview(parseAiJson(text), qs.length)
     } catch (err) {
       console.warn('[Study] question review failed (kept unreviewed):', err.message)
@@ -9178,7 +9197,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // text-matches option strings. The verified pbq is deep-stripped at the return sites.
         const genText = await aiCall(apiKey, PBQ_GEN_SYSTEM,
           buildPbqGeneratorPrompt({ subject: activeMode.name, front, back, lang, knowledgeContext: kctx || null, priorFailure }),
-          resolveModel('study'), { keepDashes: true })
+          resolveJobModel('study.pbq'), { keepDashes: true })
         const raw = parsePbqJson(genText)
         if (!raw) { priorFailure = 'the response was not a single valid JSON object'; continue }
         // Relevance gate: an off-subject card (e.g. a stray vocab card in a cert deck) is skipped
@@ -9196,10 +9215,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // answer", it was always ruled solver_wrong and the exercise went out unverified. One more solve; still
         // nothing usable counts as a failed attempt (not blamed on the content).
         const usable = (a) => Array.isArray(a) && a.some((v) => v !== null && v !== undefined)
-        let solverRaw = await aiCall(apiKey, PBQ_SOLVER_SYSTEM, buildPbqSolverPrompt(studentView(compiled.pbq), lang), resolveModel('study'), { keepDashes: true })
+        let solverRaw = await aiCall(apiKey, PBQ_SOLVER_SYSTEM, buildPbqSolverPrompt(studentView(compiled.pbq), lang), resolveJobModel('study.pbqCheck'), { keepDashes: true })
         let solved = parseSolverAnswer(compiled.pbq, parsePbqJson(solverRaw))
         if (!usable(solved)) {
-          solverRaw = await aiCall(apiKey, PBQ_SOLVER_SYSTEM, buildPbqSolverPrompt(studentView(compiled.pbq), lang), resolveModel('study'), { keepDashes: true })
+          solverRaw = await aiCall(apiKey, PBQ_SOLVER_SYSTEM, buildPbqSolverPrompt(studentView(compiled.pbq), lang), resolveJobModel('study.pbqCheck'), { keepDashes: true })
           solved = parseSolverAnswer(compiled.pbq, parsePbqJson(solverRaw))
           if (!usable(solved)) { console.log('[PBQ] blind solve unusable twice, attempt not counted as verified:', front); continue }
         }
@@ -9208,7 +9227,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // Adjudicate the disagreement
         const judgeRaw = await aiCall(apiKey, PBQ_JUDGE_SYSTEM,
           buildPbqJudgePrompt({ pbq: compiled.pbq, diffs: cmp.diffs, solverRaw, knowledgeContext: kctx || null }),
-          resolveModel('study'))
+          resolveJobModel('study.pbqCheck'))
         const verdict = parsePbqJson(judgeRaw)
         // Display copy only — verification (citations, solver matching) already ran on the verbatim text.
         if (verdict?.verdict === 'solver_wrong') { console.log('[PBQ] verified — judge upheld the key:', compiled.pbq.title); const out = strippedPbqOk(compiled.pbq); if (out) return out; priorFailure = DASH_ITEM_FAILURE; continue }
@@ -9242,7 +9261,7 @@ Return a JSON object:
 
 Use up to 40 words total. No duplicates. Output ONLY raw JSON. No markdown, no backticks.`
     try {
-      const text = await aiCall(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt, resolveModel('study'))
+      const text = await aiCall(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt, resolveJobModel('study.conjugation'))
       const parsed = parseAiJson(text)
       // No language in the reply: the deck's (as in the catch below), never English (Spanish verbs were then
       // drilled as English ones).
@@ -9278,7 +9297,7 @@ Return JSON: [{"question": "...", "type": "recall", "hint1": "X letters", "hint2
 
 Output ONLY raw JSON. No markdown, no backticks.`
     try {
-      const text = await aiCall(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
+      const text = await aiCall(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveJobModel('study.conjugation'))
       const parsed = parseAiJson(text)
       if (!Array.isArray(parsed) || !parsed.length) throw new Error('not array') // empty = unfinishable card, use the fallback
       // Rows with no question text are dropped (a blank prompt; a null row crashed on q.hint1).
@@ -10538,7 +10557,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       aiCall(apiKey,
         'You pick the single key term a learner should type once to cement a flashcard. Reply with the term only, nothing else.',
         `Flashcard front: "${cs.front}"\nBack (excerpt): ${String(cs.back || '').slice(0, 400)}\nSubject: ${activeMode.name}${activeMode.description ? ` (${String(activeMode.description).slice(0, 120)})` : ''}\n\nReturn the ONE short name/term (2-6 words, taken verbatim from the card when possible) that best captures what this card teaches. The learner will type it once to lock it in. No quotes, no explanation.`,
-        resolveModel('study'), { silent: true })
+        resolveJobModel('study.learnIt'), { silent: true })
         .then((t) => {
           // Markdown wrappers (**term**, `term`) would otherwise have to be typed literally.
           const term = String(t || '').trim().split('\n')[0].replace(/[*`]+/g, '').trim().replace(/^["'«»“”]+|["'«»“”]+$/g, '').trim()
@@ -10586,7 +10605,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         .map((m) => `${m.role === 'user' ? 'Student' : 'Ebi'}: ${m.content}`).join('\n')
       const sys = `You are Ebi, a warm, patient study buddy. The student just admitted they do NOT know this flashcard at all, so explain from zero, small words, concrete examples, no jargon. Reply in ${explainLang}, under 120 words, plain text with at most **bold** on key words. Never use em dashes.`
       const prompt = `Flashcard the student doesn't know:\nFront: "${lm.front}"\nBack:\n${lm.back}\n${activeMode.type === 'language' ? `\nThey are learning ${learnLangName()}.${dialectRule()}` : `\nSubject: ${activeMode.name}`}${knowledgeBlock ? knowledgeBlock(4000) : ''}${grammarSlipBlock(8)}\n\nConversation so far:\n${history}\n\nAnswer the student's last message. Be concrete and encouraging; if they ask "why", give the real reason, not just a restatement.`
-      const text = await aiCall(apiKey, sys, prompt, resolveModel('study'))
+      const text = await aiCall(apiKey, sys, prompt, resolveJobModel('study.learnIt'))
       const clean = String(text || '').replace(/(\d)\s*–\s*(\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').trim()
       if (!clean) throw new Error('empty reply') // an empty bubble looked like Ebi had nothing to say
       setStudyLearnMoment((p) => (p && p.id === lm.id) ? { ...p, chat: [...p.chat, { role: 'assistant', content: clean }], chatLoading: false } : p) // not into the next card's chat
@@ -10830,7 +10849,7 @@ Rules:
       const accepted = questionObj?.acceptedAnswers || []
       let revealNote = ''
       for (let attempt = 0; attempt < 3; attempt++) {
-        const text = await aiCall(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt + revealNote, resolveModel('study'))
+        const text = await aiCall(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt + revealNote, resolveJobModel('study.hint'))
         const hint = String(text || '').replace(/\s*[—–]\s*/g, ', ').trim()
         if (!hint) throw new Error('empty hint') // an empty reply showed an empty hint box
         if (!here()) break // answered or moved on meanwhile: this hint belongs to another question
@@ -10896,7 +10915,7 @@ ${wantChoices ? '- Also return "choices": exactly 4 options (1 correct, matching
 
 Return ONLY raw JSON:
 {"question": {"question":"...","type":"${q.type}","hint1":"N letters","hint2":"starts with 'X'","acceptedAnswers":["..."]${wantChoices ? ',"choices":["...","...","...","..."],"answerIdx":0' : ''}}, "preference": "..." or null}`
-      const text = await aiCall(apiKey, 'You repair flashcard quiz questions. Always respond with a single valid JSON object.', prompt, resolveModel('study'))
+      const text = await aiCall(apiKey, 'You repair flashcard quiz questions. Always respond with a single valid JSON object.', prompt, resolveJobModel('study.fix'))
       const parsed = parseAiJson(text)
       const nq = parsed?.question
       if (!nq?.question) throw new Error(tLiveRef.current('d_errUnusable')) // shown under the Fix box: in the app language
@@ -10994,7 +11013,7 @@ Reply as JSON ONLY (no markdown, no extra text, never an em dash):
 {
 ${usageTagsContract(`"${target}" in this sense`)}
 }${usageTagsVocab()}`
-    const text = await aiCall(apiKey, `You are a precise ${L} usage expert. Output JSON only.`, prompt, resolveModel('study'), { silent: true })
+    const text = await aiCall(apiKey, `You are a precise ${L} usage expert. Output JSON only.`, prompt, resolveJobModel('study.usageTags'), { silent: true })
     return foldUsageTags(parseAiJson(text)?.usageTags || [])
   }
   const checkUsageTags = async (target, sense, sentence, proposed) => {
@@ -11209,7 +11228,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
   "pron": "simplified phonetics of \\"${word}\\" for a ${explainLang} speaker, stressed syllable in CAPS; "" if it reads exactly as spelled",
   "usage": "only if noteworthy: a few ${explainLang} words on how common/where/what register; "" otherwise"
 }`
-      const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}. Never use em dashes.`, prompt, resolveModel('study'))
+      const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}. Never use em dashes.`, prompt, resolveJobModel('study.lookup'))
       const parsed = parseAiJson(text)
       // Em dashes are banned everywhere a reader can see — prompts leak, the strip is the guarantee.
       // An en dash between digits is a RANGE ("2–4", "1990–2000"): a hyphen, not a comma that changed the meaning.
@@ -11544,7 +11563,7 @@ ${METHODS[method] || METHODS.meaning}${activeMode.mnemonicHints ? `\n\nMODE-SPEC
 QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone${method === 'confuse' ? ' (for THIS method the test is: shown the confusable pair side by side, would the learner now pick the right one every time?)' : ''}. Mentally test yours: would someone who forgot this recover it from your hook? If not, try a different angle. Never output a vague "just associate X with Y". CLARITY: the hook must carry ONE unambiguous chain from cue to answer. Every sound-alike must map cleanly to its word part AND be AFFIRMED by the scene: never negated, questioned, or argued with (a line like "Just sell it? No!" teaches the learner "sell", or nothing). If a sound-alike only fits through a contortion, drop it and anchor that part a different way. Any sentence that USES the target item must be real, grammatically correct usage: "You dárselo the book tomorrow" is broken twice (unconjugated infinitive, and "lo" already IS the book), and a hook that models broken usage teaches the error. If the hook needs a wrap-up, end with ONE clean recap ("dár-se-lo = to give it to him"), never a second re-explanation. Then EDIT FOR ECONOMY: the best hook is the SHORTEST one that STILL PASSES that test: one sharp image beats three decorations, so delete scene-setting, filler adjectives, and anything the learner does not need to replay to reach the answer. Trim FILLER, never PERSONALITY: the surprising, funny, vivid core is load-bearing: cutting it makes the hook forgettable. Re-run the test after trimming: if a cut makes the hook harder to recall, duller, or harder to reconstruct from, put the words back: a slightly longer hook that works beats a tight one that fails.
 
 Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. FORMAT: short sentences; you MAY use **bold** on the few key words that carry the hook and a line break between steps/pairs: nothing else (no headers, no bullet symbols, no em dashes or en dashes).`
-    const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid.`, prompt, resolveModel('study'))
+    const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid.`, prompt, resolveJobModel('study.hooks'))
     // Em dashes are banned in user-facing text — the prompt forbids them, the strip guarantees it.
     // An en dash between digits is a RANGE ("2–4", "1990–2000"): a hyphen, not a comma that changed the meaning.
     const deDash = (s) => String(s || '').replace(/(\d)\s*–\s*(\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ').trim()
@@ -11576,7 +11595,7 @@ CHECK, in order:
 THEN IMPROVE: even when nothing outright fails, actively look for ANY change that would make the aid CLEARER, easier to UNDERSTAND, or easier to MEMORIZE for this learner: and make it. Typical wins: replace an abstract or bland image with a sharper concrete one; simplify convoluted wording a confused learner would stumble on; make the cue→answer chain more direct; strengthen a weak sound pair; cut a step that adds nothing. Never break what already works, never trade memorability for brevity, and never rewrite for mere taste: every change must earn its place by helping understanding or recall. Output the draft VERBATIM only when you genuinely cannot improve it.
 
 Your output keeps: the same method, the same language (${explainLang}), the same format rules (bold key words + line breaks only, no em dashes), the same length cap (${lengthRule.split('.')[0]}), and a leading bold method label if the draft has one. Output ONLY the final memory aid text: no verdict, no commentary.${dialectRule()}`
-      const fixed = await aiCall(apiKey, `You are a meticulous, skeptical editor of memory aids. Output only the final memory aid text.`, reviewPrompt, resolveModel('study'), { silent: true })
+      const fixed = await aiCall(apiKey, `You are a meticulous, skeptical editor of memory aids. Output only the final memory aid text.`, reviewPrompt, resolveJobModel('study.hooks'), { silent: true })
       // The editor sometimes answers ABOUT the draft ("The draft already passes; no changes needed.") or wraps
       // it ("Improved version:", a code fence); that text was saved as the hook itself. Wrappers are
       // stripped; a verdict, a lost bold label or a runaway rewrite falls back to the draft.
@@ -12096,7 +12115,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       let results = null
       for (let attempt = 0; attempt < 2 && !complete(results); attempt++) {
         try {
-          const text = await aiCall(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt, resolveModel('study'))
+          const text = await aiCall(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt, resolveJobModel('study.grade'))
           results = parseAiJson(text)
           // One question: a lone object (no brackets) is that one row, not an unreadable reply.
           // Only a ROW ({correct, ...}); a wrapper holding one list ({"results": [...]}) is that list. Any other object
@@ -12305,7 +12324,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
           try {
             const reply = await aiCall(apiKey, 'You write multiple-choice options for a quiz question. Always respond with one valid JSON object.',
               buildOpenChoicesPrompt({ front: cs.front, back: cs.back, question: text, isLanguage, learnLang: isLanguage ? learnLangName() : '', quizLang: interactionLangName(rules) }),
-              resolveModel('study'), { silent: true, maxTokens: 400 })
+              resolveJobModel('study.choices'), { silent: true, maxTokens: 400 })
             const parsed = parseOpenChoices(parseAiJson(reply))
             const built = parsed ? buildChoices(parsed.choices, parsed.answerIdx, []) : null
             if (!built || sid !== studySessionRef.current) return
@@ -12503,7 +12522,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     if (hit) return hit
     const learnLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName()
     const userLang = userLangName()
-    const reply = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, glossPrompt(qtext, learnLang, userLang, acc), resolveModel('study'), { silent: true })
+    const reply = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, glossPrompt(qtext, learnLang, userLang, acc), resolveJobModel('study.glosses'), { silent: true })
     const parsed = parseAiJson(reply)
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('gloss reply was not a JSON object')
     const safe = filterRevealingGlosses(parsed, acc)
@@ -12533,7 +12552,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       const qtext = String(getQuestionText(q)).replace(/\s+/g, ' ').trim()
       if (!qtext) return
       const prompt = glossPrompt(qtext, learnLang, userLang, answers)
-      const text = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, prompt, resolveModel('study'), { silent: true })
+      const text = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, prompt, resolveJobModel('study.glosses'), { silent: true })
       const parsed = parseAiJson(text)
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('gloss reply was not a JSON object')
       const safe = filterRevealingGlosses(parsed, answers)
@@ -13169,7 +13188,7 @@ move improved struggles to "Improving"/"Mastered", DROP stale or redundant lines
 (the file compresses understanding, it never just accumulates). Keep any durable notes about the
 learner's goals or interests that already exist.`
 
-      const text = await aiCall(apiKey, 'You analyze study session results and track learning progress.', prompt, resolveModel('study'))
+      const text = await aiCall(apiKey, 'You analyze study session results and track learning progress.', prompt, resolveJobModel('study.insights'))
       // The notes are written back only over what was READ: a chat progress update during this call (or the
       // shared folder coming back, which freezes writers) made this replace newer notes with the older copy.
       let stillSame = !dataSwitchingRef.current
@@ -13392,7 +13411,7 @@ To mark ONE question correct (questionIndex is 0-based: Q1 is 0, Q2 is 1): <acti
 
 Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the student is studying, not English, unless ${studyLang} is English). Always include the action tag when applicable. Never refuse a student's correction request. If the card's rating was already locked into Anki, the app corrects Anki itself after your action and appends a factual receipt to your reply, never claim you changed Anki yourself.`
       const fullPrompt = newMessages.map(m => `${m.role === 'user' ? 'User' : 'Tutor'}: ${m.text}`).join('\n')
-      const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveModel('study'))
+      const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveJobModel('study.feedbackChat'))
 
       // Parse and execute actions from the response
       const actionMatches = [...text.matchAll(/<action>(.*?)<\/action>/gs)]
@@ -13677,7 +13696,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     ;(async () => {
       try {
         const prompt = `Generate exactly 3 short example chat prompts (3-6 words each) a user could tap to start chatting with an AI tutor about this study mode. Mix a concept question, a "make a flashcard" request, and a "quiz me" request, all specific to the subject.\nMode name: "${activeMode.name}"\nSubject/description: "${activeMode.description || activeMode.name}"\nType: ${activeMode.type}\nWrite all 3 prompts in ${userLangName()} (the app language), like the rest of the catered experience.\nOutput ONLY a raw JSON array of 3 strings. No markdown, no backticks.`
-        const text = await aiCall(apiKey, 'You suggest example chat prompts. Respond with valid JSON only.', prompt, resolveModel('general'), { silent: true })
+        const text = await aiCall(apiKey, 'You suggest example chat prompts. Respond with valid JSON only.', prompt, resolveJobModel('chat.suggest'), { silent: true })
         const arr = parseAiJson(text)
         // Text (an object item became a "[object Object]" chip for good), and only if nothing set chips meanwhile
         // (Ebi Studio or an edit during this call).
@@ -13739,7 +13758,7 @@ WRITING STYLE: Never use em-dashes (—) or en-dashes (–); they read as fake/A
 
 LORE: You (Ebi) are a shrimp and are completely at peace with being eaten. You know shrimp are nutritious, delicious, and healthy, so if it ever comes up, cheerfully reassure the user it's totally fine and even encourage them to enjoy eating shrimp.
 
-You run on the ${providerConfig.label} model "${resolveModel('chat')}". If the user asks what AI model or provider powers you, just tell them, it's not a secret.
+You run on the ${providerConfig.label} model "${resolveJobModel('chat.reply')}". If the user asks what AI model or provider powers you, just tell them, it's not a secret.
 
 IMPORTANT BEHAVIOR RULES:
 1. When the user asks you to build a whole DECK or many cards for a broad topic:
@@ -13853,7 +13872,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
         // images ride along on every send, every later message in the chat failed too. Left out instead.
         if (PORTABLE_IMAGE_TYPES.test(part.mediaType)) imageParts.push(part)
       }
-      const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'), imageParts.length ? { images: imageParts } : undefined)
+      const text = await aiCall(apiKey, systemPrompt, convo, resolveJobModel('chat.reply'), imageParts.length ? { images: imageParts } : undefined)
 
       // Parse anki cards from response
       const parsedCards = chatReplyCards(text)
@@ -13971,7 +13990,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
           ? `You are Ebi. A web search for "${query}" could not be run right now (the search service did not answer). Briefly tell the user the search did not work, then answer from your own knowledge if you can, saying it is not verified. Never use em-dashes (—).`
           : `You are Ebi. A web search for "${query}" returned nothing. Briefly tell the user you couldn't find it. Never use em-dashes (—).`
       const convo = boundChatHistory(baseMsgs) // same cap as a normal send: a long chat failed every search
-      const text = String(await aiCall(apiKey, sys, convo, resolveModel('chat'), { maxTokens: 1500 }) || '')
+      const text = String(await aiCall(apiKey, sys, convo, resolveJobModel('chat.reply'), { maxTokens: 1500 }) || '')
       const sm = text.match(/<sources>([\s\S]*?)<\/sources>/)
       let sources = results.length ? results.map((r) => ({ title: r.title, url: r.url })) : null
       if (sm) {
@@ -14266,7 +14285,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
       const text = await aiCall(apiKey,
         'You configure study modes for a learning app. Always respond with valid JSON only.',
-        prompt, resolveModel('general')
+        prompt, resolveJobModel('modes.create')
       )
       const config = parseAiJson(text)
       if (!config || typeof config !== 'object') throw new Error(tLiveRef.current('err_replyUnreadable'))
@@ -14523,7 +14542,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 Context: "${getContext()}"
 
 In 3-4 short sentences, explain why "${word.text}" means "${word.translation}" in this context. Be concise and direct. No filler, no repetition, no grammar analysis, no examples. Just the meaning and why. Answer in ${userLangName()}.`
-      const text = await aiCall(apiKey, 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.', prompt, resolveModel('picture'))
+      const text = await aiCall(apiKey, 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.', prompt, resolveJobModel('picture.explain'))
       if (gen === pinGenRef.current) setDeepExplanation(popupDash(text))
     } catch (err) {
       if (gen === pinGenRef.current) { setDeepExplanation(null); raiseNotice(tLiveRef.current('pic_explainFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
@@ -14560,7 +14579,7 @@ REGISTER: One word: formal/informal/neutral/slang.
 RELATED: 3 related words with a brief ${userLangName()} meaning, one per line.
 
 No paragraphs. No explanations. Just the facts. Use the section labels above. Write the labels and notes in ${userLangName()}.`
-      const text = await aiCall(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt, resolveModel('picture'))
+      const text = await aiCall(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt, resolveJobModel('picture.wordStudy'))
       if (gen === pinGenRef.current) setWordStudy(popupDash(text))
     } catch (err) {
       if (gen === pinGenRef.current) { setWordStudy(null); raiseNotice(tLiveRef.current('pic_explainFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
@@ -14594,7 +14613,7 @@ For adjectives: the forms ${langLabel} inflects for (gender, number, case), one 
 A word ${langLabel} does not inflect: say so in one line.
 
 No explanations. Just the forms. Use the section labels above.`
-      const text = await aiCall(apiKey, 'You are a conjugation table generator. Only output the forms, no commentary.', prompt, resolveModel('picture'))
+      const text = await aiCall(apiKey, 'You are a conjugation table generator. Only output the forms, no commentary.', prompt, resolveJobModel('picture.conjugation'))
       if (gen === pinGenRef.current) setConjugation(popupDash(text))
     } catch (err) {
       if (gen === pinGenRef.current) { setConjugation(null); raiseNotice(tLiveRef.current('pic_conjFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
@@ -14625,7 +14644,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       ]
       // Build the full conversation as a single user message for simplicity
       const fullPrompt = messages.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content ?? ''}`).join('\n')
-      const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveModel('picture'))
+      const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveJobModel('picture.chat'))
       if (gen === pinGenRef.current) setChatMessages((prev) => [...prev, { role: 'assistant', text: popupDash(text) }])
     } catch (err) {
       if (gen === pinGenRef.current) setChatMessages((prev) => [...prev, { role: 'assistant', text: tLiveRef.current('chat_replyError', { msg: stripDashes(aiErrMsg(err)).slice(0, 300) }), error: true }])
@@ -14977,6 +14996,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     help: { set: setFeatureHelpEntry },
     registry, t, lang: appLanguage, apiKeys, getZoom, onboarded,
     presetModel: (prov, tier) => presetModel(PROVIDERS[prov], prov, tier),
+    // The model a speech engine uses ('stt' | 'tts', engine = openai/grok/gemini): Settings' speech job, else built in.
+    speechModel: (kind, engine) => speechModelFor(kind, engine),
     activeMode, activeTab, setActiveTab,
     // App-wide Back/Forward (src/nav). Screens declare their sub-views with useNavEntry (from '../registry').
     nav: { back: () => nav.back(), forward: () => nav.forward(), canGoBack: () => nav.canGoBack() },
@@ -15038,8 +15059,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // AI for features, on the user's provider. `role` picks the model like everywhere else (resolveModel).
     ai: {
       hasKey: !!apiKey,
-      call: (system, user, { role = 'general', maxTokens, images, silent } = {}) =>
-        aiCall(apiKey, system, user, resolveModel(role), { ...(maxTokens ? { maxTokens } : {}), ...(images ? { images } : {}), ...(silent ? { silent } : {}) }),
+      // `job` (src/config/aiJobs.js) names WHAT the call does, so Settings can give it its own model; `role` is only a
+      // fallback for a job id this build does not know.
+      call: (system, user, { role = 'general', job, maxTokens, images, silent } = {}) =>
+        aiCall(apiKey, system, user, job ? resolveJobModel(job, undefined, role) : resolveModel(role), { ...(maxTokens ? { maxTokens } : {}), ...(images ? { images } : {}), ...(silent ? { silent } : {}) }),
       json: parseAiJson,
       clean: (text) => stripDashes(text).replace(/[🦐🦞🦀]️?/gu, '').trim(), // no dashes or shrimp in anything shown
       // What to show for a failed call: the app's friendly provider/network text (never "API 500: {...}"), else the
@@ -15591,7 +15614,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           parseAiJson={parseAiJson}
           userLang={userLangName()}
           describeError={(e) => describeAiError(e?.message || e || '')}
-          askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('chat'), { maxTokens: 4000, keepDashes: false })}
+          askAI={(sys, content) => aiCall(apiKey, sys, content, resolveJobModel('modes.studio'), { maxTokens: 4000, keepDashes: false })}
           onApply={(spec) => applyStudioSpec(spec)}
           onClose={() => setModeStudio(null)}
         />
@@ -16925,14 +16948,23 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           return names.map((n) => <option key={n} value={n}>{own[n] || n}</option>)
                         })()}
                       </select>
-                      {/* Chat AI model — same override as Settings → AI models (aiModels[provider].chat). */}
+                      {/* Chat AI model: the SAME pick as Settings > Models per job > Chat replies (aiModels[provider]['job:chat.reply'],
+                          which is what a chat reply actually uses); its default is whatever the Chat role gives. */}
                       <div style={labelStyle}>{t('chatMenu_model')}</div>
-                      <select value={aiModels[provider]?.chat || ''} onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), chat: e.target.value } }))} style={selStyle}>
-                        <option value="">{t('chatMenu_modelDefault', { model: ROLE_DEFAULTS(providerConfig, intelligence, provider).chat })}</option>
+                      <select value={aiModels[provider]?.['job:chat.reply'] || ''} onChange={(e) => {
+                        const v = e.target.value
+                        setAiModels((prev) => {
+                          const cur = { ...(prev[provider] || {}) }
+                          if (v) cur['job:chat.reply'] = v
+                          else delete cur['job:chat.reply']
+                          return { ...prev, [provider]: cur }
+                        })
+                      }} style={selStyle}>
+                        <option value="">{t('chatMenu_modelDefault', { model: aiModels[provider]?.chat || ROLE_DEFAULTS(providerConfig, intelligence, provider).chat })}</option>
                         {modelsLoading && !(availableModels[provider] || []).length && <option disabled>{t('chat_loadingDeck')}</option>}
-                        {/* The saved override too (a typed id, a model gone from the list, a list not loaded): missing, the select
-                            showed "Default" while every chat used the override. */}
-                        {Array.from(new Set([...(availableModels[provider] || []), aiModels[provider]?.chat].filter(Boolean))).map((mid) => <option key={mid} value={mid}>{mid}</option>)}
+                        {/* The saved pick too (a typed id, a model gone from the list, a list not loaded): missing, the select
+                            showed "Default" while every chat used the pick. */}
+                        {Array.from(new Set([...(availableModels[provider] || []), aiModels[provider]?.['job:chat.reply']].filter(Boolean))).map((mid) => <option key={mid} value={mid}>{mid}</option>)}
                       </select>
                       <div style={{ fontSize: 9, color: 'var(--c-ink-faint)', padding: '2px 8px 4px' }}>{t('chat_modelAlsoIn')}</div>
                     </div>
@@ -18508,7 +18540,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       disabled={deepExplaining}
                       style={{ ...S.ttDeepBtn, opacity: deepExplaining ? 0.5 : 1 }}
                     >
-                      {deepExplaining ? t('pic_thinking') : t('pic_explainFurther', { model: modelNick(resolveModel('picture')) })}
+                      {deepExplaining ? t('pic_thinking') : t('pic_explainFurther', { model: modelNick(resolveJobModel('picture.explain')) })}
                     </button>
                   )}
                   {!wordStudy && (
@@ -18653,7 +18685,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               {deepExplaining && !deepExplanation && (
                 <div style={{ ...S.ttExplaining, marginTop: 8 }}>
                   <div style={S.ttExplainingDot} />
-                  {t('pic_modelThinking', { model: modelNick(resolveModel('picture')) })}
+                  {t('pic_modelThinking', { model: modelNick(resolveJobModel('picture.explain')) })}
                 </div>
               )}
               {deepExplanation && (
@@ -19392,8 +19424,8 @@ ${PALETTE_CSS}
         hideButton={true}
         onOpenSettings={openAiSettings}
         canSave={() => !dataSwitchingRef.current}
-        model={resolveModel('help')}
-        askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('help'), { maxTokens: 600 })}
+        model={resolveJobModel('help.reply')}
+        askAI={(sys, content) => aiCall(apiKey, sys, content, resolveJobModel('help.reply'), { maxTokens: 600 })}
         parseAiObject={parseAiObject}
         onAction={(action, ctx) => {
           // Pinned to the mode the question was asked in (HelpChat captures it before the AI call).

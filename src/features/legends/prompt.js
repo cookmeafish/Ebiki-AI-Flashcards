@@ -8,7 +8,9 @@ import { tierInstruction, CLEAR_ANSWER_RULE, QUESTION_CHECK_RULES, clampTier } f
 
 // Roles pick the model tier like everywhere else: planning is `general`, questions are `study`, items that may
 // become cards are `deck` (they get memorized: the strongest tier).
-export const ROLE = { plan: 'general', area: 'deck', quiz: 'study', quizCheck: 'qcheck', talk: 'chat', hint: 'help', bossName: 'help', edit: 'general', placement: 'study' }
+export const ROLE = { plan: 'general', area: 'deck', quiz: 'study', quizCheck: 'qcheck', talk: 'chat', hint: 'help', bossName: 'help', edit: 'general', placement: 'study', talkScore: 'study' }
+// The job of each call (Settings > AI & cost > Models per job, src/config/aiJobs.js); ROLE is its fallback.
+export const JOB = { plan: 'legends.plan', area: 'legends.area', quiz: 'legends.quiz', quizCheck: 'legends.check', talk: 'legends.talk', hint: 'legends.hint', bossName: 'legends.bossName', edit: 'legends.edit', placement: 'legends.placement', talkScore: 'legends.talkScore' }
 export const MAX_TOKENS = { plan: 2500, area: 5000, quiz: 5000, talk: 600, talkScore: 800, hint: 200, bossName: 120, quizCheck: 1500, edit: 2500, placement: 3500 }
 // Questions per step (a learn level asks its new items two ways plus a few earlier ones; the boss is always 20).
 export const QUIZ_SIZE = { learn: 10, practice: 8, rule: 8, weak: 10, boss: 20, legendary: 20 }
@@ -450,6 +452,7 @@ export function buildMapEditPrompt(subject, map, request) {
 // cards: [{ front, back }] (plain text). Every question tests ITS card only, asked both ways at once: a typed answer
 // (the power strike) and 4 options (the safe strike), so the learner picks how to answer.
 export const RAID_ROLE = 'study'
+export const RAID_JOBS = { questions: 'raid.questions', check: 'raid.check' }
 export const RAID_MAX_TOKENS = 6000
 // cards may carry `tier` (the question ladder: tierOf(the Anki card)); none = the ladder is off (today's question).
 // `redo`: [{ prompt, why }] = the questions these cards got before, rejected by the review pass (or dropped for

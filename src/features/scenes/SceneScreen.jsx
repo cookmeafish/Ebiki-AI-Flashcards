@@ -9,7 +9,7 @@ import { speak } from '../../speech'
 import { useFeatureCtx, useFocusHold, useActivityBusy } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, ProgressBar } from '../ui'
-import { QuizRunner, pickCardItems, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, readPracticeLog, recordPractice, recentTopics } from '../kit'
+import { QuizRunner, pickCardItems, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_JOBS, SCENE_MAX_TOKENS, readPracticeLog, recordPractice, recentTopics } from '../kit'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { settlePracticeRun } from '../kit/practiceRun'
 
@@ -71,7 +71,7 @@ export default function SceneScreen({ onExit }) {
       const items = await pickCardItems(ctx, ITEMS, { due: DUE_ITEMS })
       const avoid = recentTopics(await readPracticeLog(ctx))
       const { system, user } = buildScenePrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), theme: theme.trim(), avoid, level: await learnerLevelLine(ctx, { context: true }), slips: subject.isLanguage ? subject.grammarSlips(8) : '' })
-      const s = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
+      const s = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, job: SCENE_JOBS.practice, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
       if (!s || s.lines.length < MIN_LINES) throw new Error(t('sc_bad'))
       if (!aliveRef.current) return // left while it was written: nothing shown, nothing logged as practiced
       sidRef.current = `sc-${Date.now().toString(36)}`

@@ -9,7 +9,7 @@ import { poseFile } from '../../config/shrimp'
 import { speak } from '../../speech'
 import { useFocusHold } from '../registry'
 import { ChunkyButton, EbiSays, ProgressBar, Card, tCount } from '../ui'
-import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, judgeStrike, fightCtx, generationKey } from '../kit'
+import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_JOBS, SCENE_MAX_TOKENS, judgeStrike, fightCtx, generationKey } from '../kit'
 import FightSettings from './FightSettings'
 import { featureCfg } from '../registry'
 import { gradeAnswer, gradeFromStrike } from '../../config/grading'
@@ -356,7 +356,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
         const s = await sceneFor(modeId, area, node, async () => {
           const level = await learnerLevelLine(ctx)
           const { system, user } = buildScenePrompt(subject, items.map((it) => ({ front: it.front, back: it.back })), { level, theme: `${area.title}: ${area.theme}`, knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz) })
-          const made = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
+          const made = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, job: SCENE_JOBS.legends, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
           if (!made || !made.questions.length) throw new Error(t('lg_errQuiz'))
           return made
         })

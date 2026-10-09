@@ -2,6 +2,7 @@
 // Any subject: a language is used by producing it; CompTIA, music theory or aviation by explaining or
 // applying the idea in a situation (a relaxed oral exam). Grades ride in a hidden block (see grades.js).
 export const CALL_ROLE = 'chat'
+export const CALL_JOB = 'practice.ebiCall' // Settings > AI & cost > Models per job (src/config/aiJobs.js)
 export const CALL_MAX_TOKENS = 700
 export const HISTORY_TURNS = 16   // how much of the conversation is sent back each turn
 

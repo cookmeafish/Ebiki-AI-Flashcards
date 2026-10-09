@@ -12,6 +12,8 @@ import { apiFetch } from '../platform'
 import { fileSizeLabel } from '../utils/fileSize'
 import { checkStateFor, updateResultState, verifyOutcome, restartOffered, pollUntilAnswered } from './updatesState'
 import { imeActive } from '../utils/keys'
+import JobModelSettings from './JobModelSettings'
+import { jobOverridesOf } from '../config/aiJobs'
 
 // ── Data folder (optional shared data directory) ──
 // Self-contained: talks to /api/datadir directly. The data-folder pointer is
@@ -753,7 +755,8 @@ export default function SettingsModal(p) {
   // choices that made it Custom are on screen.
   // Real roles only ('' = back on the default): an older build's retired 'question' key showed "Custom" as the
   // active preset while every role ran the preset's models.
-  const hasModelOverrides = !!aiModels[provider] && AI_ROLE_META.some(({ role }) => aiModels[provider][role])
+  // A per-JOB pick (Models per job, below) is a deviation too.
+  const hasModelOverrides = !!aiModels[provider] && (AI_ROLE_META.some(({ role }) => aiModels[provider][role]) || Object.keys(jobOverridesOf(aiModels[provider])).length > 0)
   // Back to the predetermined models: the overrides go, and so do this provider's typed-id boxes (left open, a
   // role showed an empty custom box instead of "Provider default (...)").
   const clearModelOverrides = () => {
@@ -969,6 +972,10 @@ export default function SettingsModal(p) {
           </div>
         </div>
       </details>
+      {/* Every AI job on its own model (src/config/aiJobs.js); unpicked jobs follow their role above. */}
+      <JobModelSettings t={t} provider={provider} providerConfig={providerConfig} aiModels={aiModels} setAiModels={setAiModels}
+        provModels={provModels} roleDefaults={ROLE_DEFAULTS(providerConfig, intelligence)} presetModel={presetModel} planDeciding={planDeciding}
+        card={card} hint={hint} />
     </div>
   )
 

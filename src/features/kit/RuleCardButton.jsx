@@ -2,7 +2,7 @@
 // (editable) before anything is added; Add writes it to the mode's deck. Used by Mistake Gym and others.
 import { useRef, useState } from 'react'
 import { C, RADIUS } from '../../config/tokens'
-import { buildRuleCardPrompt, parseRuleCard, RULE_ROLE, RULE_MAX_TOKENS } from './ruleCard'
+import { buildRuleCardPrompt, parseRuleCard, RULE_ROLE, RULE_JOB, RULE_MAX_TOKENS } from './ruleCard'
 import { recordPractice } from './practiceLogStore'
 import { aiErrorText } from './aiError'
 
@@ -27,7 +27,7 @@ export default function RuleCardButton({ ctx, source, compact = false, deck: dec
     try {
       // The live list (a card added by another button since this one rendered is avoided too).
       const { system, user } = buildRuleCardPrompt(subject, source, { avoid: madeThisSession.get(subject.modeId) || made })
-      const c = parseRuleCard(ai.json(await ai.call(system, user, { role: RULE_ROLE, maxTokens: RULE_MAX_TOKENS })), ai.clean)
+      const c = parseRuleCard(ai.json(await ai.call(system, user, { role: RULE_ROLE, job: RULE_JOB, maxTokens: RULE_MAX_TOKENS })), ai.clean)
       if (!c) throw new Error(t('kit_ruleBad'))
       if (c.skip) { setNote(c.why || t('kit_ruleNone')); setState('skipped'); return }
       setCard({ ...c, modeId: subject.modeId }); setState('preview')

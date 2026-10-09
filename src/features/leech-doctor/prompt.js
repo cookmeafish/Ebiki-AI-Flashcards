@@ -1,6 +1,7 @@
 // The Leech Doctor prompt: why does the learner keep failing these cards, and what would fix it?
 // One prompt for every subject. Cards get MEMORIZED, so the deck-quality model tier is used.
 export const DOCTOR_ROLE = 'deck'
+export const DOCTOR_JOB = 'deck.leechDoctor'
 export const DOCTOR_MAX_TOKENS = 8000
 
 export function buildDoctorPrompt(subject, patients, { others = [] } = {}) {

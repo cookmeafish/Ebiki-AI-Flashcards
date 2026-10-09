@@ -34,7 +34,7 @@ import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMot
 import { raidProfile } from './raidProfiles'
 import { POWERS, POWER_IDS, POWER_DEFAULTS, powerVars, procVars, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, powersHelpLine, fiftyFifty, powerHint } from './powers'
 import { abilityById } from './abilities'
-import { buildRaidPrompt, buildQuizCheckPrompt, parseQuizCheckWhy, RAID_ROLE, RAID_MAX_TOKENS, ROLE, MAX_TOKENS } from './prompt'
+import { buildRaidPrompt, buildQuizCheckPrompt, parseQuizCheckWhy, RAID_ROLE, RAID_JOBS, RAID_MAX_TOKENS, ROLE, MAX_TOKENS } from './prompt'
 import { parseRaidQuestions, placeholderFor, reviewPlan, redoOutcome, finalQuestion, startOrder, REVIEW } from './raidQuestions'
 import { tierOf } from '../../utils/questionTier'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
@@ -291,7 +291,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const level = await learnerLevelLine(c)
     const pcards = promptCards(c, cards)
     const { system, user } = buildRaidPrompt(s, pcards, { level })
-    const raw = c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, maxTokens: RAID_MAX_TOKENS }))
+    const raw = c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, job: RAID_JOBS.questions, maxTokens: RAID_MAX_TOKENS }))
     if (my !== writeSeq.current) return null
     // One question per card (raidQuestions.js: parsed, typed with its choices as `alt`, the letter count, the tier).
     const { qs: got } = parseRaidQuestions(raw, pcards, { clean: c.ai.clean, isLanguage: !!s.isLanguage, speakLang: s.learnLangIso })
@@ -322,7 +322,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       if (!qs.length) return new Map()
       try {
         const { system, user } = buildQuizCheckPrompt(s, items.map((x) => ({ kind: 'card', front: x.front, back: x.back, ...(x.tier != null ? { tier: x.tier } : {}) })), qs)
-        return parseQuizCheckWhy(c.ai.json(await c.ai.call(system, user, { role: ROLE.quizCheck, maxTokens: MAX_TOKENS.quizCheck, silent: true })), qs.length)
+        return parseQuizCheckWhy(c.ai.json(await c.ai.call(system, user, { role: ROLE.quizCheck, job: RAID_JOBS.check, maxTokens: MAX_TOKENS.quizCheck, silent: true })), qs.length)
       } catch { return null } // fail-soft: an unreviewed question still stands
     }
     reviewDone.current = (async () => {
@@ -339,7 +339,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       let bad2 = null
       try {
         const { system, user } = buildRaidPrompt(s, redoCards, { level, redo })
-        fresh = parseRaidQuestions(c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, maxTokens: RAID_MAX_TOKENS, silent: true })), redoCards, { clean: c.ai.clean, isLanguage: !!s.isLanguage, speakLang: s.learnLangIso }).qs
+        fresh = parseRaidQuestions(c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, job: RAID_JOBS.questions, maxTokens: RAID_MAX_TOKENS, silent: true })), redoCards, { clean: c.ai.clean, isLanguage: !!s.isLanguage, speakLang: s.learnLangIso }).qs
         bad2 = await check(fresh, redoCards)
       } catch { fresh = [] }
       for (const [id, v] of redoOutcome(redo.map((r) => r.cardId), fresh, bad2)) set(id, v)

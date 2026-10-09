@@ -9,7 +9,7 @@ import { useFocusHold } from '../registry'
 import { ChunkyButton, EbiSays } from '../ui'
 import { TalkButton, voiceChatOn, useVoiceChat } from '../kit'
 import { learnerLevelLine } from '../kit/learnerStore'
-import { buildTalkSystem, buildTalkTurn, buildTalkScorePrompt, buildTalkHintPrompt, hintGivesAway, parseTalkScore, parseTalkReply, ROLE, MAX_TOKENS, TALK_TURNS, ADVENTURE_TURNS } from './prompt'
+import { buildTalkSystem, buildTalkTurn, buildTalkScorePrompt, buildTalkHintPrompt, hintGivesAway, parseTalkScore, parseTalkReply, ROLE, JOB, MAX_TOKENS, TALK_TURNS, ADVENTURE_TURNS } from './prompt'
 import { imeActive } from '../../utils/keys'
 
 const SCORE_SCALE = 10 // a talk counts as a 10-question step (score 0..1 → correct 0..10)
@@ -50,7 +50,7 @@ export default function Talk({ ctx, area, node, items, onFinish, onQuit }) {
     setBusy(true); setError(''); setTurnFailed(false)
     try {
       if (!levelRef.current) levelRef.current = await learnerLevelLine(ctx)
-      const raw = await ai.call(buildTalkSystem(subject, area, items, { level: levelRef.current, scene, goal }), buildTalkTurn(history), { role: ROLE.talk, maxTokens: MAX_TOKENS.talk })
+      const raw = await ai.call(buildTalkSystem(subject, area, items, { level: levelRef.current, scene, goal }), buildTalkTurn(history), { role: ROLE.talk, job: JOB.talk, maxTokens: MAX_TOKENS.talk })
       if (!alive.current) return
       const reply = parseTalkReply(raw)
       if (goal && history.length > 0 && reply.reached) setGoalDone(true)
@@ -84,7 +84,7 @@ export default function Talk({ ctx, area, node, items, onFinish, onQuit }) {
       const { system, user } = buildTalkHintPrompt(subject, area, items, messages, { scene, unused })
       let text = ''
       for (let k = 0; k < 2 && !text; k++) {
-        const got = ai.clean(String(await ai.call(system, user, { role: ROLE.hint, maxTokens: MAX_TOKENS.hint }) || '')).replace(/^["'“”]+|["'“”]+$/g, '').trim()
+        const got = ai.clean(String(await ai.call(system, user, { role: ROLE.hint, job: JOB.hint, maxTokens: MAX_TOKENS.hint }) || '')).replace(/^["'“”]+|["'“”]+$/g, '').trim()
         if (got && !hintGivesAway(got, subject, items, messages.filter((m) => m.role === 'ebi').map((m) => m.text))) text = got
       }
       if (!alive.current) return
@@ -102,7 +102,7 @@ export default function Talk({ ctx, area, node, items, onFinish, onQuit }) {
     speaking.current?.stop()
     try {
       const { system, user } = buildTalkScorePrompt(subject, area, messages, { hints: hintsUsed.current, goal, goalDone })
-      const s = parseTalkScore(ai.json(await ai.call(system, user, { role: 'study', maxTokens: MAX_TOKENS.talkScore })), ai.clean)
+      const s = parseTalkScore(ai.json(await ai.call(system, user, { role: ROLE.talkScore, job: JOB.talkScore, maxTokens: MAX_TOKENS.talkScore })), ai.clean)
       if (!s) throw new Error(t('lg_errTalk'))
       if (alive.current) setScore(s)
     } catch (e) { if (alive.current) setError(ctxErrorText(ctx, e)) } finally { scoringRef.current = false; if (alive.current) setBusy(false) }

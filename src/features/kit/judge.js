@@ -4,6 +4,9 @@ import { matchTyped } from './grade'
 import { flagOf, gradeObject, tierJudgeLine, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
 
 export const JUDGE_ROLE = 'study'
+// The jobs (Settings > AI & cost > Models per job): the fast fight verdict, its explanation, the careful re-check
+// (automatic and appeals), and a plain quiz answer's check.
+export const JUDGE_JOBS = { grade: 'fight.grade', explain: 'fight.explain', recheck: 'fight.recheck', quiz: 'practice.grade' }
 export { flagOf }
 const strikeNote = (subject) => `Write "note" in ${subject?.userLang || 'English'}: one short sentence, no dashes.`
 const JUDGE_MAX_TOKENS = 300
@@ -37,7 +40,7 @@ export async function judgeStrike(ai, subject, q, answer, { strictAccents = true
   if (!ai?.hasKey) return { verdict: 'error', note: '', noKey: true }
   try {
     const { system, user } = buildVerdictPrompt(subject, q, ans)
-    const flags = parseVerdict(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: VERDICT_MAX_TOKENS, silent: true })))
+    const flags = parseVerdict(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.grade, maxTokens: VERDICT_MAX_TOKENS, silent: true })))
     // A grading that did not happen is NOT a miss (it cost a life and recorded Again in Anki): 'error' = ask again.
     if (!flags) return { verdict: 'error', note: '' }
     const verdict = verdictOf(flags, { strictAccents })
@@ -53,7 +56,7 @@ export async function explainStrike(ai, subject, q, answer, { verdict = 'miss', 
   if (!ai?.hasKey) return {}
   try {
     const { system, user } = buildExplainPrompt(subject, q, String(answer || '').trim(), { verdict, accentsOnly })
-    return parseExplain(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: EXPLAIN_MAX_TOKENS, silent: true })), ai.clean) || {}
+    return parseExplain(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.explain, maxTokens: EXPLAIN_MAX_TOKENS, silent: true })), ai.clean) || {}
   } catch { return {} }
 }
 
@@ -63,7 +66,7 @@ export async function recheckStrike(ai, subject, q, answer, { verdict = 'miss', 
   if (!ai?.hasKey) return null
   try {
     const { system, user } = buildRecheckPrompt(subject, q, String(answer || '').trim(), { verdict, reason })
-    return parseRecheck(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: RECHECK_MAX_TOKENS, silent: true })), verdict, ai.clean)
+    return parseRecheck(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.recheck, maxTokens: RECHECK_MAX_TOKENS, silent: true })), verdict, ai.clean)
   } catch { return null }
 }
 
@@ -78,7 +81,7 @@ async function accentChangesWord(ai, subject, q, ans) {
     strikeNote(subject),
   ].join('\n')
   try {
-    const j = gradeObject(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: JUDGE_MAX_TOKENS, silent: true })), ['different'])
+    const j = gradeObject(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.grade, maxTokens: JUDGE_MAX_TOKENS, silent: true })), ['different'])
     return flagOf(j?.different) === true ? (ai.clean(j.note || '') || ' ') : ''
   } catch { return '' }
 }
@@ -101,7 +104,7 @@ export async function judgeAnswer(ai, subject, q, answer) {
     `Write "note" in ${subject?.userLang || 'English'}: if wrong, say briefly what the right answer is and why; if right, a few words of encouragement. No dashes.`,
   ].filter(Boolean).join('\n')
   try {
-    const raw = await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: JUDGE_MAX_TOKENS, silent: true })
+    const raw = await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.quiz, maxTokens: JUDGE_MAX_TOKENS, silent: true })
     const j = gradeObject(ai.json(raw), ['correct'])
     const correct = j ? flagOf(j.correct) : null
     if (correct == null) return null

@@ -3,6 +3,7 @@
 // memory hooks come from the app's one hook engine (ctx.learn.makeHook). Nothing here records a review.
 
 export const LEARN_ROLE = 'study'
+export const LEARN_JOB = 'practice.learnIt'
 export const LEARN_MAX_TOKENS = 600
 export const LEARN_HISTORY_MAX = 8
 const BACK_MAX = 1500

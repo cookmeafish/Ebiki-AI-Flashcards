@@ -11,7 +11,7 @@ import { QuizRunner, sanitizeQuestions, pickCardItems, recordPractice } from '..
 import { learnerLevelLine } from '../kit/learnerStore'
 import { useHelpEntry } from '../kit/useHelp'
 import { settlePracticeRun } from '../kit/practiceRun'
-import { buildDrillPrompt, DRILL_ROLE, DRILL_MAX_TOKENS, DRILL_SIZE } from './prompt'
+import { buildDrillPrompt, DRILL_ROLE, DRILL_JOB, DRILL_MAX_TOKENS, DRILL_SIZE } from './prompt'
 
 import { LISTEN_FEATURE_ID } from './featureId'
 import { aiErrorText } from '../kit/aiError'
@@ -50,7 +50,7 @@ export default function ListenScreen({ onExit }) {
     try {
       const items = await pickCardItems(ctx, DRILL_SIZE)
       const { system, user } = buildDrillPrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), slips: subject.isLanguage ? subject.grammarSlips(SLIPS) : '', level: await learnerLevelLine(ctx, { context: true }) })
-      const j = ai.json(await ai.call(system, user, { role: DRILL_ROLE, maxTokens: DRILL_MAX_TOKENS }))
+      const j = ai.json(await ai.call(system, user, { role: DRILL_ROLE, job: DRILL_JOB, maxTokens: DRILL_MAX_TOKENS }))
       const qs = sanitizeQuestions((Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []).filter((q) => q && typeof q === 'object').map((q) => ({
         // Text fields only as text: a list or object there was read aloud and shown as "[object Object]".
         ...q, question: ai.clean(txt(q.question)), explanation: ai.clean(txt(q.explanation)), say: ai.clean(txt(q.say)),

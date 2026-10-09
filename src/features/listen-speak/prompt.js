@@ -2,6 +2,7 @@
 // say it in the language); any other subject is heard as a situation or definition to recognize, and
 // explained out loud like a short oral exam. Items come from the learner's own cards.
 export const DRILL_ROLE = 'study'
+export const DRILL_JOB = 'practice.listenSpeak'
 export const DRILL_MAX_TOKENS = 5000
 export const DRILL_SIZE = 8
 const BACK_CHARS = 240

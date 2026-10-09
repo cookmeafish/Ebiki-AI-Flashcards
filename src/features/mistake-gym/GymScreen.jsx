@@ -10,7 +10,7 @@ import { EVENTS } from '../events'
 import { useHelpEntry } from '../kit/useHelp'
 import { useMistakes, updateMistakes, configureGym, GYM_FEATURE_ID } from './store'
 import { pickForWorkout, applyPractice, WORKOUT_SIZE, GYM_SRC } from './mistakes'
-import { buildWorkoutPrompt, workoutQuestions, WORKOUT_ROLE, WORKOUT_MAX_TOKENS } from './prompt'
+import { buildWorkoutPrompt, workoutQuestions, WORKOUT_ROLE, WORKOUT_JOB, WORKOUT_MAX_TOKENS } from './prompt'
 import { aiErrorText } from '../kit/aiError'
 
 const PREVIEW = 6          // mistakes listed on the overview
@@ -56,7 +56,7 @@ export default function GymScreen({ onExit }) {
       // Inside the try: a store or level read that throws left the screen on "building" for good.
       const targets = pickForWorkout(list, WORKOUT_SIZE, { log: await readPracticeLog(ctx) })
       const { system, user } = buildWorkoutPrompt(subject, targets, { slips, level: await learnerLevelLine(ctx, { context: true }) })
-      const raw = await ai.call(system, user, { role: WORKOUT_ROLE, maxTokens: WORKOUT_MAX_TOKENS })
+      const raw = await ai.call(system, user, { role: WORKOUT_ROLE, job: WORKOUT_JOB, maxTokens: WORKOUT_MAX_TOKENS })
       const j = ai.json(raw)
       const questions = sanitizeQuestions(workoutQuestions(j, ai.clean), { clean: ai.clean })
       if (questions.length < MIN_QUESTIONS) throw new Error(t('gym_badWorkout'))

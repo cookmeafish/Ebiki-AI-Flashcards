@@ -22,6 +22,7 @@ import { CAUSES } from '../features/leech-doctor/leeches'
 import { ROLE_STAKES } from '../config/modelAdvisor'
 import { POS_COLORS } from '../config/prompts'
 import { CORE_NAV } from '../shell/layout'
+import { AI_JOBS, JOB_GROUPS, jobLabelKey, jobHintKey, jobGroupKey } from '../config/aiJobs'
 
 const en = LANGUAGES.find((l) => l.code === 'en').strings
 const SRC = path.resolve(__dirname, '..')
@@ -41,6 +42,7 @@ const FULL_SNAPSHOT = {
 }
 
 const FAMILIES = {
+  'AI jobs (Settings > Models per job)': [...AI_JOBS.flatMap((j) => [jobLabelKey(j.id), jobHintKey(j.id)]), ...JOB_GROUPS.map(jobGroupKey)],
   'raid boss names and lore': RAID_ORDER.flatMap((m) => [`lg_raidBoss_${m}`, `lg_raidLore_${m}`]),
   'raid abilities': abilities.flatMap((a) => [`lg_ability_${a}`, `lg_abilityDesc_${a}`, `lg_abilityLine_${a}`]),
   'power names and tips': POWER_IDS.flatMap((id) => [`lg_pow_${id}`, `lg_powDesc_${id}`]),

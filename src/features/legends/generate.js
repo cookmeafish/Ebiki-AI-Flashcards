@@ -10,7 +10,7 @@ import { tierOfItem } from '../../utils/questionTier'
 import { ladderOn } from '../kit/fightSettings'
 import {
   buildMapPrompt, buildAreaPrompt, buildQuizPrompt, buildMapEditPrompt, buildPlacementPrompt,
-  parseQuestions, fitQuestionsToKind, itemIdFor, buildBossNamePrompt, parseBossName, buildQuizCheckPrompt, parseQuizCheck, ROLE, MAX_TOKENS, QUIZ_SIZE, QUIZ_PER_ITEM_MAX,
+  parseQuestions, fitQuestionsToKind, itemIdFor, buildBossNamePrompt, parseBossName, buildQuizCheckPrompt, parseQuizCheck, ROLE, JOB, MAX_TOKENS, QUIZ_SIZE, QUIZ_PER_ITEM_MAX,
 } from './prompt'
 import { updateMap, peekMap, readStep, readStepAny, saveStep, stepSig } from './store'
 
@@ -27,7 +27,8 @@ export const isRunning = (prefix) => [...running.keys()].some((k) => k.startsWit
 // Start over: tasks still running for the old map are forgotten (a new map's plan got the old map's promise back).
 export const forgetRunning = (suffix) => { for (const k of [...running.keys()]) if (k.endsWith(suffix)) running.delete(k) }
 
-const call = async (ctx, { system, user }, role, maxTokens) => ctx.ai.call(system, user, { role, maxTokens })
+// `step` names the call (ROLE / JOB in prompt.js): its job picks the model (Settings > Models per job), the role is the fallback.
+const call = async (ctx, { system, user }, step, maxTokens) => ctx.ai.call(system, user, { role: ROLE[step], job: JOB[step], maxTokens })
 const levelText = async (ctx) => learnerLevelLine(ctx)
 
 // Plan the map's areas (first time, or more once the learner nears the end). Throws with a readable message.
@@ -38,7 +39,7 @@ export function planMap(ctx, modeId, { more = false } = {}) {
     const startedOn = current?.createdAt // the map this plan is FOR: a Start over meanwhile makes it another map
     const level = await levelText(ctx)
     const after = more ? (current?.areas || []).map((a) => a.title) : []
-    const raw = await call(ctx, buildMapPrompt(subject, { start: current?.start, level, knowledge: subject.knowledge(KNOWLEDGE_CAP.plan), after }), ROLE.plan, MAX_TOKENS.plan)
+    const raw = await call(ctx, buildMapPrompt(subject, { start: current?.start, level, knowledge: subject.knowledge(KNOWLEDGE_CAP.plan), after }), 'plan', MAX_TOKENS.plan)
     const plan = parseMapPlan(ai.json(raw), ai.clean)
     if (!plan) throw new Error(t('lg_errPlan'))
     let dropped = false
@@ -66,7 +67,7 @@ async function detailOne(ctx, modeId, areaId) {
   const raw = await call(ctx, buildAreaPrompt(subject, area, {
     level: await levelText(ctx), knowledge: subject.knowledge(KNOWLEDGE_CAP.area),
     before: map.areas.slice(Math.max(0, i - 4), i).map((a) => a.title), later: map.areas.slice(i + 1, i + 4).map((a) => a.title),
-  }), ROLE.area, MAX_TOKENS.area)
+  }), 'area', MAX_TOKENS.area)
   const detail = parseAreaDetail(ai.json(raw), ai.clean, { areaId })
   if (!detail) throw new Error(t('lg_errArea', { area: area.title }))
   // Lands only on the area it was written for: "Change my map" can give the same id a new topic meanwhile.
@@ -83,7 +84,7 @@ export function ensureBossName(ctx, modeId, areaId) {
     if (!area) return ''
     if (area.bossName) return area.bossName
     try {
-      const name = parseBossName(ctx.ai.json(await call(ctx, buildBossNamePrompt(ctx.subject, area), ROLE.bossName, MAX_TOKENS.bossName)), ctx.ai.clean)
+      const name = parseBossName(ctx.ai.json(await call(ctx, buildBossNamePrompt(ctx.subject, area), 'bossName', MAX_TOKENS.bossName)), ctx.ai.clean)
       if (name) await updateMap(modeId, (m) => (m ? setBossName(m, areaId, name) : m))
       return name
     } catch { return '' }
@@ -198,7 +199,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   // `null` = the review did not run (fail-soft: the caller keeps what it has).
   const review = async (qs) => {
     try {
-      const bad = parseQuizCheck(ctx.ai.json(await call(ctx, buildQuizCheckPrompt(subject, taught, qs), ROLE.quizCheck, MAX_TOKENS.quizCheck)), qs.length)
+      const bad = parseQuizCheck(ctx.ai.json(await call(ctx, buildQuizCheckPrompt(subject, taught, qs), 'quizCheck', MAX_TOKENS.quizCheck)), qs.length)
       if (!bad) return null
       return qs.filter((_, i) => !bad.has(i))
     } catch { return null }
@@ -226,7 +227,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   // set is then saved WITHOUT the checked stamp, so its next visit reviews it (stamped, it was never looked at).
   let reviewed = true
   const ask = async (strict, more = {}) => {
-    const raw = await call(ctx, buildQuizPrompt(subject, area, node, { ...opts, ...more, strict }), ROLE.quiz, MAX_TOKENS.quiz)
+    const raw = await call(ctx, buildQuizPrompt(subject, area, node, { ...opts, ...more, strict }), 'quiz', MAX_TOKENS.quiz)
     // Typed by default with the ladder (its choices an optional `alt`, Study's "Show choices"); a fight always.
     const qs = fitQuestionsToKind(parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss || ladder, tierFor }), node.kind, { ladder }).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
     if (!qs.length) return qs // nothing to review (never a paid call on an empty list)
@@ -272,7 +273,7 @@ export function sceneFor(modeId, area, node, make) {
 // One batch of placement questions at a tier.
 export async function makePlacementBatch(ctx, tier, n, avoid) {
   const { subject, ai, t } = ctx
-  const raw = await call(ctx, buildPlacementPrompt(subject, tier, n, { avoid, knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz) }), ROLE.placement, MAX_TOKENS.placement)
+  const raw = await call(ctx, buildPlacementPrompt(subject, tier, n, { avoid, knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz) }), 'placement', MAX_TOKENS.placement)
   // The prompt asks for no repeats; a model that repeats one anyway (same words) does not get it asked twice.
   const asked = new Set((avoid || []).map(normQ))
   const qs = parseQuestions(ai.json(raw), ai.clean).filter((q) => { const k = normQ(q.prompt); if (!k || asked.has(k)) return false; asked.add(k); return true }).slice(0, n)
@@ -285,7 +286,7 @@ export async function proposeEdit(ctx, modeId, request) {
   const { subject, ai, t } = ctx
   const map = peekMap(modeId)
   if (!map) throw new Error(t('lg_errSave'))
-  const raw = await call(ctx, buildMapEditPrompt(subject, map, request), ROLE.edit, MAX_TOKENS.edit)
+  const raw = await call(ctx, buildMapEditPrompt(subject, map, request), 'edit', MAX_TOKENS.edit)
   const proposal = parseMapEdit(ai.json(raw), ai.clean)
   if (!proposal) throw new Error(t('lg_errEdit'))
   const { map: merged, changes } = mergeEdit(map, proposal)

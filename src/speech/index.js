@@ -28,7 +28,7 @@ export async function listen(ctx, { lang = '', onFail } = {}) {
   return {
     stop: async () => {
       const blob = await rec.stop()
-      return transcribe(blob, { engine: stt, keys: ctx.apiKeys, lang, geminiModel: ctx.presetModel?.('gemini', 'cheap') })
+      return transcribe(blob, { engine: stt, keys: ctx.apiKeys, lang, geminiModel: ctx.presetModel?.('gemini', 'cheap'), model: ctx.speechModel?.('stt', stt) || '' })
     },
     cancel: () => rec.cancel(),
   }
@@ -60,11 +60,12 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
   const stoppedNow = new Promise((resolve) => { settleStopped = resolve })
   const work = (async () => {
     if (tts === 'device') return device()
-    const key = `${tts}|${voice}|${lang}|${clean}`
+    const model = ctx.speechModel?.('tts', tts) || '' // Settings > AI & cost > speech job ('' = built in)
+    const key = `${tts}|${model}|${voice}|${lang}|${clean}`
     try {
       let blob = cache.get(key)
       if (!blob) {
-        blob = await synthesize(clean, { engine: tts, keys: ctx.apiKeys, lang, voice })
+        blob = await synthesize(clean, { engine: tts, keys: ctx.apiKeys, lang, voice, model })
         cache.set(key, blob)
         if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value)
       }

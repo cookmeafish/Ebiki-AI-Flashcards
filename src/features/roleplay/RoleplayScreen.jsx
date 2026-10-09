@@ -15,7 +15,7 @@ import { learnerLevelLine } from '../kit/learnerStore'
 import { parseScenarios, cleanScenario, normalizeScorecard, axesFor, scoreAsPractice, mistakesAsMisses, SCORE_MAX, MIN_TURNS_TO_SCORE } from './scoring'
 import {
   buildScenarioPrompt, buildImageScenarioPrompt, buildCustomScenarioPrompt, buildSceneSystem, buildSceneTurn,
-  buildScorecardPrompt, splitSceneReply, RP_ROLE, RP_MAX_TOKENS, RP_SETUP_ROLE, RP_SETUP_MAX_TOKENS, RP_SCORE_MAX_TOKENS,
+  buildScorecardPrompt, splitSceneReply, RP_JOBS, RP_ROLE, RP_MAX_TOKENS, RP_SETUP_ROLE, RP_SETUP_MAX_TOKENS, RP_SCORE_MAX_TOKENS,
 } from './prompt'
 
 import { ROLEPLAY_FEATURE_ID } from './featureId'
@@ -102,7 +102,7 @@ export default function RoleplayScreen({ onExit, params }) {
     try {
       const avoid = recentTopics(await readPracticeLog(ctx))
       const { system, user } = buildScenarioPrompt(subject, { knowledge: subject.knowledge(KNOWLEDGE_CAP), avoid, level: await learnerLevelLine(ctx, { context: true }) })
-      const list = parseScenarios(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, maxTokens: RP_SETUP_MAX_TOKENS })), ai.clean)
+      const list = parseScenarios(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, job: RP_JOBS.setup, maxTokens: RP_SETUP_MAX_TOKENS })), ai.clean)
       if (!list.length) throw new Error(t('rp_noIdeas'))
       ideasCache.set(subject.modeId, list); setIdeas(list)
     } catch (e) { setError(aiErrorText(t, e)) } finally { setLoadingIdeas(false) }
@@ -111,7 +111,7 @@ export default function RoleplayScreen({ onExit, params }) {
   async function makeFrom({ system, user }, images) {
     setMaking(true); setError('')
     try {
-      const s = cleanScenario(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, maxTokens: RP_SETUP_MAX_TOKENS, ...(images ? { images } : {}) })), ai.clean)
+      const s = cleanScenario(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, job: RP_JOBS.setup, maxTokens: RP_SETUP_MAX_TOKENS, ...(images ? { images } : {}) })), ai.clean)
       if (!s) throw new Error(t('rp_noScene'))
       if (aliveRef.current) begin(s) // left the screen meanwhile: no scene, nothing logged as practiced
     } catch (e) { setError(aiErrorText(t, e)) } finally { setMaking(false) }
@@ -142,7 +142,7 @@ export default function RoleplayScreen({ onExit, params }) {
     setBusy(true); setError(''); setTurnFailed(false)
     try {
       const system = buildSceneSystem(subject, scene, { slips, knowledge: subject.knowledge(KNOWLEDGE_CAP), level: await learnerLevelLine(ctx, { context: true }) })
-      const { text, ended: done } = splitSceneReply(await ai.call(system, buildSceneTurn(history), { role: RP_ROLE, maxTokens: RP_MAX_TOKENS }))
+      const { text, ended: done } = splitSceneReply(await ai.call(system, buildSceneTurn(history), { role: RP_ROLE, job: RP_JOBS.scene, maxTokens: RP_MAX_TOKENS }))
       if (id !== sceneIdRef.current) return // the learner left this scene meanwhile
       const line = ai.clean(text) || '...'
       setMessages([...history, { role: 'ebi', text: line }])
@@ -173,7 +173,7 @@ export default function RoleplayScreen({ onExit, params }) {
     const axes = axesFor(subject)
     try {
       const { system, user } = buildScorecardPrompt(subject, scene, messages, axes)
-      const sc = normalizeScorecard(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, maxTokens: RP_SCORE_MAX_TOKENS })), axes, ai.clean)
+      const sc = normalizeScorecard(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, job: RP_JOBS.score, maxTokens: RP_SCORE_MAX_TOKENS })), axes, ai.clean)
       if (!sc) throw new Error(t('rp_noScore'))
       if (!aliveRef.current) return // left while scoring: a scorecard nobody saw earns nothing and moves no level
       setCard(sc); setPhase('card')

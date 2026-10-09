@@ -1,7 +1,7 @@
 // Boss taunts at run time: asks the model for one line (kit/taunt.js builds the prompt and checks the reply) and keeps
 // each boss's last lines on this device (platform.kv), so no boss says the same thing twice.
 import { platform } from '../../platform'
-import { buildTauntPrompt, parseTaunt, tauntRepeats, pushRecent, TAUNT_ROLE, TAUNT_MAX_TOKENS } from './taunt'
+import { buildTauntPrompt, parseTaunt, tauntRepeats, pushRecent, TAUNT_ROLE, TAUNT_JOB, TAUNT_MAX_TOKENS } from './taunt'
 
 const KEY = 'ebiki-boss-taunts'
 const MAX_BOSSES = 80
@@ -37,7 +37,7 @@ export async function fetchTaunt(ai, { bossKey, voice, rules, avoidWords, sample
     let line = ''
     try {
       const { system, user } = buildTauntPrompt({ ...facts, voice, rules, avoidWords, recent, retry })
-      line = parseTaunt(await ai.call(system, user, { role: TAUNT_ROLE, maxTokens: TAUNT_MAX_TOKENS, silent: true }), ai.clean)
+      line = parseTaunt(await ai.call(system, user, { role: TAUNT_ROLE, job: TAUNT_JOB, maxTokens: TAUNT_MAX_TOKENS, silent: true }), ai.clean)
     } catch { return fallback() }
     if (!line) return fallback()
     if (!tauntRepeats(line, recent, sample)) { rememberTaunt(bossKey, line); return { line, source: 'ai' } }

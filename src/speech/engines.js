@@ -79,11 +79,12 @@ async function geminiStt(blob, key, model, lang) {
 }
 
 // `lang` = optional ISO 639-1 hint. `geminiModel` = the cheap Gemini text model (audio in, text out).
-export async function transcribe(blob, { engine, keys = {}, geminiModel = 'gemini-2.5-flash', lang = '' } = {}) {
+// `model` = the model picked in Settings for this engine (the speech.stt job; '' = the built-in MODELS one).
+export async function transcribe(blob, { engine, keys = {}, geminiModel = 'gemini-2.5-flash', lang = '', model = '' } = {}) {
   if (!blob || !blob.size) return ''
-  if (engine === 'openai') return multipartStt('https://api.openai.com/v1/audio/transcriptions', keys.openai, blob, { model: MODELS.stt.openai, language: lang })
-  if (engine === 'grok') return multipartStt('https://api.x.ai/v1/stt', keys.grok, blob, { model: MODELS.stt.grok, language: lang, format: 'true' })
-  if (engine === 'gemini') return geminiStt(blob, keys.gemini, geminiModel, lang)
+  if (engine === 'openai') return multipartStt('https://api.openai.com/v1/audio/transcriptions', keys.openai, blob, { model: model || MODELS.stt.openai, language: lang })
+  if (engine === 'grok') return multipartStt('https://api.x.ai/v1/stt', keys.grok, blob, { model: model || MODELS.stt.grok, language: lang, format: 'true' })
+  if (engine === 'gemini') return geminiStt(blob, keys.gemini, model || geminiModel, lang)
   throw new Error('no speech-to-text engine')
 }
 
@@ -101,13 +102,14 @@ export function pcmToWav(pcm, sampleRate = 24000) {
 const b64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
 
 // Audio (Blob) for `text`. `voice` = index into VOICES[engine]. Throws on failure (callers fall back to device).
-export async function synthesize(text, { engine, keys = {}, lang = '', voice = 0 } = {}) {
+// `model` = the model picked in Settings (the speech.tts job; '' = the built-in MODELS one; xAI takes no model).
+export async function synthesize(text, { engine, keys = {}, lang = '', voice = 0, model = '' } = {}) {
   const name = VOICES[engine]?.[voice % (VOICES[engine]?.length || 1)]
   let r
   if (engine === 'openai') {
     r = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST', headers: { Authorization: `Bearer ${keys.openai}`, 'Content-Type': 'application/json' }, signal: timeoutSignal(),
-      body: JSON.stringify({ model: MODELS.tts.openai, input: text, voice: name, response_format: 'mp3' }),
+      body: JSON.stringify({ model: model || MODELS.tts.openai, input: text, voice: name, response_format: 'mp3' }),
     })
   } else if (engine === 'grok') {
     r = await fetch('https://api.x.ai/v1/tts', {
@@ -115,7 +117,7 @@ export async function synthesize(text, { engine, keys = {}, lang = '', voice = 0
       body: JSON.stringify({ text, voice_id: name, language: lang || 'auto' }),
     })
   } else if (engine === 'gemini') {
-    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELS.tts.gemini}:generateContent?key=${keys.gemini}`, {
+    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || MODELS.tts.gemini}:generateContent?key=${keys.gemini}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: timeoutSignal(),
       body: JSON.stringify({
         contents: [{ parts: [{ text }] }],

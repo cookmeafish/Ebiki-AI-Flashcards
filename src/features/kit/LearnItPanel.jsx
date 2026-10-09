@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { Modal, ChunkyButton } from '../ui'
-import { buildLearnChatPrompt, boldParts, LEARN_ROLE, LEARN_MAX_TOKENS } from './learnIt'
+import { buildLearnChatPrompt, boldParts, LEARN_ROLE, LEARN_JOB, LEARN_MAX_TOKENS } from './learnIt'
 import { imeActive } from '../../utils/keys'
 
 // `tap(text, key)` makes the words tappable (ctx.words); all parts of one text share its popup (`k`).
@@ -43,7 +43,7 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
     setChat(history); setInput(''); setChatBusy(true)
     try {
       const { system, user } = buildLearnChatPrompt(subject, item, history)
-      const reply = ai.clean(String(await ai.call(system, user, { role: LEARN_ROLE, maxTokens: LEARN_MAX_TOKENS }) || ''))
+      const reply = ai.clean(String(await ai.call(system, user, { role: LEARN_ROLE, job: LEARN_JOB, maxTokens: LEARN_MAX_TOKENS }) || ''))
       if (!reply) throw new Error('empty')
       if (alive.current) setChat((c) => [...c, { role: 'assistant', content: reply }])
     } catch {

@@ -2,6 +2,7 @@
 // A language gets a grammar, spelling or accent rule ("When does qué carry an accent?"); any other subject a
 // principle or distinction ("RAID 1 vs RAID 0: which survives a disk failure, and why?"). Cards get memorized,
 // so the model must refuse (skip) when there is no real, general rule to teach.
+export const RULE_JOB = 'deck.ruleCard'
 export const RULE_ROLE = 'deck'          // cards get memorized: the strongest tier
 export const RULE_MAX_TOKENS = 1200
 export const RULE_TAGS = ['ebiki', 'rule']
