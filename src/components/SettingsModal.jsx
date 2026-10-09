@@ -553,7 +553,9 @@ export default function SettingsModal(p) {
     // Nor while a window opened ON TOP of Settings is up (Ebi Studio, a dialog): its Esc is its own, and this
     // listener, registered first, ran first and closed Settings underneath.
     // An Esc that only cancels an IME composition (Chinese/Japanese typing) is not a close: it lost the typed text.
-    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229 && !e.defaultPrevented && !document.querySelector('[data-top-overlay], [data-app-dialog]')) onClose() }
+    // Marks the key handled: the token cost panel (TokenUsageMeter) sits UNDER Settings' backdrop, and its own Esc
+    // listener (when registered after this one) closed it too, so one Esc closed both.
+    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229 && !e.defaultPrevented && !document.querySelector('[data-top-overlay], [data-app-dialog]')) { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -1251,6 +1253,16 @@ export default function SettingsModal(p) {
   // edited each other. Labelled with the base name.
   const audioLangs = LANGS.filter((l) => l.code !== 'auto').map((l) => ({ label: l.label.replace(/\s*\(.*\)$/, ''), iso1: langInfo(l.label)?.iso1 }))
     .filter((l, i, all) => l.iso1 && all.findIndex((x) => x.iso1 === l.iso1) === i)
+  // The row's name in the APP language, like every other language name in this modal. A base name
+  // with no LANGS label of its own ("Chinese", the row for both scripts) is named from its code.
+  const audioLangName = (l) => {
+    const shown = langDisplayName(l.label, appLanguage, { capitalize: true })
+    if (shown !== l.label || !appLanguage || appLanguage === 'en') return shown
+    try {
+      const out = new Intl.DisplayNames([appLanguage], { type: 'language' }).of(l.iso1)
+      return out && out !== l.iso1 ? out.charAt(0).toLocaleUpperCase(appLanguage) + out.slice(1) : shown
+    } catch { return shown }
+  }
   const AnkiAudio = (
     <div>
       {sectionTitle(t('setAnkiAudio'))}
@@ -1284,7 +1296,7 @@ export default function SettingsModal(p) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(150px, 100%), 1fr))', gap: '6px 18px' }}>
           {audioLangs.map((l) => (
             <div key={l.iso1 + l.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.ink, overflowWrap: 'anywhere' }}>{l.label}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.ink, overflowWrap: 'anywhere' }}>{audioLangName(l)}</span>
               <input value={pron.defaultRegions?.[l.iso1] || ''} placeholder={t('audioRegionAny')} maxLength={2}
                 onChange={(e) => setPron({ defaultRegions: { ...pron.defaultRegions, [l.iso1]: e.target.value.toLowerCase().replace(/[^a-z]/g, '') } })}
                 style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 52, fontSize: 12, padding: '4px 8px', textAlign: 'center' }} />

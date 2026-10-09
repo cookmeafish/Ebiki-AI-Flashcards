@@ -84,3 +84,29 @@ describe('header edge cases', () => {
     expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-dest': 'script' })).toBe(false)
   })
 })
+
+// The built app's liveness WebSocket (src/server/aliveSocket.js) is guarded by this SAME function: a DNS-rebound page
+// (Host: evil.example) must not open it, and the app's own page must.
+describe('/api/alive-ws upgrade uses the /api guard', async () => {
+  const http = (await import('http')).default
+  const net = (await import('net')).default
+  const { createAliveSocket, ALIVE_PATH } = await import('../server/aliveSocket.js')
+  const handshake = (port, headers) => new Promise((resolve) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write(`GET ${ALIVE_PATH} HTTP/1.1\r\n${headers}Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`))
+    let got = ''
+    s.on('data', (b) => { got += b.toString('latin1') })
+    s.on('error', () => {})
+    setTimeout(() => { s.destroy(); resolve(got) }, 150)
+  })
+  it('refuses a non-loopback Host and accepts the app page', async () => {
+    const server = http.createServer((req, res) => res.end('ok'))
+    createAliveSocket(server, apiRequestAllowed)
+    await new Promise((r) => server.listen(0, '127.0.0.1', r))
+    const port = server.address().port
+    expect(await handshake(port, 'Host: evil.example\r\n')).toMatch(/^HTTP\/1\.1 403/)
+    expect(await handshake(port, 'Host: evil.example:3000\r\nOrigin: http://evil.example:3000\r\n')).toMatch(/^HTTP\/1\.1 403/)
+    expect(await handshake(port, 'Host: localhost:3000\r\nOrigin: http://evil.example\r\n')).toMatch(/^HTTP\/1\.1 403/)
+    expect(await handshake(port, 'Host: localhost:3000\r\nOrigin: http://localhost:3000\r\n')).toMatch(/^HTTP\/1\.1 101/)
+    server.closeAllConnections?.(); server.close()
+  })
+})

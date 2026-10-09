@@ -1286,10 +1286,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
 - **Legendary** (a cleared area's challenge, `{kind: 'legendary'}`, not a map node): 20 fresh typed questions, 90% to
   win (`PASS.legendary`), no bonus life; `applyLegendaryResult` marks `area.legendary` (🏅).
 - **The question KIND keeps the screen's promise** (`fitQuestionsToKind`, prompt.js, inside `makeQuizNow`'s ask, before
-  the taught-items filter): legendary drops choice-only questions and strips choices; boss and raid convert a
-  choice-only question to typed (choices become its `alt`) or DROP it when it can't stand without options ("which of
-  these", true/false, all/none of the above, any of 4 languages) or gives itself away; top-up refills. So "no safe
-  strikes" after the enrage holds. A stricter retry MERGES with the first ask (`mergeQuestionSets`), never replaces it.
+  the taught-items filter): boss, Legendary and raid convert a choice-only question to typed (choices become its
+  `alt`) or DROP it when it can't stand without options ("which of these", true/false, all/none of the above, any of 4
+  languages) or gives itself away; top-up refills. Every fight prompt asks 4 choices on EVERY question. A stricter retry MERGES with the first ask (`mergeQuestionSets`), never replaces it.
 - **Quizzes ask ONLY about what the step taught.** `buildQuizPrompt` sends the items' text as the one source, the
   knowledge base only as background, at most `QUIZ_PER_ITEM_MAX` per item. `makeQuiz` drops questions whose `target`
   is not a taught item (`itemIdFor`) and asks once more (`strict`) under `QUIZ_MIN_KEPT`. The mode DESCRIPTION (the
@@ -1349,8 +1348,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   language) plus `phrasing` (FULL IMMERSION when it equals the learned language; a general mode keeps terms
   untranslated, grades understanding in any language), so EVERY fight prompt follows without knowing. Changing
   learned language / Ebi speaks / dialect on the intro rewrites the questions (`generationKey`). Grammar feedback off:
-  grammar outside the tested word never makes a strike glancing. Raid questions get Study's cue (`ensureLetterCue`
-  adds a skeleton when missing).
+  grammar outside the tested word never makes a strike glancing. **Every typed language question in QuizRunner shows
+  the letter COUNT** (the owner: ALWAYS): `ensureLetterCue` adds the skeleton `(s·······)` unless one is there, even
+  beside a quoted first letter; answered with choices it is stripped (`stripLetterSkeleton`).
   **`ctx.words.tappable(text, source, sentence, opts)`** (`opts` = { answers, glosses, lang }) = Study's question
   formatting for any text (muted cues, word-hint slot, answer words untappable), tappable when `tapAllowed` (language
   mode, or text not in the app language). `src/utils/tapTokens.js` is the ONE tap tokenizer (Intl.Segmenter,
@@ -1360,6 +1360,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   tap never picks the tile), hint, answer, note, explanation, each its own source; `startChoices(q)` opens a dual
   question on its choices. Taunts, raid debrief, all-answers list and Learn-it panel are tappable too. General-mode
   lookups explain in the app language, no card or hook.
+- **Warning bands** (`RaidBand.jsx`, `BAND_STYLE` 'chevron'; 'sheen'/'hazard' kept as alternatives): chevrons
+  stream out of a framed plate, in the boss's colors (raid boss: `impactFor(motif)` color/accent; Legends boss: its
+  palette `paletteTint`; Legendary: warning gold; else danger), and the stage light + aura take the same color. Used
+  by BossIntro and the Practice raid hero. Loops move strips by a PERCENTAGE (exact at any zoom). Preview all looks:
+  `dev/raid-band/harness.jsx`.
 - **The boss is a fight** (`BossArena.jsx`): entrance (`BossIntro`, timings in `ENTRANCE`; static under reduced
   motion), then a health bar = right answers needed (`bossOdds`: `PASS.boss`) and LIVES = misses allowed + 1 (no rule
   text). `bossOutcome` ends at 0 health (win) or 0 lives (unasked questions count missed: `finish(total)`); tested that
@@ -1404,10 +1409,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   and `replays` (`replayFactor`); `legendsXp` in game/engine.js.
 - **Fights are strikes** (`fight.js`, pure, `fight.test.js`; boss, Legendary, raids). `judgeStrike` (kit/judge.js):
   CLEAN (tested thing and everything else right) deals 2; GLANCING (tested thing right, something else wrong) deals 1
-  and its slip returns as an attack; MISS costs a life. A choice (the typed question's `alt`, "🛡 Show choices", phase 1
-  only) is a SAFE strike of 1. Every 3rd clean strike in a row crits (+1); `weakTo` items (rule items first) +1. A
+  and its slip returns as an attack; MISS costs a life. A choice (the typed question's `alt`, "🛡 Show choices") is a SAFE
+  strike of 1, **ALWAYS offered** (the owner, in capitals: questions can be ambiguous): every phase, attacks and
+  inserted questions keep their `alt`, Legendary too (`canUseChoices = q => !!q.alt`). Every 3rd clean strike in a row crits (+1); `weakTo` items (rule items first) +1. A
   missed question returns `ATTACK_GAP` questions later as a telegraphed ATTACK (blocked = counter 1, missed = 2 lives;
-  max `MAX_ATTACKS`, never from an attack). Enrage at half health (no choices). A shield absorbs one life. The OUTCOME
+  max `MAX_ATTACKS`, never from an attack). Enrage at half health (phase art and abilities; choices stay). A shield absorbs one life. The OUTCOME
   decides the pass (`fightStars`): questions running out with lives left is a win. Boss/Legendary questions are DUAL
   (`sanitizeQuestions(..., {dual})`).
 - **Fight grading is FAST, then looked at again** (`kit/fightJudge.js`, `kit/judge.js`, `FightExtras.jsx`

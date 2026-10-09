@@ -115,7 +115,8 @@ describe('review and the hard fights', () => {
   })
   it('makes the boss and a Legendary run hard, never unfair', () => {
     expect(buildQuizPrompt(sp, ar, { kind: 'boss' }, { typedItems: items }).user).toMatch(/Push the learner to the limit.*never unfair/s)
-    expect(buildQuizPrompt(sp, ar, { kind: 'legendary' }, { typedItems: items }).user).toMatch(/EVERY question typed/)
+    expect(buildQuizPrompt(sp, ar, { kind: 'boss' }, { typedItems: items }).user).toMatch(/for EVERY question, ALSO add 4 "choices"/)
+    expect(buildQuizPrompt(sp, ar, { kind: 'legendary' }, { typedItems: items }).user).toMatch(/EVERY question is answered TYPED.*4 "choices"/s)
   })
 })
 

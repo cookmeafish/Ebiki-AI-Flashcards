@@ -10,6 +10,8 @@ import { useFeatureCtx, featureCfg } from '../registry'
 import { tCount } from '../ui'
 import { LegendsArt, reducedMotion, useArtStill, useArtMotionAlways, headroomPx } from './art'
 import { ABILITY_ICON } from './BossArena'
+import { RaidBand, BAND_CSS } from './RaidBand'
+import { impactFor } from './impact/styles'
 import { RAID, todayKey, raidBossNumber, raidRunSize } from './raid'
 import { raidHeroState, raidTint } from './heroState'
 import { readRaid, onRaidSaved, LEGENDS_ID } from './store'
@@ -18,7 +20,6 @@ export const HERO = { art: 148, artNarrow: 120, wrapBelow: 560 } // px
 const STAGE = `color-mix(in srgb, ${C.bg} 22%, black)` // the raid stage is dark in both themes (like the raid intro)
 
 const CSS = `
-@keyframes rhStripe { from { transform: translateX(-2%) } to { transform: translateX(0) } }
 @keyframes rhGlowLo { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
 @keyframes rhGlowHi { 0%,100% { opacity: 0 } 50% { opacity: 1 } }
 @keyframes rhAura { 0%,100% { transform: scale(1); opacity: .55 } 50% { transform: scale(1.08); opacity: .9 } }
@@ -87,7 +88,6 @@ export default function RaidHero({ onOpen }) {
   const name = t(`lg_raidBoss_${shownMotif}`)
   const artSize = narrow ? HERO.artNarrow : HERO.art
   const mix = (pct, other = 'transparent') => `color-mix(in srgb, ${tint} ${pct}%, ${other})`
-  const stripe = `repeating-linear-gradient(-45deg, ${mix(90, 'black')} 0 14.1421px, ${mix(18, 'black')} 14.1421px 28.2843px)` // one period = 40px across at -45deg; the strip is 50 periods (2000px) and rhStripe moves it 2% = one period at any zoom (a px distance jumped on the GPU under zoom)
 
   const status = (() => {
     if (beaten) return { icon: '🏆', text: t('lg_raidHeroBeaten'), sub: t('lg_raidHeroNext', { n: s.num }) }
@@ -119,11 +119,10 @@ export default function RaidHero({ onOpen }) {
       boxShadow: pulse ? 'none' : GLOWS[0][0](mix),
     }}>
       <style>{CSS}</style>
-      {/* The hazard band, like the raid intro's, in this boss's color. */}
+      {/* The warning band, like the raid intro's, in this boss's own colors. */}
+      <style>{BAND_CSS}</style>
       <div aria-hidden="true" style={{ position: 'relative', height: 26, overflow: 'hidden', display: 'grid', placeItems: 'center' }}>
-        <span style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2000, background: stripe, animation: pulse ? 'rhStripe 1.4s linear infinite' : 'none' }} />
-        <span style={{ position: 'relative', fontFamily: FONT.display, fontWeight: 900, fontSize: 12.5, letterSpacing: '.3em', textTransform: 'uppercase',
-          padding: '0 12px', borderRadius: 4, background: mix(22, 'black'), color: C.white }}>⚠ {t('lg_raidTile')} ⚠</span>
+        <RaidBand main={impactFor(shownMotif).color || tint} deep={impactFor(shownMotif).accent} calm={!pulse} height={26} label={t('lg_raidTile')} />
       </div>
       <div style={{ display: 'flex', flexWrap: narrow ? 'wrap' : 'nowrap', justifyContent: 'center', alignItems: 'center', gap: narrow ? 4 : 18, padding: narrow ? '6px 16px 20px' : '6px 26px 20px 12px' }}>
         {/* The boss, in phase 1, idle (still under Still bosses, focus mode and reduced motion: LegendsArt decides). */}
@@ -156,7 +155,7 @@ export default function RaidHero({ onOpen }) {
           </div>
           {!beaten && s.kind !== 'none' && s.kind !== 'few' && (
             <button type="button" className="duo-cta btn-press" disabled={!ready} onClick={() => ready && onOpen?.()}
-              style={{ marginTop: 4, fontSize: 17, padding: '12px 34px', minWidth: 'min(190px, 100%)', maxWidth: '100%' }}>
+              style={{ marginTop: 4, fontSize: 17, padding: narrow ? '12px 18px' : '12px 34px', minWidth: 'min(190px, 100%)', maxWidth: '100%', overflowWrap: 'anywhere' }}>
               ⚔️ {t('lg_bossFight')}
             </button>
           )}

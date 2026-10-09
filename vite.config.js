@@ -24,7 +24,9 @@ import { createDiscoverStoreRoute } from './src/server/discoverStoreRoute.js'
 import { createChatsRoute, createChatLoadRoute } from './src/server/chatsRoute.js'
 import { createKnowledgeRoutes } from './src/server/knowledgeRoute.js'
 import { createAliveSocket } from './src/server/aliveSocket.js'
-import { sourceFingerprint, builtFileFor, contentTypeOf, carryOldAssets, BUILD_DIR, BUILD_TMP, BUILD_ASSETS, STAMP_FILE } from './src/server/builtApp.js'
+import { sourceFingerprint, builtFileFor, builtRequestAllowed, contentTypeOf, carryOldAssets, BUILD_DIR, BUILD_TMP, BUILD_ASSETS, STAMP_FILE } from './src/server/builtApp.js'
+import { parseHost, crossSiteFetch } from './src/server/hostGuard.js'
+import { parseKeysQuery } from './src/server/keysQuery.js'
 import { mergePlayers } from './src/features/game/engine.js'
 
 // Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
@@ -1584,7 +1586,7 @@ function writeConfig(data) {
 // scripts and curl send no Origin at all.
 //   1. Host must be a loopback name (the server listens on loopback only).
 //   2. An Origin, when present, must be this same host. 'null' (sandboxed frames, file pages) fails.
-const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
+// The loopback names live in src/server/hostGuard.js (shared with the built app's guard).
 
 // Folder name for a deck's progress log. Anki subdecks are named "Parent::Child", and ":" is not allowed
 // in a Windows file name, so the progress log of every subdeck failed to save (mkdir ENOENT) and
@@ -1597,23 +1599,17 @@ const deckDirName = (deck) => {
 }
 
 function apiRequestAllowed(headers = {}) {
-  const host = String(headers.host || '')
   // The Host as the URL parser reads it (lowercased, default port dropped): the Origin is compared with THIS, so
-  // "LOCALHOST:3000" or "localhost:80" from a real caller are not refused for their spelling.
-  let hostKey = ''
-  if (host) {
-    let name = ''
-    try { const u = new URL(`http://${host}`); name = u.hostname; hostKey = u.host } catch { /* malformed Host */ }
-    // Userinfo ("evil@localhost") is not a Host a browser sends; refused rather than read past.
-    if (!LOOPBACK_HOSTNAMES.has(name) || host.includes('@')) return false
-  }
+  // "LOCALHOST:3000" or "localhost:80" from a real caller are not refused for their spelling (src/server/hostGuard.js).
+  const h = parseHost(headers.host)
+  if (!h.empty && !h.ok) return false
+  const hostKey = h.key
   // Requests a browser makes on behalf of ANOTHER site. An <img src="http://localhost:3000/api/...">
   // carries no Origin at all, so without this any web page could make this server spawn a
   // PowerShell (/api/ankiconnect) or git (/api/update) process per tag, hundreds at once. Every
   // current browser sends Sec-Fetch-Site; the app and overlay send "same-origin", a typed URL
   // "none", and Electron main / the launch scripts / curl send nothing, so real callers still pass.
-  const site = String(headers['sec-fetch-site'] || '').toLowerCase()
-  if (site === 'cross-site' || site === 'same-site') return false
+  if (crossSiteFetch(headers)) return false
   // Only fetch()/sendBeacon ("empty") or a typed URL ("document") may reach the API. An <img>, <audio>
   // or stylesheet URL inside rendered content is SAME-origin and so passed the check above: an image tag
   // in a shared-deck card or an injected reply could fire /api calls (each spawning a process) at will.
@@ -1748,6 +1744,13 @@ function apiPlugin() {
         if (!servingBuilt || (req.method !== 'GET' && req.method !== 'HEAD')) return next()
         const file = builtFileFor((req.url || '').split('?')[0], buildDir, path)
         if (!file) return next()
+        // Runs before Vite's host check: a DNS-rebound site must not read the build (builtRequestAllowed).
+        if (!builtRequestAllowed(req.headers)) {
+          console.log('[Ebiki] refused a built-app request:', req.method, req.url, 'host=', req.headers.host, 'site=', req.headers['sec-fetch-site'])
+          res.statusCode = 403
+          res.end('forbidden')
+          return
+        }
         fs.readFile(file, (err, buf) => {
           if (err) { next(); return }
           res.setHeader('Content-Type', contentTypeOf(file))
@@ -2443,13 +2446,22 @@ function apiPlugin() {
           let body = ''
           req.on('data', (chunk) => { body += chunk })
           req.on('end', () => {
+            // ?source=user marks a key the person actually typed (see setCurrentKey);
+            // that one is allowed to replace the shared copy, a background save is not.
+            // Query AND body are read and checked BEFORE anything is written (src/server/keysQuery.js):
+            // a malformed "%" in ?providers= used to throw after writeEnv had saved, answering 500.
+            let typed, providers, parsed
             try {
-              // ?source=user marks a key the person actually typed (see setCurrentKey);
-              // that one is allowed to replace the shared copy, a background save is not.
-              const typed = /[?&]source=user/.test(req.originalUrl || req.url || '')
-              const r = writeEnv(JSON.parse(body), { source: typed ? 'user-typed' : 'app-autosave' })
-              const provMatch = /[?&]providers=([^&]*)/.exec(req.originalUrl || req.url || '')
-              const providers = provMatch ? decodeURIComponent(provMatch[1]).split(',').map((p) => p.trim()).filter(Boolean) : []
+              ({ typed, providers } = parseKeysQuery(req.originalUrl || req.url || ''))
+              parsed = JSON.parse(body)
+            } catch (e) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: e instanceof SyntaxError ? 'invalid json' : 'invalid query' }))
+              return
+            }
+            try {
+              const r = writeEnv(parsed, { source: typed ? 'user-typed' : 'app-autosave' })
               syncSharedKeys({ authoritative: typed, providers }).catch(() => {})
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true, ...r }))

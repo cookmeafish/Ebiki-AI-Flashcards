@@ -114,11 +114,20 @@ export function letterSkeleton(answer) {
   if (!a || NO_SKELETON.test(a)) return ''
   return `(${a.split(/(\s+)/).map((w, wi) => (/^\s+$/.test(w) ? w : [...w].map((ch, i) => (wi === 0 && i === 0 ? ch : /\p{L}/u.test(ch) ? '·' : ch)).join(''))).join('')})`
 }
-// A typed language question without a cue gets the skeleton (open and choice questions never: a cue would leak).
+// The skeleton is there: the first letter AND how many letters (the owner: the count must always be shown, a quoted
+// first letter alone left ambiguous questions unanswerable).
+export function hasLetterSkeleton(prompt, accepted = []) {
+  const firsts = initials(accepted)
+  return [...String(prompt || '').matchAll(SKELETON)].some((m) => firsts.has(m[1].toLowerCase()))
+}
+// The prompt without its skeleton, for a question answered with its choices (the letters would pick the tile).
+export const stripLetterSkeleton = (prompt) => String(prompt || '').replace(/\s*\((\p{L})[·.]{2,}[^)]*\)/gu, '')
+// A typed language question without the skeleton gets it, even beside a quoted first letter (open and choice
+// questions never: a cue would leak).
 export function ensureLetterCue(q, { isLanguage = false } = {}) {
   if (!isLanguage || !q || q.kind !== 'typed' || q.open) return q
   const acc = Array.isArray(q.accepted) ? q.accepted.filter(Boolean) : []
-  if (!acc.length || hasLetterCue(q.prompt, acc)) return q
+  if (!acc.length || hasLetterSkeleton(q.prompt, acc)) return q
   const sk = letterSkeleton(acc[0])
   if (!sk) return q
   const prompt = /_{2,}/.test(q.prompt) ? String(q.prompt).replace(/_{2,}/, (m) => `${m} ${sk}`) : `${q.prompt} ${sk}`

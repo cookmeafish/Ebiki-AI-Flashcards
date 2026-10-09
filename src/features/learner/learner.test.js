@@ -6,9 +6,9 @@ let answers = []
 let stored = { level: 10 }
 vi.mock('../kit/learnerStore', () => ({
   readLearner: async () => ({ ok: true, value: stored }),
-  updateLearner: async (ctx, modeId, fn) => {
+  updateLearner: async (ctx, modeId, fn, opts = {}) => {
     const ok = answers.length ? answers.shift() : true
-    writes.push({ modeId, ok, next: fn(stored) })
+    writes.push({ modeId, ok, next: fn(stored), batchId: opts.batchId })
     return ok
   },
 }))
@@ -32,6 +32,8 @@ describe('learner study batches', () => {
     expect(writes).toHaveLength(2)
     expect(writes[1].ok).toBe(true)
     expect(writes[1].next.level).toBeCloseTo(writes[0].next.level) // the same 25 cards, not lost and not doubled
+    expect(writes[0].batchId).toBeTruthy()
+    expect(writes[1].batchId).toBe(writes[0].batchId)               // the same batch: a refused write that landed counts once
     await vi.advanceTimersByTimeAsync(60000)
     expect(writes).toHaveLength(2)
     vi.useRealTimers()

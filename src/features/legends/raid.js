@@ -1,6 +1,6 @@
 // RAIDS (pure, tested): a SIEGE against a raid boss, fought with the deck's DUE cards (Anki's own review stack, so
 // every answer is recorded as a real review, win or lose). Harder than a Legends boss: typed clean strikes are needed
-// to win (choices deal 1 and only before phase 2), hearts are few, and a raid boss has THREE phases.
+// to win (choices deal 1; they are always offered: a question can be ambiguous), hearts are few, and a raid boss has THREE phases.
 //
 // THE SIEGE: both sides carry over between runs. Each boss has its OWN profile (raidProfiles.js: health, the player's
 // hearts, a flat daily heal), crafted like its ability; a run (the player's run size) is only a slice of
@@ -309,7 +309,7 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
     // glancing slip whose follow-up is still being written goes in as a placeholder (`_pending`: the run skips it if
     // the text is not there in time).
     const tag = info.aid ? { _attackOf: info.aid } : {}
-    const base = verdict === 'miss' ? { ...q, alt: undefined, ...tag }
+    const base = verdict === 'miss' ? { ...q, ...tag }
       : a ? (a.pending ? { kind: 'typed', prompt: '', accepted: [], target: q.target, _cardId: q._cardId, _pending: a.pending }
         : { kind: 'typed', prompt: a.prompt, accepted: a.accepted, exact: !!a.exact, target: q.target, _cardId: q._cardId, ...tag }) : null
     if (base) attack = { ...base, _attack: true }
@@ -326,7 +326,7 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   const groups = []
   const cardQ = (x) => {
     const found = questions.find((y) => String(y._cardId) === String(x.key))
-    return found ? { ...found, alt: undefined, _inserted: x.kind || 'inserted', ...(x.kind === 'lastStand' ? { _lastStand: true } : {}) } : null
+    return found ? { ...found, _inserted: x.kind || 'inserted', ...(x.kind === 'lastStand' ? { _lastStand: true } : {}) } : null
   }
   const added = plan && Array.isArray(plan.insert) ? plan.insert.map(cardQ).filter(Boolean).slice(0, room) : []
   if (added.length) {

@@ -42,6 +42,18 @@ const rulesFor = (subject) => (subject?.isLanguage
   ? `"target": the tested ${subject.learnLang} word, form or rule is used correctly (a single-letter typo in it is still wrong for "all", but right for "target" when the word is clearly meant). "all": the WHOLE answer is correct ${subject.learnLang} for what was asked (${subject.grammarFeedback === false ? 'spelling and accents; grammar and agreement outside the tested word or form do NOT count' : 'grammar, agreement, spelling, accents'}). "accentsOnly": true when "target" is true and the ONLY mistakes are missing or wrong accents that do not turn a word into a different word or form.`
   : '"target": the answer shows the tested idea correctly (a synonym, abbreviation or paraphrase is fine). "all": nothing in it is wrong (no wrong detail, no misused term). "accentsOnly": false.')
 
+// The one object a grading reply holds, however the model wrapped it: a list of one ([{"target": true, ...}]) or a
+// wrapper key ({"verdict": {...}}, {"result": {...}}). Read as nothing, the grading "did not happen" and the learner
+// had to answer again on every provider that wraps. `keys`: the fields that mark the real object.
+export const gradeObject = (j, keys) => {
+  const has = (o) => o && typeof o === 'object' && !Array.isArray(o) && keys.some((k) => k in o)
+  if (Array.isArray(j)) return j.find(has) || null
+  if (!j || typeof j !== 'object') return null
+  if (has(j)) return j
+  const inner = Object.values(j).filter((v) => v && typeof v === 'object')
+  return inner.length === 1 ? (Array.isArray(inner[0]) ? inner[0].find(has) || null : has(inner[0]) ? inner[0] : null) : null
+}
+
 // THE FAST VERDICT: three flags, nothing else.
 export function buildVerdictPrompt(subject, q, ans) {
   return {
@@ -51,8 +63,9 @@ export function buildVerdictPrompt(subject, q, ans) {
 }
 // → { target, all, accentsOnly } (booleans) or null when the reply holds no readable "target".
 // A reply that answered the plain question instead ({"correct": true}) is read as a whole verdict: right = clean.
-export function parseVerdict(j) {
-  if (!j || typeof j !== 'object') return null
+export function parseVerdict(raw) {
+  const j = gradeObject(raw, ['target', 'correct', 'right'])
+  if (!j) return null
   if (flagOf(j.target) == null) {
     const c = flagOf(j.correct ?? j.right)
     return c == null ? null : { target: c, all: c, accentsOnly: false }
@@ -84,8 +97,9 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
   }
 }
 // → { note, attack? } (attack = { prompt, accepted }) or null.
-export function parseExplain(j, clean = (s) => String(s || '').trim()) {
-  if (!j || typeof j !== 'object') return null
+export function parseExplain(raw, clean = (s) => String(s || '').trim()) {
+  const j = gradeObject(raw, ['note', 'fix'])
+  if (!j) return null
   const note = clean(String(j.note || ''))
   const fq = j.fix && typeof j.fix === 'object' ? String(j.fix.question || '').trim() : ''
   const fa = j.fix && typeof j.fix === 'object' ? String(j.fix.answer || '').trim() : ''
@@ -111,8 +125,9 @@ export function buildRecheckPrompt(subject, q, ans, { verdict = 'miss', reason =
   }
 }
 // → { verdict, overturned, why } or null (unreadable). Only ever RAISES the first verdict.
-export function parseRecheck(j, prev = 'miss', clean = (s) => String(s || '').trim()) {
-  if (!j || typeof j !== 'object') return null
+export function parseRecheck(raw, prev = 'miss', clean = (s) => String(s || '').trim()) {
+  const j = gradeObject(raw, ['right'])
+  if (!j) return null
   const right = flagOf(j.right)
   if (right == null) return null
   const seen = !right ? 'miss' : flagOf(j.all) === true ? 'clean' : 'glancing'

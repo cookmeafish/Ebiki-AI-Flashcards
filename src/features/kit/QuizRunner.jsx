@@ -43,7 +43,7 @@ import { ChunkyButton, ProgressBar, depthBorder, UI } from '../ui'
 import { useFocusHold } from '../registry'
 import { matchTyped } from './grade'
 import { judgeAnswer } from './judge'
-import { questionAnswersOf } from './fightSettings'
+import { questionAnswersOf, ensureLetterCue, stripLetterSkeleton } from './fightSettings'
 import TalkButton from './TalkButton'
 import { speak } from '../../speech'
 import { imeActive, choiceIndex } from '../../utils/keys'
@@ -319,6 +319,9 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const tone = partial ? C.warning : good ? C.success : C.danger
   const reveal = asChoice ? view.choices[view.answerIdx] : (q.accepted || [])[0]
   const switchable = !asChoice && !!q.alt && !!canUseChoices?.(q)
+  // A typed language question always shows how many letters its answer has (Study's skeleton, "(s·······)"); answered
+  // with its choices the skeleton goes (its letters would pick the tile).
+  const shownPrompt = asChoice ? stripLetterSkeleton(q.prompt) : ensureLetterCue(q, { isLanguage: !!subject?.isLanguage }).prompt
   // Screen readers hear the result once the feedback is on screen (never earlier: the answer is still secret before).
   const announce = phase !== 'feedback' ? '' : [
     (overturned ? '' : verdict?.title) || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong')),
@@ -338,7 +341,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       </div>
       {title && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.purple }}>{title} · {t('kit_progress', { i: idx + 1, n: total })}{q._retry ? ` · 🔁 ${t('kit_again')}` : ''}</div>}
       {header && header(q, asChoice ? 'choice' : 'typed')}
-      <div dir="auto" data-quiz-prompt="" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: glossMap && Object.keys(glossMap).length ? 2.2 : 1.35, whiteSpace: 'pre-wrap' }}>{words(q.prompt, 'q', { guarded: true, gloss: true })}</div>
+      <div dir="auto" data-quiz-prompt="" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: glossMap && Object.keys(glossMap).length ? 2.2 : 1.35, whiteSpace: 'pre-wrap' }}>{words(shownPrompt, 'q', { guarded: true, gloss: true })}</div>
       {popup('q')}
       {(narrow || hintText) && <style>{POP_CSS}</style>}
       {hintText && phase === 'answer' && <div key={hintText} role="status" dir="auto" data-quiz-pop="" style={{ fontSize: 14, fontWeight: 700, color: C.warning, animation: 'kitHintIn 520ms cubic-bezier(.2,1.2,.4,1) both' }}>{words(hintText, 'h', { guarded: true })}</div>}

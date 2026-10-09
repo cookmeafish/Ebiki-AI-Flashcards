@@ -21,28 +21,33 @@ const SKIP_SOURCES = /^legends/ // Legends steps, raids, blitz and placement upd
 const STUDY_FLUSH_MS = 20000    // graded study cards are added up and applied once things go quiet
 const STUDY_FLUSH_MAX = 25      // ... or once this many have piled up
 
-const pending = new Map()       // modeId -> { total, correct }
-// Batches being written. With pending, kept on this device (PENDING_KEY) until stored: the emitted cards are never
-// emitted again (emitOnce), so closing Ebiki within the quiet window lost the whole session's level change.
-const inflight = new Map()      // id -> { modeId, total, correct }
+const pending = new Map()       // modeId -> { total, correct } (not sent yet, no id yet)
+// Batches being written or waiting for a retry, each with its OWN id. With pending, kept on this device
+// (PENDING_KEY) until stored: the emitted cards are never emitted again (emitOnce), so closing Ebiki within the
+// quiet window lost the whole session's level change. The id goes into the level record when the write lands
+// (learnerStore `batchId`), so a batch whose write landed just before the page died, then adopted by the next
+// page, is applied once, not twice.
+const batches = new Map()       // id -> { id, modeId, total, correct, sending }
 const PENDING_KEY = 'ebiki-learner-pending'
-let inflightSeq = 0
 // The key is shared by every Ebiki tab (browser mode opens one per shortcut click): each page writes only ITS OWN
 // entries (owner + seenAt), and adopts another page's only once that page has been silent for ADOPT_AFTER_MS (it
 // closed). Copying a live tab's entries counted that session twice; rewriting the key from one tab's memory erased
 // the other's.
 const PAGE_ID = platform.randomId()
 const ADOPT_AFTER_MS = 60000
+let batchSeq = 0
+const newBatchId = () => `${PAGE_ID}-${++batchSeq}`
 function readStored() { const v = platform.kv.getJson(PENDING_KEY, []); return Array.isArray(v) ? v : [] }
 function persistPending() {
   const now = Date.now()
   const mine = []
   for (const [modeId, p] of pending) mine.push({ owner: PAGE_ID, seenAt: now, modeId, total: p.total, correct: p.correct })
-  for (const b of inflight.values()) mine.push({ owner: PAGE_ID, seenAt: now, modeId: b.modeId, total: b.total, correct: b.correct })
+  for (const b of batches.values()) mine.push({ owner: PAGE_ID, seenAt: now, id: b.id, modeId: b.modeId, total: b.total, correct: b.correct })
   const out = [...readStored().filter((b) => b && b.owner !== PAGE_ID), ...mine]
   if (out.length) platform.kv.setJson(PENDING_KEY, out); else platform.kv.remove(PENDING_KEY)
 }
-// What a closed page left unsaved joins this page's next batch.
+// What a closed page left unsaved joins this page: a batch it had SENT keeps its id (its write may have landed),
+// counts it never sent join this page's next batch.
 function adoptAbandoned() {
   const now = Date.now()
   const stored = readStored()
@@ -53,10 +58,15 @@ function adoptAbandoned() {
     const total = Math.floor(Number(b?.total)) || 0
     if (!b || b.modeId == null || !(total > 0)) continue
     if (b.owner === PAGE_ID || (b.owner && now - (Number(b.seenAt) || 0) < ADOPT_AFTER_MS)) { keep.push(b); continue }
-    const p = pending.get(b.modeId) || { total: 0, correct: 0 }
-    p.total += total; p.correct += Math.max(0, Math.min(Math.floor(Number(b.correct)) || 0, total))
-    pending.set(b.modeId, p)
+    const correct = Math.max(0, Math.min(Math.floor(Number(b.correct)) || 0, total))
     took = true
+    if (typeof b.id === 'string' && b.id) {
+      if (!batches.has(b.id)) batches.set(b.id, { id: b.id, modeId: b.modeId, total, correct, sending: false })
+      continue
+    }
+    const p = pending.get(b.modeId) || { total: 0, correct: 0 }
+    p.total += total; p.correct += correct
+    pending.set(b.modeId, p)
   }
   if (took) { if (keep.length) platform.kv.setJson(PENDING_KEY, keep); else platform.kv.remove(PENDING_KEY); persistPending() }
 }
@@ -95,44 +105,52 @@ async function maybeSeed(ctxIn, modeId) {
   await updateLearner(ctx, modeId, (m) => m || newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'evidence' }), { quiet: true })
 }
 
+function sendBatch(ctx, b) {
+  // Each card's own nudge, summed, then ONE write: deltaFor weighs a batch by sqrt(n), so a 25-card burst moved
+  // the level a fifth as much as the same cards one by one, and fast and slow learners moved differently.
+  const d = deltaFor('study', 1, 1) * b.correct + deltaFor('study', 1, 0) * (b.total - b.correct)
+  if (!d) { batches.delete(b.id); return }
+  b.sending = true
+  updateLearner(ctx, b.modeId, (m) => (m ? applyLearnerDelta(m, d, 'study') : m), { batchId: b.id }).then((ok) => {
+    b.sending = false
+    // A refused write (share down, folder switching) is tried again with the SAME id while the page lives (kept
+    // as this page's own entry it was never tried again; only another page adopted it, after close). The id makes
+    // a write that landed despite the refusal count once.
+    if (ok) batches.delete(b.id)
+    else if (!flushTimer) flushTimer = setTimeout(flushStudy, STUDY_FLUSH_MS)
+    persistPending()
+  })
+}
+
 function flushStudy() {
   clearTimeout(flushTimer); flushTimer = null
   const ctx = currentCtx()
   if (!ctx) return
   adoptAbandoned()
+  const seen = new Set()
   for (const [modeId, p] of pending) {
     pending.delete(modeId)
-    // Each card's own nudge, summed, then ONE write: deltaFor weighs a batch by sqrt(n), so a 25-card burst moved
-    // the level a fifth as much as the same cards one by one, and fast and slow learners moved differently.
-    const d = deltaFor('study', 1, 1) * p.correct + deltaFor('study', 1, 0) * (p.total - p.correct)
-    if (d && modeId != null) {
-      const id = ++inflightSeq
-      inflight.set(id, { modeId, total: p.total, correct: p.correct })
-      updateLearner(ctx, modeId, (m) => (m ? applyLearnerDelta(m, d, 'study') : m)).then((ok) => {
-        inflight.delete(id)
-        // A refused write (share down, folder switching) goes back into the next batch: kept as this page's own
-        // in-flight entry it was never tried again while the page lived (only another page adopted it, after close).
-        if (!ok) {
-          const p2 = pending.get(modeId) || { total: 0, correct: 0 }
-          p2.total += p.total; p2.correct += p.correct
-          pending.set(modeId, p2)
-          if (!flushTimer) flushTimer = setTimeout(flushStudy, STUDY_FLUSH_MS)
-        }
-        persistPending()
-      })
-    }
-    maybeSeed(ctx, modeId).catch(() => {})
+    if (modeId == null) continue
+    const id = newBatchId()
+    batches.set(id, { id, modeId, total: p.total, correct: p.correct, sending: false })
+    seen.add(modeId)
   }
+  for (const b of [...batches.values()]) {
+    if (b.sending) continue
+    sendBatch(ctx, b)
+    seen.add(b.modeId)
+  }
+  for (const modeId of seen) maybeSeed(ctx, modeId).catch(() => {})
   persistPending()
 }
 // Leaving the app: apply what has piled up now instead of after the quiet window (kept on the device if it fails).
-platform.onPageHide(() => { if (pending.size) flushStudy() })
+platform.onPageHide(() => { if (pending.size || [...batches.values()].some((b) => !b.sending)) flushStudy() })
 
 // The active mode, once Anki answers (the Mount): a learner who only reviews in Anki gets a level too.
 export function seedActiveMode(ctx) {
   lastCtx = ctx || lastCtx
   adoptAbandoned()
-  if (pending.size && !flushTimer) flushTimer = setTimeout(flushStudy, STUDY_FLUSH_MS)
+  if ((pending.size || batches.size) && !flushTimer) flushTimer = setTimeout(flushStudy, STUDY_FLUSH_MS)
   maybeSeed(ctx, ctx?.subject?.modeId).catch(() => {})
 }
 
@@ -153,7 +171,7 @@ export default {
     },
     [EVENTS.PRACTICE_DONE]: ({ source, mode, total, correct, gaps, strengths }, ctx) => {
       lastCtx = ctx || lastCtx
-      if (pending.size && !flushTimer) flushTimer = setTimeout(flushStudy, STUDY_FLUSH_MS) // a previous run's leftovers
+      if ((pending.size || batches.size) && !flushTimer) flushTimer = setTimeout(flushStudy, STUDY_FLUSH_MS) // a previous run's leftovers
       if (SKIP_SOURCES.test(String(source || ''))) return
       nudge(ctx, mode, STEP_OF[source] || 'practice', total, correct, { gaps, strengths })
       maybeSeed(ctx, mode).catch(() => {})

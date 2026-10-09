@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { platform, setPlatform, apiFetch } from './index'
+import { platform, setPlatform, apiFetch, createDeviceVoice } from './index'
 
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
 const SRC = path.resolve(__dirname, '..')
@@ -143,5 +143,84 @@ describe('audio.play', () => {
     } finally {
       globalThis.Audio = oldAudio; URL.createObjectURL = oldCreate; URL.revokeObjectURL = oldRevoke
     }
+  })
+})
+
+// The device voice queue: stopping ONE line must never silence the lines queued after it.
+describe('device voice: stop one line', () => {
+  // A stand-in for speechSynthesis with Chromium's shape: one queue, the head speaks, cancel() drops everything
+  // (firing an error on each dropped line), volume/rate read when a line reaches the head.
+  const fakeSynth = () => {
+    const s = {
+      queue: [], heard: [], cancels: 0,
+      getVoices: () => [],
+      speak: (u) => { s.queue.push(u) },
+      cancel: () => { s.cancels++; const q = s.queue; s.queue = []; q.forEach((u) => u.onerror?.({ error: 'canceled' })) },
+      // The head line starts and finishes (what a real device does over time).
+      playHead: () => {
+        const u = s.queue[0]
+        if (!u) return null
+        u.onstart?.()
+        if (s.queue[0] !== u) return u // cut at start
+        s.heard.push({ text: u.text, volume: u.volume ?? 1 })
+        s.queue.shift()
+        u.onend?.()
+        return u
+      },
+    }
+    return s
+  }
+  class Utt { constructor(text) { this.text = text } }
+  const setup = () => {
+    const synth = fakeSynth()
+    const voice = createDeviceVoice(() => synth, () => Utt)
+    const say = (text) => { let token = null; const done = voice.speak(text, 'es', { onHandle: (t) => { token = t } }); return { done, token: () => token } }
+    return { synth, voice, say }
+  }
+
+  it('a stopped QUEUED line is skipped, the lines after it still play', async () => {
+    const { synth, voice, say } = setup()
+    const a = say('uno'); const b = say('dos'); const c = say('tres')
+    voice.stop(b.token())
+    await b.done // settles at once
+    while (synth.playHead());
+    expect(synth.heard.filter((h) => h.volume !== 0).map((h) => h.text)).toEqual(['uno', 'tres'])
+    await Promise.all([a.done, c.done])
+  })
+
+  it('stopping the SPEAKING line keeps the queue behind it', async () => {
+    const { synth, voice, say } = setup()
+    const a = say('uno'); const b = say('dos'); say('tres')
+    synth.queue[0].onstart() // 'uno' is speaking
+    voice.stop(a.token())
+    await a.done
+    while (synth.playHead());
+    expect(synth.heard.map((h) => h.text)).toEqual(['dos', 'tres'])
+    await b.done
+  })
+
+  it('a queued line stopped is muted in place, so no sound even before it is cut', () => {
+    const { synth, voice, say } = setup()
+    say('uno'); const b = say('dos')
+    voice.stop(b.token())
+    expect(synth.queue[1].volume).toBe(0)
+  })
+
+  it('stop() with no token silences everything and settles every line', async () => {
+    const { synth, voice, say } = setup()
+    const a = say('uno'); const b = say('dos')
+    voice.stop()
+    await Promise.all([a.done, b.done])
+    expect(synth.queue).toHaveLength(0)
+  })
+
+  it('stopping a line that already finished does nothing', () => {
+    const { synth, voice, say } = setup()
+    const a = say('uno'); say('dos')
+    synth.playHead()
+    voice.stop(a.token())
+    expect(synth.cancels).toBe(0)
+    synth.playHead()
+    expect(synth.heard.map((h) => h.text)).toEqual(['uno', 'dos'])
   })
 })

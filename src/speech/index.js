@@ -47,7 +47,8 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
   // settle `done` at once (a cancelled line's end event may never come).
   const device = () => {
     let token = null
-    handle = { stop: () => { platform.speech.stop(token); release?.() } }
+    // No token = the device never queued this line: nothing to stop (a bare stop() would silence every voice).
+    handle = { stop: () => { if (token) platform.speech.stop(token); release?.() } }
     return new Promise((resolve) => {
       release = resolve
       platform.speech.speak(clean, lang, { voiceIndex: voice, onHandle: (u) => { token = u } }).then(resolve, resolve)

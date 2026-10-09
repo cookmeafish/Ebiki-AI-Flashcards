@@ -163,6 +163,9 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
     setState('loading')
     busyRef.current = myKey
     let r
+    // No noteId/cardId on purpose: a variant skips the card's own audio (tier 0) and only ranks the word's Commons
+    // recordings, which are the same for every card, so its cache entry is shared by word. The embed goes through
+    // onNative on THIS surface's card, and the word's per-card first choices are dropped by prefix in getPronunciation.
     try { r = await getPronunciation({ word, lang, region, config, variant: variant + 1 }) } finally { if (busyRef.current === myKey) busyRef.current = null }
     if (liveKeyRef.current !== myKey) return
     if (!r) {

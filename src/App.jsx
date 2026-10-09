@@ -72,6 +72,8 @@ import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugati
 import { leakNorm, HANGUL, leakLen, hangulLeak, NO_SPACE_SCRIPT, noSpaceLeak, answerInQuestionText, leakAnswers, questionAnswerLeak, scrubAnswerFromQuestion, hintTokenLeaks, hintRevealsAnswer, scrubHint } from './utils/leak'
 import { CUE_QUOTES_PLAIN, CUE_APOS, letterCueRe, cueFold, cueAnswers, hasLetterCue, letterSkeleton, appendLetterCue, needsLetterCue, blankedSubject } from './utils/letterCue'
 import { cardText } from './utils/cardText'
+import { clearableCard } from './utils/studyClear'
+import { isAccentTwin } from './utils/accentPairs'
 import { splitCardLabel } from './utils/cardLabel'
 import { stripAiDashes } from './utils/dashes'
 import { shapeProfile } from './discover/profile'
@@ -235,7 +237,13 @@ function parseAiJson(text) {
   try { return JSON.parse(escapeInnerQuotes(trimmed).replace(/,\s*([}\]])/g, '$1')) } catch { /* fall through */ }
   // 3) Salvage complete objects (handles truncation). For an array, return the rows.
   const objs = salvageJsonObjects(cleaned)
-  if (!objs.length) return null
+  if (!objs.length) {
+    // A wrapper object cut off mid-list ({"questions": [{...}, {...}, {"quest) never closes, so no row stood at the
+    // top level and every question was lost: salvage the rows of its first list instead.
+    const list = cleaned[0] === '{' ? cleaned.indexOf('[') : -1
+    const rows = list > 0 ? salvageJsonObjects(cleaned.slice(list + 1)) : []
+    return rows.length ? rows.slice() : null
+  }
   // Array or object by what directly precedes the first real object ("[" or "," = a row of a list), not by
   // the reply's first bracket: a preamble like "Using the format {front, back}:" made a list of 3 cards
   // come back as ONE object, and "[Note] {...}" made an object come back as a list.
@@ -414,6 +422,8 @@ const normalizeChatCard = (c) => ({
 // (~60px): stretching the buttons that tall read as oversized relative to the icons inside them
 // ("massive"), rather than a slim title-bar strip merely flush to the top edge.
 const WIN_CTRL_W = 96
+// Kept for screen readers, not drawn (the phone header's "Ebiki" heading: the mark beside it says it).
+const VISUALLY_HIDDEN = { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }
 const WIN_CTRL_H = 30
 
 // html → plain text memo for stripHtml (see there). Module-level so it survives re-renders.
@@ -6890,14 +6900,18 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // Discover start (initDiscover), not only when a profile is rebuilt: after the first visit a saved
   // profile always exists, so the set used to stay empty and the check never fired. Assigned only
   // while the mode/deck it was read for is still current (`live`).
+  // The language Discover's terms are written in, for the article strip of the duplicate check (src/discover/dupes.js):
+  // a language mode's LEARNED language; a general mode writes its cards in the app language.
+  const discoverTermOpts = () => ({ lang: activeMode.type === 'language' ? learnLangName() : userLangName() })
   const loadDiscoverAllFronts = async (noteIds, live) => {
     try {
       const all = new Set()
+      const termOpts = discoverTermOpts()
       const ids = noteIds.slice(-30000) // capped only for a pathological deck: 10k-note frequency decks are common (their OLDEST notes are the commonest words)
       for (let i = 0; i < ids.length; i += 500) {
         for (const n of await srs.notesInfo(ids.slice(i, i + 500))) {
           const first = Object.values(n.fields).sort((a, b) => a.order - b.order)[0]
-          for (const k of termKeys(stripHtml(first?.value || ''))) all.add(k) // articles, slashes, punctuation: src/discover/dupes.js
+          for (const k of termKeys(stripHtml(first?.value || ''), termOpts)) all.add(k) // articles, slashes, punctuation: src/discover/dupes.js
         }
         if (!live()) return
       }
@@ -7140,8 +7154,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // Keys, not one folded string (src/discover/dupes.js): a deck card "el perro" is the suggestion "perro",
       // "niño/a" covers "niña", "¡Hola!" is "hola". Only the FIRST slash form was compared before, and the deck set
       // held "a" for "niño/a" but never "niña".
-      const inLedger = termIn(suggestion.term, termIndex(discoverExcludeList(discoverLedgerRef.current || ledger)))
-      const inDeck = termIn(suggestion.term, discoverAllFrontsRef.current)
+      const termOpts = discoverTermOpts()
+      const inLedger = termIn(suggestion.term, termIndex(discoverExcludeList(discoverLedgerRef.current || ledger), new Set(), termOpts), termOpts)
+      const inDeck = termIn(suggestion.term, discoverAllFrontsRef.current, termOpts)
       // A term the user marked known or skipped is excluded FOREVER. The prompt carries only the newest
       // part of a big ledger, so the model can land on an older one repeatedly; after the retries it
       // was shown anyway. Now it never is: the user gets a "try again" message instead.
@@ -7149,7 +7164,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // ("offered", passed over with Next) may come back, as it did before. Blocking those too gave "only
       // repeats" on every big ledger.
       const cur = discoverLedgerRef.current || ledger || {}
-      const hardExcluded = inDeck || termIn(suggestion.term, termIndex([...(discoverDeckTermsRef.current || []), ...['known', 'declined', 'carded'].flatMap((k) => (Array.isArray(cur[k]) ? cur[k] : []))]))
+      const hardExcluded = inDeck || termIn(suggestion.term, termIndex([...(discoverDeckTermsRef.current || []), ...['known', 'declined', 'carded'].flatMap((k) => (Array.isArray(cur[k]) ? cur[k] : []))], new Set(), termOpts), termOpts)
       if (dupRetry >= 2 && hardExcluded) {
         if (live()) setDiscoverError(t('d_errOnlyRepeats'))
         return
@@ -9982,7 +9997,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // accepted answers, "calido" matched the front's "cálido" and the drill said "Correct" for an answer
       // (cálida wanted) that then failed.
       const candidates = (isExplanation || acceptedAnswers.length === 0) ? [...acceptedAnswers, ...frontForms] : [...acceptedAnswers]
-      const matched = candidates.filter(matchesLenient)
+      // An ACCENT TWIN (él/el, más/mas, está/esta: src/utils/accentPairs.js) inside a longer answer is the OTHER word,
+      // used correctly ("el perro" on a card for "él"), not a slip of the target: only a whole answer of it drills.
+      const twinLang = langFromName(learnLangName())?.code || null
+      const ansWordCount = ans.split(' ').filter(Boolean).length
+      const twinInsideAnswer = (a) => { const n = stripAccArticles(normalize(a)); return ansWordCount > n.split(' ').filter(Boolean).length && isAccentTwin(n, twinLang) }
+      const matched = candidates.filter((a) => matchesLenient(a) && !twinInsideAnswer(a))
       // Canonical = the matched variant carrying the MOST accent marks (the spelling to teach): the first one
       // listed could be half-accented ("ñandu" before "ñandú"), and the drill then taught the wrong spelling.
       const accentMarks = (a) => (normalize(a).normalize('NFD').match(/\p{M}/gu) || []).length
@@ -12219,9 +12239,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     if (toks.length === 0) return false
     // Coverage from the UNFILTERED glosses: a word whose gloss was withheld because it gives the answer away
     // (the fuzzy check) has been answered; counted as missing, it re-fetched every question for nothing.
+    // The lazy fetch stores only the SAFE glosses, so the words it withheld are listed in `glossWithheld` (folded):
+    // without that list a withheld word never looked covered and the question re-fetched up to GLOSS_MAX_ATTEMPTS times.
     const map = buildGlossMap(q.glosses, [])
     const folds = new Set(Object.keys(map).filter((k) => k[0] === '=').map((k) => glossFold(k.slice(1)))) // exact keys count too
-    const uncovered = toks.filter((t) => !map[t] && !folds.has(t)).length
+    const withheld = new Set(Array.isArray(q.glossWithheld) ? q.glossWithheld : [])
+    const uncovered = toks.filter((t) => !map[t] && !folds.has(t) && !withheld.has(t)).length
     return uncovered > Math.min(1, toks.length - 1)
   }
 
@@ -12286,6 +12309,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       const parsed = parseAiJson(text)
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('gloss reply was not a JSON object')
       const safe = filterRevealingGlosses(parsed, answers)
+      // Every word of a key the answer guard dropped, folded like glossableTokens: answered, just not shown.
+      const withheld = []
+      for (const k in parsed) {
+        if (k in safe) continue
+        for (const w of String(k).split(/\s+/)) { const c = glossTokenClean(w); if (c && glossFold(c)) withheld.push(glossFold(c)) }
+      }
       setStudyCardState(prev => {
         const updated = [...prev]
         const c = updated[cardIdx]
@@ -12295,7 +12324,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         // OLD answers (so they could even reveal the new answer).
         if (cur && typeof cur === 'object' && String(getQuestionText(cur)).replace(/\s+/g, ' ').trim() === qtext) {
           const qs = [...c.questions]
-          qs[qIdx] = { ...cur, glosses: { ...(cur.glosses || {}), ...safe } }
+          qs[qIdx] = { ...cur, glosses: { ...(cur.glosses || {}), ...safe }, ...(withheld.length ? { glossWithheld: [...new Set([...(cur.glossWithheld || []), ...withheld])] } : {}) }
           updated[cardIdx] = { ...c, questions: qs }
         }
         return updated
@@ -14133,7 +14162,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       name: (() => {
         const n = spec.name && typeof spec.name !== 'object' ? String(spec.name).replace(/\s+/g, ' ').trim() : ''
         if (existing && (!n || modeNameKey(n) === modeNameKey(existing.name))) return existing.name
-        return uniqueModeName(n ? n.slice(0, 60) : (existing?.name || String(spec.description || 'New mode').slice(0, 24)), existing?.id)
+        return uniqueModeName(n ? n.slice(0, 60) : (existing?.name || String(spec.description || tLiveRef.current('mode_defaultName')).slice(0, 24)), existing?.id)
       })(),
       type,
       description: typeof spec.description === 'string' ? spec.description : (existing?.description || ''),
@@ -14600,10 +14629,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     setActiveTab(tab)
     setSettingsOpen(false) // switching tabs closes the settings modal
   }
-  // A saved tab whose feature was removed (or never existed) falls back to Study.
+  // A saved tab whose feature was removed (or never existed) falls back to Study. Also when the screen list CHANGES
+  // under it (cheat mode turned off on the asset view): the screen went blank with no bar item current.
+  const navIdsKey = navItems.map((n) => n.id).join('|')
   useEffect(() => {
     if (!isOverlay && configLoaded && activeTab && !navItems.some((n) => n.id === activeTab)) setActiveTab('study')
-  }, [activeTab, configLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, configLoaded, navIdsKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // ─── Back / Forward (src/nav): the mouse's back button, Alt+Left, a phone's back button ───
   // Each piece of navigation state is a slice; a user change pushes a history entry and Back restores it. Never in the
   // overlay (no history there). Nothing moves while a dialog, Ebi Studio, the wizard or a data-folder switch is up.
@@ -14675,6 +14706,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   // A narrow window (or high zoom) packs the header: no LOCAL badge, no Alt+Q hint, the Settings button as a gear.
   // It took 3 to 4 rows at 900px and zoom 2, a third of the window.
   const compactHeader = viewportW < 760
+  const phoneHeader = compactHeader && isPhoneWidth(viewportW) // the bottom-bar layout: the header packs tighter still
   const showRail = shellOn && viewportW >= SHELL.railHideBelow && (railWanted(activeTab, { studyActive }) || !!featureScreen?.rail)
 
   // Wait for config + modes before the first real paint so the saved tab/mode are already
@@ -15041,7 +15073,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           Electron mode so the cluster (position:absolute, escaping that padding) never sits over
           real header content (Settings/language) - both this and the cluster's own width must
           stay in sync, which is why it's one constant instead of two guessed numbers. */}
-      {!isOverlay && <header {...(wizardShown ? { inert: '', 'aria-hidden': true } : {})} style={{ ...S.header, ...(compactHeader ? { padding: '8px 12px', gap: 6 } : {}), ...(isElectronApp ? { paddingRight: (compactHeader ? 12 : 20) + WIN_CTRL_W } : {}) }}>
+      {!isOverlay && <header {...(wizardShown ? { inert: '', 'aria-hidden': true } : {})} style={{ ...S.header, ...(compactHeader ? { padding: '8px 12px', gap: 6 } : {}), ...(phoneHeader ? { padding: '6px 10px', gap: 6, justifyContent: 'flex-start' } : {}), ...(isElectronApp ? { paddingRight: (phoneHeader ? 10 : compactHeader ? 12 : 20) + WIN_CTRL_W } : {}) }}>
         {/* Drag handle for the Electron app window (electron/main.cjs, frame:false so
             there is no native title bar left to grab or restore-from-maximized with). Sits INSIDE
             the header (position:relative) so it stays visually seamless (no separate colored
@@ -15055,10 +15087,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         {isElectronApp && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: WIN_CTRL_W, height: 10, WebkitAppRegion: 'drag' }} />
         )}
-        <div style={S.headerLeft}>
+        {/* Phone width: headerLeft/headerRight are display:contents, so every control is one flex item of the header and
+            they pack into as few rows as fit: mark, Talk to Ebi (icon only), the feature items and the gear first, the
+            mode/deck switch alone on the last row at full width (readable names). It took three rows and 350 of 844px at
+            zoom 2 with the switch cut to "A...". */}
+        <div style={phoneHeader ? { display: 'contents' } : S.headerLeft}>
           {/* App mark: the frame glyph on a lit brand tile (UI overhaul). */}
           <span aria-hidden="true" style={{
-            width: 30, height: 30, borderRadius: 9, display: 'grid', placeItems: 'center', flexShrink: 0,
+            width: phoneHeader ? 26 : 30, height: phoneHeader ? 26 : 30, borderRadius: 9, display: 'grid', placeItems: 'center', flexShrink: 0,
             background: 'linear-gradient(145deg, var(--c-brand-soft), var(--c-brand) 55%, var(--c-brand-dark))',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,.3), var(--sh-sm)',
           }}>
@@ -15067,18 +15103,18 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               <circle cx="17.5" cy="8" r="3.4" fill="#fff"/>
             </svg>
           </span>
-          <h1 style={S.title}>Ebiki</h1>
+          <h1 style={phoneHeader ? VISUALLY_HIDDEN : S.title}>Ebiki</h1>
           {!compactHeader && <span style={S.badge}>{t('badge_local')}</span>}
           {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
-          <button onClick={() => setAskEbiSignal((n) => n + 1)} data-tip={t('hdr_talkToEbiTip')} className="ui-btn tip tip-b"
-            style={{ ...S.ghostBtn, marginLeft: compactHeader ? 2 : 8, color: 'var(--c-ink)', borderColor: 'var(--c-border)', background: 'var(--c-surface)', borderRadius: 999, padding: '7px 15px 7px 12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--sh-sm)' }}>
+          <button onClick={() => setAskEbiSignal((n) => n + 1)} data-tip={t('hdr_talkToEbiTip')} className="ui-btn tip tip-b" aria-label={t('hdr_talkToEbi')}
+            style={{ ...S.ghostBtn, marginLeft: compactHeader ? 2 : 8, color: 'var(--c-ink)', borderColor: 'var(--c-border)', background: 'var(--c-surface)', borderRadius: 999, padding: phoneHeader ? '6px 9px' : '7px 15px 7px 12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: phoneHeader ? 6 : 8, boxShadow: 'var(--sh-sm)' }}>
             <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--c-brand)', boxShadow: '0 0 0 3px var(--c-brand-tint)' }} />
-            {t('hdr_talkToEbi')}
+            {phoneHeader ? <span aria-hidden="true" style={{ lineHeight: 1 }}>💬</span> : t('hdr_talkToEbi')}
           </button>
           {onboarded && <FeatureSlot registry={registry} name={SLOT.HEADER} />}
         </div>
-        <div style={S.headerRight}>
+        <div style={phoneHeader ? { display: 'contents' } : S.headerRight}>
           {/* Picture tab: context buttons */}
           {activeTab === 'picture' && stage === 'done' && (
             <button onClick={() => setShowHighlights(!showHighlights)} style={{
@@ -15154,11 +15190,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               on the right (the same setting as Settings > Cards & Anki, which Study, Practice, raids, Legends and
               Discover all read). "+ Add mode" opens the Learning-modes panel in Settings. The deck segment shows
               while Anki answers; with Anki known to be down it stays, disabled, so the pair is still visible. */}
-          {/* Phone width: the switch and the gear share ONE row that never wraps (the switch shrinks, ellipsized);
-              apart, they took two of the header's four rows (216 of 844px). Elsewhere these wrappers are display:contents. */}
-          <div style={isPhoneWidth(viewportW) ? { display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 6, flex: '1 1 100%', minWidth: 0 } : { display: 'contents' }}>
-          <div style={isPhoneWidth(viewportW) ? { display: 'flex', flex: '1 1 0', minWidth: 0 } : { display: 'contents' }}>
+          {/* Phone width: the switch is the header's LAST row, alone at full width (order 10), its two halves sharing it
+              equally without their icons so both names stay readable; the gear joins the first row (order 5). */}
+          <div style={phoneHeader ? { display: 'flex', order: 10, flex: '1 1 100%', minWidth: 0 } : { display: 'contents' }}>
           <ModeDeckSwitch
+            compact={phoneHeader}
+            rowWidth={viewportW - 22 /* the phone header's side padding and the control's border */}
             getZoom={getZoom}
             tip={t('hdr_modeDeckTip')}
             mode={{
@@ -15183,18 +15220,17 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               ],
             } : ankiConnected === false ? {
               disabled: true,
-              label: `🗂️ ${t('hdr_deckOffline')}`,
+              label: phoneHeader ? t('hdr_deckOffline') : `🗂️ ${t('hdr_deckOffline')}`,
               ariaLabel: t('hdr_deckOffline'),
             } : null}
           />
           </div>
 
           {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
-          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} aria-label={t('settingsTitle')} className="ui-btn" style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px', color: 'var(--c-ink-dim)' }}>
+          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} aria-label={t('settingsTitle')} className="ui-btn" style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px', color: 'var(--c-ink-dim)', ...(phoneHeader ? { order: 5, marginLeft: 'auto' } : {}) }}>
             {'\u2699\uFE0F'}{!compactHeader && <> {t('settingsTitle')}</>}
             {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
           </button>
-          </div>
           {/* Minimize/maximize/close - frame:false took the native ones with it. ALWAYS
               position:absolute, top:0, right:0 - flush to the window's actual top-right corner,
               exactly like every native app, and NEVER moves regardless of what the header's
@@ -17699,8 +17735,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             {/* Clear lives at the very BOTTOM so it's not mistaken for a continue/sync action */}
                             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
                               <button onClick={() => {
-                                // Not the ones still waiting for Anki: with them went the Sync button, the countdown and any sync error.
-                                setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 && !(cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync) ? { ...cs, dismissed: true } : cs))
+                                // Not the ones still waiting for Anki or for a manual rating after a failed grading (src/utils/studyClear.js).
+                                setStudyCardState(prev => prev.map(cs => clearableCard(cs) ? { ...cs, dismissed: true } : cs))
                               }} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
                                 {studyMode === 'conjugations' ? t('close') : t('study_clearCompleted')}
                               </button>
@@ -17827,7 +17863,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             {/* Second pass: one big drop zone (drops work anywhere on the tab), three ways in as tiles. */}
             <div className="pc-drop">
               <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', height: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', objectFit: 'contain', marginBottom: 6 }} />
-              <h2 className="ui-page-title" style={{ fontSize: 34, marginBottom: 10 }}>{t('pic_emptyTitle')}</h2>
+              <h2 className="ui-page-title" style={{ fontSize: 'clamp(22px, calc(8.5vw / var(--app-zoom, 1)), 34px)', marginBottom: 10, overflowWrap: 'anywhere' }}>{t('pic_emptyTitle')}</h2>
               <p style={{ ...S.emptyDesc, margin: '0 auto' }}>
                 {t('pic_emptyDescPre')}<kbd className="ui-kbd" style={{ verticalAlign: 'middle', margin: '0 2px' }}>Alt+Q</kbd>{t(activeMode.type === 'language' ? 'pic_emptyDescPost' : 'pic_emptyDescPostGeneral', { provider: providerConfig.label })}
               </p>

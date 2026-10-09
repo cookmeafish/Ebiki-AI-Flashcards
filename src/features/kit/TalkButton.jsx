@@ -37,9 +37,24 @@ export default function TalkButton({ ctx, lang = '', onText, onStart, disabled, 
     if (!engine) { setNote(t('kit_noEngine')); return }
     startingRef.current = true
     let s
-    try { s = await listen(ctx, { lang }) } catch { startingRef.current = false; if (aliveRef.current) setNote(t('kit_noMic')); return }
+    let failed = false
+    // The browser recognizer died on its own (mic refused after the prompt, no mic, offline): end this turn and say
+    // so now, else the button showed "Listening" over a dead recognizer until the learner pressed stop.
+    // Only codes come from the recognizer: 'nomic' reads as the mic note, anything else (offline...) as a plain stop.
+    let failNote = 'kit_noMic'
+    const onFail = (code) => {
+      failed = true
+      failNote = !code || code === 'nomic' ? 'kit_noMic' : 'kit_listenFailed'
+      if (!s || sessionRef.current !== s) return // not started yet (handled below) or already ended
+      sessionRef.current = null
+      clearTimeout(capRef.current)
+      s.cancel?.()
+      if (aliveRef.current) { setNote(t(failNote)); setState('idle') }
+    }
+    try { s = await listen(ctx, { lang, onFail }) } catch { startingRef.current = false; if (aliveRef.current) setNote(t('kit_noMic')); return }
     startingRef.current = false
     if (!aliveRef.current) { s?.cancel?.(); return } // left the screen while the mic opened: never leave it on
+    if (failed) { s?.cancel?.(); setNote(t(failNote)); return } // died before this turn even began
     sessionRef.current = s
     capRef.current = setTimeout(stop, MAX_MS)
     setState('listening')

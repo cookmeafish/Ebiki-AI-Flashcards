@@ -25,9 +25,84 @@
 // localStorage, window or document directly (src/platform/platform.test.js enforces it for src/features).
 
 const hasWindow = typeof window !== 'undefined'
-// The device voice line now speaking, and queued lines stopped before they started (skipped when they start).
-let speakingLine = null
-const cancelledLines = new WeakSet()
+// THE DEVICE VOICE QUEUE (speechSynthesis). The device keeps one shared queue with no per-line remove, and
+// cancel() empties ALL of it. Stopping one line used to cancel() when it started, which also silenced every
+// line queued after it (another feature's line, or the next line of the same screen). Now our own lines are
+// tracked here; stopping one cuts the device queue and hands back the survivors as fresh utterances (the old
+// ones' cancel events are ignored), so only the stopped line goes. A stopped line still QUEUED is also muted in
+// place (Chromium reads volume/rate when a line reaches the head), so even its first instant is silent.
+// Exported for tests: `synth` = speechSynthesis, `Utterance` = SpeechSynthesisUtterance.
+export function createDeviceVoice(getSynth, getUtterance) {
+  const lines = [] // our lines handed to the device and not finished, in queue order
+  const finish = (rec) => {
+    const i = lines.indexOf(rec)
+    if (i >= 0) lines.splice(i, 1)
+    if (!rec.settled) { rec.settled = true; rec.resolve() }
+  }
+  const makeUtterance = (rec) => {
+    const U = getUtterance()
+    const u = new U(rec.text)
+    if (rec.lang) u.lang = rec.lang
+    u.rate = rec.rate
+    if (rec.voice) u.voice = rec.voice
+    rec.u = u
+    u.onstart = () => {
+      if (rec.u !== u) return // a replaced utterance
+      rec.started = true
+      if (rec.stopped) cutCurrent() // reached the head after a stop (a browser that ignored the mute)
+    }
+    const end = () => { if (rec.u === u) finish(rec) }
+    u.onend = end
+    u.onerror = end
+    return u
+  }
+  // Cancel the device queue but keep every line of ours that is neither stopped nor already speaking.
+  const cutCurrent = () => {
+    const synth = getSynth()
+    const gone = lines.filter((r) => r.stopped || r.started)
+    const survivors = lines.filter((r) => !r.stopped && !r.started)
+    // New utterances FIRST: the cancel events of the old ones then find `rec.u` changed and are ignored.
+    const fresh = survivors.map((r) => makeUtterance(r))
+    gone.forEach((r) => { r.u = null; finish(r) })
+    try { synth.cancel() } catch { /* gone */ }
+    for (const u of fresh) { try { synth.speak(u) } catch { /* the line ends silently */ } }
+  }
+  return {
+    speak: (text, lang, { rate = 1, voiceIndex = 0, onHandle } = {}) => new Promise((resolve) => {
+      try {
+        const synth = getSynth()
+        if (!synth || !text) return resolve()
+        // A second character in a dialogue gets a different voice of the same language when one exists.
+        const voices = (synth.getVoices?.() || []).filter((v) => !lang || v.lang?.toLowerCase().startsWith(String(lang).toLowerCase().slice(0, 2)))
+        const rec = { text, lang, rate, voice: voices.length ? voices[voiceIndex % voices.length] : null, resolve, started: false, stopped: false, settled: false, u: null }
+        const u = makeUtterance(rec)
+        onHandle?.(rec) // the token for stop(token): survives a re-queue (the utterance object may change)
+        lines.push(rec)
+        synth.speak(u)
+      } catch { resolve() }
+    }),
+    // stop() silences everything; stop(token) only that line.
+    stop: (token) => {
+      try {
+        const synth = getSynth()
+        if (!token) {
+          const all = lines.slice()
+          all.forEach((r) => { r.u = null; finish(r) })
+          return synth?.cancel()
+        }
+        if (!lines.includes(token) || token.stopped) return // finished already, or another session's token
+        token.stopped = true
+        if (token.started) { cutCurrent(); return }
+        // Still queued: mute it in place and settle it now; it is cut the moment it starts.
+        try { token.u.volume = 0; token.u.rate = 10 } catch { /* read-only */ }
+        if (!token.settled) { token.settled = true; token.resolve() }
+      } catch { /* nothing playing */ }
+    },
+  }
+}
+
+const hasSynth = () => hasWindow && 'speechSynthesis' in window
+const deviceVoice = createDeviceVoice(() => (hasSynth() ? window.speechSynthesis : null), () => window.SpeechSynthesisUtterance)
 
 const web = {
   kind: hasWindow && /Electron/i.test(navigator.userAgent || '') ? 'electron' : 'browser',
@@ -69,33 +144,11 @@ const web = {
   },
   speech: {
     canSpeak: () => hasWindow && 'speechSynthesis' in window,
-    // The device's own (free) voice. Resolves when it finishes (or fails); never rejects.
-    // `onHandle(u)` hands back a token for stop(u), which stops only that line.
-    speak: (text, lang, { rate = 1, voiceIndex = 0, onHandle } = {}) => new Promise((resolve) => {
-      try {
-        if (!hasWindow || !('speechSynthesis' in window) || !text) return resolve()
-        const u = new SpeechSynthesisUtterance(text)
-        onHandle?.(u)
-        u.onstart = () => { if (cancelledLines.has(u)) { try { window.speechSynthesis.cancel() } catch { /* gone */ } } else speakingLine = u }
-        if (lang) u.lang = lang
-        u.rate = rate
-        // A second character in a dialogue gets a different voice of the same language when one exists.
-        const voices = window.speechSynthesis.getVoices().filter((v) => !lang || v.lang?.toLowerCase().startsWith(String(lang).toLowerCase().slice(0, 2)))
-        if (voices.length) u.voice = voices[voiceIndex % voices.length]
-        const end = () => { if (speakingLine === u) speakingLine = null; resolve() }
-        u.onend = end
-        u.onerror = end
-        window.speechSynthesis.speak(u)
-      } catch { resolve() }
-    }),
-    // stop() silences everything; stop(u) only that line: cancelled now if it is speaking, skipped when it starts if
-    // still queued (the device queue has no per-line remove).
-    stop: (u) => {
-      try {
-        if (!u) return window.speechSynthesis?.cancel()
-        if (speakingLine === u) { speakingLine = null; window.speechSynthesis?.cancel() } else cancelledLines.add(u)
-      } catch { /* nothing playing */ }
-    },
+    // The device's own (free) voice. Resolves when it finishes (or fails, or is stopped); never rejects.
+    // `onHandle(token)` hands back a token for stop(token), which stops only that line (see createDeviceVoice).
+    speak: (text, lang, opts) => deviceVoice.speak(text, lang, opts),
+    // stop() silences everything; stop(token) only that line, never the lines queued after it.
+    stop: (token) => deviceVoice.stop(token),
     // A FREE built-in recognizer (Chrome/Edge tabs; never inside Electron, where it always fails "network").
     canRecognize: () => hasWindow && !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !/Electron/i.test(navigator.userAgent || ''),
     // Live recognition: { stop(): Promise<text>, cancel() }. `onFail(code)` reports a recognizer that died on its

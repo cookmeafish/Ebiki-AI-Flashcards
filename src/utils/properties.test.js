@@ -55,6 +55,14 @@ const jsonObject = (r, depth = 0) => {
   return o
 }
 
+describe('parseAiJson: a wrapper cut off mid-list', () => {
+  it('keeps the rows that arrived', () => {
+    const cut = '{"questions": [{"card": 1, "question": "a?"}, {"card": 2, "question": "b?"}, {"card": 3, "quest'
+    expect(parseAiJson(cut)).toEqual([{ card: 1, question: 'a?' }, { card: 2, question: 'b?' }])
+    expect(parseAiJson('{"questions": [{"card": 1, "quest')).toBe(null)
+  })
+})
+
 describe('parseAiJson (property)', () => {
   it('never throws on any text', () => {
     const chars = ['{', '}', '[', ']', '"', "'", ',', ':', '\\', '`', '```json', '```', '\n', ' ', 'a', '1', 'true', 'null']

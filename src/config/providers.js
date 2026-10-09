@@ -78,6 +78,17 @@ function reportUsage(provider, model, raw) {
   try { const u = readUsage(provider, raw); if (u) usageListener({ provider, model: String(model || ''), ...u }) } catch { /* never breaks a call */ }
 }
 
+// The reply TEXT of an OpenAI-compatible message. Some compatible endpoints send `content` as a list of parts
+// ([{type:'text', text}]) instead of a string: returned as is, a caller's String(reply) read "[object Object]" and a
+// fight's verdict was unreadable. Reasoning models served through such an endpoint may also put their thinking in the
+// content as a leading <think>...</think> block: dropped, so a JSON draft inside it is never read as the answer.
+function replyText(content) {
+  const text = Array.isArray(content)
+    ? content.map((p) => (typeof p === 'string' ? p : p && (p.type === 'text' || p.type === 'output_text') && typeof p.text === 'string' ? p.text : '')).join('')
+    : typeof content === 'string' ? content : ''
+  return text.replace(/^\s*<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>\s*/i, '')
+}
+
 async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, systemPrompt, userContent, model, images, maxTokens }) {
   const userMsg = (images && images.length)
     ? [
@@ -155,7 +166,7 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
       const choice = j.choices?.[0]
       const refusal = typeof choice?.message?.refusal === 'string' ? choice.message.refusal.trim() : ''
       const reasoning = Number(j.usage?.completion_tokens_details?.reasoning_tokens ?? j.usage?.output_tokens_details?.reasoning_tokens) || 0
-      return { content: choice?.message?.content || '', finish: choice?.finish_reason, refusal, reasoning }
+      return { content: replyText(choice?.message?.content), finish: choice?.finish_reason, refusal, reasoning }
     } catch { return { content: '', finish: null, refusal: '', reasoning: 0 } }
   }
   let { content, finish, refusal, reasoning } = read(r.text)
@@ -266,18 +277,35 @@ export const PROVIDERS = {
       // one of those roles fails. The cap is stated IN the error, so rather than carrying a
       // per-model table that goes stale, the request is retried once at the number the API itself
       // named. Same self-healing shape as the OpenAI token-parameter fallback above.
-      let r = await post(maxTokens || 4000)
+      const budget = maxTokens || 4000
+      let r = await post(budget)
+      let sent = budget
       if (!r.ok && r.status === 400 && /max_tokens/.test(r.text)) {
         const cap = Number((r.text.match(/>\s*(\d+)/) || [])[1])
         // Only DOWN: the context-overflow error also names max_tokens ("195000 + 8000 > 200000") and its
         // number is the context size, so retrying at it asked for 200000 output tokens and showed a
         // confusing cap error instead of the real "input too long" one.
-        if (cap > 0 && cap < (maxTokens || 4000)) r = await post(cap)
+        if (cap > 0 && cap < budget) { r = await post(cap); sent = cap }
       }
       if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
       let body = null
       try { body = JSON.parse(r.text) } catch { return '' }
-      const out = body?.content?.map((c) => (c.type === 'text' ? c.text : '')).join('') || ''
+      // Only `text` blocks: a model that thinks returns `thinking` / `redacted_thinking` blocks first, never the answer.
+      const textOf = (b) => b?.content?.map?.((c) => (c?.type === 'text' ? c.text || '' : '')).join('') || ''
+      let out = textOf(body)
+      // EVERYTHING SPENT ON THINKING (a model that thinks by default, the same budget for both): 200, stop_reason
+      // "max_tokens", no text. The same bounded retry as the other providers; a still-empty reply is an error, never ""
+      // (the fight verdict's 120 tokens, a taunt's 160). MIN_CONTENT_BUDGET keeps a liveness probe out of it.
+      if (!out && body?.stop_reason === 'max_tokens' && budget >= MIN_CONTENT_BUDGET) {
+        const roomier = Math.min(Math.max(budget * 4, 4000), 32000)
+        if (roomier > sent && sent === budget) {
+          const retry = await post(roomier)
+          if (!retry.ok) throw new Error(`API ${retry.status}: ${errText(retry.text)}`)
+          try { body = JSON.parse(retry.text) } catch { body = null }
+          out = textOf(body)
+        }
+        if (!out) throw new Error('API 200: empty (output limit reached)')
+      }
       // A refusal is 200 + stop_reason "refusal" and no text (see the OpenAI note above).
       if (!out && body?.stop_reason === 'refusal') throw new Error('API 200: blocked (refusal)')
       return out
@@ -364,7 +392,8 @@ export const PROVIDERS = {
         try {
           const j = JSON.parse(raw)
           const c = j.candidates?.[0]
-          return { text: c?.content?.parts?.map((p) => p.text || '').join('') || '', finish: c?.finishReason, blocked: j.promptFeedback?.blockReason, thoughts: Number(j.usageMetadata?.thoughtsTokenCount) || 0 }
+          // A part marked `thought` is the model's thinking (sent when thoughts are included), never the answer.
+          return { text: c?.content?.parts?.map((p) => (p?.thought ? '' : p?.text || '')).join('') || '', finish: c?.finishReason, blocked: j.promptFeedback?.blockReason, thoughts: Number(j.usageMetadata?.thoughtsTokenCount) || 0 }
         } catch { return { text: '', finish: null, thoughts: 0 } }
       }
 
@@ -392,6 +421,10 @@ export const PROVIDERS = {
           if (!text) throw new Error('API 200: empty (output limit reached)')
         } else throw new Error('API 200: empty (output limit reached)') // already at the largest budget
       }
+      // NO budget sent (a call without maxTokens) and still cut off with no text: the model's OWN output limit
+      // ran out, and there is nothing roomier to ask for. An error, never "" (a blank reply was saved as a
+      // bubble). A small explicit budget (probeModel's 4) stays out of this: its "" means "answered".
+      if (!text && finish === 'MAX_TOKENS' && !budget) throw new Error('API 200: empty (output limit reached)')
       // Safety blocks are 200 with no text: a blocked PROMPT has no candidates (promptFeedback.blockReason),
       // a blocked ANSWER has finishReason SAFETY/RECITATION/... (see the OpenAI note above).
       if (!text && (blocked || /^(SAFETY|RECITATION|PROHIBITED_CONTENT|BLOCKLIST|SPII|IMAGE_SAFETY)$/.test(String(finish || '')))) {

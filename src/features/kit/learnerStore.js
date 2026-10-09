@@ -19,6 +19,15 @@ let version = 0
 const notify = () => { version++; for (const l of listeners) l() }
 let chain = Promise.resolve()
 
+// Batches already applied to a level (ids, newest last). A batch a page kept on the device while its write ran can
+// be adopted by the next page even though the write landed before the page died: its id here makes the second
+// application a no-op. Bounded: a batch is retried within minutes, never after 50 newer ones.
+export const APPLIED_BATCHES_MAX = 50
+const appliedOf = (raw) => (Array.isArray(raw?.appliedBatches)
+  ? raw.appliedBatches.filter((s) => typeof s === 'string' && s).slice(-APPLIED_BATCHES_MAX) : [])
+// shapeLearner keeps only the level's own fields; the applied list rides along on the cached and written copies.
+const withApplied = (model, applied) => (model && applied.length ? { ...model, appliedBatches: applied } : model)
+
 const configure = (ctx) => { if (ctx?.isDataSwitching) blocked = () => !!ctx.isDataSwitching() }
 
 async function ensure(key, { fresh = false } = {}) {
@@ -29,7 +38,7 @@ async function ensure(key, { fresh = false } = {}) {
   if (!fresh && cache.has(key)) return { ok: true, value: cache.get(key) }
   if (!r.ok) { failed.add(key); notify(); return { ok: false, value: null } }
   failed.delete(key)
-  cache.set(key, shapeLearner(r.value))
+  cache.set(key, withApplied(shapeLearner(r.value), appliedOf(r.value)))
   notify()
   return { ok: true, value: cache.get(key) }
 }
@@ -56,7 +65,9 @@ ${block}
 // Apply fn(model | null) → model | null for a mode, persisted. Never writes after a failed read; returning the
 // same object (or null) writes nothing. `modeId` is pinned by the caller when the work STARTED.
 // `quiet`: no LEVEL_UP event (Legends cheat mode sets a level without earning its rewards).
-export function updateLearner(ctx, modeId, fn, { quiet = false } = {}) {
+// `batchId`: a batch applied at most once (recorded in the level's `appliedBatches`; a second time writes nothing
+// and answers true). Every write keeps the list, whoever writes.
+export function updateLearner(ctx, modeId, fn, { quiet = false, batchId = '' } = {}) {
   configure(ctx)
   const key = keyFor(modeId)
   chain = chain.then(async () => {
@@ -64,8 +75,11 @@ export function updateLearner(ctx, modeId, fn, { quiet = false } = {}) {
     // loaded (a graded card here wrote level 10 over the other computer's placement result of 60).
     const r = await ensure(key, { fresh: true })
     if (!r.ok) return false
-    const next = fn(r.value)
+    const applied = appliedOf(r.value)
+    if (batchId && applied.includes(batchId)) return true
+    let next = fn(r.value)
     if (!next || next === r.value) return true
+    next = withApplied({ ...next }, batchId ? [...applied, String(batchId)].slice(-APPLIED_BATCHES_MAX) : applied)
     // Shown only once saved: a refused write (folder switching, share down) must not show a level that is not stored.
     if (!(await store.write(key, next))) return false
     cache.set(key, next)

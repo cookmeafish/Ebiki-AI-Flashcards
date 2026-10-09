@@ -12,7 +12,7 @@ vi.mock('../storage', () => ({
 }))
 vi.mock('./learnerContextUse', () => ({ learnerContextText: () => '' }))
 
-const { updateLearner, readLearner } = await import('./learnerStore')
+const { updateLearner, readLearner, APPLIED_BATCHES_MAX } = await import('./learnerStore')
 const { newLearner, applyLearnerDelta } = await import('./learner')
 const { EVENTS } = await import('../events')
 
@@ -62,6 +62,32 @@ describe('learner store: LEVEL_UP and shared-folder writes', () => {
     expect(await updateLearner(ctxWith(ev), 5, nudge(5))).toBe(false)
     expect((await readLearner(ctxWith(ev), 5)).value.level).toBe(20)
     expect(ev).toHaveLength(0)
+  })
+
+  it('a batch id is applied once, the list survives other writers, and it stays bounded', async () => {
+    const ev = []
+    await updateLearner(ctxWith(ev), 5, () => newLearner({ level: 20 }))
+    expect(await updateLearner(ctxWith(ev), 5, nudge(1), { batchId: 'page-1' })).toBe(true)
+    expect(await updateLearner(ctxWith(ev), 5, nudge(1), { batchId: 'page-1' })).toBe(true) // adopted again: no-op
+    expect(disk.get('level-5').level).toBeCloseTo(21)
+    expect(disk.get('level-5').appliedBatches).toEqual(['page-1'])
+    // A write without an id (Legends, placement through applyLearnerDelta / newLearner) keeps the list.
+    await updateLearner(ctxWith(ev), 5, nudge(0.5))
+    await updateLearner(ctxWith(ev), 5, (m) => ({ ...newLearner({ level: 40 }), peak: m.peak }), { quiet: true })
+    expect(disk.get('level-5').appliedBatches).toEqual(['page-1'])
+    await updateLearner(ctxWith(ev), 5, nudge(1), { batchId: 'page-1' })
+    expect(disk.get('level-5').level).toBeCloseTo(40)
+    // Another computer's copy on the share already holds the id: re-read first, so it is a no-op here too.
+    disk.set('level-5', { ...disk.get('level-5'), appliedBatches: ['page-1', 'other-9'] })
+    await updateLearner(ctxWith(ev), 5, nudge(1), { batchId: 'other-9' })
+    expect(disk.get('level-5').level).toBeCloseTo(40)
+    for (let i = 0; i < APPLIED_BATCHES_MAX + 5; i++) await updateLearner(ctxWith(ev), 5, nudge(0.1), { batchId: `b-${i}` })
+    expect(disk.get('level-5').appliedBatches).toHaveLength(APPLIED_BATCHES_MAX)
+    expect(disk.get('level-5').appliedBatches.at(-1)).toBe(`b-${APPLIED_BATCHES_MAX + 4}`)
+    // A damaged list is dropped, never breaks a write.
+    disk.set('level-5', { ...disk.get('level-5'), appliedBatches: 'junk' })
+    expect(await updateLearner(ctxWith(ev), 5, nudge(0.1), { batchId: 'z' })).toBe(true)
+    expect(disk.get('level-5').appliedBatches).toEqual(['z'])
   })
 
   it('a slow plain read that started before a write never brings the old level back', async () => {

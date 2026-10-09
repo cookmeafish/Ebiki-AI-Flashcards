@@ -3,7 +3,30 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
-import { sourceFingerprint, builtFileFor, contentTypeOf, carryOldAssets, BUILD_ASSETS } from './builtApp'
+import { sourceFingerprint, builtFileFor, builtRequestAllowed, contentTypeOf, carryOldAssets, BUILD_ASSETS } from './builtApp'
+
+describe('builtRequestAllowed (the build is served before Vite checks the Host)', () => {
+  it('lets the app window, the overlay and a tab load the page and its files', () => {
+    expect(builtRequestAllowed({ host: 'localhost:3000' })).toBe(true)                                  // Electron's first load
+    expect(builtRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'none', 'sec-fetch-dest': 'document' })).toBe(true) // typed URL / window
+    expect(builtRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'same-origin', 'sec-fetch-dest': 'script', origin: 'http://localhost:3000' })).toBe(true) // module script
+    expect(builtRequestAllowed({ host: 'LOCALHOST:3000' })).toBe(true)
+    expect(builtRequestAllowed({ host: '127.0.0.1:3000' })).toBe(true)
+    expect(builtRequestAllowed({ host: '[::1]:3000' })).toBe(true)
+    expect(builtRequestAllowed({ host: 'localhost' })).toBe(true)
+  })
+  it('refuses a DNS-rebound host, another site and a missing or odd Host', () => {
+    expect(builtRequestAllowed({ host: 'evil.example:3000' })).toBe(false)
+    expect(builtRequestAllowed({ host: 'evil.example' })).toBe(false)
+    expect(builtRequestAllowed({ host: 'localhost.evil.example:3000' })).toBe(false)
+    expect(builtRequestAllowed({ host: 'evil@localhost:3000' })).toBe(false)
+    expect(builtRequestAllowed({ host: '0.0.0.0:3000' })).toBe(false)
+    expect(builtRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'cross-site' })).toBe(false)
+    expect(builtRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'Same-Site' })).toBe(false)
+    expect(builtRequestAllowed({})).toBe(false)
+    expect(builtRequestAllowed()).toBe(false)
+  })
+})
 
 const deps = { fs, path, crypto }
 function tree(files) {

@@ -6,6 +6,8 @@
 // stamp equals the fingerprint of the code as it is NOW, so a stale build is never shown: after an update or a manual
 // git pull the session runs on the dev server as before and a new build is made in the background for the next start.
 
+import { parseHost, crossSiteFetch } from './hostGuard.js'
+
 export const BUILD_DIR = '.ebiki-build'
 export const BUILD_TMP = '.ebiki-build.tmp'
 export const BUILD_ASSETS = '_app' // the build's own files (hashed names), apart from public/assets
@@ -51,6 +53,16 @@ export function builtFileFor(urlPath, buildDir, path) {
   const rest = p.slice(BUILD_ASSETS.length + 2)
   if (!rest || rest.includes('\\') || rest.includes('\0') || rest.split('/').some((s) => s === '..' || s === '.' || s === '')) return null
   return path.join(buildDir, BUILD_ASSETS, ...rest.split('/'))
+}
+
+// May this request read a built file? The built-app middleware runs BEFORE Vite's own allowedHosts check, so without
+// this a DNS-rebound site (evil.example resolving to 127.0.0.1) could read the page and /_app/* of the build. Same Host
+// rule as the /api guard (hostGuard.js), but a page navigation and its scripts carry no Origin to compare, so only the
+// Host counts, plus Sec-Fetch-Site: never on behalf of another site. A Host is REQUIRED here (every browser and
+// Electron send one). The app window, the overlay (?overlay=true) and a tab all load http://localhost:3000/ and pass.
+export function builtRequestAllowed(headers = {}) {
+  if (!parseHost(headers.host).ok) return false
+  return !crossSiteFetch(headers)
 }
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.wasm': 'application/wasm', '.map': 'application/json' }

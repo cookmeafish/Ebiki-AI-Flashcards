@@ -6,7 +6,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton } from '../ui'
-import { BossArt, LegendsArt, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE, holdArt } from './art'
+import { BossArt, LegendsArt, paletteTint, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE, holdArt } from './art'
 import { useFeatureCtx } from '../registry'
 import { LEGENDS_ID } from './store'
 import { AbilityFx } from './AbilityFx'
@@ -21,7 +21,7 @@ import { BODY_CSS, bodyAnimation } from './impact/body'
 import { PowerFx, PowerBadges, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
-import { RaidBand, BAND_CSS } from './RaidBand'
+import { RaidBand, BAND_CSS, BAND_STYLE } from './RaidBand'
 
 // The intro card's red eye glow. true: a blurred red copy of the boss's silhouette behind it pulses its OPACITY (the
 // compositor runs it; the old `filter: drop-shadow` pulse repainted and re-layerized the whole page every frame, 13 to
@@ -89,7 +89,6 @@ const CSS = `
 @keyframes lgStageIn { 0% { opacity: 0 } 100% { opacity: 1 } }
 @keyframes lgStripeL { 0% { transform: translateX(-110%) } 100% { transform: translateX(0) } }
 @keyframes lgStripeR { 0% { transform: translateX(110%) } 100% { transform: translateX(0) } }
-@keyframes lgStripeMove { from { transform: translateX(-2%) } to { transform: translateX(0) } } /* the strip is 50 stripe periods wide, so 2% = one period at ANY app zoom. A px distance broke under zoom: the GPU (compositor) moved it unzoomed while the pattern was zoomed, so the loop jumped back */
 @keyframes lgSlam { 0% { transform: translateY(-340px) scale(1.5); opacity: 0; filter: blur(6px) } 60% { opacity: 1; filter: blur(0) } 78% { transform: translateY(0) scale(1.08, .88) } 88% { transform: translateY(-10px) scale(.97, 1.04) } 100% { transform: translateY(0) scale(1) } }
 @keyframes lgRootRise { 0% { transform: translateY(110%) scaleX(.7) rotate(-6deg); opacity: 0 } 45% { opacity: 1 } 65% { transform: translateY(-8%) scaleX(1.05) rotate(4deg) } 82% { transform: translateY(2%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgGlitchIn { 0% { transform: translateX(-40px) skewX(30deg) scaleY(.2); opacity: 0 } 15% { transform: translateX(30px) skewX(-25deg) scaleY(1.2); opacity: 1 } 25% { transform: translateX(-18px) scaleX(1.4) scaleY(.6); opacity: .2 } 38% { transform: translateX(12px) skewX(15deg); opacity: 1 } 50% { transform: translateX(-6px) scaleY(1.1); opacity: .4 } 64% { transform: translateX(4px) skewX(-6deg); opacity: 1 } 80% { transform: scale(1.06) } 100% { transform: none } }
@@ -302,7 +301,7 @@ export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `calm` (focus mode): the card shows at once, still (no stripes sliding, slam, quake or entrance animation).
 // `kind`: 'raids' shows a raid boss (its own art folder and its own lives count, `raidLives`; `raidLeft` = the siege's
 // hearts left, the lost ones greyed).
-export function BossIntro({ t, area, name = '', total, onFight, odds, legendary = false, calm: focusCalm = false, kind = 'bosses', raidLives = 0, raidLeft = null, ability = '' }) {
+export function BossIntro({ t, area, name = '', total, onFight, odds, legendary = false, calm: focusCalm = false, kind = 'bosses', raidLives = 0, raidLeft = null, ability = '', bandStyle = BAND_STYLE }) {
   const motion = useArtMotionAlways()
   const stillArt = useArtStill()
   const calm = focusCalm || stillArt
@@ -313,41 +312,34 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
   const cardRef = useRef(null)
   const entrance = entranceFor(area?.motif)
   const NIGHT = `color-mix(in srgb, ${C.bg} 25%, black)` // the stage is dark in both themes
-  const stripe = `repeating-linear-gradient(-45deg, ${C.danger} 0 14px, color-mix(in srgb, ${C.danger} 20%, black) 14px 28px)`
-  // 50 periods (28px along -45deg = 28 x sqrt(2) across): lgStripeMove moves it 2% = exactly one period.
-  const STRIPE_STRIP = `${(28 * Math.SQRT2 * 50).toFixed(3)}px`
   const band = (side) => ({
     position: 'absolute', left: 0, right: 0, height: 30, [side]: 18, display: 'grid', placeItems: 'center', overflow: 'hidden',
-    boxShadow: `0 0 18px color-mix(in srgb, ${C.danger} 60%, transparent)`,
     animation: `${side === 'top' ? 'lgStripeL' : 'lgStripeR'} .4s cubic-bezier(.2,.9,.3,1) ${E.stripes}s both`,
   })
-  // The stripes slide on their own layer, one tile wider on the left, moved by transform (composited) instead of
-  // background-position (a full repaint every frame); the tiles line up with the band's left edge as before.
-  const stripes = <span aria-hidden="true" className="lg-loop1" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: STRIPE_STRIP, background: stripe, animation: 'lgStripeMove 1.2s linear infinite' }} />
-  // PREVIEW (owner choosing a new band): window.__ebikiBand = 'sheen' | 'chevron' | 'hazard'.
-  const bandVariant = typeof window !== 'undefined' ? window.__ebikiBand : ''
+
+  // The warning bands take the boss's colors: a raid boss its own two (impact/styles.js), a Legends boss its area's
+  // palette, Legendary gold; else the app's danger red.
+  const bandVariant = bandStyle // `bandStyle`: only the band comparison page (dev/raid-band) passes another
   const bossImpact = kind === 'raids' ? impactFor(area?.motif) : null
-  const bandColors = { main: bossImpact?.color, deep: bossImpact?.accent }
+  const tint = kind !== 'raids' ? paletteTint(area?.palette) : null
+  const bandColors = bossImpact ? { main: bossImpact.color, deep: bossImpact.accent }
+    : legendary ? { main: C.warning, deep: `color-mix(in srgb, ${C.warning} 30%, black)` }
+    : tint ? { main: tint[0], deep: tint[2] } : {}
+  const glow = bandColors.main || C.danger // the stage light and the aura behind the boss take the band's color
   const bandLabel = kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')
   const off = useOffscreen(cardRef)
   // The glow layer exists only while it would pulse (like the shockwave): stilled, the old filter showed no glow.
   const glowLayer = INTRO_EYES_GLOW_LAYER && !calm && (motion || !reducedMotion())
-  const label = { position: 'relative', fontFamily: FONT.display, fontWeight: 900, fontSize: 15, letterSpacing: '.35em', color: C.white, padding: '0 14px', background: `color-mix(in srgb, ${C.danger} 20%, black)`, borderRadius: 4, textTransform: 'uppercase' }
   return (
     <div ref={cardRef} className={(calm ? 'lg-boss lg-calm' : 'lg-boss') + (motion ? ' lg-motion' : '') + (off ? ' lg-intro-off' : '')} style={{ maxWidth: 640, margin: '12px auto', position: 'relative', borderRadius: RADIUS.xl, overflow: 'hidden', animation: `lgStageIn .3s ease-out both, lgQuake .45s ease-out ${E.impact}s` }}>
       <BossStyle />
       <div style={{ position: 'relative', padding: '64px 20px 76px', display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center',
-        background: `radial-gradient(ellipse at 50% 42%, color-mix(in srgb, ${C.danger} 30%, ${NIGHT}) 0%, ${NIGHT} 72%)` }}>
-        {bandVariant ? <>
-          <style>{BAND_CSS}</style>
-          <div aria-hidden="true" style={{ ...band('top'), boxShadow: 'none' }}><RaidBand variant={bandVariant} main={bandColors.main} deep={bandColors.deep} calm={calm} label={bandLabel} /></div>
-          <div aria-hidden="true" style={{ ...band('bottom'), boxShadow: 'none' }}><RaidBand variant={bandVariant} main={bandColors.main} deep={bandColors.deep} calm={calm} label={bandLabel} /></div>
-        </> : <>
-        <div aria-hidden="true" style={band('top')}>{stripes}<span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
-        <div aria-hidden="true" style={band('bottom')}>{stripes}<span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
-        </>}
+        background: `radial-gradient(ellipse at 50% 42%, color-mix(in srgb, ${glow} 30%, ${NIGHT}) 0%, ${NIGHT} 72%)` }}>
+        <style>{BAND_CSS}</style>
+        <div aria-hidden="true" style={band('top')}><RaidBand variant={bandVariant} main={bandColors.main} deep={bandColors.deep} calm={calm} label={bandLabel} /></div>
+        <div aria-hidden="true" style={band('bottom')}><RaidBand variant={bandVariant} main={bandColors.main} deep={bandColors.deep} calm={calm} label={bandLabel} /></div>
         <div style={{ position: 'relative', width: BOSS.intro, height: BOSS.intro, margin: `${headroomPx(BOSS.intro)}px 0` }}>
-          <div aria-hidden="true" className="lg-loop2" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in srgb, ${C.danger} 55%, transparent) 0%, transparent 65%)`, animation: `lgStageIn .2s ease-out ${E.impact}s both, lgHeartbeat 1.3s ease-in-out ${E.impact}s infinite` }} />
+          <div aria-hidden="true" className="lg-loop2" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in srgb, ${glow} 55%, transparent) 0%, transparent 65%)`, animation: `lgStageIn .2s ease-out ${E.impact}s both, lgHeartbeat 1.3s ease-in-out ${E.impact}s infinite` }} />
           {/* Shockwave and dust exist ONLY as animation (invisible at both ends): stilled, they stuck on screen as a stray ring
               and grey dots. */}
           {!calm && (motion || !reducedMotion()) && <>
@@ -687,7 +679,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
     )
   }
   return (
-    <div className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} data-fx={fxNow || undefined} data-fx-size={fxNow ? fxSize : undefined} {...abAttrs} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
+    <div className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} data-fx={fxNow || undefined} data-fx-size={fxNow ? fxSize : undefined} {...abAttrs} style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
       background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s',
       // The shake moves the ARENA box only (the question card below never moves).
       animation: shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined }}>
@@ -770,7 +762,8 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           </div>
         )}
       </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: compact ? 4 : 8 }}>
+      {/* flex-basis 150px: beside the boss when there is room, else below it (a phone at zoom 2 squeezed it to 0px). */}
+      <div style={{ flex: '1 1 150px', minWidth: 0, display: 'grid', gap: compact ? 4 : 8 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: compact ? 15 : 17, color: C.ink }}>{down ? `🏆 ${t('lg_bossDown')}` : `${rage ? '😡' : '👑'} ${name || area.title}`}</span>
           <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: C.inkDim }}>{t('lg_bossHp', { hp, max: need })}</span>

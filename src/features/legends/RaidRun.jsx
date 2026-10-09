@@ -11,8 +11,8 @@
 // Victory lap over the cards the fight never reached (a reward round, recorded like any review, bonus XP) or Done; a
 // loss or a stop leaves those cards due and says so.
 import { ctxErrorText } from '../kit/aiError'
-import { useEffect, useRef, useState } from 'react'
-import { C, FONT, RADIUS } from '../../config/tokens'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { C, FONT, RADIUS, SHADOW } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { srs } from '../../cards'
 import { EVENTS } from '../events'
@@ -288,7 +288,9 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const { system, user } = buildRaidPrompt(s, cards, { level })
     const raw = c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, maxTokens: RAID_MAX_TOKENS }))
     if (my !== writeSeq.current) return null
-    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : []
+    // The list as an array, under "questions", or under another key one provider chose ({"quiz": [...]}).
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions
+      : (raw && typeof raw === 'object' && Object.values(raw).find((v) => Array.isArray(v) && v.some((q) => q && typeof q === 'object' && 'question' in q))) || []
     const qs = []
     const used = new Set()
     for (const q of list) {
@@ -435,9 +437,15 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const commitRef = useRef(commit)
   commitRef.current = commit
   const lapEndRef = useRef(null)
+  // Decided one tick later: a hot reload (Fast Refresh) and StrictMode run this cleanup on a raid that stays on screen
+  // and mount it again at once (`alive` true again). Saving there ended a running fight after one answer: "The boss
+  // won" over 14 cards never asked.
   useEffect(() => () => {
-    if (firstHit.current.size && !committed.current) commitRef.current()
-    else if (lapEndRef.current) lapEndRef.current()
+    setTimeout(() => {
+      if (alive.current) return
+      if (firstHit.current.size && !committed.current) commitRef.current()
+      else if (lapEndRef.current) lapEndRef.current()
+    }, 0)
   }, [])
   // Leaving mid-fight still records what was answered (the reviews happened).
   const leave = async () => {
@@ -723,7 +731,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       {q._attack && <div role="alert" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14 }}>⚔️ {t(attackCost === 1 ? 'lg_attackIncomingOne' : 'lg_attackIncoming', { n: attackCost })}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
-          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: fightRules.damage.choice })}` : aidedQ.current.has(q) ? `🤝 ${t('lg_strikeAidedHint', { n: fightRules.damage.choice })}` : `💥 ${t('lg_strikePowerHint', { n: fightRules.damage.clean })}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
+          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: fightRules.damage.choice })}` : aidedQ.current.has(q) ? `🤝 ${t('lg_strikeAidedHint', { n: fightRules.damage.choice })}` : `💥 ${t('lg_strikePowerHint', { n: fightRules.damage.clean })}`}
         </div>
         {tagChip(q, mode)}
       </div>
@@ -763,17 +771,16 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     setUsedN(usedRef.current.length)
   }
   const powerCtx = (q, api) => ({ q, asChoice: api.asChoice, phase: api.phase, loadout, used: usedRef.current, usedOnQ: usedOnQ.current.has(q), livesLost: fsRef.current.livesLost, armed: powerArmedRef.current })
-  // Every brought fight power shows; a used one stays greyed (once per fight), so the player sees what is left.
-  const powerButtons = (q, api) => loadout.filter(isFightPower).map((id) => {
-    const ok = powerUsable(id, powerCtx(q, api))
-    return (
-      <button key={`pw-${id}`} type="button" data-raid-power={id} disabled={!ok} onClick={() => usePower(id, q, api)}
-        className="tip tip-b" data-tip={t(`lg_powDesc_${id}`, powerVars(id, pw, fightRules.damage))}
-        style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '6px 10px', borderRadius: RADIUS.pill, border: `1.5px solid color-mix(in srgb, ${C.purple} 45%, transparent)`, background: 'transparent', color: C.purple, cursor: ok ? 'pointer' : 'default', opacity: ok ? 1 : 0.5 }}>
-        <PowerIcon id={id} size={18} /> {t(`lg_pow_${id}`)}{usedRef.current.includes(id) ? ' ✓' : ''}
-      </button>
-    )
-  })
+  // Every brought fight power, behind ONE "Powers" button (the owner: a row of a button per power crowded the answer
+  // tools). The menu lists each with what it does; a used one stays greyed (once per fight), so the player sees what is left.
+  const powerButtons = (q, api) => {
+    const items = loadout.filter(isFightPower).map((id) => ({
+      id, ok: powerUsable(id, powerCtx(q, api)), used: usedRef.current.includes(id),
+      name: t(`lg_pow_${id}`), desc: t(`lg_powDesc_${id}`, powerVars(id, pw, fightRules.damage)),
+    }))
+    if (!items.length) return []
+    return [<PowersMenu key="powers" t={t} items={items} onUse={(id) => usePower(id, q, api)} />]
+  }
   const tools = (q, api) => {
     const powers = powerButtons(q, api)
     const list = reask(q) ? [] : (abMod?.decision ? (abMod?.actions?.(abS, { ...abCtx, mode: api.asChoice ? 'choice' : 'typed', q, armed }) || []) : []).filter(Boolean)
@@ -825,7 +832,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       ) : outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={commit} lostKey={testMotif ? 'lg_bossLost' : 'lg_raidBossLost'} /> : (
         <QuizRunner key={seg} questions={segQs || questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
           title={`⚔️ ${bossName}`} onAnswer={record} judge={judge} header={header} tools={tools}
-          canUseChoices={(q) => !q._attack && fightPhase === 1}
+          canUseChoices={(q) => !!q.alt}
           startChoices={() => fightRulesNow.answerStyle === 'choices'}
           onQuestion={() => { setQuestionKey((k) => k + 1); taunt.onQuestion() }}
           resolveQuestion={fc.resolveQuestion} feedbackExtra={missTools} overturnedFor={overturnedFor}
@@ -908,6 +915,80 @@ function Trophies({ ctx, raid }) {
 }
 
 // A power's icon: the drawn badge (public/assets/legends/powers/<id>.svg), the emoji when it cannot load.
+// The fight's powers behind one button: a small menu above it (closes on a pick, Esc or a click outside).
+export function PowersMenu({ t, items, onUse }) {
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
+  const ready = items.filter((x) => x.ok).length
+  // Slid left as far as needed to stay on screen (the button can sit near the right edge on a phone). Rects are real
+  // px; the menu's own offset is layout px (divided by the app zoom).
+  const [shift, setShift] = useState(0)
+  useLayoutEffect(() => {
+    if (!open || !boxRef.current) return
+    const z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1
+    const r = boxRef.current.getBoundingClientRect()
+    const w = Math.min(320, window.innerWidth / z - 32) * z
+    setShift(Math.min(0, (window.innerWidth - 16 - (r.left + w)) / z))
+  }, [open])
+  // A list taller than the menu says so (the owner missed that it scrolls): a fade at the cut edges and a "N more"
+  // bar at the bottom that scrolls on a click. `below` = powers not fully in view under the fold.
+  const listRef = useRef(null)
+  const [edges, setEdges] = useState({ up: false, below: 0 })
+  const measure = () => {
+    const el = listRef.current
+    if (!el) return
+    const bottom = el.getBoundingClientRect().bottom - 2
+    const below = [...el.children].filter((c) => c.getBoundingClientRect().bottom > bottom).length
+    const up = el.scrollTop > 2
+    setEdges((e) => (e.up === up && e.below === below ? e : { up, below }))
+  }
+  useLayoutEffect(() => { if (open) measure() }, [open, items.length])
+  useEffect(() => {
+    if (!open) return undefined
+    const away = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false) } }
+    document.addEventListener('pointerdown', away, true)
+    window.addEventListener('keydown', esc, true)
+    return () => { document.removeEventListener('pointerdown', away, true); window.removeEventListener('keydown', esc, true) }
+  }, [open])
+  return (
+    <span ref={boxRef} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button type="button" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)} data-raid-powers=""
+        style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 800, padding: '7px 12px', borderRadius: RADIUS.pill, border: `1.5px solid color-mix(in srgb, ${C.purple} 55%, transparent)`, background: open ? `color-mix(in srgb, ${C.purple} 14%, transparent)` : 'transparent', color: C.purple, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        ⚡ {t('lg_powMenu')} <span style={{ fontSize: 11.5, padding: '1px 7px', borderRadius: RADIUS.pill, background: `color-mix(in srgb, ${C.purple} 22%, transparent)` }}>{ready}/{items.length}</span> {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', left: shift, bottom: 'calc(100% + 8px)', zIndex: 40, width: 'min(320px, calc(100vw / var(--app-zoom, 1) - 32px))',
+          borderRadius: RADIUS.lg, background: C.surfaceRaised, border: `1px solid ${C.border}`, boxShadow: SHADOW.lg, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'relative', minHeight: 0 }}>
+            <div ref={listRef} role="menu" onScroll={measure} className="lg-pow-list"
+              style={{ maxHeight: 'min(360px, calc(60vh / var(--app-zoom, 1)))', overflowY: 'auto', padding: 6, display: 'grid', gap: 2, scrollbarGutter: 'stable' }}>
+              {items.map((x) => (
+                <button key={x.id} type="button" role="menuitem" data-raid-power={x.id} disabled={!x.ok} onClick={() => { onUse(x.id); setOpen(false) }}
+                  style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 10, alignItems: 'center', textAlign: 'left', padding: '7px 9px', borderRadius: RADIUS.md, border: 'none', background: 'transparent', color: C.ink, cursor: x.ok ? 'pointer' : 'default', opacity: x.ok ? 1 : 0.5, fontFamily: FONT.body }}>
+                  <PowerIcon id={x.id} size={26} />
+                  <span style={{ display: 'grid', gap: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: C.purple }}>{x.name}{x.used ? ' ✓' : ''}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.inkDim, lineHeight: 1.3 }}>{x.desc}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {edges.up && <div aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 28, pointerEvents: 'none', background: `linear-gradient(to bottom, ${C.surfaceRaised}, transparent)` }} />}
+            {edges.below > 0 && <div aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 28, pointerEvents: 'none', background: `linear-gradient(to top, ${C.surfaceRaised}, transparent)` }} />}
+          </div>
+          {edges.below > 0 && (
+            <button type="button" data-pow-more="" onClick={() => listRef.current?.scrollBy({ top: listRef.current.clientHeight * 0.7, behavior: 'smooth' })}
+              style={{ flex: 'none', border: 'none', borderTop: `1px solid ${C.border}`, borderRadius: 0, background: `color-mix(in srgb, ${C.purple} 10%, transparent)`, color: C.purple, fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <span className="lg-pow-bob" aria-hidden="true">▾</span> {tCount(t, 'lg_powMore', edges.below)}
+            </button>
+          )}
+          <style>{'.lg-pow-list::-webkit-scrollbar { width: 8px } .lg-pow-list::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--c-purple) 45%, transparent); border-radius: 8px } .lg-pow-bob { display: inline-block; animation: lgPowBob 1.1s ease-in-out infinite } @keyframes lgPowBob { 0%, 100% { transform: translateY(-1px) } 50% { transform: translateY(2px) } } @media (prefers-reduced-motion: reduce) { .lg-pow-bob { animation: none } }'}</style>
+        </div>
+      )}
+    </span>
+  )
+}
 function PowerIcon({ id, size = 18 }) {
   const [broken, setBroken] = useState(false)
   if (broken || !POWERS[id]) return <span aria-hidden="true" style={{ fontSize: size * 0.85, lineHeight: 1 }}>{POWERS[id]?.icon}</span>

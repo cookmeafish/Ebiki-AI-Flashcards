@@ -209,6 +209,18 @@ describe('Gemini thinking models', () => {
     await PROVIDERS.gemini.call('k', 'ping', 'hi', 'gemini-2.5-pro', undefined, 4)
     expect(calls).toHaveLength(1)
   })
+
+  it('throws (no retry) when a call WITHOUT maxTokens hits the model limit with no text', async () => {
+    const calls = stub(() => okGem('', 'MAX_TOKENS'))
+    await expect(PROVIDERS.gemini.call('k', 'sys', 'user', 'gemini-2.5-pro')).rejects.toThrow(/^API 200: empty/)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].body.generationConfig.maxOutputTokens).toBeUndefined()
+  })
+
+  it('a call without maxTokens that has text keeps it', async () => {
+    stub(() => okGem('partial answer', 'MAX_TOKENS'))
+    await expect(PROVIDERS.gemini.call('k', 'sys', 'user', 'gemini-2.5-pro')).resolves.toBe('partial answer')
+  })
 })
 
 describe('every provider handles the shared call contract', () => {

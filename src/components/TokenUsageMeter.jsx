@@ -45,7 +45,14 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   }
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); setOpen(false) } }
+    // Esc closes only the TOP layer. A modal (Settings, whose backdrop covers this panel), an app dialog (the reset
+    // confirm opens over this panel) or Ebi Studio on screen owns the key: when this listener was registered first,
+    // it closed the panel hidden under Settings; registered after Settings', one Esc closed both.
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || e.keyCode === 229) return
+      if (document.querySelector('[data-app-dialog], [data-top-overlay], [aria-modal="true"]')) return
+      e.preventDefault(); setOpen(false)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
@@ -77,7 +84,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   return createPortal(
     <div style={{ position: 'fixed', right: 10, bottom: 10, zIndex: 900, transform: `scale(${z})`, transformOrigin: 'bottom right', fontFamily: FONT.body }}>
       {open && (
-        <div role="dialog" aria-label={t('usage_title')} style={{ width: panelW, maxHeight: panelMaxH, overflowY: 'auto', marginBottom: 6, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 12 }}>
+        <div role="dialog" data-usage-panel="" aria-label={t('usage_title')} style={{ width: panelW, maxHeight: panelMaxH, overflowY: 'auto', marginBottom: 6, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--c-ink)' }}>{t('usage_title')}</div>
             <button type="button" onClick={() => setOpen(false)} aria-label={t('usage_close')} style={{ background: 'none', border: 'none', color: 'var(--c-ink-dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>

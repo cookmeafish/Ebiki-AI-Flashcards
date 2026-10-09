@@ -287,10 +287,12 @@ export const currentArea = (map) => (map?.areas || []).find((a) => a.status === 
 export const findNode = (map, areaId, nodeId) => map?.areas?.[areaIndex(map, areaId)]?.nodes?.find((n) => n.id === nodeId) || null
 
 // Areas that should be fully detailed now: the open one and the next LOOKAHEAD - 1, when not detailed yet.
+// Never a frozen (started) or finished area: applyAreaDetail refuses a frozen one, so asking for it would repeat a
+// paid call on every map change (cheat mode can finish an unbuilt area ahead of the open one).
 export function needsDetail(map, lookahead = LOOKAHEAD) {
   const i = (map?.areas || []).findIndex((a) => a.status === 'open')
   if (i < 0) return []
-  return map.areas.slice(i, i + lookahead).filter((a) => !a.detailed).map((a) => a.id)
+  return map.areas.slice(i, i + lookahead).filter((a) => !a.detailed && !a.frozen && a.status !== 'done').map((a) => a.id)
 }
 
 // Fill an area's items and nodes. Refused (map unchanged) for a started or already detailed area.

@@ -61,3 +61,30 @@ describe('termIn / termIndex', () => {
     expect(termIndex(undefined).size).toBe(0)
   })
 })
+
+describe('language-aware articles', () => {
+  it('strips only the given language\'s articles', () => {
+    expect(termKeys('as well', { lang: 'English' }).has('well')).toBe(false)
+    expect(termKeys('die hard', { lang: 'eng' }).has('hard')).toBe(false)
+    expect(termKeys('an apple', { lang: 'English' }).has('apple')).toBe(true)
+    expect(termKeys('der Hund', { lang: 'German' }).has('hund')).toBe(true)
+    expect(termKeys('el perro', { lang: 'Spanish' }).has('perro')).toBe(true)
+    expect(termKeys('el perro', { lang: 'Español' }).has('perro')).toBe(true)
+    expect(termKeys('the cloud', { lang: 'Spanish' }).has('cloud')).toBe(false)
+    expect(termKeys('de hond', { lang: 'Dutch' }).has('hond')).toBe(true)
+    expect(termKeys('de nada', { lang: 'Spanish' }).has('nada')).toBe(false)
+    expect(termKeys("l'eau", { lang: 'French' }).has('eau')).toBe(true)
+    expect(termKeys("l'eau", { lang: 'German' }).has('eau')).toBe(false)
+    expect(termKeys('犬', { lang: 'Japanese' }).has('犬')).toBe(true)
+  })
+  it('keeps the old union for an unknown language', () => {
+    expect(termKeys('as well').has('well')).toBe(true)
+    expect(termKeys('der Hund', { lang: 'Klingon' }).has('hund')).toBe(true)
+    expect(termKeys('a menudo', { lang: '' }).has('menudo')).toBe(false)
+  })
+  it('passes the language through termIndex and termIn', () => {
+    const deck = termIndex(['as well', 'the dog'], new Set(), { lang: 'English' })
+    expect(termIn('well', deck, { lang: 'English' })).toBe(false)
+    expect(termIn('dog', deck, { lang: 'English' })).toBe(true)
+  })
+})

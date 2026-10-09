@@ -135,8 +135,8 @@ function EbiDrafts({ t, stepRef, onPick }) {
   const head = (name, desc, path) => (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
       <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.brand }}>{name}</div>
-      <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600, marginRight: 'auto' }}>{desc}</div>
-      <span style={file}>{path}</span>
+      <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600, marginRight: 'auto', minWidth: 0, overflowWrap: 'anywhere' }}>{desc}</div>
+      <span style={{ ...file, minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>{path}</span>
     </div>
   )
   const sizes = (render) => (
@@ -229,9 +229,9 @@ function Fold({ id, title, defaultOpen = true, extra = null, children }) {
   const [open, setOpenState] = useState(() => { try { const v = platform.kv.get(key); return v == null ? defaultOpen : v === '1' } catch { return defaultOpen } })
   const toggle = () => { const v = !open; setOpenState(v); try { platform.kv.set(key, v ? '1' : '0') } catch { /* kept for this visit */ } }
   return (
-    <div data-fold={id} style={{ display: 'grid', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" aria-expanded={open} onClick={toggle} style={{ ...FOLD_H, display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', padding: '2px 4px', margin: '0 -4px', borderRadius: RADIUS.sm, cursor: 'pointer' }}>
+    <div data-fold={id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', minWidth: 0, gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+        <button type="button" aria-expanded={open} onClick={toggle} style={{ ...FOLD_H, display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', padding: '2px 4px', margin: '0 -4px', borderRadius: RADIUS.sm, cursor: 'pointer', minWidth: 0, maxWidth: '100%', textAlign: 'left', overflowWrap: 'anywhere' }}>
           <span aria-hidden="true" style={{ display: 'inline-block', fontSize: 13, color: C.inkDim, transition: 'transform .15s', transform: open ? 'rotate(90deg)' : 'none' }}>▶</span>
           {title}
         </button>
@@ -348,7 +348,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
   const impactLast = imp && !mine ? { lives: 0, damage: 0, ...imp[2], n: 1000 + impact.n, ...(imp[0] === 'wind' ? { wn: impact.n } : {}) } : null
   const state = { ...newFight(raidProfile(motif)), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', minWidth: 0, gap: 10 }}>
       {/* Frozen at the top like a spreadsheet's frozen row (the owner): the demo rows below grow long, and scrolling to
           them must keep the boss in view to watch what each button plays. */}
       <div ref={pinRef} data-arena-pinned={pinned ? '' : undefined} style={{ maxWidth: 640, position: pinned ? 'sticky' : 'relative', top: pinned ? pinTop : undefined, zIndex: 5 }}>
@@ -425,7 +425,7 @@ function AbilityCard({ t, motif, ability, onTry }) {
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
           {rows.map(({ fx, tr }) => (
             <li key={fx} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 10px', borderRadius: RADIUS.md, background: C.surface, border: `1px solid ${C.border}` }}>
-              <div style={{ flex: '0 0 128px', minWidth: 0, display: 'grid', gap: 3, justifyItems: 'start', overflowWrap: 'anywhere' }}>
+              <div style={{ flex: '0 1 128px', minWidth: 0, maxWidth: '100%', display: 'grid', gap: 3, justifyItems: 'start', overflowWrap: 'anywhere' }}>
                 <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 15, color: C.purple, lineHeight: 1.15 }}>{t(floaterKeyFor(ability, fx) || `lg_fx_${fx}`, demoVars(ability, fx))}</span>
                 {tr.choice && <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '.04em', textTransform: 'uppercase', color: C.warning, padding: '1px 6px', borderRadius: RADIUS.sm, border: `1px solid color-mix(in srgb, ${C.warning} 45%, transparent)` }}>{t('lg_bestiaryYourChoice')}</span>}
               </div>
@@ -568,9 +568,11 @@ export default function AssetView({ ctx, onBack }) {
     return () => window.removeEventListener('keydown', on)
   }, [])
 
-  const section = { display: 'grid', gap: 12 }
+  const section = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', minWidth: 0, gap: 12 }
   const h = { fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }
-  const row = { display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end' }
+  // A drawing keeps its exact size (and headroom), so one wider than a very narrow column (a phone at zoom 2) scrolls
+  // inside its row instead of pushing the whole screen sideways. Its headroom is inside the row, so nothing is cut.
+  const row = { display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end', minWidth: 0, maxWidth: '100%', overflowX: 'auto' }
   const thumb = (m) => raids
     ? <LegendsArt kind="raids" motif={m} palette={palette} height={VIEW.thumb} width={VIEW.thumb} round={0} />
     : <BossArt area={{ motif: m, palette }} size={VIEW.thumb} />
@@ -587,9 +589,9 @@ export default function AssetView({ ctx, onBack }) {
     <div ref={rootRef} style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <ChunkyButton variant="ghost" color={C.inkDim} onClick={onBack} style={{ fontSize: 12, padding: '7px 12px' }}>← {t('lg_back')}</ChunkyButton>
-        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink, marginRight: 'auto' }}>⚡ {t('lg_cheatAssets')}</div>
+        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink, marginRight: 'auto', minWidth: 0, overflowWrap: 'anywhere' }}>⚡ {t('lg_cheatAssets')}</div>
         <select value={palette} onChange={(e) => setPalette(e.target.value)} aria-label={t('lg_assetsPalette')}
-          style={{ fontFamily: FONT.body, fontWeight: 700, fontSize: 13, padding: '6px 8px', borderRadius: RADIUS.sm, border: `2px solid ${C.borderStrong}`, background: C.surface, color: C.ink }}>
+          style={{ fontFamily: FONT.body, fontWeight: 700, fontSize: 13, padding: '6px 8px', borderRadius: RADIUS.sm, border: `2px solid ${C.borderStrong}`, background: C.surface, color: C.ink, minWidth: 0, maxWidth: '100%', textOverflow: 'ellipsis' }}>
           {PALETTES.map((p) => <option key={p} value={p}>{t('lg_assetsPalette')}: {p}</option>)}
         </select>
       </div>
@@ -599,7 +601,7 @@ export default function AssetView({ ctx, onBack }) {
           const on = tab === x.id
           return (
             <button key={x.id} type="button" role="tab" aria-selected={on} onClick={() => pickTab(x.id)} className={`ui-tab${on ? ' ui-tab-current' : ''}`}
-              style={{ padding: '8px 14px', borderRadius: RADIUS.md, cursor: on ? 'default' : 'pointer', fontFamily: FONT.display, fontWeight: 900, fontSize: 15,
+              style={{ padding: '8px 14px', borderRadius: RADIUS.md, cursor: on ? 'default' : 'pointer', fontFamily: FONT.display, fontWeight: 900, fontSize: 15, minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere',
                 border: `2px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface, color: on ? C.brandText : C.inkDim }}>
               {x.icon} {t(x.labelKey, { n: x.list.length })}
             </button>
@@ -621,7 +623,7 @@ export default function AssetView({ ctx, onBack }) {
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}
             // Every tile gets the width of the WIDEST label (`tileW`) so the rows line up (swarmqueen and sugarqueen
             // made their tiles wider).
-            style={{ flex: '0 0 auto', boxSizing: 'border-box', width: tileW, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', justifyItems: 'center', gap: 2, padding: 4, borderRadius: RADIUS.md, cursor: i === idx ? 'default' : 'pointer',
+            style={{ flex: '0 0 auto', boxSizing: 'border-box', width: tileW, maxWidth: '100%', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', justifyItems: 'center', gap: 2, padding: 4, borderRadius: RADIUS.md, cursor: i === idx ? 'default' : 'pointer',
               border: `2px solid ${i === idx ? C.brand : C.border}`, background: i === idx ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface,
               fontFamily: FONT.body, fontSize: 10, fontWeight: 800, color: i === idx ? C.brandText : C.inkDim }}>
             {thumb(m)}
@@ -631,13 +633,13 @@ export default function AssetView({ ctx, onBack }) {
       </div>
       </Fold>
 
-      <Card style={{ display: 'grid', gap: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <Card style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', minWidth: 0, gap: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
           <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => go(-1)} style={{ fontSize: 12, padding: '6px 10px' }}>◀</ChunkyButton>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.brand }}>#{raids ? raidBossNumber(motif) : idx + 1}</div>
-          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink }}>{motif}</div>
+          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink, minWidth: 0, overflowWrap: 'anywhere' }}>{motif}</div>
           <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => go(1)} style={{ fontSize: 12, padding: '6px 10px' }}>▶</ChunkyButton>
-          <div style={{ marginLeft: 'auto', fontSize: 12, color: C.inkFaint, fontFamily: 'monospace', display: 'grid', textAlign: 'right' }}>
+          <div style={{ marginLeft: 'auto', minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere', fontSize: 12, color: C.inkFaint, fontFamily: 'monospace', display: 'grid', textAlign: 'right' }}>
             {raids ? <span>{artUrl('raids', motif)}</span> : <><span>{artUrl('bosses', motif)}</span><span>{artUrl('areas', motif)}</span></>}
           </div>
         </div>
@@ -645,7 +647,7 @@ export default function AssetView({ ctx, onBack }) {
         {raids && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <ChunkyButton color={C.danger} onClick={() => setTestFight(motif)} style={{ fontSize: 13, padding: '7px 14px' }}>⚔ {t('lg_raidTestFight')}</ChunkyButton>
-            <span style={{ flex: 1, minWidth: 200, fontSize: 12.5, color: C.inkDim, lineHeight: 1.4 }}>{t('lg_raidTestNote')}</span>
+            <span style={{ flex: '1 1 200px', minWidth: 0, fontSize: 12.5, color: C.inkDim, lineHeight: 1.4 }}>{t('lg_raidTestNote')}</span>
           </div>
         )}
         {raids && (
@@ -703,7 +705,7 @@ export default function AssetView({ ctx, onBack }) {
         )}
 
         <Fold id="palettes" title={t('lg_assetsPalettes')} defaultOpen={false}>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%', overflowX: 'auto' }}>
             {PALETTES.map((p) => (
               <div key={p} style={{ display: 'grid', gap: 6, justifyItems: 'center', padding: 8, borderRadius: RADIUS.md, border: `2px solid ${p === palette ? C.brand : C.border}` }}>
                 {raids

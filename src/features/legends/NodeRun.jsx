@@ -504,7 +504,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
         // `_attackOf`: a re-check that finds the answer right cancels its attack; a glancing slip's follow-up still being
         // written goes in as a placeholder (`_pending`), skipped when it is not there in time.
         const a = info.attackQ
-        const base = verdict === 'miss' ? { ...q, alt: undefined, _attackOf: aid }
+        const base = verdict === 'miss' ? { ...q, _attackOf: aid }
           : a ? (a.pending ? { kind: 'typed', prompt: '', accepted: [], target: q.target, _pending: a.pending } : { kind: 'typed', prompt: a.prompt, accepted: a.accepted, exact: !!a.exact, target: q.target, _attackOf: aid }) : null
         if (base) { insert = { ...base, _attack: true }; next = { ...next, attacks: next.attacks + 1 } }
       }
@@ -514,7 +514,8 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       return insert ? { insert, at: attackSlot(pos.current, Number.MAX_SAFE_INTEGER) } : null
     }
     // Typed answers in a fight are strikes: clean (all right) 2, glancing (the tested thing right, something else
-    // wrong) 1, and the slip comes back as an attack. Choices are a safe strike, only before the boss enrages.
+    // wrong) 1, and the slip comes back as an attack. Choices are a safe strike, ALWAYS offered (the owner: a question
+    // can be ambiguous, so the less-damage way out must never go away), enraged or not, attacks included.
     const judge = fight ? async (q, ans) => {
       // Only languages that write accents grade them (a general mode grades understanding: Quebec for Québec is clean).
       const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !!subject.accents && subject.strictAccents !== false })
@@ -536,22 +537,22 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
           </div>
         )}
         <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
-          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: DAMAGE.choice })}` : `💥 ${t('lg_strikePowerHint', { n: DAMAGE.clean })}`}{fightPhase > 1 && node.kind === 'boss' ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
+          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: DAMAGE.choice })}` : `💥 ${t('lg_strikePowerHint', { n: DAMAGE.clean })}`}
         </div>
       </div>
     ) : undefined
-    const canUseChoices = node.kind === 'boss' ? (q) => !q._attack && fightPhase === 1 : undefined
+    const canUseChoices = fight ? (q) => !!q.alt : undefined
     const tools = scrolls > 0 ? (q, api) => (!api.asChoice && q.kind !== 'choice' && !q.open && (q.accepted || []).length && api.phase === 'answer' && !scrolledFor.current.has(q)
       ? <ChunkyButton variant="ghost" color={C.purple} onClick={() => spendScroll(q, api)} style={{ fontSize: 12, padding: '6px 10px' }}>📜 {t('lg_useScroll', { n: scrolls })}</ChunkyButton>
       : null) : undefined
     const boss = fight
-    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} calm={focus} onFight={() => setFighting(true)} /><FightSettings ctx={ctx} allowStyle={node.kind === 'boss'} />{renewRow}</div>
+    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} calm={focus} onFight={() => setFighting(true)} /><FightSettings ctx={ctx} allowStyle />{renewRow}</div>
     const runner = (
       <QuizRunner questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
         title={node.kind === 'boss' ? `👑 ${bossName || t('lg_boss')}` : node.kind === 'legendary' ? `🏅 ${bossName || t('lg_legendary')}` : node.title || t(`lg_kind_${node.kind}`)}
         retryMisses={!fight}
         onAnswer={record} judge={judge} header={header} canUseChoices={canUseChoices} tools={tools}
-        startChoices={node.kind === 'boss' ? () => fightRulesNow.answerStyle === 'choices' : undefined}
+        startChoices={fight ? () => fightRulesNow.answerStyle === 'choices' : undefined}
         onQuestion={fight ? () => taunt.onQuestion() : undefined} resolveQuestion={fight ? fc.resolveQuestion : undefined}
         overturnedFor={fight ? (q) => !!fc.entryFor(q)?.overturned : undefined}
         feedbackExtra={(q, correct, answer) => fight ? (() => {

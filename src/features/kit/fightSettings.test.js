@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fightRules, rulesPatch, fightSubject, fightWords, isImmersive, phrasingLine, generationKey, hasLetterCue, letterSkeleton, ensureLetterCue, questionAnswersOf } from './fightSettings'
+import { fightRules, rulesPatch, fightSubject, fightWords, isImmersive, phrasingLine, generationKey, hasLetterCue, letterSkeleton, ensureLetterCue, stripLetterSkeleton, questionAnswersOf } from './fightSettings'
 
 const es = { isLanguage: true, learnLang: 'Spanish', userLang: 'English', name: 'Spanish' }
 const comptia = { isLanguage: false, learnLang: 'English', userLang: 'English', name: 'CompTIA A+' }
@@ -100,6 +100,14 @@ describe('first-letter cue', () => {
     expect(letterSkeleton('雨伞')).toBe('')
     expect(letterSkeleton('がっこう')).toBe('')
     expect(letterSkeleton('학교')).toBe('(학·)')
+  })
+  it('always shows the letter count, even beside a quoted first letter, and strips it for choices', () => {
+    const q = { kind: 'typed', prompt: 'Hoy ___ mucho (to rain, "l").', accepted: ['llueve'] }
+    expect(ensureLetterCue(q, { isLanguage: true }).prompt).toBe('Hoy ___ (l·····) mucho (to rain, "l").')
+    const done = { ...q, prompt: 'Hoy ___ (l·····) mucho.' }
+    expect(ensureLetterCue(done, { isLanguage: true })).toBe(done)
+    expect(stripLetterSkeleton('Hoy ___ (l·····) mucho.')).toBe('Hoy ___ mucho.')
+    expect(stripLetterSkeleton('Tengo (umbrella) un ___')).toBe('Tengo (umbrella) un ___')
   })
   it('adds a cue after the blank of a typed language question only', () => {
     const q = { kind: 'typed', prompt: 'Hoy ___ mucho (to rain).', accepted: ['llueve'] }

@@ -85,6 +85,22 @@ describe('unlocking and progress', () => {
     expect(m.areas[1].detailed).toBe(true)
     expect(m.areas[2].detailed).toBe(false)
   })
+  it('never asks to detail a frozen or finished area (applyAreaDetail would refuse it: a repeated paid call)', () => {
+    let m = createMap({ modeId: 7, subject: { name: 'Spanish' }, plan: plan(4) }, 1)
+    m = applyAreaDetail(m, m.areas[0].id, parseAreaDetail(detailRaw(), id, { areaId: m.areas[0].id }), 2)
+    // Cheat mode finished area 2 while it was still unbuilt (frozen, done, no nodes).
+    m = normalizeMap({ ...m, areas: m.areas.map((a, k) => (k === 1 ? { ...a, frozen: true, status: 'done' } : a)) })
+    expect(m.areas[0].status).toBe('open')
+    const todo = needsDetail(m)
+    expect(todo).toEqual([])
+    for (const a of todo) expect(applyAreaDetail(m, a, parseAreaDetail(detailRaw(), id, { areaId: a }))).not.toBe(m)
+    // A frozen but unfinished undetailed area ahead is skipped too.
+    const m2 = normalizeMap({ ...m, areas: m.areas.map((a, k) => (k === 1 ? { ...a, status: 'locked' } : a)) })
+    expect(needsDetail(m2)).toEqual([])
+    // An untouched one is still detailed.
+    const m3 = normalizeMap({ ...m, areas: m.areas.map((a, k) => (k === 1 ? { ...a, status: 'locked', frozen: false } : a)) })
+    expect(needsDetail(m3)).toEqual([m.areas[1].id])
+  })
   it('stars and passes by the share right, and a pass opens the next step', () => {
     expect(starsFor(0.5, 'learn')).toBe(0)
     expect(starsFor(0.6, 'learn')).toBe(1)

@@ -77,8 +77,13 @@ export function buildTauntPrompt(o = {}) {
 export function parseTaunt(raw, clean = (s) => s) {
   let s = String(raw || '').trim()
   if (!s) return ''
-  s = s.split(/\n+/).map((x) => x.trim()).filter(Boolean)[0] || ''
+  // Code fences and a preamble on its own line ("Here's my taunt:") are not the line (some models add them).
+  const lines = s.split(/\n+/).map((x) => x.trim()).filter((x) => x && !/^```/.test(x))
+  s = (lines.length > 1 && /[:：]$/.test(lines[0]) ? lines[1] : lines[0]) || ''
   s = s.replace(/^(taunt|line|boss)\s*:\s*/i, '').replace(/^["'“”«»「『]+|["'“”«»」』]+$/g, '').trim()
+  // Markdown emphasis, and a stage direction before the words (*cackles*, (grins), [smirks]) despite the prompt.
+  s = s.replace(/^(?:\*[^*\n]{1,40}\*|_[^_\n]{1,40}_|\([^)\n]{1,40}\)|\[[^\]\n]{1,40}\])\s+(?=\S)/u, '')
+    .replace(/\*\*|__/g, '').replace(/^\*([^*]+)\*$/, '$1').replace(/^["'“”«»「『]+|["'“”«»」』]+$/g, '').trim()
   s = String(clean(s) || '').trim()
   if (!s || s.length > TAUNT_MAX_CHARS * 1.3) return ''
   return s

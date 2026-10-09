@@ -59,6 +59,8 @@ const TINT = {
   candy: ['#ee5fb0', '#ffadd9', '#982c6b'],
   steel: ['#6f8aa6', '#b8cadb', '#3b4e62'],
 }
+// A palette's recolor as [main, lit, shade] (null for "original"): the warning bands of a Legends boss card use it.
+export const paletteTint = (palette) => TINT[palette] || null
 export const ORIGINAL_PALETTE = 'original'
 export function paletteColors(name) {
   const [main, accent] = BASE[name] || BASE.brand

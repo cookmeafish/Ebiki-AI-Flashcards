@@ -6,10 +6,11 @@ const typed = { kind: 'typed', prompt: 'Name the port HTTPS uses.', accepted: ['
 const dual = { kind: 'typed', prompt: 'Which port carries SSH?', accepted: ['22'], alt: { choices: ['22', '23', '25', '110'], answerIdx: 0 } }
 
 describe('fitQuestionsToKind', () => {
-  it('a Legendary set is typed only: choice-only questions go, a dual question loses its choices', () => {
-    const out = fitQuestionsToKind([choice, typed, dual], 'legendary')
-    expect(out.map((q) => q.prompt)).toEqual([typed.prompt, dual.prompt])
-    expect(out.every((q) => q.kind === 'typed' && !q.alt)).toBe(true)
+  it('a Legendary set is typed, its choices kept as the always-offered way out (like a boss)', () => {
+    expect(fitQuestionsToKind([choice, typed, dual], 'legendary')).toEqual(fitQuestionsToKind([choice, typed, dual], 'boss'))
+    const out = fitQuestionsToKind([dual], 'legendary')
+    expect(out[0].kind).toBe('typed')
+    expect(out[0].alt).toEqual(dual.alt)
   })
   it('steps that are not fights keep every question as it is', () => {
     for (const kind of ['learn', 'practice', 'rule', 'weak']) {

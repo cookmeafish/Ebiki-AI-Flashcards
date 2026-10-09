@@ -1,7 +1,7 @@
 // AI check for a typed answer the local matcher couldn't settle (a synonym, a paraphrase, an open answer).
 // Subject-agnostic: language questions judge the exact word or form; everything else judges meaning.
 import { matchTyped } from './grade'
-import { flagOf, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
+import { flagOf, gradeObject, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
 
 export const JUDGE_ROLE = 'study'
 export { flagOf }
@@ -78,7 +78,7 @@ async function accentChangesWord(ai, subject, q, ans) {
     strikeNote(subject),
   ].join('\n')
   try {
-    const j = ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: JUDGE_MAX_TOKENS, silent: true }))
+    const j = gradeObject(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: JUDGE_MAX_TOKENS, silent: true })), ['different'])
     return flagOf(j?.different) === true ? (ai.clean(j.note || '') || ' ') : ''
   } catch { return '' }
 }
@@ -101,7 +101,7 @@ export async function judgeAnswer(ai, subject, q, answer) {
   ].filter(Boolean).join('\n')
   try {
     const raw = await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: JUDGE_MAX_TOKENS, silent: true })
-    const j = ai.json(raw)
+    const j = gradeObject(ai.json(raw), ['correct'])
     const correct = j ? flagOf(j.correct) : null
     if (correct == null) return null
     return { correct, note: ai.clean(j.note || '') }

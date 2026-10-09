@@ -91,6 +91,24 @@ const res = await page.evaluate(async ({ HEADROOM, DRIFT }) => {
 // Overdraw hits an eye has reviewed and kept on purpose (branches, antlers, legs, reeds, fence posts, fur tufts,
 // a necklace, cloak folds): "<file>|<start of the stroke's d>". Add one only after looking at it.
 const REVIEWED = new Set([
+  'raids/ratking.svg|<circle cx="45.4" cy="-1', // the gold earrings hang off the ear
+  "raids/chronos.svg|M5.6 -3.75 L8.6 -3.6 L11", // the gauntlet fingers drum out past the palm
+  "raids/chronos.svg|M5.6 -1.25 L8.6 -1.1 L11", // the gauntlet fingers drum out past the palm
+  "raids/chronos.svg|M5.6 1.25 L8.6 1.4 L11 1", // the gauntlet fingers drum out past the palm
+  "raids/chronos.svg|M5.6 3.75 L8.6 3.9 L11 4", // the gauntlet fingers drum out past the palm
+  "raids/ophanim.svg|M-49.12 0A49.12 21.12 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-49.2 0A49.2 21.2 0 0 1", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-50.23 0A50.23 21.23 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-49.82 0A49.82 20.82 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-49.74 0A49.74 20.74 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-50.07 0A50.07 21.07 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-50.56 0A50.56 21.56 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-50.89 0A50.89 21.89 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-45.97 0A45.97 16.97 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-45.15 0A45.15 16.15 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-53.02 0A53.02 24.02 0 ", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-53.1 0A53.1 24.1 0 0 0", // the wheel rings pass in front of the body
+  "raids/ophanim.svg|M-44.9 0A44.9 15.9 0 0 0", // the wheel rings pass in front of the body
   "raids/hydra.svg|M14 -4 L10 10 L16 12 L8 ", // lightning forks out of the storm clouds
   "raids/hydra.svg|M108 -4 L112 8 L106 10 L",
   "raids/seraph.svg|M5 -1.6 L14.6 -4.7 L23.3", // bone fingers reach out of the clawed palms

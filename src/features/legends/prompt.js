@@ -67,23 +67,14 @@ export function parseQuestions(raw, clean, opts = {}) {
   })), opts)
 }
 
-// What a step's screen promises about its questions, enforced on what the model sent. Legendary says "every answer
-// typed": a choice-only question (it rendered as tiles) goes, and a dual one loses its choices (nothing offers them
-// there, but they would make it a choice in everything that reads `alt`). The set is then topped up like any other.
-// A boss or raid fight says "no safe strikes" once the boss enrages, yet a choice-only question still showed tiles and
-// dealt a safe strike: in a fight every question must stand TYPED, its choices only the optional `alt` (offered in
-// phase 1). A choice-only question becomes typed (the right option is the answer, the options its alt), unless it
-// cannot stand without them ("which of these", true/false, "all of the above") or would then give its answer away.
+// What a fight's screen promises about its questions, enforced on what the model sent (boss, Legendary, raid): every
+// question stands TYPED, its choices the `alt` the learner may switch to (a safe strike, less damage), offered in every
+// phase and on attacks too (the owner: a question can be ambiguous, so that way out never goes away). A choice-only
+// question becomes typed (the right option is the answer, the options its alt), unless it cannot stand without them
+// ("which of these", true/false, "all of the above") or would then give its answer away. The set is then topped up.
 export function fitQuestionsToKind(qs, kind) {
   const list = Array.isArray(qs) ? qs : []
-  if (kind === 'legendary') {
-    return list.filter((q) => q && typeof q === 'object' && q.kind !== 'choice').map((q) => {
-      if (!q.alt) return q
-      const { alt, ...rest } = q
-      return rest
-    })
-  }
-  if (kind !== 'boss' && kind !== 'raid') return list
+  if (kind !== 'boss' && kind !== 'raid' && kind !== 'legendary') return list
   const out = []
   for (const q of list) {
     if (!q || typeof q !== 'object') continue
@@ -194,8 +185,8 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
     learn: 'These items were JUST taught in this level: for each one, first a recognition question (multiple choice), then a recall or use question (typed). Gentle, one step at a time.',
     practice: 'Practice these items: recall and use them.',
     rule: 'Drill the RULE(S) among these items: questions that make the learner apply the rule to new cases.',
-    boss: `BOSS TEST of the whole area. Push the learner to the limit of what the area taught, so passing proves real understanding: use the items in NEW sentences and situations (never a copy of an example), combine two items in one question, make them produce rather than recognize. Mostly questions answered with a ${subject.isLanguage ? `${subject.learnLang} sentence` : 'sentence'} ("open": true with a model answer in "accepted"). Every question is answered TYPED and has its answers in "accepted"; for a few, ALSO add 4 "choices" (the right one plus CLOSE wrong ones, the tempting mistake, only one right) as an easier way to answer, but the question must make full sense without them (never "which of these", "which of the following", "choose", "true or false", "all of the above"). Hard, never unfair: every answer still follows from the material.`,
-    legendary: `LEGENDARY TEST of an area the learner already beat: the hardest version. EVERY question typed (no multiple choice) and produced by the learner: ${subject.isLanguage ? `${subject.learnLang} sentences` : 'explanations and applications'} in new situations, combining items. Still only what the material taught.`,
+    boss: `BOSS TEST of the whole area. Push the learner to the limit of what the area taught, so passing proves real understanding: use the items in NEW sentences and situations (never a copy of an example), combine two items in one question, make them produce rather than recognize. Mostly questions answered with a ${subject.isLanguage ? `${subject.learnLang} sentence` : 'sentence'} ("open": true with a model answer in "accepted"). Every question is answered TYPED and has its answers in "accepted"; for EVERY question, ALSO add 4 "choices" (the right one plus CLOSE wrong ones, the tempting mistake, only one right) as an easier way to answer (it deals less damage), but the question must make full sense without them (never "which of these", "which of the following", "choose", "true or false", "all of the above"). Hard, never unfair: every answer still follows from the material.`,
+    legendary: `LEGENDARY TEST of an area the learner already beat: the hardest version. EVERY question is answered TYPED and produced by the learner; for every question ALSO add 4 "choices" (the right one plus CLOSE wrong ones, only one right) as an easier way out that deals less damage, but the question must make full sense without them (never "which of these", "true or false", "all of the above"). The questions: ${subject.isLanguage ? `${subject.learnLang} sentences` : 'explanations and applications'} in new situations, combining items. Still only what the material taught.`,
     weak: 'WEAK SPOTS: these are the items this learner got wrong most often. Ask each one from a new angle (not the way it was asked before), starting easier and ending harder, so the gap closes.',
   }[node.kind] || 'Practice these items.'
   return {

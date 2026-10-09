@@ -72,8 +72,10 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
   const isAppWindow = typeof window !== 'undefined' && typeof window.ebikiWindow?.isMaximized === 'function' // not an element named by id
 
   useEffect(() => {
-    apiFetch('/api/launchmode').then((r) => r.json()).then((d) => {
-      setMode(d.mode); setElectronAvailable(d.electronAvailable !== false)
+    // A non-OK answer (a 500 with a JSON error body) is a failed read: keep the default ('app' =
+    // what a missing launchmode.json means) instead of setting `undefined` and selecting no tile.
+    apiFetch('/api/launchmode').then((r) => { if (!r.ok) throw new Error('launchmode ' + r.status); return r.json() }).then((d) => {
+      setMode(d?.mode === 'browser' ? 'browser' : 'app'); setElectronAvailable(d?.electronAvailable !== false)
     }).catch(() => setMode('app'))
   }, [])
 
