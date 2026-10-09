@@ -82,7 +82,9 @@ export default class ErrorBoundary extends React.Component {
     }
     const t = crashT()
     return (
-      <div style={{ minHeight: '100vh', background: c.bg, color: c.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'Nunito, system-ui, sans-serif' }}>
+      // The body keeps the app zoom (--app-zoom on <html> survives App): plain 100vh made this screen taller than the
+      // window and it scrolled into a blank band (the same fix as #root in index.html).
+      <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', background: c.bg, color: c.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'Nunito, system-ui, sans-serif' }}>
         <div style={{ maxWidth: 480, width: '100%', background: c.card, border: `1px solid ${c.border}`, borderRadius: 12, padding: 24 }}>
           <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>{t('crash_title')}</div>
           <div style={{ fontSize: 14, color: c.dim, lineHeight: 1.5, marginBottom: 16 }}>

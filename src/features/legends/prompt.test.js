@@ -93,6 +93,8 @@ describe('parsers', () => {
     expect(parseTalkScore({ score: 'x' }, id)).toBeNull()
     expect(parseTalkScore({ score: 8 }, id).score).toBe(0.8) // out of 10, not a near fail
     expect(parseTalkScore({ score: '85%' }, id).score).toBe(0.85)
+    expect(parseTalkScore({ score: '5%' }, id).score).toBe(0.05) // a percent is out of 100, never out of 10
+    expect(parseTalkScore({ score: '1%' }, id).score).toBe(0.01)
     expect(parseTalkScore({ score: '7/10' }, id).score).toBe(0.7)
     expect(parseTalkScore({ score: '0.6' }, id).score).toBe(0.6)
     expect(parseTalkScore({ score: 1 }, id).score).toBe(1)

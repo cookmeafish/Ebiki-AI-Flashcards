@@ -12,6 +12,10 @@ describe('cleanChatReply', () => {
   })
   it('strips dashes but keeps a digit range', () => {
     expect(cleanChatReply('Pages 10–20 — read them')).toBe('Pages 10-20, read them')
+    expect(cleanChatReply('Pages 10—20')).toBe('Pages 10-20')
+  })
+  it('never turns a dash at a line start or end into a comma', () => {
+    expect(cleanChatReply('Words:\n— gato\n  — perro\nMore —\nend')).toBe('Words:\ngato\n  perro\nMore\nend')
   })
   it('removes shrimp emoji without collapsing indentation', () => {
     expect(cleanChatReply('Hi 🦐 there')).toBe('Hi there')

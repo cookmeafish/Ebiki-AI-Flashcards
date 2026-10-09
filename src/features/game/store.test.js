@@ -5,7 +5,7 @@ import { mergePlayers, dateKey } from './engine'
 
 function fakeServer({ players = [], local = { machineId: 'mach01', playerId: '' }, failRead = false } = {}) {
   const disk = new Map(players.map((p) => [p.id, p]))
-  const state = { local: { ...local }, posts: 0 }
+  const state = { local: { ...local }, posts: 0, failPost: false }
   globalThis.fetch = vi.fn(async (url, init = {}) => {
     const body = init.body ? JSON.parse(init.body) : null
     const ok = (j) => ({ ok: true, status: 200, json: async () => j })
@@ -16,6 +16,7 @@ function fakeServer({ players = [], local = { machineId: 'mach01', playerId: '' 
     if (url === '/api/players') {
       if (init.method === 'POST') {
         state.posts++
+        if (state.failPost) return { ok: false, status: 503, json: async () => ({}) }
         const merged = mergePlayers(disk.get(body.player.id), body.player)
         disk.set(merged.id, merged)
         return ok({ player: merged })
@@ -95,5 +96,31 @@ describe('game store', () => {
     s.award('card')
     await vi.advanceTimersByTimeAsync(5000)
     expect(srv.state.posts).toBe(before)
+  })
+
+  it("keeps another player's unsaved backup when the next player saves, and folds it back on choosing them", async () => {
+    const srv = fakeServer({ players: [{ id: 'player-a1', name: 'Ana', days: {} }, { id: 'player-b2', name: 'Bo', days: {} }], local: { machineId: 'mach01', playerId: 'player-a1' } })
+    const s = await freshStore()
+    await s.initGame()
+    expect(s.getGame().player.id).toBe('player-a1')
+    srv.state.failPost = true
+    s.award('card')
+    await s.saveGameNow() // fails: kept on this device
+    expect(JSON.parse(localStorage.getItem('ebiki-game-unsaved')).id).toBe('player-a1')
+    srv.state.failPost = false
+    srv.state.local.playerId = '' // "Switch player"
+    await s.initGame()
+    expect(s.getGame().status).toBe('choose')
+    await s.choosePlayer('player-b2')
+    s.award('chat')
+    await s.saveGameNow()
+    expect(JSON.parse(localStorage.getItem('ebiki-game-unsaved')).id).toBe('player-a1') // Bo's save never erased Ana's
+    srv.state.local.playerId = ''
+    await s.initGame()
+    await s.choosePlayer('player-a1')
+    expect(s.getGame().player.days[dateKey()].mach01.cards).toBe(1)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(srv.disk.get('player-a1').days[dateKey()].mach01.cards).toBe(1)
+    expect(localStorage.getItem('ebiki-game-unsaved')).toBe(null)
   })
 })

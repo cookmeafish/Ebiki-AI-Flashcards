@@ -41,6 +41,7 @@ let initCalled = false         // false in a window that never loads the game (t
 let inboxTimer = null
 let retryTimer = null
 let retries = 0
+let saving = 0                 // saves in flight
 const RETRY_MS = [5000, 15000, 30000, 60000] // a failed load tries again (else every award of the session was lost)
 
 const newId = () => platform.randomId().slice(0, 16)
@@ -119,11 +120,15 @@ async function refresh() {
 }
 
 export async function choosePlayer(id) {
-  const p = state.others.find((x) => x.id === id)
+  let p = state.others.find((x) => x.id === id)
   if (!p) return
   await getJson(API.local, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: id }) })
+  // This player's save that failed last time (before a switch away) is folded back in, as initGame does.
+  const unsaved = platform.kv.getJson(LOCAL_BACKUP_KEY)
+  if (unsaved?.id === id) { p = mergePlayers(p, unsaved); dirty = true }
   set({ status: 'ready', player: p, others: state.others.filter((x) => x.id !== id) })
   flushPending()
+  if (dirty) scheduleSave()
 }
 
 export async function createPlayer(name) {
@@ -234,19 +239,24 @@ async function save() {
   // folds it back in for the same player), never sent now.
   if (blocked()) { try { platform.kv.setJson(LOCAL_BACKUP_KEY, state.player) } catch { /* storage full */ } return }
   dirty = false
+  const sent = outgoing()
+  saving++
   try {
-    const { player } = await getJson(API.players, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player: outgoing() }) })
+    const { player } = await getJson(API.players, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player: sent }) })
     if (player?.id === state.player?.id) set({ player: mergePlayers(player, state.player) })
-    platform.kv.remove(LOCAL_BACKUP_KEY)
+    // Only THIS player's backup is now saved: another player's (a failed save before "Switch player") stays until that
+    // player is loaded again, else its unsaved progress was lost.
+    if (platform.kv.getJson(LOCAL_BACKUP_KEY)?.id === sent.id) platform.kv.remove(LOCAL_BACKUP_KEY)
   } catch {
     dirty = true
     platform.kv.setJson(LOCAL_BACKUP_KEY, state.player) // storage full: in memory only
-  }
+  } finally { saving-- }
 }
 
 // Unsaved progress goes out as the app closes (keepalive survives the unload).
+// A save still in flight counts too: `dirty` was cleared when it started, and closing the page cancels its request.
 platform.onPageHide(() => {
-  if (!dirty || !readOk || !state.player) return
+  if ((!dirty && !saving) || !readOk || !state.player) return
   if (blocked()) { try { platform.kv.setJson(LOCAL_BACKUP_KEY, state.player) } catch { /* storage full */ } return }
   try { apiFetch(API.players, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player: outgoing() }) }) } catch { /* best effort */ }
 })

@@ -55,3 +55,26 @@ export function builtFileFor(urlPath, buildDir, path) {
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.wasm': 'application/wasm', '.map': 'application/json' }
 export const contentTypeOf = (file) => TYPES[(file.match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase()] || 'application/octet-stream'
+
+// A new build swapped in WHILE this session serves the old one (the background build after an update): the open
+// pages still name the old build's hashed files, and their lazy screens (Legends, Settings...) load them only when
+// first opened. Removed with the old folder, those loads fell through to the dev server and the screen failed for the
+// rest of the session. The old build's files the new one lacks are carried into it (hashed names never clash in
+// meaning; the next start's pages name only the new ones). Returns how many were carried.
+export function carryOldAssets(oldDir, newDir, { fs, path }) {
+  let carried = 0
+  const walk = (rel) => {
+    let names
+    try { names = fs.readdirSync(path.join(oldDir, rel), { withFileTypes: true }) } catch { return }
+    for (const d of names) {
+      const r = path.join(rel, d.name)
+      if (d.isDirectory()) { walk(r); continue }
+      if (!d.isFile()) continue
+      const to = path.join(newDir, r)
+      if (fs.existsSync(to)) continue
+      try { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(path.join(oldDir, r), to); carried++ } catch { /* that one stays missing */ }
+    }
+  }
+  walk(BUILD_ASSETS)
+  return carried
+}

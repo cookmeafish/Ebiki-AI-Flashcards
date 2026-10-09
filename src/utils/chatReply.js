@@ -37,7 +37,12 @@ export function cleanChatReply(text) {
     .replace(/<sources>[\s\S]*?<\/sources>/g, '')
     .replace(/<offer-search>[\s\S]*?<\/offer-search>/g, '')
     .replace(/<(anki-card|progress-update|sources|offer-search)>[\s\S]*$/, '')
-    .replace(/(\d)[ \t]*–[ \t]*(\d)/g, '$1-$2').replace(/[ \t]*[—–][ \t]*/g, ', ')
+    // Line-aware (like Help): a dash opening or ending a line is dropped ("— item" read ", item"), one inside a line
+    // becomes ", ", a digit range keeps a hyphen with either dash; indentation before a dropped dash stays.
+    .replace(/(\d)[ \t]*[—–][ \t]*(\d)/g, '$1-$2')
+    .replace(/(^|\n)([ \t]*)[—–][ \t]*/g, '$1$2')
+    .replace(/[ \t]*[—–][ \t]*(?=\r?\n|$)/g, '')
+    .replace(/[ \t]*[—–][ \t]*/g, ', ')
     .replace(/([ \t]?)[🦐🦞🦀]️?([ \t]?)/gu, (m, a, b) => (b ? ' ' : ''))
     .trim()
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FIGHT_EXTRAS, fightExtrasFor, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion, learnItemFor, missRowParts, arenaPinMode } from './fightCheck'
+import { FIGHT_EXTRAS, fightExtrasFor, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion, learnItemFor, missRowParts, arenaPinMode, raidRefundOpen } from './fightCheck'
 
 const OFF = Object.fromEntries(Object.keys(FIGHT_EXTRAS).map((k) => [k, false]))
 
@@ -117,5 +117,15 @@ describe('arenaPinMode', () => {
   })
   it('takes another budget', () => {
     expect(arenaPinMode(260, 0, 600, { max: 0.5 })).toBe('all')
+  })
+})
+
+describe('raid refunds (RaidRun)', () => {
+  it('still refund during the "Continue?" pause and an ending run until commit read the fight', () => {
+    // The last answer of a run lands its re-check while "Continue?" shows: the same fight goes on, so it refunds.
+    for (const p of ['fight', 'more', 'saving']) expect(raidRefundOpen(p), p).toBe(true)
+    expect(raidRefundOpen('saving', true)).toBe(false)
+    expect(raidRefundOpen('more', true)).toBe(false)
+    for (const p of ['intro', 'lap', 'done', 'loading']) expect(raidRefundOpen(p), p).toBe(false)
   })
 })

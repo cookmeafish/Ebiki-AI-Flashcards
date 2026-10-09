@@ -869,7 +869,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           <div style={{ color: 'var(--c-ink-dim)', fontSize: 12, textAlign: 'center', padding: '28px 12px', lineHeight: 1.6 }}>
             <div style={{ marginBottom: 12 }}>{t('help_noKeyLine')}</div>
             <button onClick={() => onOpenSettings?.()} className="btn-press" style={{
-              border: 'none', background: 'var(--c-brand)', color: '#fff', fontWeight: 700, fontSize: 12,
+              border: 'none', background: 'var(--c-brand-fill)', color: '#fff', fontWeight: 700, fontSize: 12,
               padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
             }}>{t('help_addKey')}</button>
           </div>
@@ -920,7 +920,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           onClick={sendMessage}
           disabled={!apiKey || loading || !input.trim()}
           style={{
-            padding: '7px 14px', background: 'linear-gradient(135deg, var(--c-brand), var(--c-purple))', color: '#fff',
+            padding: '7px 14px', background: 'linear-gradient(135deg, var(--c-brand-fill), var(--c-purple-fill))', color: '#fff',
             border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 11,
             fontFamily: 'inherit', cursor: 'pointer',
             boxShadow: '0 3px 12px rgba(223,37,64,.35)',
@@ -1043,7 +1043,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
             >
               <div style={{
                 position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)',
-                background: 'var(--c-brand)', color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 700,
+                background: 'var(--c-brand-fill)', color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 700,
                 padding: '8px 16px', borderRadius: 999, boxShadow: '0 8px 22px rgba(223,37,64,.35)',
               }}>{t('help_dockPrompt')}</div>
             </div>

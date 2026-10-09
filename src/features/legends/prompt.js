@@ -368,8 +368,11 @@ export function parseTalkScore(raw, clean) {
   // "8" was a near fail at 0.08).
   const v = typeof raw?.score === 'string' ? raw.score.trim() : raw?.score
   const frac = typeof v === 'string' && /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(v)
+  // A percent is always out of 100 ("5%" read as 5 out of 10 passed a near fail at 0.5).
+  const pct = typeof v === 'string' && /%$/.test(v)
   let s = v === '' || v == null ? NaN : frac ? Number(frac[1]) / (Number(frac[2]) || NaN) : Number(typeof v === 'string' ? v.replace(/\s*%$/, '') : v)
-  if (Number.isFinite(s) && !frac) s = s > 10 ? s / 100 : s > 1 ? s / 10 : s
+  if (Number.isFinite(s) && pct) s /= 100
+  else if (Number.isFinite(s) && !frac) s = s > 10 ? s / 100 : s > 1 ? s / 10 : s
   if (!raw || !Number.isFinite(s)) return null
   const list = (v) => (Array.isArray(v) ? v : []).map((x) => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 3)
   return { score: Math.max(0, Math.min(1, s)), note: clean(String(raw.note || '')).slice(0, 400), strengths: list(raw.strengths), gaps: list(raw.gaps) }

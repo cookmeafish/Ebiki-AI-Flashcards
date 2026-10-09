@@ -57,6 +57,8 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   // The panel is scaled by z, so its height cap is in PRE-scale px: '60vh' grew to 120vh of real screen at zoom 2
   // and ran off the top. Capped to the window minus the pill below it (about 44 px before scaling).
   const panelMaxH = `min(60vh, calc((100vh - 24px) / ${z} - 44px))`
+  // Same for the width: 300 px scaled by the zoom (405 real px at the default) ran off the left edge of a phone.
+  const panelW = `min(300px, calc((100vw - 20px) / ${z}))`
   const costText = (sum) => (sum.cost > 0 || sum.unpricedTokens === 0 ? formatCost(sum.cost) : null)
 
   const block = (label, sum, extra) => (
@@ -75,7 +77,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   return createPortal(
     <div style={{ position: 'fixed', right: 10, bottom: 10, zIndex: 900, transform: `scale(${z})`, transformOrigin: 'bottom right', fontFamily: FONT.body }}>
       {open && (
-        <div role="dialog" aria-label={t('usage_title')} style={{ width: 300, maxHeight: panelMaxH, overflowY: 'auto', marginBottom: 6, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 12 }}>
+        <div role="dialog" aria-label={t('usage_title')} style={{ width: panelW, maxHeight: panelMaxH, overflowY: 'auto', marginBottom: 6, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--c-ink)' }}>{t('usage_title')}</div>
             <button type="button" onClick={() => setOpen(false)} aria-label={t('usage_close')} style={{ background: 'none', border: 'none', color: 'var(--c-ink-dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>

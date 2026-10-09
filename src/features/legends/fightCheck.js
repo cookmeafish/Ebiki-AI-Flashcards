@@ -62,6 +62,12 @@ export function resolveFightQuestion(q, cancelled = new Set(), fixes = new Map()
   return q
 }
 
+// A raid run (RaidRun) still takes a refund in these phases: its questions, the "Continue?" pause (the SAME fight goes
+// on, and the last answer's re-check nearly always lands there), and an ending run's save until commit has read the
+// fight after waiting for the second looks (`closed`). A decided fight gets none either way (refundRunningFight).
+export const RAID_REFUND_PHASES = Object.freeze(['fight', 'more', 'saving'])
+export const raidRefundOpen = (phase, closed = false) => !closed && RAID_REFUND_PHASES.includes(phase)
+
 // What the Learn-it panel shows for a missed question: the card or item it was about, else the question itself.
 // found: a raid card ({ front, back, noteId }) or a map item ({ front, back, cardNoteId }: noteKey 'cardNoteId'), or
 // null. fallback: { front, back } when the screen knows them better than the question (the Legends result list).

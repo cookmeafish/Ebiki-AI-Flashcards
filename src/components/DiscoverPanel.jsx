@@ -268,7 +268,7 @@ export default function DiscoverPanel(props) {
             ) : (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: `1px solid ${tint(C.dim, 20)}`, paddingTop: 12, marginTop: 4 }}>
                 <button onClick={onMakeCard} disabled={cardLoading} className="btn-press"
-                  style={{ background: 'var(--c-brand)', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 18px', fontSize: 13, fontWeight: 800, fontFamily: 'inherit', boxShadow: 'inset 0 -3px 0 var(--c-brand-dark)', ...dim(cardLoading) }}>
+                  style={{ background: 'var(--c-brand-fill)', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 18px', fontSize: 13, fontWeight: 800, fontFamily: 'inherit', boxShadow: 'inset 0 -3px 0 var(--c-brand-dark)', ...dim(cardLoading) }}>
                   {cardLoading ? t('d_building') : t('d_makeCard')}
                 </button>
                 <button onClick={onKnow} disabled={cardLoading}

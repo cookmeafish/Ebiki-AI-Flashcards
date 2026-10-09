@@ -120,7 +120,8 @@ export default function Talk({ ctx, area, node, items, onFinish, onQuit }) {
           {t('lg_talkScore', { n: Math.round(score.score * 100) })}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <ChunkyButton color={C.success} onClick={() => onFinish({ total: SCORE_SCALE, correct: Math.round(score.score * SCORE_SCALE), items: [], misses: [], strengths: score.strengths, gaps: score.gaps })}>{t('lg_continue')}</ChunkyButton>
+          {/* Rounded DOWN: a 55% talk (shown here as not passed) rounded up to 6/10 and was recorded as cleared. */}
+          <ChunkyButton color={C.success} onClick={() => onFinish({ total: SCORE_SCALE, correct: Math.floor(score.score * SCORE_SCALE + 1e-9), items: [], misses: [], strengths: score.strengths, gaps: score.gaps })}>{t('lg_continue')}</ChunkyButton>
         </div>
       </div>
     )

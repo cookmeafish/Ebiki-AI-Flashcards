@@ -33,4 +33,14 @@ describe('speak (device voice)', () => {
     a.stop()
     await expect(Promise.race([a.done.then(() => 'done'), new Promise((r) => setTimeout(() => r('hung'), 50))])).resolves.toBe('done')
   })
+
+  it('an AI voice stopped while its clip is being made settles done at once', async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = () => new Promise(() => {}) // the speech request never comes back
+    try {
+      const a = speak({ apiKeys: { openai: 'sk-test' } }, 'hola')
+      a.stop()
+      await expect(Promise.race([a.done.then(() => 'done'), new Promise((r) => setTimeout(() => r('hung'), 50))])).resolves.toBe('done')
+    } finally { globalThis.fetch = realFetch }
+  })
 })

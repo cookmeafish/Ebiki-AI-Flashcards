@@ -546,8 +546,9 @@ restarts), so a forgotten server serves stale config. SHORTCUT launches only:
   `/_app/*` (`builtFileFor`, never outside the folder) come from the build; /api, public files, `/node_modules`
   (pdf cmaps) and dev pages stay with the dev server. `EBIKI_AUTO_EXIT=1` or `EBIKI_BUILT=1` turns it on,
   `EBIKI_BUILT=0` off; a manual `npm run dev` never serves it (hot reload). **No HMR socket in the build**: pages
-  answer the server's liveness ping through `platform.serverPings` (HMR in dev, the `/api/alive-stream` event stream
-  in the build; `pingPages` writes to both). Never use `import.meta.hot` directly for it.
+  answer the server's liveness ping through `platform.serverPings` (HMR in dev, the `/api/alive-ws` WebSocket in the
+  build, `src/server/aliveSocket.js`, tested; never a held HTTP request: 6 connections per host for every tab;
+  `pingPages` writes to both). Never use `import.meta.hot` directly for it.
 - **The app notices its server dying**: 3 missed beats (~15s) → a QUIET amber line opening Settings > Data & updates
   (`openConnectionSettings`); `UpdatesCard` shows `down` (`serverDown`) with **Restart now** (same two-path restart).
   A beat succeeding again reloads the page (may be an old build).
@@ -1621,6 +1622,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   drawings sit on their own layer (`will-change`); NEVER pause them for scrolling (the owner: looks broken); `sanitizeQueue` one file per task,
   `pauseAnimations` off screen): mounting every raid boss at once lagged the owner's computer. The dev gallery sets
   `window.__ebikiArtEager = true` (check-art needs it); keep that line.
+- **A still drawing in the page is its idle animation FROZEN at frame 0** (`__lgFrozen`, paused + `setCurrentTime(0)`;
+  sleep/wake never unfreezes it), not the file stripped of motion: parts rest elsewhere than where their loop starts
+  (bats, a tilted scythe), so a hover copy or switching motion on popped (measured up to 11% of pixels on the reaper;
+  now 0 on every raid boss and phase). Going live unfreezes from frame 0. **A drawing that goes still or leaves the
+  page forgets its timeline** (`box.__lgClock = null`): continuity is only for one animated SVG replacing another
+  (baked rig, phase change); kept across a pause, every later hover started mid-animation. Small still TILES are
+  snapshots (rest pose, never animate).
 - **The art clock is OFF (`ART_CLOCK = false`)**: paced at 30 redraws a second and a shared page budget, every boss and the
   whole app looked choppy on the owner's 480 Hz screen. Drawings play NATIVELY at the display's rate; `keepTimeline` only
   keeps continuity (a baked rig or phase swap carries on at the old SVG's time). The bake keeps native playback cheap.
@@ -1718,7 +1726,7 @@ Capacitor (web UI in a WebView) or React Native (UI rebuilt, logic reused). Both
 - **Routes an on-device router must answer**: `config`, `modes`, `modes/knowledge`, `knowledge-sections`,
   `ankiformat`, `deck-progress`, `discover-store`, `question-bank`, `chats`, `chat-load`, `keys`, `players`,
   `player-local`, `feature-data`, `usage`, `log`, `web-search` (CORS-free), `tts`, `anki` (AnkiConnect-like backend
-  only). **Desktop-only** ("not available"): `alive`, `alive-stream`, `bye`, `datadir`, `offline`, `sync-backup`, `update`,
+  only). **Desktop-only** ("not available"): `alive`, `alive-ws` (WebSocket), `bye`, `datadir`, `offline`, `sync-backup`, `update`,
   `launchmode`, `launch-overlay`, `overlay-hide`, `overlay-screenshot`, `game-inbox` (the overlay's XP relay),
   `ankiconnect`, `anki-focus`, `anki-start`.
   Keep this list current when adding a route. Electron, launchers, Alt+Q overlay and the Anki updater are desktop-only.

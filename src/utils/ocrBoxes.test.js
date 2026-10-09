@@ -72,6 +72,19 @@ describe('snapWordsToBoxes', () => {
     expect(words[1]._approxBox).toBe(true)
   })
 
+  it('slices Korean by syllable and never matches a syllable inside another', () => {
+    expect(ocrMatchKey('안녕!')).toBe('안녕')
+    expect(ocrMatchKey('が')).toBe('か')
+    // "아" is not "안": as jamo it was a prefix of it, and took a slice of the wrong word.
+    const wrong = [vw('아', box(0, 0, 20, 20))]
+    snapWordsToBoxes(wrong, [tw('안녕', box(0, 0, 40, 20))])
+    expect(wrong[0]._approxBox).toBe(true)
+    // 학 (3 jamo) 교 (2) 에 (2): "학교" is 2 of 3 syllables wide, not 5 of 7 jamo.
+    const words = [vw('학교', box(0, 0, 60, 20))]
+    expect(snapWordsToBoxes(words, [tw('학교에', box(0, 0, 90, 20))])).toBe(1)
+    expect(words[0].bbox).toEqual(box(0, 0, 60, 20))
+  })
+
   it('does not slice vertical text', () => {
     const words = [vw('你好', box(0, 0, 20, 40))]
     const tess = [tw('你好世界', box(0, 0, 20, 80))]

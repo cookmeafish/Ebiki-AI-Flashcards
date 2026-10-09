@@ -21,6 +21,7 @@ import { BODY_CSS, bodyAnimation } from './impact/body'
 import { PowerFx, PowerBadges, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
+import { RaidBand, BAND_CSS } from './RaidBand'
 
 // The intro card's red eye glow. true: a blurred red copy of the boss's silhouette behind it pulses its OPACITY (the
 // compositor runs it; the old `filter: drop-shadow` pulse repainted and re-layerized the whole page every frame, 13 to
@@ -323,6 +324,11 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
   // The stripes slide on their own layer, one tile wider on the left, moved by transform (composited) instead of
   // background-position (a full repaint every frame); the tiles line up with the band's left edge as before.
   const stripes = <span aria-hidden="true" className="lg-loop1" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: STRIPE_STRIP, background: stripe, animation: 'lgStripeMove 1.2s linear infinite' }} />
+  // PREVIEW (owner choosing a new band): window.__ebikiBand = 'sheen' | 'chevron' | 'hazard'.
+  const bandVariant = typeof window !== 'undefined' ? window.__ebikiBand : ''
+  const bossImpact = kind === 'raids' ? impactFor(area?.motif) : null
+  const bandColors = { main: bossImpact?.color, deep: bossImpact?.accent }
+  const bandLabel = kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')
   const off = useOffscreen(cardRef)
   // The glow layer exists only while it would pulse (like the shockwave): stilled, the old filter showed no glow.
   const glowLayer = INTRO_EYES_GLOW_LAYER && !calm && (motion || !reducedMotion())
@@ -332,8 +338,14 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
       <BossStyle />
       <div style={{ position: 'relative', padding: '64px 20px 76px', display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center',
         background: `radial-gradient(ellipse at 50% 42%, color-mix(in srgb, ${C.danger} 30%, ${NIGHT}) 0%, ${NIGHT} 72%)` }}>
+        {bandVariant ? <>
+          <style>{BAND_CSS}</style>
+          <div aria-hidden="true" style={{ ...band('top'), boxShadow: 'none' }}><RaidBand variant={bandVariant} main={bandColors.main} deep={bandColors.deep} calm={calm} label={bandLabel} /></div>
+          <div aria-hidden="true" style={{ ...band('bottom'), boxShadow: 'none' }}><RaidBand variant={bandVariant} main={bandColors.main} deep={bandColors.deep} calm={calm} label={bandLabel} /></div>
+        </> : <>
         <div aria-hidden="true" style={band('top')}>{stripes}<span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
         <div aria-hidden="true" style={band('bottom')}>{stripes}<span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
+        </>}
         <div style={{ position: 'relative', width: BOSS.intro, height: BOSS.intro, margin: `${headroomPx(BOSS.intro)}px 0` }}>
           <div aria-hidden="true" className="lg-loop2" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in srgb, ${C.danger} 55%, transparent) 0%, transparent 65%)`, animation: `lgStageIn .2s ease-out ${E.impact}s both, lgHeartbeat 1.3s ease-in-out ${E.impact}s infinite` }} />
           {/* Shockwave and dust exist ONLY as animation (invisible at both ends): stilled, they stuck on screen as a stray ring

@@ -476,7 +476,7 @@ let asleep = false
 let sleepInstalled = false
 const artSvgs = (root) => [...root.querySelectorAll('[data-lg-art] svg, svg[data-lg-art]')].filter((s) => !s.ownerSVGElement)
 function setArtPlaying(svgs, play) {
-  for (const svg of svgs) { try { if (play) svg.unpauseAnimations(); else svg.pauseAnimations() } catch { /* not an SVG document */ } }
+  for (const svg of svgs) { try { if (play && svg.__lgFrozen) continue; if (play) svg.unpauseAnimations(); else svg.pauseAnimations() } catch { /* not an SVG document */ } }
 }
 function installArtSleep() {
   if (sleepInstalled || typeof document === 'undefined' || typeof window === 'undefined' || window.__ebikiArtEager) return
@@ -669,11 +669,15 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // `phase`: only the arena (and the asset view's phase cells) pass it; a still drawing has no animations to drop.
   const livePhase = mode ? phase : undefined
   // Built only while near the screen (an off-screen drawing is not in the page anyway), from the shared motion cache.
+  // A STILL drawing in the page is its idle animation FROZEN at its first frame (the layout effect below), never the
+  // file stripped of motion: some parts rest elsewhere than where their loop starts (a bat mid-flight, a tilted
+  // scythe), so a still copy that comes to life on hover (asset view) or when motion is switched on jumped. Frozen,
+  // it only starts moving. (Small still tiles are snapshots and never come to life: snap/plan.js keeps the rest pose.)
   const template = useMemo(() => {
     if (!near || !raw) return ''
-    const out = motionMarkup(url, raw, mode, livePhase)
+    const out = motionMarkup(url, raw, mode || 'idle', mode ? livePhase : phase)
     return figure ? freeFigure(out) : out
-  }, [near, url, raw, mode, livePhase, figure])
+  }, [near, url, raw, mode, livePhase, phase, figure])
   // THE SPRITE RIG (bake/web.js, bakePlan.js): an animated drawing is re-rasterized on every frame it moves, thousands
   // of vector shapes each time. Once it is on screen it is baked in the background: every run of shapes that never
   // moves becomes one bitmap at this screen's pixel density, and the animation moves those instead. Same look, same
@@ -710,14 +714,26 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     return () => { alive = false }
   }, [near, snapOn, snapNeed, snapIdent, url, figure])
   useEffect(installArtSleep, [])
+  useLayoutEffect(() => {
+    if (!shown || mode || !boxRef.current) return
+    for (const v of artSvgs(boxRef.current)) { try { v.__lgFrozen = true; v.pauseAnimations(); v.setCurrentTime(0) } catch { /* not an SVG document */ } }
+  }, [shown, svg, mode])
   // A drawing put in the page while the window sleeps starts paused (its entrance plays on return).
   useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])
   // Animated drawings run on the shared art clock (THE ART CLOCK above, paced by artPace.js), never at the monitor's rate. The dev gallery and
   // check-art drive their own clocks (window.__ebikiArtEager).
   useEffect(() => {
+    // A drawing that goes still or leaves the page forgets its timeline: continuity is for one animated SVG REPLACING
+    // another (the baked rig, a phase change), never across a pause. Kept across a pause, a hovered asset view copy
+    // started mid-animation on every later hover, as if it had played on unseen.
+    if ((!shown || !mode) && boxRef.current) { boxRef.current.__lgClock = null; return }
     if (!shown || !mode || !boxRef.current || (typeof window !== 'undefined' && window.__ebikiArtEager)) return
     // ART_CLOCK off: native playback at the display's rate, continuity only (keepTimeline).
-    for (const v of artSvgs(boxRef.current)) (ART_CLOCK ? clockAttach : keepTimeline)(v, boxRef.current, `${url}|${mode}`)
+    for (const v of artSvgs(boxRef.current)) {
+      // The still copy's own drawing (same markup, kept by React) comes to life from its first frame.
+      if (v.__lgFrozen) { v.__lgFrozen = false; try { v.setCurrentTime(0); if (!asleep) v.unpauseAnimations() } catch { /* not an SVG document */ } }
+      ;(ART_CLOCK ? clockAttach : keepTimeline)(v, boxRef.current, `${url}|${mode}`)
+    }
   }, [shown, svg, mode, url])
   // Pixels per drawing unit on THIS screen: the box's layout width (never its transformed size: an entrance that starts
   // small would bake a blurry boss) times the app zoom and the screen's density. It only ever goes UP while shown: a

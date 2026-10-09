@@ -17,6 +17,7 @@ import { itemTier, areaCodex, patchArea, patchItem, CODEX_TIERS, JOURNEY_DAYS, j
 import { updateMap, LEGENDS_ID } from './store'
 import { addItemsToDeck } from './deck'
 import { imeActive } from '../../utils/keys'
+import { expandSlashAnswers } from '../../utils/answers'
 
 export const TIER_LOOK = { new: { icon: '⚪', color: 'var(--c-ink-faint)' }, bronze: { icon: '🥉', color: 'color-mix(in srgb, var(--c-warning) 55%, var(--c-danger))' }, silver: { icon: '🥈', color: 'var(--c-ink-dim)' }, gold: { icon: '🥇', color: 'var(--c-warning)' } } // theme tokens: both themes
 export const BLITZ = { minGold: 3, max: 8, seconds: 10 }
@@ -28,7 +29,9 @@ export function recallOf(it) {
   const front = String(it?.front || '').trim()
   const cue = String(it?.back || '').split('\n')[0].trim()
   if (!front || !cue || it.kind === 'rule' || front.length > 40 || /\?$/.test(front)) return null
-  const accepted = [...new Set(front.split('/').map((s) => s.replace(/\([^)]*\)/g, '').trim()).filter(Boolean))]
+  // Slash forms expand like Study's answers ("niño/a" = niño or niña): split on the slash, a bare "a" opened the chest
+  // and passed the blitz, and "km/h" counted "h" as the whole answer.
+  const accepted = expandSlashAnswers([front.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim()])
   return accepted.length ? { cue, accepted } : null
 }
 

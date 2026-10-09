@@ -225,7 +225,9 @@ export function createQuestionReuse({ getSettings, getEpoch = () => 0, load = lo
     // replaced a Fix, a gloss save or a clear made during the seconds the generation took.
     const newSet = addSet(null, key, isPbq ? fresh : fresh.map(storableQuestion)).sets[0] // a PBQ is saved whole
     const setId = newSet.id
-    updateBank(deck, noteId, (b) => (mayWrite() ? { v: 2, sets: [...setsOf(b).filter((s) => s.text === key.text), newSet].slice(-MAX_SETS_PER_CARD) } : null), { load, save, allowMissing: true })
+    // Its `lastAsked` is stamped against the FRESH sets (see askStamp): stamped with the clock alone, a set asked by a
+    // computer whose clock runs ahead stayed "newer" than this one and was asked again before it.
+    updateBank(deck, noteId, (b) => (mayWrite() ? { v: 2, sets: [...setsOf(b).filter((s) => s.text === key.text), { ...newSet, lastAsked: askStamp(setsOf(b), newSet.createdAt) }].slice(-MAX_SETS_PER_CARD) } : null), { load, save, allowMissing: true })
     return fresh.map((q, qi) => ({ ...q, _bank: { noteId, deck, setId, qi } }))
   }
 }

@@ -23,7 +23,8 @@ import { createDeckProgressRoute } from './src/server/deckProgressRoute.js'
 import { createDiscoverStoreRoute } from './src/server/discoverStoreRoute.js'
 import { createChatsRoute, createChatLoadRoute } from './src/server/chatsRoute.js'
 import { createKnowledgeRoutes } from './src/server/knowledgeRoute.js'
-import { sourceFingerprint, builtFileFor, contentTypeOf, BUILD_DIR, BUILD_TMP, BUILD_ASSETS, STAMP_FILE } from './src/server/builtApp.js'
+import { createAliveSocket } from './src/server/aliveSocket.js'
+import { sourceFingerprint, builtFileFor, contentTypeOf, carryOldAssets, BUILD_DIR, BUILD_TMP, BUILD_ASSETS, STAMP_FILE } from './src/server/builtApp.js'
 import { mergePlayers } from './src/features/game/engine.js'
 
 // Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
@@ -1702,15 +1703,23 @@ function apiPlugin() {
               cwd: SELF_DIR, windowsHide: true, stdio: ['ignore', log ?? 'ignore', log ?? 'ignore'],
               env: { ...process.env, EBIKI_BUILD_OUT: BUILD_TMP, EBIKI_AUTO_EXIT: '', EBIKI_BUILT: '' },
             })
-          } catch (e) { console.log('[Ebiki] app build could not start:', e.message); resolve(false); return }
+          } catch (e) { try { if (log != null) fs.closeSync(log) } catch { /* closed */ } console.log('[Ebiki] app build could not start:', e.message); resolve(false); return }
           try { os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL) } catch { /* keep normal */ }
-          child.on('error', (e) => { console.log('[Ebiki] app build failed to run:', e.message); resolve(false) })
+          // A build outliving this server (auto-exit, a restart after an update) is orphaned: nothing would ever swap
+          // its result in, and the next server's own build wrote into the SAME temp folder at the same time.
+          const stopBuild = () => { try { child.kill() } catch { /* gone */ } }
+          process.once('exit', stopBuild)
+          const closeLog = () => { try { if (log != null) fs.closeSync(log) } catch { /* closed */ } log = null }
+          child.on('error', (e) => { process.removeListener('exit', stopBuild); closeLog(); console.log('[Ebiki] app build failed to run:', e.message); resolve(false) })
           child.on('exit', (code) => {
-            try { if (log != null) fs.closeSync(log) } catch { /* closed */ }
+            process.removeListener('exit', stopBuild)
+            closeLog()
             // The code may have changed while it built: stamp only what it was built from.
             if (code === 0 && sourceFingerprint(SELF_DIR, fsDeps) === fp && fs.existsSync(path.join(tmp, 'index.html'))) {
               try {
                 fs.writeFileSync(path.join(tmp, STAMP_FILE), fp)
+                // This session serves the OLD build: its pages still load the old hashed files (lazy screens).
+                if (servingBuilt) carryOldAssets(buildDir, tmp, fsDeps)
                 fs.rmSync(buildDir, { recursive: true, force: true })
                 fs.renameSync(tmp, buildDir)
                 console.log('[Ebiki] optimized app ready for the next start')
@@ -1830,19 +1839,12 @@ function apiPlugin() {
       // timer below is gated, so the client never needs to know which it is.
       let lastBeat = 0        // last /api/alive from a real browser tab
       let byeAt = 0           // last /api/bye beacon (a tab closing OR reloading)
-      // The BUILT app has no HMR socket: its pages hold this event stream open instead and get the same ping
-      // (platform.serverPings). The overlay never opens one.
-      const aliveStreams = new Set()
-      server.middlewares.use('/api/alive-stream', (req, res) => {
-        if (req.method !== 'GET') { res.statusCode = 405; res.end(''); return }
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
-        res.write(': ok\n\n')
-        aliveStreams.add(res)
-        req.on('close', () => aliveStreams.delete(res))
-      })
+      // The BUILT app has no HMR socket: its pages open this small WebSocket instead and get the same ping
+      // (platform.serverPings; src/server/aliveSocket.js). The overlay never opens one.
+      const aliveSocket = createAliveSocket(server.httpServer, apiRequestAllowed)
       const pingPages = () => {
         try { (server.hot || server.ws).send({ type: 'custom', event: 'ebiki:ping' }) } catch { /* no client connected */ }
-        for (const st of aliveStreams) { try { st.write('event: ping\ndata: 1\n\n') } catch { aliveStreams.delete(st) } }
+        aliveSocket.ping()
       }
       server.middlewares.use('/api/alive', (req, res) => {
         // GET is read-only on purpose: "is a tab actually checking in?" is the

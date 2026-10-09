@@ -3,9 +3,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const calls = []
+const hooks = {}
 vi.mock('dompurify', () => ({
   default: {
-    addHook: () => {},
+    addHook: (name, fn) => { hooks[name] = fn },
     sanitize: (html, opts) => { calls.push(opts); return html },
   },
 }))
@@ -33,5 +34,13 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml(null)).toBe('')
     expect(sanitizeHtml(undefined)).toBe('')
     expect(sanitizeHtml(42)).toBe('42')
+  })
+
+  it('drops an inline style that positions over the app, the -webkit- alias too', () => {
+    const keep = (style) => { const data = { attrName: 'style', attrValue: style, keepAttr: true }; hooks.uponSanitizeAttribute({ nodeName: 'DIV' }, data); return data.keepAttr }
+    expect(keep('color: red')).toBe(true)
+    expect(keep('position: fixed; inset: 0')).toBe(false)
+    expect(keep('position:-webkit-sticky; top:0')).toBe(false)
+    expect(keep('position: relative')).toBe(true)
   })
 })

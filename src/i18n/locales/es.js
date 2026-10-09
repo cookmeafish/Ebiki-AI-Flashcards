@@ -792,7 +792,7 @@ export default {
   deck_bulkRequestPre: '✨ Solicitud de edición masiva: ',
   deck_bulkRequestPost: '. No se guarda nada hasta que aceptes los cambios y pulses Guardar.',
   deck_suggestionCount: '{n} sugerencias • {m} aceptadas',
-  deck_suggestionCountOne: '{n} sugerencia • {m} aceptadas',
+  deck_suggestionCountOne: '{n} sugerencia • aceptadas: {m}',
   deck_discardedTip: 'Se descartaron porque el id de tarjeta y la palabra de la IA no coincidían con la misma tarjeta. Nunca se muestran para evitar mezclar tarjetas. Vuelve a ejecutar para intentarlo de nuevo.',
   deck_discarded: '⚠ {n} descartadas (tarjeta no coincide)',
   deck_saveAccepted: 'Guardar {n} aceptadas',

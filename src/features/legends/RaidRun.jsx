@@ -24,7 +24,7 @@ import FightSettings from './FightSettings'
 import { PowerCastBadge } from './impact/PowerFx'
 import LearnItPanel from '../kit/LearnItPanel'
 import { useFightCheck, useBossTaunt, useArenaPin, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
-import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
+import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor, raidRefundOpen } from './fightCheck'
 import { RAID_VOICES } from './raidVoices'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
@@ -135,6 +135,10 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const phaseRef = useRef(phase)
   phaseRef.current = phase
   const fightOver = useRef(null) // { need, lives } of the running fight, for a refund landing between renders
+  // The fight still takes a refund (fightCheck.js raidRefundOpen): its questions, the "Continue?" pause, and an ending
+  // run until commit has read it after fc.settle (then refundsClosed).
+  const refundsClosed = useRef(false)
+  const fightLive = () => raidRefundOpen(phaseRef.current, refundsClosed.current)
 
   // RECORDING, progressive: a Continue records the answers so far, the end records the rest. recordReviews keeps
   // per-run guards (this run's id), so a card is never recorded twice. A second look that lands after its card was
@@ -195,7 +199,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     }
     // The fight gives back what the verdict cost, only while it still runs (after the fight a won appeal fixes the
     // grade, never the outcome).
-    if (!FIGHT_EXTRAS.refund || phaseRef.current !== 'fight' || e.kind === 'aftermath') return false
+    if (!FIGHT_EXTRAS.refund || !fightLive() || e.kind === 'aftermath') return false
     const next = refundRunningFight(fsRef.current, fightOver.current, { kind: e.kind, mode: e.mode, first: e.first, cost: e.cost }, to)
     if (!next) return false
     fsRef.current = next
@@ -204,7 +208,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     if (next.last?.shieldBack && powerArmedRef.current.shield === false) setPA({ ...powerArmedRef.current, shield: true })
     return true
   }
-  const isOver = () => phaseRef.current !== 'fight' || !fightOver.current || !!fightOutcome(fsRef.current, fightOver.current)
+  const isOver = () => !fightLive() || !fightOver.current || !!fightOutcome(fsRef.current, fightOver.current)
   const fc = useFightCheck(ctx, { onOverturn, isOver })
   const voice = RAID_VOICES[motif] || null
   const taunt = useBossTaunt(ctx, { bossKey: `raid:${motif}`, voice: voice?.voice || '', sample: voice?.sample || '', bossName, enabled: tauntsOn })
@@ -381,6 +385,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const dayNow = raid?.day
     // Re-checks and appeals still running decide the grades first (bounded: the reviews are never lost to a slow reply).
     await fc.settle()
+    refundsClosed.current = true // what is read below is what gets saved: a later overturn fixes only the grade
     // An ability holding damage (a bank, a gauge, moons in orbit) lets it go when the fight ends (abilities: settle).
     const st = settleFight(fsRef.current, { ability, need: dayNow ? Math.max(1, dayNow.hp - dayNow.damage) : 1, lives: fightHearts, bar: { total: dayNow ? dayNow.hp : 1, before: dayNow ? dayNow.damage : 0, phases: rulesOf(fsRef.current).phases }, dayAb: dayNow?.ab || null })
     fsRef.current = st
@@ -463,7 +468,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     recordSoFar()
     try {
       const qs = await writeQuestions(cards, 1)
-      if (!alive.current || !qs) return
+      // Ended meanwhile (a re-check during "Continue?" gave back the damage that beat the boss, and its result was taken).
+      if (!alive.current || !qs || committed.current) return
       cardsRef.current = [...cardsRef.current, ...cards]
       pendingRef.current = []
       pos.current = -1
@@ -814,7 +820,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
             title={`🏁 ${t('lg_raidLapTitle')}`} onAnswer={recordLap} judge={judge} feedbackExtra={missTools} overturnedFor={overturnedFor}
             onFinish={finishLap} onExit={leave} />
         </div>
-      ) : phase === 'more' ? (
+      ) : phase === 'more' && !outcome ? (
         <MoreCard t={t} name={bossName} left={leftNow} more={more} onContinue={continueRun} onStop={commit} />
       ) : outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={commit} lostKey={testMotif ? 'lg_bossLost' : 'lg_raidBossLost'} /> : (
         <QuizRunner key={seg} questions={segQs || questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}

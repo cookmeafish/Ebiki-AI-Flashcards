@@ -5,7 +5,7 @@
 // `ctx` must be a fight ctx (kit fightCtx). `allowStyle`: the fight can open questions on their choices.
 import { useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
-import { LANGS, isDistinctSpoken, langFromName } from '../../config/languages'
+import { LANGS, isDistinctSpoken, langFromName, langDisplayName } from '../../config/languages'
 import { isImmersive } from '../kit/fightSettings'
 import { sameLanguage } from '../../utils/tapTokens'
 
@@ -29,12 +29,14 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
   const immersive = isImmersive(subject, r)
   const otherLang = !!speaks && !immersive && !sameLanguage(speaks, appLang) // Ebi speaks neither the app's nor the learned language
   const withCur = (v) => (v && !LANG_OPTIONS.includes(v) ? [v, ...LANG_OPTIONS] : LANG_OPTIONS)
+  // Shown in the app language; the values stay the English names every prompt reads.
+  const shown = (name) => langDisplayName(name, ctx.lang, { capitalize: true })
 
   // The closed caption: what the fight will be like.
   const summary = [
     deck,
-    isLang && learned,
-    immersive ? `🌊 ${t('lg_fsImmersive')}` : t('lg_fsSpeaksShort', { lang: speaks || appLang }),
+    isLang && shown(learned),
+    immersive ? `🌊 ${t('lg_fsImmersive')}` : t('lg_fsSpeaksShort', { lang: shown(speaks || appLang) }),
     isLang && r.wordHints && t('lg_fsHints'),
     isLang && r.grammarFeedback && t('lg_fsGrammar'),
     allowStyle && r.answerStyle === 'choices' && t('lg_fsChoices'),
@@ -74,15 +76,15 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
               <label style={field}>
                 <span style={label}>{t('lg_fsLearn')}</span>
                 <select value={learned} disabled={busy} onChange={(e) => set({ learnLang: e.target.value })} style={select}>
-                  {withCur(learned).map((l) => <option key={l} value={l}>{l}</option>)}
+                  {withCur(learned).map((l) => <option key={l} value={l}>{shown(l)}</option>)}
                 </select>
               </label>
             )}
             <label style={field}>
               <span style={label}>{t('lg_fsSpeaks')}</span>
               <select value={speaks} disabled={busy} onChange={(e) => set({ speaks: e.target.value })} style={select}>
-                <option value="">{t('lg_fsSpeaksApp', { lang: appLang })}</option>
-                {withCur(speaks).filter(Boolean).map((l) => <option key={l} value={l}>{l}</option>)}
+                <option value="">{t('lg_fsSpeaksApp', { lang: shown(appLang) })}</option>
+                {withCur(speaks).filter(Boolean).map((l) => <option key={l} value={l}>{shown(l)}</option>)}
               </select>
             </label>
           </div>

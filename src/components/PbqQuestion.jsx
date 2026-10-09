@@ -136,7 +136,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
             onSubmit(a)
           }} style={{
             marginTop: 12, padding: '9px 22px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            background: 'var(--c-brand)', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+            background: 'var(--c-brand-fill)', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
           }}>{t('pbqSubmit')}</button>
         )}
       </div>
@@ -250,7 +250,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
         <button className="btn-press" onClick={() => onSubmit([...assign])} disabled={!allPlaced} style={{
           marginTop: 12, padding: '9px 22px', borderRadius: 8, border: 'none',
           cursor: allPlaced ? 'pointer' : 'default', opacity: allPlaced ? 1 : 0.45,
-          background: 'var(--c-brand)', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+          background: 'var(--c-brand-fill)', color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
         }}>{t('pbqSubmit')}</button>
       )}
     </div>

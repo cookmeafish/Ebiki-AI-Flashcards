@@ -217,7 +217,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
           {/* Review card once Ebi has a concrete proposal */}
           {spec && !applied && (
             <div style={{ ...card, borderColor: C.brandRing, background: C.brandTint2 || C.surface }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: C.brand, letterSpacing: '.03em', marginBottom: 6 }}>{t('studioPlan')}</div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: C.brandText, letterSpacing: '.03em', marginBottom: 6 }}>{t('studioPlan')}</div>
               {/* An edit never changes the mode's type (buildModeFromSpec keeps it), so the icon follows the mode,
                   not the proposal: a language mode showed the book icon whenever the model wrote "general". */}
               <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{((isEdit && existing?.type) || spec.type) === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {isEdit && focus !== 'all' ? (existing?.name || '') : (asText(spec.name) || existing?.name || '')}</div>

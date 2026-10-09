@@ -44,6 +44,10 @@ describe('filterTessWords', () => {
     const out = filterTessWords([tw('l', box(0, 0, 4, 30), 84), tw('を', box(166, 187, 183, 215), 84), tw('气', box(200, 0, 230, 30), 62), tw('猫', box(240, 0, 270, 30), 40)], opts)
     expect(out.map((w) => w.text)).toEqual(['を', '气'])
   })
+  it('a letter with its vowel signs is a word, not a stray single letter (Hindi है, Thai ที่)', () => {
+    const out = filterTessWords([tw('है', box(0, 0, 30, 30), 70), tw('ที่', box(40, 0, 70, 30), 70), tw('é', box(80, 0, 100, 30), 70)], opts)
+    expect(out.map((w) => w.text)).toEqual(['है', 'ที่'])
+  })
   it('drops letterless reads, unconfident short words, slivers, tiny boxes, banners', () => {
     const log = []
     const out = filterTessWords([

@@ -166,6 +166,19 @@ describe('createQuestionReuse', () => {
     expect(out[0].question).toBe('other deck')
     expect(g).toHaveBeenCalledTimes(1)
   })
+  it('a new set is stamped above a saved set asked under a clock running ahead', async () => {
+    const h = harness({ enabled: true, maxPerCard: 6 })
+    const key = questionSignature(parts)
+    const ahead = Date.now() + 10 * 24 * 3600 * 1000
+    h.bankStore.set('Spanish::Verbs/42', { v: 2, sets: [{ id: 'old', text: key.text, sig: key.sig, questions: [q('o1'), q('o2'), q('o3')], createdAt: 1, lastAsked: ahead }] })
+    await h.reuse(card, parts, 3, gen('n'))
+    await new Promise((r) => setTimeout(r, 0))
+    const sets = h.bankStore.get('Spanish::Verbs/42').sets
+    const fresh = sets.find((s) => s.id !== 'old')
+    expect(fresh.lastAsked).toBeGreaterThan(ahead)
+    // At the cap the LEAST recently asked goes first: the old set, not the one just asked.
+    expect(pickSavedSet({ sets }, key, 3, 6).id).toBe('old')
+  })
   it('saves a PBQ exercise whole and returns it as one', async () => {
     const h = harness({ enabled: true, maxPerCard: 1 })
     const pbq = { title: 'Order the steps', kind: 'ordering', items: ['a', 'b'], answer: [1, 0] }

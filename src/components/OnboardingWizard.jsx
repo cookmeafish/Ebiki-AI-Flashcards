@@ -226,11 +226,11 @@ export default function OnboardingWizard(p) {
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 460, margin: '16px auto 0' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', maxWidth: 460, margin: '16px auto 0' }}>
             <input type="password" data-no-voice="" value={apiKey} onChange={(e) => setCurrentKey(e.target.value.replace(/\s+/g, ''))} placeholder={providerConfig.placeholder}
               /* The whole `border` shorthand, never a borderColor toggled over it: removing the longhand left the
                  field without its themed border colour after a key was cleared (React warns about exactly this). */
-              style={{ ...S.keyInput, flex: 1, border: `1px solid ${keyStateColor || C.border}` }} />
+              style={{ ...S.keyInput, flex: '1 1 180px', minWidth: 0, border: `1px solid ${keyStateColor || C.border}` }} />
             <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
           </div>
           {/* The verdict sits where the reassurance used to, so it cannot be missed. */}
@@ -383,7 +383,7 @@ export default function OnboardingWizard(p) {
         {step > 0 && step < last && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 28, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
             <button style={{ ...S.ghostBtn, fontSize: 13, padding: '9px 16px', borderRadius: 12, opacity: creatingFirst ? 0.5 : 1 }} disabled={creatingFirst} onClick={back}>{t('back')}</button>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.inkFaint, letterSpacing: '.06em' }}>{step} / {steps.length - 1}</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.inkFaint, letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{step} / {steps.length - 1}</span>
             {steps[step] === 'mode'
               ? <span style={{ width: 60 }} />
               : <button className="btn-press" style={{ ...S.keyDone, fontSize: 14, padding: '10px 26px', borderRadius: 12 }} onClick={next}>{t('obNext')}</button>}

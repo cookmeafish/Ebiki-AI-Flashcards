@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // An in-memory feature store standing in for /api/feature-data: `disk` is what another computer may change.
 const disk = new Map()
 let refuseWrites = false
+let readGate = null // a promise a read waits on (a slow read racing a write)
 vi.mock('../storage', () => ({
   featureStore: () => ({
-    read: async (key) => ({ ok: true, value: disk.has(key) ? structuredClone(disk.get(key)) : null }),
+    read: async (key) => { const v = disk.has(key) ? structuredClone(disk.get(key)) : null; if (readGate) await readGate; return { ok: true, value: v } },
     write: async (key, value) => { if (refuseWrites) return false; disk.set(key, structuredClone(value)); return true },
   }),
 }))
@@ -61,5 +62,18 @@ describe('learner store: LEVEL_UP and shared-folder writes', () => {
     expect(await updateLearner(ctxWith(ev), 5, nudge(5))).toBe(false)
     expect((await readLearner(ctxWith(ev), 5)).value.level).toBe(20)
     expect(ev).toHaveLength(0)
+  })
+
+  it('a slow plain read that started before a write never brings the old level back', async () => {
+    const ev = []
+    disk.set('level-7', newLearner({ level: 30 }))
+    let open
+    readGate = new Promise((r) => { open = r })
+    const slow = readLearner({ subject: { modeId: 7 } }, 7)        // reads 30, then waits
+    readGate = null
+    await updateLearner(ctxWith(ev), 7, nudge(1.5))                // 31.5 written and cached meanwhile
+    open()
+    expect((await slow).value.level).toBeCloseTo(31.5)
+    expect((await readLearner({ subject: { modeId: 7 } }, 7)).value.level).toBeCloseTo(31.5)
   })
 })

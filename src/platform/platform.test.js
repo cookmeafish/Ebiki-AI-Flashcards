@@ -85,6 +85,8 @@ describe('the phone route list', () => {
     const served = new Set()
     for (const f of serverFiles) {
       for (const m of fs.readFileSync(f, 'utf8').matchAll(/middlewares\.use\(\s*['"`]\/api\/([\w/-]+)['"`]/g)) served.add(m[1])
+      // A WebSocket route (an 'upgrade' handler, not a middleware) names its path in a *_PATH constant.
+      for (const m of fs.readFileSync(f, 'utf8').matchAll(/_PATH\s*=\s*['"`]\/api\/([\w/-]+)['"`]/g)) served.add(m[1])
     }
     const doc = fs.readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8')
     const section = doc.slice(doc.indexOf('**Routes an on-device router must answer**'), doc.indexOf('Keep this list current when adding a route'))

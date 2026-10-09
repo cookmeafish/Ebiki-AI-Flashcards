@@ -5,8 +5,10 @@
 // shown only in the reading panel (never a misplaced overlay).
 
 // Text key for matching: case, accents and punctuation ignored, any script kept. NFD splits accents
-// (and Japanese voicing marks) off as combining marks, which the \p{L}\p{N} filter then drops.
-export const ocrMatchKey = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '')
+// (and Japanese voicing marks) off as combining marks, which the \p{L}\p{N} filter then drops. Recomposed
+// after (NFC): NFD also splits a Hangul syllable into 2 to 3 jamo LETTERS, so "아" was a prefix of "안", a slice
+// of "안녕" was placed on it, and slices of Korean words were measured in jamo, not characters.
+export const ocrMatchKey = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '').normalize('NFC')
 
 const center = (b) => ({ cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2 })
 const union = (bs) => ({

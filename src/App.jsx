@@ -17,7 +17,7 @@ import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendi
 import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
-import { LANGS, langFromName, isDistinctSpoken } from './config/languages'
+import { LANGS, langFromName, isDistinctSpoken, langDisplayName } from './config/languages'
 import { splitTapTokens, tapClean, tapLongEnough, tapAllowed, splitCueParts } from './utils/tapTokens'
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
 import { useLocale } from './i18n/useLocale'
@@ -10743,6 +10743,8 @@ Return ONLY raw JSON:
       // The student answered or moved on while this was generating: swapping the question now would
       // rewrite one they already answered (grading pairs it with the old answer) and wipe what they
       // are typing on the next one.
+      // ✕ (or a newer run) retired this one: nothing lands, the saved copy included (it was rewritten after a cancel).
+      if (fixRun !== fixRunRef.current) return
       // Question reuse: the saved copy is fixed too, or the flawed question would come back next time.
       // Pinned to the deck + set it was saved under; a failed read changes nothing.
       // Only while reuse is ON (off = no reads or writes at all).
@@ -10752,7 +10754,6 @@ Return ONLY raw JSON:
         const epoch = questionBankEpochRef.current
         updateBank(deck, noteId, (bank) => (reuseOn() && !dataSwitchingRef.current && questionBankEpochRef.current === epoch ? replaceQuestion(bank, setId, qi, storableQuestion(newQ)) : null)) // serialized per card with the hint saves
       }
-      if (fixRun !== fixRunRef.current) return
       const landed = stillOnQuestion(sid, cardIdx, questionIdx)
       if (landed) setStudyCardState((prev) => {
         const updated = [...prev]
@@ -11805,6 +11806,9 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     // the card showing a NEW rating Anki never got.
     if (live && (live.synced || studySyncedIdsRef.current.has(live.cardId) || (!live.noSync && (syncInFlightIdsRef.current.has(live.cardId) || uncertainSyncRef.current.has(live.cardId))))) return // not while a sync answers it (Back refuses too)
     if (live?.skipped && !live.rating) return // never asked (Wrap Up / End Now): nothing to rate
+    // Its note was deleted ("I know this", or from the Deck tab) after it was graded: a rating picked here turned it
+    // back into a pending review of a card Anki no longer has (counted in the stats, then a failed sync).
+    if (live?.rating === 'deleted') return
     setStudyCardState(prev => {
       if (!prev[ci] || prev[ci].synced) return prev
       const updated = [...prev]
@@ -12892,7 +12896,7 @@ SECTION 1: Brief insight message for the student (2-4 sentences), written in ${u
 
 SECTION 2: Updated progress-observations.md content. Keep the format:
 # Progress Observations: ${studyDeck}
-Last updated: ${new Date().toLocaleDateString('en-CA')}
+Last updated: ${localDay(new Date())}
 
 ## Current Struggles
 (list items)
@@ -13147,7 +13151,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
       // over an empty list rated it Easy (0 wrong of 0), counted it, and End Now could send that Easy to Anki.
       const stillGraded = () => {
         const c = studyCardStateRef.current[cardIdx]
-        return !!c && c.done && !c.evaluating && Array.isArray(c.results) && c.results.length > 0
+        return !!c && c.done && !c.evaluating && c.rating !== 'deleted' && Array.isArray(c.results) && c.results.length > 0 // deleted: see rateGradedCard
           && JSON.stringify(c.answers || []) === JSON.stringify(cs.answers || [])
       }
       let cardEditReceipt = null
@@ -15352,7 +15356,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 <img src={shrimpUrl(poseFile('book'))} alt="" style={{ width: 60, height: 60, objectFit: 'contain', flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
                   <div className="ui-eyebrow-brand" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeMode.name}</div>
-                  <div className="ui-page-title" style={{ fontSize: 32 }}>{t('deckBrowser')}</div>
+                  <div className="ui-page-title" style={{ fontSize: 32, overflowWrap: 'anywhere' }}>{t('deckBrowser')}</div>
                 </div>
               </div>
               <button
@@ -16345,7 +16349,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 onClick={startStudySession}
                 disabled={studyLoading || ankiConnected === false}
                 className="duo-cta green btn-press"
-                style={{ minWidth: 220 }}
+                style={{ minWidth: 'min(220px, 100%)' }}
               >
                 {studyLoading ? t('loading') : t('studyNow')}
               </button>
@@ -16839,9 +16843,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               const learned = asOption(sr.studyLanguage || learnLangName())
               const speaks = asOption(sr.quizLanguage || (isLang ? learned : userLangName()))
               const setSR = (patch) => updateActiveMode({ studyRules: { ...sr, ...patch } })
-              const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => ({ value: l.label, label: l.label }))
+              // Values stay the English names the generator reads; the labels are in the app language.
+              const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => ({ value: l.label, label: langDisplayName(l.label, appLanguage, { capitalize: true }) }))
               // A language outside the list (Cantonese, Swedish) is offered as itself: the control showed blank.
-              const withCur = (v) => (v && !langOpts.some((o) => o.value === v) ? [{ value: v, label: v }, ...langOpts] : langOpts)
+              const withCur = (v) => (v && !langOpts.some((o) => o.value === v) ? [{ value: v, label: langDisplayName(v, appLanguage, { capitalize: true }) }, ...langOpts] : langOpts)
               // A study type left over from the other mode kind falls back to flashcards
               const shownMode = (isLang && studyMode === 'pbq') || (!isLang && studyMode === 'conjugations') ? 'flashcards' : studyMode
               const showAnswerStyle = shownMode === 'flashcards'
@@ -17639,8 +17644,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{t('study_evaluating')}</span>
                           ) : (<>
-                            {renderMnemonicButton(cs, ci, view === 'mnemonic')}
-                            {(cs.noSync || cs.isConjugation) ? ( // conjugation drills never sync either (they showed "not synced" forever)
+                            {cs.rating !== 'deleted' && renderMnemonicButton(cs, ci, view === 'mnemonic')}
+                            {cs.rating === 'deleted' ? (
+                              // Its note is gone (deleted after it was graded): no rating menu, like Batch Results.
+                              <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>{t('study_deleted')}</span>
+                            ) : (cs.noSync || cs.isConjugation) ? ( // conjugation drills never sync either (they showed "not synced" forever)
                               // Relaxed practice — this rating never reaches Anki, so there's nothing to correct or lock.
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span className="rate-chip" style={{ '--tone': ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
@@ -18540,7 +18548,7 @@ ${PALETTE_CSS}
         .sh-art { display: grid; place-items: center; }
         .sh-art img { width: min(100%, 260px); height: auto; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 18px 24px rgba(16,24,32,.16)); }
         @container shome (max-width: 640px) {
-          .sh-hero { grid-template-columns: 1fr; padding: 28px 22px; text-align: center; gap: 8px; }
+          .sh-hero { grid-template-columns: minmax(0, 1fr); padding: 28px 22px; text-align: center; gap: 8px; overflow-wrap: anywhere; }
           .sh-hero .sh-art { order: -1; }
           .sh-hero .sh-art img { width: 150px; }
           .sh-hero .sh-cta { justify-content: center; }
@@ -18666,6 +18674,16 @@ ${PALETTE_CSS}
           .set-side-title, .set-side-group, .set-side-label { display: none; }
           .set-side-item { justify-content: center; padding: 9px 0 !important; }
           .set-content { padding: 4px 14px 22px !important; }
+        }
+        /* Phone-sized windows: Settings is a full-screen sheet and its icons a strip across the top (at zoom 2 on a phone
+           the side column left the pane under 90px). */
+        @media (max-width: 520px) {
+          .settings-modal { width: calc(100vw / var(--app-zoom, 1)) !important; height: calc(100vh / var(--app-zoom, 1)) !important; border-radius: 0 !important; flex-direction: column; }
+          .settings-modal .set-side { width: auto; display: flex; align-items: center; gap: 2px; overflow-x: auto; overflow-y: hidden; padding: 6px 8px !important; border-right: none !important; border-bottom: 1px solid var(--c-border); flex-shrink: 0; }
+          .settings-modal .set-side > div { display: flex; gap: 2px; margin: 0 !important; }
+          .settings-modal .set-side-title, .settings-modal .set-side-group, .settings-modal .set-side-label { display: none; }
+          .settings-modal .set-side-item { width: 40px !important; flex: none; justify-content: center; padding: 8px 0 !important; margin: 0 !important; }
+          .settings-modal .set-content { padding: 4px 12px 22px !important; }
         }
         .ch-composer:focus-within { border-color: color-mix(in srgb, var(--c-brand) 45%, var(--c-border)); }
         /* :focus too: the global input:focus ring (later in this sheet) drew a second red box inside the composer's own focus border. */

@@ -14,7 +14,7 @@
 //   kind               'electron' | 'browser' | whatever a port sets ('ios', 'android').
 //   onDeviceZoom(fn)   zoom keys the device took before the page (Electron forwards Ctrl + = - 0).
 //   serverPings(fn)    the local server asking "anyone there?" before it acts on a silence (it exits when no page is
-//                      left): the dev server's HMR socket, or /api/alive-stream for the BUILT app (no HMR there).
+//                      left): the dev server's HMR socket, or the /api/alive-ws socket for the BUILT app (no HMR there).
 //                      Returns a stop function. A phone build has no such server: a no-op.
 //   history            the device's Back/Forward history for src/nav (window.history here): push/replace/go/onPop,
 //                      plus onDeviceNav for back/forward buttons the device does not turn into history steps itself
@@ -45,10 +45,19 @@ const web = {
   serverPings: (fn) => {
     if (!hasWindow) return () => {}
     if (import.meta.hot) { import.meta.hot.on('ebiki:ping', fn); return () => import.meta.hot.off('ebiki:ping', fn) }
-    if (typeof EventSource !== 'function') return () => {}
-    let es = null
-    try { es = new EventSource('/api/alive-stream'); es.addEventListener('ping', fn) } catch { return () => {} }
-    return () => { try { es.close() } catch { /* already closed */ } }
+    // A WebSocket, never a held HTTP request: a browser has only 6 HTTP connections per host for every tab.
+    if (typeof WebSocket !== 'function') return () => {}
+    let ws = null
+    let stopped = false
+    let retry = 0
+    const open = () => {
+      if (stopped) return
+      try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/alive-ws`) } catch { return }
+      ws.onmessage = () => fn()
+      ws.onclose = () => { if (!stopped) retry = setTimeout(open, 3000) } // a restarted server: connect again
+    }
+    open()
+    return () => { stopped = true; clearTimeout(retry); try { ws?.close() } catch { /* already closed */ } }
   },
   isHidden: () => hasWindow && typeof document !== 'undefined' && !!document.hidden,
   randomId: () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/[^a-z0-9]/gi, '').toLowerCase(),

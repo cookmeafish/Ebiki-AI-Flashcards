@@ -3,7 +3,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
-import { sourceFingerprint, builtFileFor, contentTypeOf, BUILD_ASSETS } from './builtApp'
+import { sourceFingerprint, builtFileFor, contentTypeOf, carryOldAssets, BUILD_ASSETS } from './builtApp'
 
 const deps = { fs, path, crypto }
 function tree(files) {
@@ -56,5 +56,22 @@ describe('builtFileFor', () => {
     expect(contentTypeOf('a.CSS')).toMatch(/css/)
     expect(contentTypeOf('a.wasm')).toBe('application/wasm')
     expect(contentTypeOf('a.xyz')).toBe('application/octet-stream')
+  })
+})
+
+describe('carryOldAssets', () => {
+  it('keeps the old build files open pages still load, never replacing the new build', () => {
+    const old = tree({ 'index.html': 'old', [`${BUILD_ASSETS}/index-old.js`]: 'o', [`${BUILD_ASSETS}/Legends-old.js`]: 'l', [`${BUILD_ASSETS}/vendor-react-same.js`]: 'old copy', '.stamp': 'a' })
+    const neu = tree({ 'index.html': 'new', [`${BUILD_ASSETS}/index-new.js`]: 'n', [`${BUILD_ASSETS}/vendor-react-same.js`]: 'new copy', '.stamp': 'b' })
+    expect(carryOldAssets(old, neu, deps)).toBe(2)
+    const read = (rel) => fs.readFileSync(path.join(neu, rel), 'utf8')
+    expect(read(`${BUILD_ASSETS}/Legends-old.js`)).toBe('l')
+    expect(read(`${BUILD_ASSETS}/index-old.js`)).toBe('o')
+    expect(read(`${BUILD_ASSETS}/vendor-react-same.js`)).toBe('new copy')
+    expect(read('index.html')).toBe('new')
+    expect(read('.stamp')).toBe('b')
+  })
+  it('no old build: nothing to carry', () => {
+    expect(carryOldAssets(path.join(os.tmpdir(), 'ebiki-built-missing-' + Date.now()), tree({ 'index.html': 'n' }), deps)).toBe(0)
   })
 })

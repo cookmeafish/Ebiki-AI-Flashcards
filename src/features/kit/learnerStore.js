@@ -24,6 +24,9 @@ const configure = (ctx) => { if (ctx?.isDataSwitching) blocked = () => !!ctx.isD
 async function ensure(key, { fresh = false } = {}) {
   if (cache.has(key) && !fresh) return { ok: true, value: cache.get(key) }
   const r = await store.read(key)
+  // A plain read that lost a race with a write (or a fresh read): the cached level is newer. Taking this read's copy
+  // showed the OLD level after a level up (the rail card, the prompts' level line) until the next write.
+  if (!fresh && cache.has(key)) return { ok: true, value: cache.get(key) }
   if (!r.ok) { failed.add(key); notify(); return { ok: false, value: null } }
   failed.delete(key)
   cache.set(key, shapeLearner(r.value))

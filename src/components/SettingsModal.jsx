@@ -557,6 +557,34 @@ export default function SettingsModal(p) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+  // Keyboard focus belongs to the dialog (aria-modal): it opened with focus left on the page behind it, and Tab
+  // walked through the hidden screen (Study start, banners) instead of the settings. Focus moves in on open, Tab
+  // wraps inside, and closing puts focus back where it was. A window on top (Ebi Studio, a confirm dialog) and an
+  // open dropdown menu (portaled outside) keep their own keys.
+  const modalRef = useRef(null)
+  useEffect(() => {
+    const opener = document.activeElement
+    try { if (!modalRef.current?.contains(document.activeElement)) modalRef.current?.focus({ preventScroll: true }) } catch { /* not mounted */ }
+    const onTab = (e) => {
+      if (e.key !== 'Tab' || document.querySelector('[data-top-overlay], [data-app-dialog]')) return
+      const panel = modalRef.current
+      if (!panel) return
+      const a = document.activeElement
+      if (a && a.closest?.('#ebiki-dropdown-host')) return
+      const items = [...panel.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+        .filter((el) => !el.disabled && el.offsetParent !== null)
+      if (!items.length) { e.preventDefault(); panel.focus({ preventScroll: true }); return }
+      const first = items[0], last = items[items.length - 1]
+      const inside = panel.contains(a)
+      if (e.shiftKey && (!inside || a === first || a === panel)) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (!inside || a === last)) { e.preventDefault(); first.focus() }
+    }
+    window.addEventListener('keydown', onTab, true)
+    return () => {
+      window.removeEventListener('keydown', onTab, true)
+      try { if (opener && opener !== document.body && opener.isConnected && typeof opener.focus === 'function') opener.focus({ preventScroll: true }) } catch { /* gone */ }
+    }
+  }, [])
 
   // Each pane has ONE job. App settings apply everywhere; mode settings follow the mode switcher, so
   // "Learning modes" (which picks what the others configure) comes first in that group.
@@ -592,7 +620,7 @@ export default function SettingsModal(p) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 12, color: C.inkDim, fontWeight: 700 }}>{t('configuring')}</span>
       <select value={activeModeId} onChange={(e) => { const id = parseInt(e.target.value); if (p.switchMode) p.switchMode(id); else { setActiveModeId(id); saveModes(modes, id, { changedIds: [] }) } }}
-        aria-label={t('configuring')} style={{ ...S.select, color: C.brandText, borderColor: C.brandRing, background: C.brandTint }}>
+        aria-label={t('configuring')} style={{ ...S.select, maxWidth: '100%', minWidth: 0, color: C.brandText, borderColor: C.brandRing, background: C.brandTint }}>
         {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
       </select>
       {editingModeName === activeModeId ? (
@@ -616,10 +644,10 @@ export default function SettingsModal(p) {
     const toStr = (v) => (v && typeof v === 'object') ? Object.entries(v).filter(([, e]) => e).map(([k]) => k).join(', ') : String(v ?? '')
     return (
       <div style={{ marginTop: 10 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeEditInput.trim() && !modeEditBusy) { proposeModeEdit(modeEditInput.trim(), scope); } }}
-            placeholder={placeholder} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} disabled={modeEditBusy} />
+            placeholder={placeholder} style={{ ...S.keyInput, flex: '1 1 160px', minWidth: 0, fontSize: 12 }} disabled={modeEditBusy} />
           <button onClick={() => { if (modeEditInput.trim()) proposeModeEdit(modeEditInput.trim(), scope) }}
             disabled={modeEditBusy || !modeEditInput.trim()} style={{ ...S.getKeyLink, opacity: (modeEditBusy || !modeEditInput.trim()) ? 0.5 : 1, cursor: (modeEditBusy || !modeEditInput.trim()) ? 'default' : 'pointer' }}>
             {modeEditBusy ? '…' : t('askAi')}
@@ -751,7 +779,7 @@ export default function SettingsModal(p) {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* Visible while the user is typing THIS session so they can verify it; concealed once it
               validates, or when it is a pre-existing saved key the user has not touched yet.
               Paste (Ctrl+V or right-click) is captured via onPaste and auto-validated — this reads the
@@ -769,7 +797,7 @@ export default function SettingsModal(p) {
               clearTimeout(keyTypeTimerRef.current)
               keyTypeTimerRef.current = setTimeout(() => { checkKey(v.trim()) }, 700)
             }}
-            placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" data-no-voice="" style={{ ...S.keyInput, flex: 1 }} />
+            placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" data-no-voice="" style={{ ...S.keyInput, flex: '1 1 180px', minWidth: 0 }} />
           <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
         </div>
         {/* Live key check: prefix warning first, then the ping result (checking / valid / rejected). */}
@@ -809,7 +837,7 @@ export default function SettingsModal(p) {
               }
               return (
                 <button key={opt.key} onClick={onPick} className={active ? 'ui-tab-current' : undefined} aria-disabled={opt.key === 'custom' || undefined}
-                  style={{ flex: 1, minWidth: 150, textAlign: 'left', cursor: (active || opt.key === 'custom') ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
+                  style={{ flex: 1, minWidth: 'min(150px, 100%)', textAlign: 'left', cursor: (active || opt.key === 'custom') ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
                     border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
                     background: active ? 'color-mix(in srgb, var(--c-brand) 10%, transparent)' : 'transparent' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brandText : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
@@ -855,7 +883,7 @@ export default function SettingsModal(p) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: C.inkDim }}>{t('deck')}:</span>
               <select aria-label={t('deck')} value={clearDeckValue} onChange={(e) => setClearDeck(e.target.value)} disabled={!ankiDecks.length}
-                style={{ ...S.select, minWidth: 160, opacity: ankiDecks.length ? 1 : 0.5 }}>
+                style={{ ...S.select, minWidth: 'min(160px, 100%)', maxWidth: '100%', opacity: ankiDecks.length ? 1 : 0.5 }}>
                 {!ankiDecks.length && <option value="">{t('notConnected')}</option>}
                 {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
@@ -982,7 +1010,7 @@ export default function SettingsModal(p) {
       {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{langName(l.label, true)}</option>)}
     </select>
   )
-  const fieldGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }
+  const fieldGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(190px, 100%), 1fr))', gap: 14 }
 
   const Study = (
     <div>
@@ -1043,7 +1071,7 @@ export default function SettingsModal(p) {
               {fieldLabel(t('set_dialect'))}
               <input type="text" value={activeMode.studyRules?.dialect || ''} placeholder={t('set_dialectPlaceholder')}
                 onChange={(e) => updateActiveMode({ studyRules: { ...studyRulesBase, dialect: e.target.value } })}
-                style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box' }} />
+                style={{ ...S.keyInput, width: '100%', minWidth: 0, boxSizing: 'border-box' }} />
               <div style={{ fontSize: 10, color: C.inkFaint, marginTop: 3 }}>{t('set_dialectDesc')}</div>
             </div>
           )}
@@ -1085,17 +1113,17 @@ export default function SettingsModal(p) {
               style={{ ...S.ghostBtn, fontSize: 10, padding: '4px 9px', color: C.danger, flexShrink: 0 }}>✕</button>
           </div>
         ))}
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
           <input value={qPrefInput} onChange={(e) => setQPrefInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && qPrefInput.trim()) addQPref() }}
-            placeholder={t('qPrefsPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+            placeholder={t('qPrefsPlaceholder')} style={{ ...S.keyInput, flex: '1 1 160px', minWidth: 0, fontSize: 12 }} />
           <button onClick={addQPref} disabled={!qPrefInput.trim()}
             style={{ ...S.ghostBtn, fontSize: 11, padding: '5px 12px', opacity: qPrefInput.trim() ? 1 : 0.5 }}>{t('qPrefsAdd')}</button>
         </div>
         {askAi('study', t('askAiStudyPlaceholder'))}
         {openModeStudio && activeMode && (
           <button onClick={() => openModeStudio({ kind: 'edit', focus: 'study', modeId: activeModeId })}
-            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, whiteSpace: 'normal', maxWidth: '100%', color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
             {'✨'} {t('studioStudyEntry')}
           </button>
         )}
@@ -1109,7 +1137,7 @@ export default function SettingsModal(p) {
         <textarea value={activeMode.studyRules?.questionPrompt ?? (isLanguage ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt}
           placeholder={(isLanguage ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt}
           onChange={(e) => updateActiveMode({ studyRules: { ...studyRulesBase, questionPrompt: e.target.value } })}
-          style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', minHeight: 110, resize: 'vertical' }} />
+          style={{ ...S.keyInput, width: '100%', minWidth: 0, boxSizing: 'border-box', minHeight: 110, resize: 'vertical' }} />
         {/* How a card is rated is fixed in the app (evaluateCardAnswers): the editable text here was never read,
             so a changed rule silently did nothing. Shown as what it really is. */}
         <div style={{ marginTop: 10 }}>{fieldLabel(t('ratingRules'))}
@@ -1129,7 +1157,7 @@ export default function SettingsModal(p) {
           <span style={{ fontSize: 12, color: C.inkDim }}>{ankiConnected ? t('connected') : ankiConnected === false ? t('notConnected') : t('checkingAnki')}</span>
           {ankiConnected && ankiDecks.length > 0 && (<>
             <span style={{ fontSize: 12, color: C.inkDim, marginLeft: 4 }}>{t('deck')}:</span>
-            <select aria-label={t('deck')} value={ankiDecks.includes(ankiDeck) ? ankiDeck : ''} onChange={(e) => setAnkiDeck(e.target.value)} style={{ ...S.select, minWidth: 140 }}>
+            <select aria-label={t('deck')} value={ankiDecks.includes(ankiDeck) ? ankiDeck : ''} onChange={(e) => setAnkiDeck(e.target.value)} style={{ ...S.select, minWidth: 'min(140px, 100%)', maxWidth: '100%' }}>
               {/* No saved deck (or it was deleted): without this the first deck LOOKED chosen, and picking it
                   fired no change, so nothing was saved and the fallback followed whichever deck sorted first. */}
               {!ankiDecks.includes(ankiDeck) && <option value="" disabled>{t('deck_selectDeck')}</option>}
@@ -1145,7 +1173,7 @@ export default function SettingsModal(p) {
         {askAi('cards', t('aiEditPlaceholder'))}
         {openModeStudio && activeMode && (
           <button onClick={() => openModeStudio({ kind: 'edit', focus: 'cards', modeId: activeModeId })}
-            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, whiteSpace: 'normal', maxWidth: '100%', color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
             {'✨'} {t('studioDeckEntry')}
           </button>
         )}
@@ -1157,15 +1185,15 @@ export default function SettingsModal(p) {
           ))}
         </div>
         {fieldLabel(t('frontTemplate'))}
-        <input aria-label={t('frontTemplate')} value={ankiFormat.frontTemplate || ''} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, marginBottom: 8 }} />
+        <input aria-label={t('frontTemplate')} value={ankiFormat.frontTemplate || ''} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', minWidth: 0, boxSizing: 'border-box', fontSize: 12, marginBottom: 8 }} />
         {fieldLabel(t('backTemplate'))}
-        <textarea aria-label={t('backTemplate')} value={ankiFormat.backTemplate || ''} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 70, resize: 'vertical' }} />
+        <textarea aria-label={t('backTemplate')} value={ankiFormat.backTemplate || ''} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', minWidth: 0, boxSizing: 'border-box', fontSize: 12, minHeight: 70, resize: 'vertical' }} />
         <div style={hint}>{t('set_placeholders')} {'{word} {term} {partOfSpeech} {pronunciation} {translation} {synonyms} {definition} {example}'}</div>
       </div>
       <div style={card}>
         {fieldLabel(t('tagRules'))}
         <textarea value={activeMode.tagRules || ''} onChange={(e) => updateActiveMode({ tagRules: e.target.value })}
-          placeholder={t('tagRulesPlaceholder')} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 80, resize: 'vertical' }} />
+          placeholder={t('tagRulesPlaceholder')} style={{ ...S.keyInput, width: '100%', minWidth: 0, boxSizing: 'border-box', fontSize: 12, minHeight: 80, resize: 'vertical' }} />
       </div>
     </div>
   )
@@ -1234,7 +1262,7 @@ export default function SettingsModal(p) {
           <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>{t('set_autoSyncLabel')}</span>
         </label>
         {studyAutoSync && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: C.inkDim }}>{t('set_graceWindow')}</span>
             {/* ClampedNumber: clamping every keystroke turned a cleared box into 1, so typing "10" saved 110. */}
             <ClampedNumber label={t('set_graceWindow')} min={1} max={120} value={studyAutoSyncMinutes} onCommit={setStudyAutoSyncMinutes} commitOnBlur
@@ -1253,10 +1281,10 @@ export default function SettingsModal(p) {
       <div style={card}>
         {fieldLabel(t('audioRegions'))}
         <div style={{ fontSize: 11, color: C.inkFaint, marginBottom: 10, lineHeight: 1.5 }}>{t('audioRegionsDesc')}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 18px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(150px, 100%), 1fr))', gap: '6px 18px' }}>
           {audioLangs.map((l) => (
             <div key={l.iso1 + l.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ flex: 1, fontSize: 12, color: C.ink }}>{l.label}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.ink, overflowWrap: 'anywhere' }}>{l.label}</span>
               <input value={pron.defaultRegions?.[l.iso1] || ''} placeholder={t('audioRegionAny')} maxLength={2}
                 onChange={(e) => setPron({ defaultRegions: { ...pron.defaultRegions, [l.iso1]: e.target.value.toLowerCase().replace(/[^a-z]/g, '') } })}
                 style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 52, fontSize: 12, padding: '4px 8px', textAlign: 'center' }} />
@@ -1275,7 +1303,7 @@ export default function SettingsModal(p) {
       <div style={card}>
         {fieldLabel(t('audioTtsUrl'))}
         <input value={pron.ttsUrl || ''} onChange={(e) => setPron({ ttsUrl: e.target.value })}
-          placeholder="http://localhost:8880" style={{ ...S.keyInput, width: '100%', fontSize: 12 }} />
+          placeholder="http://localhost:8880" style={{ ...S.keyInput, width: '100%', minWidth: 0, boxSizing: 'border-box', fontSize: 12 }} />
         <div style={hint}>{t('audioTtsUrlDesc')}</div>
       </div>
     </div>
@@ -1321,10 +1349,10 @@ export default function SettingsModal(p) {
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeEditInput.trim()) { const text = modeEditInput.trim(); createMode(text).then((ok) => { if (ok) setModeEditInput((cur) => (cur.trim() === text ? '' : cur)) }) } }}
-            placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1 }} disabled={modeCreating} />
+            placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: '1 1 160px', minWidth: 0 }} disabled={modeCreating} />
           <button onClick={() => { if (modeEditInput.trim()) { const text = modeEditInput.trim(); createMode(text).then((ok) => { if (ok) setModeEditInput((cur) => (cur.trim() === text ? '' : cur)) }) } }}
             disabled={modeCreating || !modeEditInput.trim()} style={{ ...S.keyDone, opacity: modeCreating || !modeEditInput.trim() ? 0.5 : 1 }}>{modeCreating ? t('creating') : t('create')}</button>
         </div>
@@ -1332,7 +1360,7 @@ export default function SettingsModal(p) {
           // Whatever is already typed in the box above rides into the studio as the
           // opening brief, so the two controls are one flow and not two dead ends.
           <button onClick={() => openModeStudio({ kind: 'create', focus: 'all', seed: modeEditInput.trim() })}
-            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, width: '100%', color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, width: '100%', whiteSpace: 'normal', color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
             {'✨'} {t('studioCreateEntry')}
           </button>
         )}
@@ -1362,7 +1390,7 @@ export default function SettingsModal(p) {
     <div style={{ ...S.backdrop, width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))' }}
       onMouseDown={(e) => { backdropDownRef.current = e.target === e.currentTarget }}
       onClick={(e) => { if (backdropDownRef.current && e.target === e.currentTarget) onClose(); backdropDownRef.current = false }}>
-      <div onClick={(e) => e.stopPropagation()} className="settings-modal ui-pop" role="dialog" aria-modal="true" aria-label={t('settingsTitle')} style={{
+      <div ref={modalRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} className="settings-modal ui-pop" role="dialog" aria-modal="true" aria-label={t('settingsTitle')} style={{ outline: 'none',
         display: 'flex', width: 'min(960px, calc(94vw / var(--app-zoom)))', height: 'min(680px, calc(88vh / var(--app-zoom)))',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
         boxShadow: SHADOW.xl, overflow: 'hidden', cursor: 'default', containerType: 'inline-size', containerName: 'setm',

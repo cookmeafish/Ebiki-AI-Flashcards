@@ -100,9 +100,11 @@ export function filterTessWords(words, { realW, realH, bboxScale = 1, log = () =
       if (t.length === 0) return false
       if (!/\p{L}/u.test(t)) return false // any script: a-z only reported "No readable text" for Russian, Greek, Korean...
       // Clean text first (strip leading/trailing non-letters): use cleaned length for thresholds
-      const cleaned = t.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '') || t
+      // Marks kept (and Latin accents composed first): a Hindi or Thai syllable is one letter plus vowel signs
+      // ("है", "की", "ที่"), a whole common word, and read as a stray single letter it needed 85% and was dropped.
+      const cleaned = t.normalize('NFC').replace(/^[^\p{L}]+|[^\p{L}\p{M}]+$/gu, '') || t
       const letters = cleaned.match(/\p{L}/gu) || []
-      if (letters.length < 2) {
+      if (letters.length < 2 && !(letters.length === 1 && /\p{M}/u.test(cleaned))) {
         if (letters.length === 1 && w.confidence >= (CJK_CHAR.test(letters[0]) ? SINGLE_CJK_CONF : SINGLE_LETTER_CONF)) return true
         return false
       }

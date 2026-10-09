@@ -53,7 +53,11 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
       platform.speech.speak(clean, lang, { voiceIndex: voice, onHandle: (u) => { token = u } }).then(resolve, resolve)
     })
   }
-  const done = (async () => {
+  // stop() settles `done` at once on EVERY path: an AI voice stopped while its clip was still being made kept `done`
+  // pending until the request came back (up to SPEECH_TIMEOUT_MS), so a stopped line still read as playing.
+  let settleStopped = () => {}
+  const stoppedNow = new Promise((resolve) => { settleStopped = resolve })
+  const work = (async () => {
     if (tts === 'device') return device()
     const key = `${tts}|${voice}|${lang}|${clean}`
     try {
@@ -70,7 +74,8 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
       if (!stopped) return device()
     }
   })()
-  return { done, stop: () => { stopped = true; handle?.stop?.() } }
+  const done = Promise.race([work, stoppedNow])
+  return { done, stop: () => { stopped = true; handle?.stop?.(); settleStopped() } }
 }
 
 // Rough cost of `minutes` of audio with an engine, for Settings hints.
