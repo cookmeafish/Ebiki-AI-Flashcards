@@ -29,14 +29,33 @@ const Tongue = ({ color = H.soul, hi = H.soulHi }) => (
     <path d="M7 27C5 22 7 18 9 15C10 19 12 19 12.6 15C15 19 15 24 13 27C11 28.6 9 28.6 7 27Z" fill={hi} />
   </svg>
 )
-// The covered bridge (red barn-board shed with a dark mouth), rising out of the bottom.
+// The covered bridge, side on: a long low span (about 4 times wider than tall) on stone piers, an arch under the deck over
+// running water (white lines), the deck's plank edge, a red board side with a lattice and a long low roof, the dark
+// portal open at each end. It rises out of the bottom under the boss, never over his face.
 const Bridge = () => (
-  <svg viewBox="0 0 100 40" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style={{ display: 'block', overflow: 'visible' }}>
-    <path d="M4 40L4 18L50 2L96 18L96 40Z" fill={H.wood} stroke={H.ink} strokeWidth="1.6" strokeLinejoin="round" />
-    <path d="M0 19L50 0L100 19L96 21L50 5L4 21Z" fill={H.woodHi} stroke={H.ink} strokeWidth="1.2" strokeLinejoin="round" />
-    <path d="M36 40L36 24C36 18 64 18 64 24L64 40Z" fill="#1a0a10" stroke={H.ink} strokeWidth="1.2" />
-    <path d="M10 22V38M18 19V38M26 16V38M74 16V38M82 19V38M90 22V38" stroke={H.woodLo} strokeWidth="1.2" />
-    <path d="M40 40L40 27C40 24 60 24 60 27L60 40Z" fill={H.fireHi} opacity=".35" />
+  <svg viewBox="0 0 100 25" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style={{ display: 'block', overflow: 'visible' }}>
+    {/* the running water under it */}
+    <path d="M0 19.5H100V25H0Z" fill="#2c6ea6" />
+    <path d="M4 21.4C9 20.4 13 22.4 18 21.4M30 22.6C36 21.6 41 23.6 47 22.6M56 21.2C62 20.2 67 22.2 73 21.2M80 23C85 22 90 24 96 23" fill="none" stroke={H.waterHi} strokeWidth=".9" strokeLinecap="round" />
+    <path d="M12 24C17 23 21 24.6 26 23.8M60 24.2C66 23.4 70 24.8 75 24" fill="none" stroke={H.water} strokeWidth=".7" strokeLinecap="round" />
+    {/* the arch under the deck, pier to pier, the water showing through it */}
+    <path d="M9 14.6H91V19.8C78 13.4 22 13.4 9 19.8Z" fill={H.stone} stroke={H.ink} strokeWidth="1" strokeLinejoin="round" />
+    <path d="M12 17.6C26 13.8 74 13.8 88 17.6" fill="none" stroke="#9a96a2" strokeWidth=".6" />
+    {/* stone piers at both ends */}
+    <path d="M0.5 13.8H10.5V25H0.5ZM89.5 13.8H99.5V25H89.5Z" fill={H.stone} stroke={H.ink} strokeWidth="1" strokeLinejoin="round" />
+    <path d="M0.5 17.4H10.5M0.5 21.2H10.5M5.5 13.8V17.4M3 17.4V21.2M8 17.4V21.2M89.5 17.4H99.5M89.5 21.2H99.5M94.5 13.8V17.4M92 17.4V21.2M97 17.4V21.2" stroke="#4a4652" strokeWidth=".6" />
+    {/* the deck: the plank edge running the whole span */}
+    <path d="M0 12.6H100V14.8H0Z" fill={H.woodLo} stroke={H.ink} strokeWidth=".9" />
+    <path d="M8 12.6V14.8M20 12.6V14.8M32 12.6V14.8M44 12.6V14.8M56 12.6V14.8M68 12.6V14.8M80 12.6V14.8M92 12.6V14.8" stroke="#2a0a08" strokeWidth=".5" />
+    {/* the covered side: red boards with a lattice window band, a dark portal at each end */}
+    <path d="M5 4.6H95V12.6H5Z" fill={H.wood} stroke={H.ink} strokeWidth="1" strokeLinejoin="round" />
+    <path d="M14 6.4H86V9.8H14Z" fill="#1a0a10" />
+    <path d="M14 6.4L19 9.8L24 6.4L29 9.8L34 6.4L39 9.8L44 6.4L49 9.8L54 6.4L59 9.8L64 6.4L69 9.8L74 6.4L79 9.8L84 6.4M14 9.8L19 6.4L24 9.8L29 6.4L34 9.8L39 6.4L44 9.8L49 6.4L54 9.8L59 6.4L64 9.8L69 6.4L74 9.8L79 6.4L84 9.8L86 8.4" fill="none" stroke={H.woodHi} strokeWidth=".7" />
+    <path d="M5 4.6H11V12.6H5ZM89 4.6H95V12.6H89Z" fill="#1a0a10" stroke={H.ink} strokeWidth=".8" />
+    <path d="M6.4 12.6V7.4C6.4 5.8 9.6 5.8 9.6 7.4V12.6M90.4 12.6V7.4C90.4 5.8 93.6 5.8 93.6 7.4V12.6" fill={H.fireHi} opacity=".3" />
+    {/* the long low roof */}
+    <path d="M1 5.2L6 0.6H94L99 5.2Z" fill={H.woodHi} stroke={H.ink} strokeWidth="1" strokeLinejoin="round" />
+    <path d="M6 0.6L4 5.2M94 0.6L96 5.2M10 2.9H90" fill="none" stroke={H.woodLo} strokeWidth=".5" />
   </svg>
 )
 
@@ -58,7 +77,7 @@ const B = '.lg-boss[data-motif="horseman"]'
 const RIDER_PIV = { body: [60, 100], rider: [60, 100], shoulders: [60, 100], flame: [60, 41], leg: [44, 100], cloak: [84, 54], wingl: [90, 60], wingr: [86, 84], collar: [60, 44] }
 const PIV = {
   1: { ...RIDER_PIV, arml: [89, 60], armr: [31, 61], reins: [31, 61], lantern: [95, 103], horse: [97, 79], legn: [45, 99], legf: [50, 98], legh: [94, 93], leghf: [89, 91], mane: [51, 69] },
-  2: { ...RIDER_PIV, cloak: [80, 54], arml: [90, 61], armr: [30, 61], reins: [30, 61], lantern: [124, 38], horse: [86, 84], legn: [33.97, 64.07], legf: [38.36, 66.67], legh: [74.4, 92.4], leghf: [72, 87.6], mane: [58.51, 45.79] },
+  2: { ...RIDER_PIV, cloak: [80, 54], arml: [90, 61], armr: [30, 61], reins: [30, 61], lantern: [124, 38], horse: [86, 72], legn: [35.12, 94.69], legf: [40.06, 93.43], legh: [74.4, 92.4], leghf: [72, 87.6], mane: [39.54, 64.42] },
   3: { ...RIDER_PIV, arml: [30, 62], armr: [90, 62], reins: [90, 62], lantern: [-6, 22], horse: [94, 62], legn: [51.98, 98.58], legf: [56.33, 95.93], legh: [96, 76.2], leghf: [90.6, 76], mane: [47.35, 68.34] },
 }
 const BODY = ['body'] // the rider's whole upper body (torso, both arms, shoulders) moves as ONE piece: every group of class lg-horseman-body
@@ -68,9 +87,9 @@ const on = (state, parts, only) => Object.entries(parts).flatMap(([p, a]) => (p 
 const rest = (parts) => Object.entries(parts).flatMap(([p, t]) => (p === 'body' ? BODY : [p]).map((q) => [q, t])).flatMap(([p, t]) =>
   [1, 2, 3].map((ph) => `${B}[data-phase="${ph}"][data-down] .lg-horseman-${p} { transform-box: view-box; transform-origin: ${PIV[ph][p][0]}px ${PIV[ph][p][1]}px; transform: ${t} }`)).join('\n')
 
-const KO_END = {"1": "matrix(1.15, 0.097, -0.151, 1.15, 121.006, 17.502)", "2": "matrix(1.011, 0.448, -0.701, 1.011, 101.705, 26.781)", "3": "matrix(1.087, 0.316, -0.494, 1.087, 109.762, 62.445)"} // where he lies after the throw, per phase
-const KO_LEGS = {"1": [-112, 95], "2": [-140, 160], "3": [-160, 140]} // forelegs folded, hind legs, per phase
-const KO_HORSE = {"1": "translate(-39.0px, 14.0px) scale(0.64) rotate(-8deg)", "2": "translate(-12px, 16px) scale(0.64) rotate(-40deg)", "3": "translate(-38.0px, 2.0px) scale(0.64) rotate(-2deg)"} // how the horse has gone down, per phase
+const KO_END = {"1": "matrix(1.15, 0.097, -0.151, 1.15, 121.006, 17.502)", "2": "matrix(1.122, 0.224, -0.35, 1.122, 128.986, 40.367)", "3": "matrix(1.087, 0.316, -0.494, 1.087, 109.762, 62.445)"} // where he lies after the throw, per phase
+const KO_LEGS = {"1": [-112, 95], "2": [-112, 95], "3": [-160, 140]} // forelegs folded, hind legs, per phase
+const KO_HORSE = {"1": "translate(-39.0px, 14.0px) scale(0.64) rotate(-8deg)", "2": "translate(-39.0px, 14.0px) scale(0.64) rotate(-8deg)", "3": "translate(-38.0px, 2.0px) scale(0.64) rotate(-2deg)"} // how the horse has gone down, per phase
 const DRAWING = `
 @keyframes lgrHorseReel { 0% { transform: none } 14% { transform: rotate(5deg) translate(1px, -1px) } 40% { transform: rotate(-2deg) } 70% { transform: rotate(1deg) } 100% { transform: none } }
 @keyframes lgrHorseFlameDuck { 0%, 100% { transform: none } 16% { transform: scale(1.12, .7) rotate(-6deg) } 45% { transform: scale(.95, 1.1) } }
@@ -111,11 +130,11 @@ const DRAWING = `
 @keyframes lgrHorseKoLegs1 { 0%, 22% { transform: none } 34% { transform: rotate(-80.6deg) } 42% { transform: rotate(-118.7deg) } 48% { transform: rotate(-105.3deg) } 100% { transform: rotate(-112deg) } }
 @keyframes lgrHorseKoHind1 { 0%, 24% { transform: none } 42% { transform: rotate(102.6deg) } 48%, 100% { transform: rotate(95deg) } }
 @keyframes lgrHorseKoLantern1 { 0%, 20% { transform: none; opacity: 1 } 30% { transform: rotate(30deg); opacity: 1 } 46.2%, 46.3% { transform: translate(-169.8px, -3.6px) rotate(60deg); opacity: 1 } 46.4%, 100% { transform: translate(-169.8px, -3.6px) rotate(60deg); opacity: 0 } }
-@keyframes lgrHorseKoBody2 { 0% { transform: none } 8% { transform: rotate(-3deg) } 18% { transform: translate(0, -1px) rotate(-3deg) } 30% { transform: translate(8px, -7px) rotate(8deg) } 42% { transform: matrix(1.079, 0.331, -0.518, 1.079, 81.675, 22.372) } 48%, 100% { transform: matrix(1.011, 0.448, -0.701, 1.011, 101.705, 26.781) } }
-@keyframes lgrHorseKoHorse2 { 0% { transform: none } 8% { transform: rotate(1deg) } 18% { transform: translate(6px, 2px) rotate(-4deg) } 42% { transform: translate(-4px, 9px) scale(0.64) rotate(-36deg) } 48% { transform: translate(-12px, 16px) scale(0.64) rotate(-39deg) } 100% { transform: translate(-12px, 16px) scale(0.64) rotate(-40deg) } }
-@keyframes lgrHorseKoLegs2 { 0%, 22% { transform: none } 34% { transform: rotate(-100.8deg) } 42% { transform: rotate(-148.4deg) } 48% { transform: rotate(-131.6deg) } 100% { transform: rotate(-140deg) } }
-@keyframes lgrHorseKoHind2 { 0%, 24% { transform: none } 42% { transform: rotate(172.8deg) } 48%, 100% { transform: rotate(160deg) } }
-@keyframes lgrHorseKoLantern2 { 0%, 20% { transform: none; opacity: 1 } 30% { transform: rotate(30deg); opacity: 1 } 46.2%, 46.3% { transform: translate(95.9px, 187.8px) rotate(60deg); opacity: 1 } 46.4%, 100% { transform: translate(95.9px, 187.8px) rotate(60deg); opacity: 0 } }
+@keyframes lgrHorseKoBody2 { 0% { transform: none } 8% { transform: rotate(-3deg) } 18% { transform: translate(0, -1px) rotate(-3deg) } 30% { transform: translate(8px, -7px) rotate(8deg) } 42% { transform: matrix(1.131, 0.192, -0.3, 1.131, 126.167, 46.66) } 48%, 100% { transform: matrix(1.122, 0.224, -0.35, 1.122, 128.986, 40.367) } }
+@keyframes lgrHorseKoHorse2 { 0% { transform: none } 8% { transform: rotate(1deg) } 18% { transform: rotate(-2deg) } 42% { transform: translate(-39.0px, 9.0px) scale(0.64) rotate(-10deg) } 48% { transform: translate(-39.0px, 14.0px) scale(0.64) rotate(-7deg) } 100% { transform: translate(-39.0px, 14.0px) scale(0.64) rotate(-8deg) } }
+@keyframes lgrHorseKoLegs2 { 0%, 22% { transform: none } 34% { transform: rotate(-80.6deg) } 42% { transform: rotate(-118.7deg) } 48% { transform: rotate(-105.3deg) } 100% { transform: rotate(-112deg) } }
+@keyframes lgrHorseKoHind2 { 0%, 24% { transform: none } 42% { transform: rotate(102.6deg) } 48%, 100% { transform: rotate(95deg) } }
+@keyframes lgrHorseKoLantern2 { 0%, 20% { transform: none; opacity: 1 } 30% { transform: rotate(30deg); opacity: 1 } 46.2%, 46.3% { transform: translate(105.7px, 204.5px) rotate(60deg); opacity: 1 } 46.4%, 100% { transform: translate(105.7px, 204.5px) rotate(60deg); opacity: 0 } }
 @keyframes lgrHorseKoBody3 { 0% { transform: none } 8% { transform: rotate(-3deg) } 18% { transform: translate(0, -1px) rotate(-3deg) } 30% { transform: translate(8px, -2px) rotate(8deg) } 42% { transform: matrix(1.1, 0.286, -0.447, 1.1, 109.952, 59.923) } 48%, 100% { transform: matrix(1.087, 0.316, -0.494, 1.087, 109.762, 62.445) } }
 @keyframes lgrHorseKoHorse3 { 0% { transform: none } 8% { transform: rotate(1deg) } 18% { transform: translate(0px, -2.4px) rotate(2.6deg) } 42% { transform: translate(-38.0px, 2.0px) scale(0.64) rotate(-4deg) } 48% { transform: translate(-38.0px, 2.0px) scale(0.64) rotate(-1deg) } 100% { transform: translate(-38.0px, 2.0px) scale(0.64) rotate(-2deg) } }
 @keyframes lgrHorseKoLegs3 { 0%, 22% { transform: none } 34% { transform: rotate(-115.2deg) } 42% { transform: rotate(-169.6deg) } 48% { transform: rotate(-150.4deg) } 100% { transform: rotate(-160deg) } }
@@ -269,10 +288,14 @@ ${on('[data-moment="block"]', { arml: 'lgrHorseGuard3 700ms cubic-bezier(.2,.9,.
 @keyframes lgrHorseBounce2 { 0% { transform: none } 18% { transform: rotate(32deg) } 32% { transform: rotate(-8deg) } 48% { transform: rotate(12deg) } 64% { transform: rotate(-3deg) } 100% { transform: none } }
 ${on('[data-moment="shield"]', { lantern: 'lgrHorseBounce2 760ms ease-out' }, [2])}
 /* the ride: gallop nods, close hauls the lantern up and pins the ears, caught rears and flails, cross balks */
-@keyframes lgrHorseNod7 { 0%, 100% { transform: none } 30% { transform: rotate(3.5deg) } 62% { transform: rotate(-1.5deg) } }
-@keyframes lgrHorseBob7 { 0%, 100% { transform: none } 30% { transform: translateY(-1px) rotate(-.6deg) } 62% { transform: translateY(.5px) } }
-${on('[data-fx="gallop"]', { horse: 'lgrHorseNod7 340ms ease-out' })}
-${on('[data-fx="gallop"]', { body: 'lgrHorseBob7 340ms ease-out' }, [1, 2])}
+/* gallop (owner: "gallop makes the horse go up"): the horse goes UP from its own pose, forelegs tucked, the rider leaning
+   in to hold on, then lands back on the idle pose (every key ends at none) */
+@keyframes lgrHorseUp1 { 0% { transform: none } 24% { transform: translate(-1.1px, .5px) rotate(8deg) } 46% { transform: translate(-1px, .2px) rotate(7deg) } 72% { transform: translate(.1px, .3px) rotate(-1deg) } 88% { transform: rotate(.3deg) } 100% { transform: none } }
+@keyframes lgrHorseUp2 { 0% { transform: none } 24% { transform: translate(-1.6px, -1px) rotate(13deg) } 46% { transform: translate(-1.5px, -1.2px) rotate(12deg) } 72% { transform: translate(.1px, .3px) rotate(-1deg) } 88% { transform: rotate(.3deg) } 100% { transform: none } }
+@keyframes lgrHorseUp3 { 0% { transform: none } 24% { transform: translate(-.1px, -3.1px) rotate(8deg) } 46% { transform: translate(-.1px, -4.4px) rotate(7deg) } 72% { transform: translateY(-1px) rotate(-.6deg) } 88% { transform: rotate(.3deg) } 100% { transform: none } }
+@keyframes lgrHorseTuck7 { 0% { transform: none } 26% { transform: rotate(-26deg) } 50% { transform: rotate(-22deg) } 78% { transform: rotate(4deg) } 100% { transform: none } }
+@keyframes lgrHorseHold7 { 0% { transform: none } 26% { transform: rotate(-5deg) } 50% { transform: rotate(-4deg) } 78% { transform: rotate(1deg) } 100% { transform: none } }
+${[1, 2, 3].map((ph) => on('[data-fx="gallop"]', { horse: `lgrHorseUp${ph} 760ms cubic-bezier(.3,.9,.4,1)`, legn: 'lgrHorseTuck7 760ms ease-in-out', legf: 'lgrHorseTuck7 760ms ease-in-out 40ms', body: 'lgrHorseHold7 760ms ease-in-out' }, [ph])).join('\n')}
 @keyframes lgrHorsePin7 { 0%, 100% { transform: none } 24% { transform: rotate(-2.6deg) } 60% { transform: rotate(-1.8deg) } }
 @keyframes lgrHorseSwell7 { 0%, 100% { transform: none } 24% { transform: scale(1.14) rotate(-10deg) } 50% { transform: scale(1.08) rotate(6deg) } 75% { transform: scale(1.12) rotate(-3deg) } }
 @keyframes lgrHorseTower7 { 0%, 100% { transform: none } 22% { transform: scale(1.05, 1.16) } 55% { transform: scale(1.03, 1.1) } 80% { transform: scale(1.04, 1.13) } }
@@ -316,6 +339,10 @@ ${rest({ leg: 'rotate(20deg)' })}
 ${B}[data-phase="3"][data-down] .lg-horseman-arml { transform-box: view-box; transform-origin: ${PIV[3].arml[0]}px ${PIV[3].arml[1]}px; transform: rotate(-118deg) }
 ${B}[data-phase="2"][data-down] .lg-horseman-armr { transform-box: view-box; transform-origin: ${PIV[2].armr[0]}px ${PIV[2].armr[1]}px; transform: rotate(-108deg) }
 ${B}[data-phase="2"][data-down] .lg-horseman-arml { transform-box: view-box; transform-origin: ${PIV[2].arml[0]}px ${PIV[2].arml[1]}px; transform: rotate(108deg) }
+/* the cross: the covered bridge (lg-fx-bridge, behind the horse, its deck at the hooves) grows up out of the water
+   under him (scaled from its foot: nothing crosses the frame edge), holds while he balks, then sinks away */
+@keyframes lgrHorseBridgeUp { 0% { transform: scaleY(.05); opacity: 0 } 6% { opacity: 1 } 30% { transform: scaleY(1.06) } 40% { transform: scaleY(.98) } 48% { transform: none } 84% { transform: none; opacity: 1 } 100% { transform: scaleY(.3); opacity: 0 } }
+.lg-boss[data-fx="cross"] .lg-fx-bridge { display: inline !important; transform-box: fill-box; transform-origin: 50% 100%; animation: lgrHorseBridgeUp 1150ms cubic-bezier(.25,.9,.35,1) both }
 `
 
 const prints = [0, 1, 2]
@@ -341,8 +368,7 @@ export default {
       {[0, 1, 2, 3, 4].map((i) => <div key={`s${i}`} className="lgx" style={{ left: '-10%', top: `${52 + i * 8}%`, width: '60%', height: 3, borderRadius: 3, background: i % 2 ? H.soul : H.dust, opacity: 0.85, animation: anim('lgrHorsemanThrown', 520, 520 + i * 40, 'ease-in') }} />)}
     </>,
     cross: () => <>
-      {/* the covered bridge thunders up out of the bottom over white running water */}
-      <div className="lgx" style={{ left: '14%', bottom: '-9%', width: '72%', height: '24%', transformOrigin: '50% 100%', animation: anim('lgrHorsemanBridge', 1150, 0, 'cubic-bezier(.2,1.3,.4,1)') }}><Bridge /></div>
+      {/* the covered bridge itself is in the drawing (lg-fx-bridge, behind the horse); water splashes up around it */}
       {[0, 1, 2, 3, 4, 5, 6].map((i) => <div key={`w${i}`} className="lgx" style={{ left: `${6 + i * 13}%`, bottom: '-2%', width: 8, height: 12, borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%', background: i % 2 ? H.water : H.waterHi, border: `1.2px solid ${H.ink}`, '--h': `${-34 - (i % 3) * 12}px`, animation: anim('lgxRise', 700, 150 + i * 40) }} />)}
       {/* the bridge's power throws him back: shards of his lantern's fire and a ring of green fire blowing back from the planks */}
       <div className="lgx" style={{ left: '50%', top: '64%' }}>{shards(10, H.pumpkin, -70, 11)}</div>
@@ -358,7 +384,7 @@ export default {
     cross: { kind: 'hit', damage: 5, lives: 0, ab: { road: 0, lead: 2 } },
   },
   juice: {
-    gallop: { size: 'tick' },
+    gallop: { size: 'medium', shake: 1 },
     close: { size: 'medium', shake: 1, sfx: 'horseman.close' },
     caught: { size: 'big', shake: 3, flash: 1, hitstop: 1, sfx: 'horseman.caught' },
     cross: { size: 'big', shake: 2, flash: 2, hitstop: 1, sfx: 'horseman.cross' },
@@ -370,8 +396,8 @@ export default {
 @keyframes lgrHorsemanQuake { 0% { transform: scale(.3); opacity: 0 } 20% { opacity: 1 } 100% { transform: scale(var(--s, 2)); opacity: 0 } }
 @keyframes lgrHorsemanThrown { 0% { transform: translateX(120%) scaleX(.2); opacity: 0 } 30% { opacity: .9 } 100% { transform: translateX(-60%) scaleX(1.2); opacity: 0 } }
 @keyframes lgrHorsemanBridge { 0% { transform: translateY(100%) scaleY(.6); opacity: 0 } 18% { transform: translateY(-6%) scaleY(1.08); opacity: 1 } 30% { transform: translateY(0) scaleY(.96) } 40% { transform: scaleY(1) } 85% { transform: none; opacity: 1 } 100% { transform: translateY(20%); opacity: 0 } }
-.lgr-horseman-gallop { animation: lgrHorsemanStride 340ms ease-out both; transform-origin: 50% 100% }
-@keyframes lgrHorsemanStride { 0%, 100% { transform: none } 25% { transform: translateY(-5px) rotate(-1.5deg) } 50% { transform: translateY(1px) } 75% { transform: translateY(-3px) rotate(1deg) } }
+.lgr-horseman-gallop { animation: lgrHorsemanStride 760ms ease-out both; transform-origin: 50% 100% }
+@keyframes lgrHorsemanStride { 0%, 100% { transform: none } 24% { transform: translateY(-7px) rotate(-3deg) } 46% { transform: translateY(-7px) rotate(-2deg) } 72% { transform: translateY(1.5px) rotate(.5deg) } 88% { transform: translateY(-.5px) } }
 .lgr-horseman-close { animation: lgrHorsemanLoomUp 780ms cubic-bezier(.2,.9,.3,1) both; transform-origin: 50% 100% }
 @keyframes lgrHorsemanLoomUp { 0%, 100% { transform: none } 24% { transform: translateY(-10px) scale(1.14) rotate(-3deg) } 60% { transform: translateY(-6px) scale(1.1) rotate(-2deg) } }
 .lgr-horseman-caught { animation: lgrHorsemanRide 1150ms cubic-bezier(.3,1.1,.5,1) both; transform-origin: 50% 100% }
