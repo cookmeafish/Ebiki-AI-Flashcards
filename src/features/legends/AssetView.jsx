@@ -351,7 +351,15 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
   const damage = imp?.[0] === 'ko' ? hp : Math.min(hp - 1, Math.ceil(step * third)) // rounded UP: a boss whose hp does not split in three (70) stayed in phase 1
   const ability = RAID_ABILITY[motif]
   const mine = shot && shot.motif === motif ? shot : null
-  const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), fx: mine.fx, n: mine.n }
+  // An ability that costs the player hearts (its demo's `lives`: a Wail, a Yank) takes them from the demo row like a boss
+  // attack does, in the SAME render the effect plays (a later effect would aim the attack at a heart still full).
+  const [shotTook, setShotTook] = useState({ n: null, took: 0 })
+  if (mine && shotTook.n !== mine.n) {
+    const r = demoBlow(hearts, fxDemoFor(ability, mine.fx)?.lives || 0)
+    if (r.took) { setHearts(r.hearts); setImpact(null); setRefund(null) }
+    setShotTook({ n: mine.n, took: r.took })
+  }
+  const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), ...(fxDemoFor(ability, mine.fx)?.lives ? { lives: shotTook.n === mine.n ? shotTook.took : 0 } : {}), fx: mine.fx, n: mine.n }
   // A demo may also set the ability's state after the moment (`ab`: the hydra shows 5 heads after Grow).
   const demoAb = mine && fxDemoFor(ability, mine.fx)?.ab
   // A boss attack takes the hearts it really took (`impact.took`: fewer when only one was left).
