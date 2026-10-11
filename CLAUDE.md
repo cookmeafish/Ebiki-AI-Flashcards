@@ -32,10 +32,33 @@ never just the rule of the latest complaint (a Showman then passed "same charact
 ... where are his powers"). For raid art the list is **the Kitsune test** in `docs/legends-art-guide.md` "RAID BOSSES" (first: LOOK at a screenshot
 of every phase and each face zoomed for anything broken: doubled eyes, misplaced glasses, stray lines, box hands,
 floating parts (a Rat King phase 3 shipped with all of these); then a background that is none or simple and fitting,
-one sentence per phase, a blurred screenshot, three clearly different SILHOUETTES (solid black at 60 px, overlap no higher than the kitsune's: a Showman with the same bust, hat and coat each phase was "too similar"), intentional detail with path counts, same character, a significant
+one sentence per phase, a blurred screenshot, three clearly different SILHOUETTES (solid black at 60 px, overlap no higher than the kitsune's: a Showman with the same bust, hat and coat each phase was "too similar"; the BODY-ONLY P1-P3 pair no higher than hers either, no 0.05 margin: a Showman at 0.709 vs 0.700 was rejected again), THREAT (a dangerous foe bigger than the player in every phase, never a slim smiling bust: "the showman looks like a weakling"), **PHASE FEEL** (the owner 2026-10-11, in capitals: "YOUR BIGGEST FLAW RIGHT NOW IS MAKING EVERY PHASE BORING AND THE SAME ... THE SAME THING BUT DIFFERENT FIRE COLOR BASICALLY AND MAYBE A BIGGER CROWN"; a Cerberus with the same three heads in a row and the same stance each phase failed. Like the kitsune (P1 sly with her fan and a wink, P2 snarling with both arms up summoning foxfire and wild hair, P3 serene and divine in a golden corona), each phase is a different MOMENT of the same character: a different POSE and gesture, a different EXPRESSION, a different ACTION or story beat, a different IDLE ANIMATION; checked in GREYSCALE so colour cannot carry it, and with one sentence per phase whose VERB and MOOD differ; a phase that differs only by colour, aura, fire, size or an added crown FAILS), intentional detail with path counts, same character, a significant
 change per phase on the character, phase 3 clearest, power visible, anatomy, exciting, "equal to the kitsune?"). Write the list out with a pass/fail per item before
 relaying anything, and judge it honestly as the owner would ("would it hang beside the kitsune as her equal?"), never
 as the one who made it.
+
+## ⭐⭐ RAID BOSS CHECKMARKS: VERY SERIOUS RULES (owner 2026-10-11: "its a very serious rule it should be taken seriously")
+Every raid boss, every phase, every change, judged against the KITSUNE (the gold standard), written out PASS/FAIL per
+item before anything reaches the owner or a commit. Any FAIL = not done, however clean the automated checks are.
+1. **PHASE FEEL** ("YOUR BIGGEST FLAW RIGHT NOW IS MAKING EVERY PHASE BORING AND THE SAME ... DIFFERENT FIRE COLOR
+   BASICALLY AND MAYBE A BIGGER CROWN"): each phase a different MOMENT of the same character: different pose and
+   gesture, expression, action or story beat, and idle animation. Judged in GREYSCALE; one sentence per phase with a
+   different verb and mood. Colour, aura, fire, size, a crown or accessories alone = FAIL. Phase 1 and phase 3 must
+   differ as much as any pair (a Rat King P3 with P1's smirk and raised coin hand failed).
+2. **INTERESTING**: each phase is interesting to look at, not merely different ("is every phase unique and
+   different and interesting enough").
+3. **CLARITY**: "is it easy to see what is going on?": a one-second read at panel size and blurred, the character
+   dominant, nothing cluttered or ambiguous.
+4. **SMOOTH MOTION**: every moving part plays smoothly at the display's own rate; nothing steps, judders or looks low
+   frame rate (measured: per-frame positions over a second at 1x and 2x density, baked AND `__ebikiNoBake`). "Choppy
+   and low frame rate ... looks buggy" (Seraph breath, Rat King chips) FAILS.
+5. **MOTION SENSE**: for each moving part, should it move at all? Objects and constructs (metal, stone, wood, clockwork)
+   never "breathe"; a living breath must read clearly as breathing; a whole-figure drift so slow and small it "looks
+   like the svg is glitching up and down" FAILS: give it real range, smooth it, or stop it.
+6. **THREAT**: a dangerous foe bigger than the player in every phase ("the showman looks like a weakling").
+Plus the whole Kitsune test in `docs/legends-art-guide.md` "RAID BOSSES". The coordinator checks all six on
+the owner-view panel (`phasepanel.mjs`, colour AND greyscale) and on idle frames, not only the agent's renders, and
+puts them in EVERY artist and reviewer brief.
 
 ## ⭐ THE VISION: runs well on ANY computer, device, screen and platform
 The owner's standing rule for EVERY change, not only art: Ebiki must feel smooth on a weak laptop with an integrated
@@ -1388,11 +1411,14 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   Kitsune test and process before the owner sees anything.
 - **SVG motion rules**: `<animateTransform>`/`<animateMotion>` only (the sanitizer drops `<animate>`/`<set>`/
   `calcMode`); `keyTimes` must match `values` one to one and end at 1, or the browser silently drops it (tested).
+  **The app EASES every animateTransform after sanitizing** (`easeMotion.js` in `loadArt`, tested): speed comes to rest
+  at each turn or hold and carries through a keyframe where the motion goes on (linear playback reversed bobs in one
+  frame: the owner's "choppy and low frame rate ... looks buggy" breaths); never write `calcMode` in a file.
   Tag `class="lg-in"` (entrance) or `lg-loop` (idle); `withMotion` strips per `animated` mode ('intro' card, 'idle'
   arena/banners, still on map icons, locked areas, reduced motion), so the file's own attributes must be the finished
   pose. Card motion per motif = `ENTRANCES` (BossArena.jsx keyframes, landing at `ENTRANCE.impact`). No `url()`, so no
-  gradients: depth is layered opacity. Render in headless Chrome (light + dark, a few entrance moments) and look
-  before committing.
+  gradients: depth is layered opacity. Render in Playwright's bundled Chromium (light + dark, a few entrance moments)
+  and look before committing. Details: the guide's "Motion".
 - **Step content is made ONCE and saved** (`readStep`/`saveStep`, `features/legends/step-<hash>.json` keyed by mode +
   area + node, `sig` = the step's items): revisits reuse it (`reshuffleQuiz`), scenes too (`sceneFor`); a changed area
   no longer matches `sig`. New sets get the area's other steps' questions as `avoid`, exact repeats dropped (`normQ`).
@@ -1661,8 +1687,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     knockout never fades below 0.2, the result screen keeps the boss in frame). `StrikeFxLayer.jsx` composes them
     (`momentParts`: a white flash on every hit, the strike smaller behind a parry or a shield bubble, bigger with a
     red crack on a heavy blow) and adds the labels. `impact.test.js`: every RAID_ORDER boss has a style, no two
-    share a glyph, a strike or a knockout, only known parts/glyphs/moves, fixed hex colors. A new raid boss needs a
-    `RAID_IMPACT` entry. Played by the SAME `useJuice` (`moment`, `STRIKE_FX` juice), so every juice limit
+    share a glyph, a strike or a knockout, only known parts/glyphs/moves, fixed hex colors. A new raid boss needs its
+    `impact/bosses/` files (below). Played by the SAME `useJuice` (`moment`, `STRIKE_FX` juice), so every juice limit
     applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 27:
     `/dev/raid-impact/?moment=hurt` (dev only; `freeze(ms)` in the console). Asset view: "Impact moments" and
     "Powers" buttons under the phase demo.
@@ -1720,7 +1746,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   Art files are fetched once for every user (`artText`). **Ready-made preview pictures were TRIED and rejected**: any
   fixed-size raster shrunk to a tile (even from 2x, lossless, high-quality filter) measured visibly softer than the
   exact per-screen snapshot; the owner's rule is full quality on every display.
-  26 raid tiles: about 1.8 s of fetch + sanitize + raster before, about 0.1 s from the kept snapshots.
+  The raid tiles: about 1.8 s of fetch + sanitize + raster before, about 0.1 s from the kept snapshots.
   `__ebikiNoSnap` (and `__ebikiArtEager`/`__ebikiNoBake`) turn it off.
 - **Art loads near the screen and pauses off it** (`useArtInView`: comes in within `ART_NEAR` (1) screens, leaves past
   `ART_FAR` (3), measured against the nearest VERTICAL scroller (`scrollRootOf`), never the window: <main> clipped it,
@@ -1735,28 +1761,22 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   page forgets its timeline** (`box.__lgClock = null`): continuity is only for one animated SVG replacing another
   (baked rig, phase change); kept across a pause, every later hover started mid-animation. Small still TILES are
   snapshots (rest pose, never animate).
-- **The art clock is OFF (`ART_CLOCK = false`)**: paced at 30 redraws a second and a shared page budget, every boss and the
-  whole app looked choppy on the owner's 480 Hz screen. Drawings play NATIVELY at the display's rate; `keepTimeline` only
-  keeps continuity (a baked rig or phase swap carries on at the old SVG's time). The bake keeps native playback cheap.
-  Never turn the clock back on by default. What it was:
-- **The art clock** (art.jsx THE ART CLOCK): SMIL in inline SVG is never composited, so EVERY frame of a playing boss
-  re-rasterized the whole drawing (the ophanim lagged on any machine). Now each drawing is PAUSED and set to the real
-  elapsed time with `svg.setCurrentTime` from one shared `setTimeout` loop (never rAF), CSS animations in its box too
-  (`getAnimations({subtree})`, `currentTime`). Speed is real time on every monitor; only redraw frequency changes. Alone it cut raster
-  about 3x (ophanim 641 → 270 ms/s, hydra 612 → 197) and main-thread work about 40% (ophanim 121 → 59).
-  `holdArt(svg, who, on)` freezes one (BossArena's hit-stop); sleep/wake keeps the timeline (`clockWake`).
-- **The pace governor** (`artPace.js`, pure, tested): a page-wide redraw BUDGET (`ART_PACE.levels`) shared by the
-  drawings on screen, each at most `maxFps` (30), with staggered credits. Every 3 s it samples 24 rAF intervals and
-  compares their median to the display period (`displayPeriod`, capped at `maxPeriod` 20 ms so a page slow from its
-  first frame is not read as a slow monitor): late → down 1 or 2 levels, 3 calm samples → up one.
+- **The art clock is OFF (`ART_CLOCK = false`, art.jsx)**: paced at 30 redraws a second under a shared page budget,
+  every boss and the whole app looked choppy on the owner's 480 Hz screen. Drawings play NATIVELY at the display's rate;
+  `keepTimeline` only keeps continuity (a baked rig or phase swap carries on at the old SVG's time); the bake keeps that
+  cheap. Never turn the clock back on by default. Still in the code: the clock (THE ART CLOCK: each drawing paused and
+  set to real elapsed time with `svg.setCurrentTime` from one shared `setTimeout` loop, CSS animations too; it cut
+  raster about 3x because SMIL in inline SVG is never composited; `holdArt` = hit-stop, `clockWake` = sleep/wake) and
+  **the pace governor** (`artPace.js`, pure, tested; the model for THE VISION's budgets): a page-wide redraw budget
+  (`ART_PACE.levels`), each drawing at most `maxFps` (30); every 3 s it compares the median of 24 rAF intervals to
+  `displayPeriod` (capped at `maxPeriod` 20 ms, so a page slow from its first frame is not read as a slow monitor):
+  late → down 1 or 2 levels, 3 calm samples → up one.
 - **Sprite-rig bake** (`bakePlan.js` pure + tested, `bake/web.js` browser half): static runs of a drawing are
   rasterized ONCE at the device's density and the animation moves those bitmaps. Same look (a sweep of every boss,
   phase, entrance, ability effect and banner against the vector, at 1x and 2x density: 0 of 239 cases over 0.3% of
-  pixels). Measured (`dev/bake-sweep/perf.mjs 220`, ms of work a second, raw SMIL → art clock → clock + bake): raster
-  hydra 612 → 197 → 103, forest 784 → 266 → 68, chronos 456 → 170 → 120, inferno 578 → 195 → 108, celestial
-  289 → 85 → 74; main thread hydra 59 → 35 → 30, forest 70 → 40 → 26. The ophanim (332 vs 270) and kitsune (137 vs
-  116) raster a little MORE baked than with the clock alone (their big moving parts stay live and the sprites add
-  layers), still half or less of the raw SMIL. Rules, each from a real defect:
+  pixels). Raster work (`dev/bake-sweep/perf.mjs 220`, ms a second, raw SMIL → clock → clock + bake): hydra
+  612 → 197 → 103, forest 784 → 266 → 68; the ophanim and kitsune keep big moving parts live, so they gain least. Rules,
+  each from a real defect:
   - **What stays live vector**: animated elements and their holders, phase/photo layers, `<image>`, defs; every element
     the PAGE can reach (`PAGE_CLASS`: `lg-*`, `lgfa-*`, `lgo-*`, `lgs-*`; the ability effects' CSS moves, shows and
     animates them; their static children still bake inside); the WHOLE of an `lg-fx-*` layer (`SOLID_CLASS`: its CSS
@@ -1793,7 +1813,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
 - **Bake tools** (`dev/bake-sweep/`, README there): `compare.mjs` (the sweep), `heat.mjs`, `pair-look.mjs`,
   `coverage.mjs`, `perf.mjs` (OLD raw SMIL vs CLOCK vs NOW). Run them after any change to the bake or the art.
 - **Diagnostics** (dev tools console): `__ebikiArtPace()` (level, budget, fps per drawing), `__ebikiBakeStats`,
-  `__ebikiNoBake = true` (vector only, to compare), `__ebikiArtFreeze = true` (stop the clock). Gallery/check-art run
+  `__ebikiNoBake = true` (vector only, to compare), `__ebikiNoEase = true` (linear SMIL, to compare; set before the
+  art loads), `__ebikiArtFreeze = true` (stop the clock). Gallery/check-art run
   eager and unbaked.
 - **Boss figures breathe past their frame** (`BOSS_HEADROOM` 20%): boss SVGs render `overflow="visible"` clipped at
   `inset(-20%)`, so flames/wings aren't sliced flat. **That headroom is real LAYOUT space wherever something sits next
@@ -1827,15 +1848,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   the held pose 300 ms / 2 s later. The hold must come from `[data-down]` rules in fx/<motif>.jsx. It also plays the REAL
   arena (dev/raid-impact ?arena=, full AND compact layout) and FAILS a held boss with over 55% of its painted pixels lost
   (outside the card or under the DEFEATED tag; the Horseman sank off the compact card). `CLIP_OVERRIDE`/`CLIP_SVG_DIR` work.
-- **SVG pivots**: scale/rotate/skew pivot on local (0,0); a part drawn elsewhere needs
-  `style="transform-box:fill-box;transform-origin:center"` (the sanitizer keeps it) or it slides. Flames pivot
-  `center bottom`, drips `center top`, flags/capes/sails/hanging banners at the top or pole side, plants at the base.
-  Check with measured centre drift, not a pivot-distance threshold. A looping translate ending away from its start
-  snaps back: particles get a sibling additive scale `0;1;1;0`, drifters go there and back. Reduced motion and focus
-  mode never force `opacity` on SVG (shadows turned solid). An ENTRANCE must END at the file's own pose (the arena
-  strips `lg-in`), so wrap a part ending elsewhere in `<g transform="<end pose>">` with values shifted. Two
-  NON-additive animateTransforms on one element override each other: the loop gets `additive="sum"`. A part copying
-  another's idle loop copies its entrance too. "Hide" by off-canvas jump is instant (step keyTimes), never a slide.
+  And **`check-idle-breath.mjs`** (BREATH/JUDDER: Chronos, "a hunk of metal", breathed so slowly and subtly "it looks like
+  he's glitching up and down"): FAILS an idle loop moving most of the figure under 2 px at the panel's screen size, any
+  whole-figure breath on a boss in its `CONSTRUCTS` table, and any idle loop whose speed jumps in one frame as the app
+  plays it (eased); `BREATH_TABLE=1` prints every whole-figure loop, `BREATH_NOEASE=1` measures linear playback.
+- **SVG pivots and loops** (fill-box origins, flame/drip/cape pivots, additive loops, entrances ending on the file's
+  pose, never forced `opacity`): `docs/legends-art-guide.md` "Motion". Check with measured centre drift.
 - **Help** can open a map edit: `legends_edit` action (capability text only when `appContext.legendsAvailable`),
   receipts `hr_legends*`, via `featureCtx.open('legends', { edit })` (`useIntent`).
 - Drive it with every AI host stubbed and `/api/feature-data` in memory (the real stores and credits untouched).
@@ -1978,8 +1996,7 @@ enclave" may still not know what it is.
   name of a thing.
 
 ### Hints and choices (the owner, 2026-10-10: "the first letter basically gives it away and also the fact that the user knows that the card is in the deck gives it away")
-- **THE PREFIX HINT replaced the letter count** (the old "always show the count" rule is SUPERSEDED: no length
-  anywhere, retry hints and the raid Hint power included). One engine, `utils/prefixHint.js` (tested), used by Study
+- **THE PREFIX HINT, never a letter count** (no length anywhere, retry hints and the raid Hint power included). One engine, `utils/prefixHint.js` (tested), used by Study
   (`utils/letterCue.js`) and fights (`kit/fightSettings.js`): one word = its first ~20% of letters, at least 1, never
   leaving under 2 hidden (perro "(p…)", sombrero "(so…)", pantalones "(pa…)"); several words = each word's first letter
   ("(b… d…)"), a SHORT word (1 to 2 letters) only "…" ("a veces" "(… v…)"), all-short phrases none; an ELISION shows
@@ -2569,7 +2586,7 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   `speechSynthesis.speak` in pages): headless pages still spoke through Windows voices.
 - `npm test` (vitest) covers pure modules and engines (`*.test.js` across `src/`). Nothing about layout or click
   paths.
-- **run-ebiki skill** (`.claude/skills/run-ebiki/`, committed tooling, never bundled): `npm run dev`, then
+- **run-ebiki skill** (`.claude/skills/run-ebiki/`, committed tooling, never bundled): `npm run dev:agent`, then
   `npm run drive` (Playwright's bundled headless Chromium; screenshots + console errors; no AI calls). `--studio "brief"`
   exercises Ebi Studio and **spends API credits**. Details and traps: its SKILL.md.
 - Verify UI changes THERE, not by reading JSX: the body zoom breaks `position: fixed` boxes, and only measuring

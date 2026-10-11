@@ -77,8 +77,8 @@ replace it. Each power should be the best pick for SOME situation or boss, so th
 
 ## Adding a power, step by step
 
-1. **powers.js**: an entry in `POWERS` (keep unlocks increasing; move later ones if needed and update the table above
-   and `SIEGE_RULE` in raid.js), its condition in `powerUsable`, how it is spent in `powerAfterAnswer` (and its `proc`
+1. **powers.js**: an entry in `POWERS` (keep unlocks increasing; move later ones if needed and update the table above;
+   Help's `siegeRule`/`SIEGE_RULE` in raid.js builds its power text from `POWERS`), its condition in `powerUsable`, how it is spent in `powerAfterAnswer` (and its `proc`
    flag if it can visibly fire on an answer). Any number goes in a named constant at the top AND a `POWER_DEFAULTS`
    key (+ its `POWER_FLOORS` floor); the effect reads it from `powersOf(fight)`, its text from `powerVars`.
 2. **The effect**:
@@ -108,8 +108,8 @@ replace it. Each power should be the best pick for SOME situation or boss, so th
    asset view's Powers demo.
 7. **Tests**: `powers.test.js` (usable conditions, the effect through `raidStep`, spent/count-down, the balance
    limits), then `npx vitest run src/features/legends src/i18n`.
-8. **Help**: `helpContext.js` and `SIEGE_RULE` list powers from `POWERS`/`unlockedPowers`; reread them so Ebi
-   describes the new one right.
+8. **Help**: `helpContext.js` and `siegeRule` (raid.js) list powers from `POWERS`/`unlockedPowers`; reread them so
+   Ebi describes the new one right.
 9. **Docs**: this table, CLAUDE.md's Raids > Powers bullet, `NEW-RAID-FEATURES.txt` if the owner tracks it.
 
 ## Icon style (the set must look like one set)
@@ -127,4 +127,4 @@ replace it. Each power should be the best pick for SOME situation or boss, so th
 Same rules as every raid effect: fixed bright hex colors, container units inside the boss box, deterministic, never
 `position: fixed`, skipped in focus mode, Still bosses and reduced motion, at most 2 flashes a second. A cast is big
 and short (about 1s), an armed look is calm and persistent, a proc is a quick punch on the answer that triggered it.
-Look at every one in headless Chrome over several bosses, light and dark, before calling it done.
+Look at every one in Playwright's bundled Chromium over several bosses, light and dark, before calling it done.

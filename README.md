@@ -9,7 +9,7 @@ A local-first study app built on Anki: AI-written study questions, an AI tutor, 
 - **Study** - Anki sessions with AI-written questions, multiple choice, verified PBQ exercises for cert subjects, and insights. Ratings go back to Anki.
 - **Legends** - an adventure map per mode. Areas of lessons, stories, rule drills and chats with Ebi, each ending in a named boss fight; clear Weak spots first for an extra life, and replay a cleared area as a Legendary challenge. A short placement test, or what Ebiki already knows about you, sets your level (A1 to C2 for languages, Beginner to Expert otherwise). Ask Ebi to change the map; areas you started never change.
 - **Practice** - extra practice from your cards and mistakes:
-  - **Daily raid** - your due cards as a boss fight against a roster of 26 bosses, each with its own ability; each card's first answer is a real Anki review. Bosses keep their wounds between days (healing a little overnight) and your hearts refill each day. Lose every heart and the boss rallies, healing back half that run's damage, but you can fight on at once. Each different boss you beat unlocks a **power** for good; bring up to three to a fight, each usable once.
+  - **Daily raid** - your due cards as a boss fight against a roster of 27 bosses, each with its own ability; each card's first answer is a real Anki review. Bosses keep their wounds between days (healing a little overnight) and your hearts refill each day. Lose every heart and the boss rallies, healing back half that run's damage, but you can fight on at once. Each different boss you beat unlocks a **power** for good; bring up to three to a fight, each usable once.
   - **Ebi Call** - a chat that weaves your due cards into the conversation and grades each one you use.
   - **Roleplay** - act out a situation with Ebi in character, then get a scorecard, tips and cards to add.
   - **Mistake Gym** - fresh questions aimed at what you got wrong lately.
@@ -78,7 +78,8 @@ Modes are independent: changing Security+ never touches Language Learning.
 ### Studying
 
 - **Instant start** - the first question needs one AI call; the rest generate while you answer.
-- **Question depth** - a card you are reviewing gets one question where you produce the answer; new, relearning and missed cards get the full set. **Thorough** (Settings → Study) asks every card all its questions.
+- **Question ladder** - each card gets one question per review, and it climbs with how well you know the card in Anki: a new card's question teaches it, then easy recall with help, recall, use in context, your own sentence, nuance. A missed card drops back down by itself. **Thorough** (Settings → Study) asks every card all its questions, each a step harder.
+- **Hints and choices** - a typed answer shows its first letters ("(so…)"); **Show choices** swaps to options drawn from cards you have already studied, so neither the hint nor "it's in my deck" gives the answer away.
 - **Answer styles** - typed, **multiple choice** (graded instantly) or **PBQ** (general modes: verified match, order and categorize exercises, CompTIA style). In practice styles, recording to Anki is optional.
 - **Fair grading** - typos in your own language don't count; another valid form of the word is accepted unless the sentence requires one. Feedback is color-coded (right, wrong, grammar, word choice, missing, tip).
 - **Learned language vs "Ebi speaks"** - you always answer in the language you're learning; "Ebi speaks" sets the language of questions and feedback (match them for full immersion).

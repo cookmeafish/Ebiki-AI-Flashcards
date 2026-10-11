@@ -113,10 +113,10 @@ Legends and the fight screens, the Quick Add tray rows, the duplicate and bulk-e
 tooltip and Help's header. The question dots and usage chips keep their old sizes.
 
 ## How to revert
-The overhaul is one change set (the 1.32.0 commit). The main lever is the palette and token block:
+The overhaul is one change set (commit d12ea09, 1.32.0). The main lever is the palette and token block:
 1. `src/config/palette.js` (`PALETTE_CSS`): every color and shadow value; restoring it restores most of the look.
 2. `src/config/tokens.js`: `RADIUS`, `SHADOW` (`card`, `glow`, `hi`), `TYPE`, `MOTION`.
 3. App.jsx global `<style>`: the `UI overhaul 2026-10` block (`.ui-*` classes, focus ring), the `UI second pass`
    block, the hover tint and the `.duo-*` rules.
 4. `src/styles/theme.js`, `src/features/ui.jsx`, `src/shell/Sidebar.jsx`, `src/shell/Rail.jsx`.
-`git diff` of that commit against its parent lists every other touched line.
+`git show d12ea09` lists every other touched line.

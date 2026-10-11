@@ -19,6 +19,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from './artPace'
 import { densityBucket } from './bakePlan'
+import { easeTurns } from './easeMotion'
 import { bakeArt } from './bake/web'
 import { noteSnapUse, warmSnaps, artText, fileSig, readSnap, makeSnap, snapBase, snapKeyOf, peekSnap, findSnap, adoptSnap, indexedKey } from './snap/web'
 import { useFeatureCtx, featureCfg } from '../registry'
@@ -280,7 +281,9 @@ function loadArt(url) {
       url === PHOTO_FILE ? checkPhotoSprites() : false])
       .then(([text, m, photos]) => {
         const job = sanitizeQueue.then(nextTask).then(() => {
-          const out = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true }, SANITIZE_NAMED_PROPS: false }) /* own files: ids feed url(#id) */ : ''
+          // eased where the motion turns (easeMotion.js: the sanitizer drops calcMode, so every bob reversed in one frame)
+          const clean = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true }, SANITIZE_NAMED_PROPS: false }) /* own files: ids feed url(#id) */ : ''
+          const out = typeof window !== 'undefined' && window.__ebikiNoEase ? clean : easeTurns(clean) // __ebikiNoEase: linear, to compare
           const sized = out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"')
           return /<svg[\s>]/i.test(out) ? idTemplate(photos ? withPhotoEye(sized, url) : sized) : ''
         })

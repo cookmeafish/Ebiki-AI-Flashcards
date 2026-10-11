@@ -8,15 +8,15 @@ also updates lore and voice ("Raid boss voices").
 - `areas/<motif>.svg`: an area's banner, the boss's lair, `viewBox="0 0 400 140"` (shown wide, cropped to fit).
 - `bosses/<motif>.svg`: the area's boss, square, `viewBox="0 0 120 120"`.
 - `raids/<motif>.svg`: a raid boss, square, with phase layers `lg-p2`/`lg-p3` (starting `style="display:none"`),
-  `lg-p1` (phase 1 only) and `lg-p12` (gone in phase 3). The `ophanim-*.webp` files are the ophanim's photo sprites.
+  `lg-p1` (phase 1 only) and `lg-p12` (gone in phase 3). The `ophanim-*.webp` sheets and the `ophanim/` cells cut from them are the ophanim's photo sprites.
 
 40 Legends motifs, listed with boss, entrance and lair in `dev/legends-gallery/catalog.js` (by name in `MOTIFS` in
 `src/features/legends/map.js`). When Ebi plans a map it gives every area one of them, plus a palette. A new motif
 needs both files, its name in `MOTIFS`, its own entrance in `ENTRANCES` (`src/features/legends/BossArena.jsx`) and a
 catalog entry.
 
-To see and rate them all: `npm run dev`, then open `http://localhost:3000/dev/legends-gallery/`. Before committing
-an art change, run `node dev/legends-gallery/check-art.mjs` with the dev server up.
+To see and rate them all: `npm run dev`, then open `http://localhost:3000/dev/legends-gallery/` (agents: `npm run dev:agent`,
+port 3001). Before committing an art change, run `node dev/legends-gallery/check-art.mjs` with `npm run dev:agent` up.
 
 ## Colors
 

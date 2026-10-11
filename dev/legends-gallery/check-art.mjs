@@ -13,6 +13,9 @@
 //   cut     a raid boss part cut flat by the arena's clip in any fight moment, ability effect, assault or knockout
 //           (check-moment-clip.mjs, run at the end in its own browser)
 //   ko      a raid boss part that jumps when the knockout cinematic ends and the fallen pose holds (check-ko-hold.mjs)
+//   breath  a raid boss whose WHOLE figure idles by under 2 px at the asset view's panel size (reads as a glitch), or a
+//           construct (CONSTRUCTS there) that breathes at all; judder: any idle loop whose speed jumps in one frame as
+//           the app plays it, after easeMotion.js (check-idle-breath.mjs, both)
 // and WARNS on banner parts cut by the picture's edge mid-motion (often fine: a spotlight running off the edge).
 import fs from 'fs'
 import os from 'os'
@@ -44,7 +47,7 @@ const ONLY = (process.env.EBIKI_ONLY || '').split(',').filter(Boolean)
 const res = await page.evaluate(async ({ HEADROOM, DRIFT, CLIP_REVIEWED, ONLY }) => {
   const { MOTIFS } = await import('/src/features/legends/map.js')
   const { RAID_MOTIFS } = await import('/src/features/legends/raid.js')
-  const { sanitizeHtml } = await import('/src/components/Markdown.jsx')
+  const { sanitizeHtml: sanitizeRaw } = await import('/src/components/Markdown.jsx'); const { easeTurns } = await import('/src/features/legends/easeMotion.js'); const sanitizeHtml = (t, o) => easeTurns(sanitizeRaw(t, o)) // as the app plays it (art.jsx loadArt)
   const { withMotion } = await import('/src/features/legends/art.jsx')
   const fails = [], warns = []
   const host = document.createElement('div'); host.style.cssText = 'position:absolute;left:0;top:0'; document.body.prepend(host)
@@ -225,7 +228,7 @@ const REVIEWED = new Set([
 const over = await page.evaluate(async (ONLY) => {
   const { MOTIFS } = await import('/src/features/legends/map.js')
   const { RAID_MOTIFS } = await import('/src/features/legends/raid.js')
-  const { sanitizeHtml } = await import('/src/components/Markdown.jsx')
+  const { sanitizeHtml: sanitizeRaw } = await import('/src/components/Markdown.jsx'); const { easeTurns } = await import('/src/features/legends/easeMotion.js'); const sanitizeHtml = (t, o) => easeTurns(sanitizeRaw(t, o)) // as the app plays it (art.jsx loadArt)
   const { withMotion } = await import('/src/features/legends/art.jsx')
   const out = []
   const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:0;top:0'; document.body.prepend(host)
@@ -288,6 +291,11 @@ const over = await page.evaluate(async (ONLY) => {
   const kl = (k.stdout || '').split(/\r?\n/)
   for (const l of kl) { if (l.startsWith('FAIL  ')) res.fails.push(l.slice(6).trim()); else if (l.startsWith('warn  ')) res.warns.push(l.slice(6).trim()) }
   if (k.status !== 0 && !kl.some((l) => l.startsWith('FAIL  '))) res.fails.push('ko     check-ko-hold.mjs did not finish: ' + ((k.stderr || '').trim().split(/\r?\n/).slice(-3).join(' ') || k.error?.message || 'exit ' + k.status))
+  // BREATH / JUDDER: idle motion that reads as a glitch (check-idle-breath.mjs; it reads EBIKI_ONLY itself)
+  const b = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'check-idle-breath.mjs')], { encoding: 'utf8', maxBuffer: 64 << 20, timeout: 30 * 60 * 1000 })
+  const bl = (b.stdout || '').split(/\r?\n/)
+  for (const l of bl) { if (l.startsWith('FAIL  ')) res.fails.push(l.slice(6).trim()); else if (l.startsWith('warn  ')) res.warns.push(l.slice(6).trim()) }
+  if (b.status !== 0 && !bl.some((l) => l.startsWith('FAIL  '))) res.fails.push('breath check-idle-breath.mjs did not finish: ' + ((b.stderr || '').trim().split(/\r?\n/).slice(-3).join(' ') || b.error?.message || 'exit ' + b.status))
 }
 res.warns.push(...over.filter((o) => !REVIEWED.has(`${o.file}|${o.d.slice(0, 24)}`)).map((o) => `overdraw ${o.file}: a line leaves its shape: ${o.d.slice(0, 70)}`))
 await browser.close()

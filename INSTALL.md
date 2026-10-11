@@ -35,7 +35,7 @@ Each time the shortcut opens, it checks for a newer version:
 - None, or offline: the app opens normally.
 - Update available: the start-up window asks **Update now** or **Not now**. Not now opens the app; you're asked again next launch.
 
-**Settings → Data & updates** shows your version (e.g. `Ebiki 1.33.0`, with date and build), checks for updates and offers **Restart now** to finish one.
+**Settings → Data & updates** shows your version (with date and build), checks for updates and offers **Restart now** to finish one.
 
 ## Backing up your cards (AnkiWeb)
 
@@ -50,4 +50,4 @@ If Ebiki says the **AnkiConnect add-on** is missing, click **Install it for me**
 - If Anki was open while AnkiConnect was installed, restart Anki once.
 - If the installer says Node was installed but not found, close the window and run `Install Ebiki.bat` again (a new window picks up the updated PATH). If the shortcut can't find Node, sign out and back in once.
 - Without `winget`, install Node.js LTS (https://nodejs.org) and Anki (https://apps.ankiweb.net) first, then run `Install Ebiki.bat`; it still adds AnkiConnect.
-- The shortcut runs a local server (`npm run dev`) that is also the app's backend, so it runs while you use the app. `scripts/` holds the scripts the installer and shortcut call; you never run them directly.
+- The shortcut runs a hidden local server that is also the app's backend. `scripts/` holds the scripts the installer and shortcut call; you never run them directly.

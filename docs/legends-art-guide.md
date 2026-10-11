@@ -131,7 +131,7 @@ On the real asset view "Phase drawings" panel (all three phases), by the artist,
 4. Every element not on the character listed with its reason; paths and animations against the kitsune's.
 5. Same character? (faces covered: proportions and build; heads only: the face; personality the same)
 6. A significant change per phase, on the character? Labels covered, can a stranger order the three phases and say what
-   changed in each? **SILHOUETTE check** (owner 2026-10-10 on a Showman whose phases kept the same bust, hat, coat and pose: "they are too similar in each phase", "it needs to be more different each phase"): render each phase as a solid black silhouette at 60 px beside the kitsune's three; the shapes must be clearly different, and the pairwise silhouette overlap (IoU of the alpha masks) must be no higher than the kitsune's same pair. Colour, horns or a new halo over the same outline fail. Measure it ONLY with `node .scratch/raid-kitsune/silhouettes.mjs <motif>` (frame 0, committed kitsune, EACH pair no more alike than her same pair, entrances stripped; run it again with `--hide=<every aura, halo, fan, backdrop selector>`: that BODY-ONLY run hides the kitsune's tails and fox-fire too and must pass within 0.05; it is the one that catches the same body under a new aura, as on the rejected Showman and a Kaleido); hand-made scripts gave every artist a different kitsune number, and a highest-pair rule let the owner-rejected Showman pass.
+   changed in each? **SILHOUETTE check** (owner 2026-10-10 on a Showman whose phases kept the same bust, hat, coat and pose: "they are too similar in each phase", "it needs to be more different each phase"): render each phase as a solid black silhouette at 60 px beside the kitsune's three; the shapes must be clearly different, and the pairwise silhouette overlap (IoU of the alpha masks) must be no higher than the kitsune's same pair. Colour, horns or a new halo over the same outline fail. Measure it ONLY with `node .scratch/raid-kitsune/silhouettes.mjs <motif>` (frame 0, committed kitsune, EACH pair no more alike than her same pair, entrances stripped; run it again with `--hide=<every aura, halo, fan, backdrop selector>`: that BODY-ONLY run hides the kitsune's tails and fox-fire too and must pass within 0.05, and its P1-P3 pair must be NO higher than the kitsune's (0 tolerance: the first and last phase are the furthest apart; a Showman passed at 0.709 against her 0.700 with the 0.05 margin and was rejected AGAIN as "too similar" and "a weakling"); it is the one that catches the same body under a new aura, as on the rejected Showman and a Kaleido). **MOTION SENSE, SMOOTHNESS AND CLARITY, checkmarks as serious as PHASE FEEL** (owner 2026-10-11: "do checks for smooth animation and if x thing should move or if it will look like it breaths weirdly like an object that shouldn't breath or maybe it needs more frames ... is it easy to see what is going on? kitsune is the gold standard", then "its a very serious rule"). Per moving part of every idle: should it move at all (objects and constructs never breathe; Chronos is clockwork), does a living breath clearly read as breathing (a whole-figure sub-pixel drift "looks like the svg is glitching up and down"), and is it SMOOTH (record per-frame positions over a second at 1x and 2x density, baked and `__ebikiNoBake`; any stepping or low frame rate FAILS: the Seraph P3 breath and the Rat King P2 chips looked "choppy and low frame rate ... buggy"). Verdict per part: keep, smooth it, give it real range, or stop it. CLARITY: a one-second read of what is going on at panel size and blurred. INTERESTING: each phase worth looking at, not merely different. **PHASE FEEL, a checkmark every raid boss must pass** (owner 2026-10-11, in capitals, about a Cerberus whose three phases were the same three heads in a row, same stance, only the fire colour and a crown changing: "YOUR BIGGEST FLAW RIGHT NOW IS MAKING EVERY PHASE BORING AND THE SAME. LIKE LITERALLY NOTHING HAPPENS ... look at how varied kitsune is!!! different animations, different things going on, same character but they look entirely different. each phase needs to have a different feel like kitsune"). The kitsune: P1 sly and composed (fan raised, one eye winking, tails fanned calm), P2 snarling (mouth open, both arms up summoning foxfire, hair wild, violet tails), P3 serene and divine (eyes closed, golden corona, the fox spirit above). Each phase must be a different MOMENT of the same character, all four on the CHARACTER: (a) a different POSE and gesture (stance, arms, heads, body angle), (b) a different EXPRESSION, (c) a different ACTION or story beat (what is she DOING now), (d) a different IDLE ANIMATION (P1 fan flick and blink, P2 foxfire flicker, P3 corona). Tests: the panel in GREYSCALE (colour cannot carry it: the three must still read as three different moments); one sentence per phase whose VERB and MOOD differ ("dozes chained at the gate" / "breaks the chains and lunges" / "rises crowned in hellfire and howls", never "stands with orange fire" / "stands with blue fire"); frames of each phase's idle side by side (three different motions). A phase that differs only by colour, aura, fire, size, a crown or added accessories FAILS, however clean it is. **THREAT** (owner 2026-10-11, "the showman looks like a weakling ... make this guy look like a bigger threat"): in every phase the boss reads as a dangerous foe bigger than the player (big in the box, imposing build and pose, a menacing face), never a slim smiling bust; judge it on the owner-view panel; hand-made scripts gave every artist a different kitsune number, and a highest-pair rule let the owner-rejected Showman pass.
 7. Phase 3 the most impactful and the clearest?
 8. Power visible in every phase?
 9. Anatomy connects at 2 to 4x zoom; a confident villain face?
@@ -465,14 +465,10 @@ uses.
   per mounted copy and art.test.js checks every reference stays local. Never add a file unless the owner asks.
 - **Photo ophanim (an experiment)**: eye, wings, wheels, cloud bed and holy light are real photographs. The SVG only
   marks the places (empty `lg-photo-*` groups carrying their own transform; painted parts they replace tagged
-  `lg-photo-hide`); `withPhotoEye` (art.jsx PHOTO LAYERS) injects the fixed sprites
-  `raids/ophanim-{eye,wings,rings,cloud,light}.webp` after sanitizing. Each photo sits inside the painted part's motion
-  group, so flaps, wheel spins, cloud drift and the gaze still play; each wheel is split into back and front halves to
-  pass behind and in front of the eye. Phase and ability layers stay painted on top. The eye is masked to an almond
-  with thin lid rims, framed by the wings (a porcelain bezel plate was rejected). Sky and light are HTML layers (PHOTO
-  LIGHT: screen blending and blur); the painted backdrop is hidden. Revert: delete both blocks and their uses and the
-  five webps, restore the painted `ophanim.svg` (backup `ophanim-backup-before-photo-eye`). Never put `<image>` or a
-  URL in a file.
+  `lg-photo-hide`), each inside the painted part's motion group so flaps, wheel spins, cloud drift and the gaze still
+  play (each wheel split into back and front halves to pass behind and in front of the eye). The eye is masked to an
+  almond with thin lid rims, framed by the wings (a porcelain bezel plate was rejected). How art.jsx fills it, the
+  light layers and the revert: CLAUDE.md "Photo ophanim". Never put `<image>` or a URL in a file.
 - **Colors** (palettes repainting whole bosses made some unrecognizable): paint every boss, banner and raid boss in its
   OWN ideal FIXED colors (palette `original`). A palette recolors exactly ONE part per boss: the least intrusive part
   still clearly noticed (fire, ice, a gem or orb, an aura, runes, a cape, crystals; never skin, face or body), using
@@ -484,8 +480,12 @@ uses.
 ## Motion
 
 Motion is SVG animation inside the file. The sanitizer keeps only `<animateTransform>` and `<animateMotion>`
-(`<animate>` and `<set>` are dropped) and drops `calcMode` (timing is linear; pace with `keyTimes`). So animate
-`translate`, `scale` and `rotate` only. No fade: hide by scaling to 0.02, or move far off the canvas
+(`<animate>` and `<set>` are dropped) and drops `calcMode` from the FILE. So animate `translate`, `scale` and `rotate`
+only. **The app eases every animateTransform itself** (`easeMotion.js`, run by `art.jsx` after sanitizing): the speed
+comes to rest at every turn (a bob's top and bottom, a sway's ends, a hold) and carries through a keyframe where the
+motion goes on, so never hand-sample a sine into many keyframes to fake easing, and never write `calcMode` in a file.
+Linear playback is what made the owner's "choppy and low frame rate ... looks buggy" breaths (`__ebikiNoEase = true`
+in the console shows it, to compare). No fade: hide by scaling to 0.02, or move far off the canvas
 (`translate 0 -200`).
 
 - **`keyTimes` must have exactly as many entries as `values`, start at 0 and END AT 1**, or the browser silently drops
@@ -496,12 +496,32 @@ Motion is SVG animation inside the file. The sanitizer keeps only `<animateTrans
   bursts. Main beats around 55 to 70% of a 1.4 to 1.6 s run, so they land after the card's own motion.
 - `class="lg-loop"`: IDLE life, `repeatCount="indefinite"`: breathing, blinking, swaying, flames, drips, sparks,
   falling snow, drifting fog, sweeping lights. Bosses AND banners have it; banners have no `lg-in`.
+- **Breathing only where it makes sense, and only when it READS** (owner 2026-10-11 on Chronos: "this guy is a hunk of
+  metal and the breathing movement is so slow and subtle that it looks like he's glitching up and down"). A machine,
+  armour or object (Chronos, Titan, Kaleido, Ophanim's wheels, a marionette) never breathes: give it a mechanical idle
+  (hands tick, a gear turns, a glass runs and turns over, a lens glints, a blink). A living boss that breathes moves its
+  chest and shoulders with a clear rise (a scale up from the base, or a float for a ghost), at least 2 screen px at the
+  asset view's panel size; a whole drawing sliding under a pixel is a glitch. `check-idle-breath.mjs` (run by
+  check-art) FAILS a whole-figure idle under 2 px, any whole-figure breath on a boss in its `CONSTRUCTS` table, and any
+  idle loop whose speed jumps in one frame as the app plays it.
 - **The file's own attributes are the resting pose.** The app strips animation where motion is not wanted; what remains
   must be the finished boss. Never rely on an animation to put a part in its place.
 - **Scaling around a point**: `scale` scales around (0,0). Wrap:
   `<g transform="translate(cx cy)"><g><animateTransform .../><g transform="translate(-cx -cy)">...</g></g></g>`,
   or draw the part around (0,0) inside `translate(cx cy)`. `rotate` takes its center in the values: `"20 60 64"`.
-- **One animation per target.** An entrance and a loop on the same element fight; nest a `<g>` for the loop.
+- **Pivots**: scale, rotate and skew pivot on local (0,0); a part drawn elsewhere needs
+  `style="transform-box:fill-box;transform-origin:center"` (the sanitizer keeps it) or it slides. Flames pivot
+  `center bottom`, drips `center top`, flags, capes, sails and hanging banners at the top or pole side, plants at the
+  base. Check with measured centre drift, not a pivot-distance threshold.
+- **One animation per target.** An entrance and a loop on the same element fight; nest a `<g>` for the loop. Two
+  NON-additive animateTransforms on one element override each other: the loop gets `additive="sum"`. A part copying
+  another's idle loop copies its entrance too.
+- **Loops return to their start**: a looping translate ending elsewhere snaps back, so particles get a sibling additive
+  scale `0;1;1;0` and drifters go there and back. "Hide" by an off-canvas jump is instant (step keyTimes), never a
+  slide.
+- **An entrance ENDS at the file's own pose** (the arena strips `lg-in`): wrap a part ending elsewhere in
+  `<g transform="<end pose>">` with its values shifted.
+- Reduced motion and focus mode never force `opacity` on SVG (shadows turned solid).
 - **The card motion** (the whole boss moving in) is CSS in `BossArena.jsx`: `ENTRANCES[motif]` names a keyframe in its
   `CSS` block (optional pivot `origin`). It starts at `ENTRANCE.slam` and lands at `ENTRANCE.impact`, where the quake
   and shockwave hit. Every motif and raid boss gets its own keyframe (tested).
@@ -517,14 +537,14 @@ a locked area = still.
 2. Write the SVG by hand (the Write tool; never a shell heredoc, which mangles backslashes).
 3. Add the motif to `MOTIFS` in `src/features/legends/map.js` and the catalog, and its entrance to `ENTRANCES` in
    `BossArena.jsx` (with a new `@keyframes` in the `CSS` block).
-4. Render in headless Chrome at a few moments (e.g. 300 ms, 1100 ms, 3000 ms) on a light and a dark palette. Look for
+4. Render in Playwright's bundled Chromium at a few moments (e.g. 300 ms, 1100 ms, 3000 ms) on a light and a dark palette. Look for
    parts hidden behind others, anything invisible in dark mode, empty areas in a banner, anything off-mood. Fix, look
    again.
 5. Run the checks in "Process and checks", then check the intro card in the app. Bump the version.
 
 ## Review gallery (where the owner looks at the set)
 
-All Legends art is reviewed in ONE place: `npm run dev`, then `http://localhost:3000/dev/legends-gallery/`
+All Legends art is reviewed in ONE place: `npm run dev`, then `http://localhost:3000/dev/legends-gallery/` (agents: 3001)
 (`dev/legends-gallery/`, not part of the build). Every motif shows its real intro entrance (Replay), the idle boss, the
 map icon, the locked icon, the banner at its true map size and the whole drawing, in light or dark and any palette.
 Each card has Good / Change / Bad plus a note (kept in that browser); "Copy my feedback" copies the notes to paste

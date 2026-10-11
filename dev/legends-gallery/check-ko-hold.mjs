@@ -73,7 +73,7 @@ for (const [u, body, type] of overrides) if (type) await page.route(u, (r) => r.
 const ready = async () => { await page.goto(URL, { waitUntil: 'networkidle' }); await page.evaluate(async () => {
   for (const e of document.body.children) e.style.display = 'none' // the gallery animates every drawing: off the page
   const { RAID_MOTIFS, RAID_ABILITY } = await import('/src/features/legends/raid.js')
-  const { sanitizeHtml } = await import('/src/components/Markdown.jsx')
+  const { sanitizeHtml: sanitizeRaw } = await import('/src/components/Markdown.jsx'); const { easeTurns } = await import('/src/features/legends/easeMotion.js'); const sanitizeHtml = (t, o) => easeTurns(sanitizeRaw(t, o)) // as the app plays it (art.jsx loadArt)
   const { withMotion } = await import('/src/features/legends/art.jsx')
   const { PARTS_CSS } = await import('/src/features/legends/impact/parts.jsx')
   const { koTiming } = await import('/src/features/legends/impact/styles.js')

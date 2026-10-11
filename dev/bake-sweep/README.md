@@ -1,7 +1,7 @@
 # Bake sweep: does the sprite-rig bake change how any boss looks, and what does it save?
 
-Dev tools for the Legends sprite-rig bake (`src/features/legends/bakePlan.js`, `bake/web.js`). Run with the dev
-server up (`npm run dev`). Every script uses Playwright's bundled Chromium (installed by `npm run drive` into
+Dev tools for the Legends sprite-rig bake (`src/features/legends/bakePlan.js`, `bake/web.js`). Run with the agent dev
+server up (`npm run dev:agent`, port 3001, which the scripts expect). Every script uses Playwright's bundled Chromium (installed by `npm run drive` into
 `~/.ebiki-drive`; headless shell: `npx playwright-core install chromium-headless-shell` there), muted, never the
 installed Chrome. Results go to `.scratch/bake-sweep/` (gitignored).
 

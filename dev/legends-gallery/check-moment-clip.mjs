@@ -77,7 +77,7 @@ const ready = async () => { await page.goto(URL, { waitUntil: 'networkidle' }); 
   // the gallery itself animates every drawing: take it off the page so it costs nothing
   for (const e of document.body.children) e.style.display = 'none'
   const { RAID_MOTIFS, RAID_ABILITY } = await import('/src/features/legends/raid.js')
-  const { sanitizeHtml } = await import('/src/components/Markdown.jsx')
+  const { sanitizeHtml: sanitizeRaw } = await import('/src/components/Markdown.jsx'); const { easeTurns } = await import('/src/features/legends/easeMotion.js'); const sanitizeHtml = (t, o) => easeTurns(sanitizeRaw(t, o)) // as the app plays it (art.jsx loadArt)
   const { withMotion, withPhotoEye } = await import('/src/features/legends/art.jsx')
   const { PARTS_CSS } = await import('/src/features/legends/impact/parts.jsx')
   const { abilityCss, fxDemoFor } = await import('/src/features/legends/fx/index.js')

@@ -53,7 +53,7 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
 await page.route('**/@vite/client', (r) => r.fulfill({ status: 200, contentType: 'application/javascript', body: 'export const createHotContext = () => ({ accept(){}, dispose(){}, prune(){}, invalidate(){}, on(){}, off(){}, send(){}, data: {} }); export const injectQuery = (u) => u; export const updateStyle = (id, css) => { let s = document.querySelector(`style[data-vite-dev-id="${id}"]`); if (!s) { s = document.createElement("style"); s.setAttribute("data-vite-dev-id", id); document.head.appendChild(s) } s.textContent = css }; export const removeStyle = () => {};' }))
 const ready = async () => { await page.goto(URL, { waitUntil: 'networkidle' }); await page.evaluate(async () => {
   const { RAID_MOTIFS, RAID_ABILITY } = await import('/src/features/legends/raid.js')
-  const { sanitizeHtml } = await import('/src/components/Markdown.jsx')
+  const { sanitizeHtml: sanitizeRaw } = await import('/src/components/Markdown.jsx'); const { easeTurns } = await import('/src/features/legends/easeMotion.js'); const sanitizeHtml = (t, o) => easeTurns(sanitizeRaw(t, o)) // as the app plays it (art.jsx loadArt)
   const { withMotion } = await import('/src/features/legends/art.jsx')
   const { PARTS_CSS } = await import('/src/features/legends/impact/parts.jsx')
   const { abilityCss } = await import('/src/features/legends/fx/index.js')

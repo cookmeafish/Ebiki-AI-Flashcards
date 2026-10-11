@@ -2,7 +2,8 @@
 
 Every raid boss's plain fight moments live in `impact/bosses/<motif>.js` (pure data) and `<motif>.parts.jsx` (its own
 drawn parts and CSS). Its ABILITY effects live in `fx/<motif>.jsx` (see that folder). Editing one boss never touches
-another boss's files.
+another boss's files. A new boss registers in `index.js` (`BOSS_DATA`, which builds `RAID_IMPACT`) and
+`allParts.js`.
 
 - `<motif>.js` `style`: the impact style (shape documented at the top of `impact/styles.js`): colors, glyph, and the
   parts list for each of the 9 moments (hit, crit, sharpen, strike, heavy, block, shield, wind, ko) plus `body` (one body
