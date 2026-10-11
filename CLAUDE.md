@@ -22,47 +22,45 @@ Nothing reaches the owner (or a commit) on one look. Every change, code or art, 
 **Interrupted work (usage limit, crash, cut-off agent) gets an extra check** before it resumes and before it is
 reported: NOT BROKEN (files complete and well-formed, an SVG ends with `</svg>`, partial edits redone from the backup,
 tests green, a fresh screenshot looked at) AND THE VISION STILL THERE (re-read the brief and run the owner's checks
-again, e.g. the Kitsune test, on that screenshot).
+again, e.g. the raid checkmarks, on that screenshot).
 Reports say what was checked and what is still weak, honestly. The coordinator verifies before relaying "done".
-**Judge it the way the OWNER sees it** (a Rat King phase 3 passed close-up renders, a review and the coordinator, yet
-was "a different character" the moment the owner opened the asset view): the coordinator's own check is a screenshot
-of the REAL screen the owner will open (for raid art: the asset view's "Phase drawings" panel with all phases side by
-side), taken by the coordinator, not only the agent's renders, and EVERY owner rule is checked against it one by one,
-never just the rule of the latest complaint (a Showman then passed "same character" and was rejected as "a regular guy
-... where are his powers"). For raid art the list is **the Kitsune test** in `docs/legends-art-guide.md` "RAID BOSSES" (first: LOOK at a screenshot
-of every phase and each face zoomed for anything broken: doubled eyes, misplaced glasses, stray lines, box hands,
-floating parts (a Rat King phase 3 shipped with all of these); then a background that is none or simple and fitting,
-one sentence per phase, a blurred screenshot, three clearly different SILHOUETTES (solid black at 60 px, overlap no higher than the kitsune's: a Showman with the same bust, hat and coat each phase was "too similar"; the BODY-ONLY P1-P3 pair no higher than hers either, no 0.05 margin: a Showman at 0.709 vs 0.700 was rejected again), THREAT (a dangerous foe bigger than the player in every phase, never a slim smiling bust: "the showman looks like a weakling"), **PHASE FEEL** (the owner 2026-10-11, in capitals: "YOUR BIGGEST FLAW RIGHT NOW IS MAKING EVERY PHASE BORING AND THE SAME ... THE SAME THING BUT DIFFERENT FIRE COLOR BASICALLY AND MAYBE A BIGGER CROWN"; a Cerberus with the same three heads in a row and the same stance each phase failed. Like the kitsune (P1 sly with her fan and a wink, P2 snarling with both arms up summoning foxfire and wild hair, P3 serene and divine in a golden corona), each phase is a different MOMENT of the same character: a different POSE and gesture, a different EXPRESSION, a different ACTION or story beat, a different IDLE ANIMATION; checked in GREYSCALE so colour cannot carry it, and with one sentence per phase whose VERB and MOOD differ; a phase that differs only by colour, aura, fire, size or an added crown FAILS), intentional detail with path counts, same character, a significant
-change per phase on the character, phase 3 clearest, power visible, anatomy, exciting, "equal to the kitsune?"). Write the list out with a pass/fail per item before
-relaying anything, and judge it honestly as the owner would ("would it hang beside the kitsune as her equal?"), never
-as the one who made it.
+**Judge it the way the OWNER sees it**: the coordinator's own check is a screenshot of the REAL screen the owner will
+open (for raid art: the asset view's "Phase drawings" panel with all phases side by side), taken by the coordinator,
+not only the agent's renders, and EVERY owner rule is checked against it one by one, never just the rule of the
+latest complaint. For raid art that list is the RAID BOSS CHECKMARKS below. Write it out with a pass/fail per item
+before relaying anything, judged honestly as the owner would, never as the one who made it.
 
-## ⭐⭐ RAID BOSS CHECKMARKS: VERY SERIOUS RULES (owner 2026-10-11: "its a very serious rule it should be taken seriously")
-Every raid boss, every phase, every change, judged against the KITSUNE (the gold standard), written out PASS/FAIL per
-item before anything reaches the owner or a commit. Any FAIL = not done, however clean the automated checks are.
-1. **PHASE FEEL** ("YOUR BIGGEST FLAW RIGHT NOW IS MAKING EVERY PHASE BORING AND THE SAME ... DIFFERENT FIRE COLOR
-   BASICALLY AND MAYBE A BIGGER CROWN"): each phase a different MOMENT of the same character: different pose and
-   gesture, expression, action or story beat, and idle animation. Judged in GREYSCALE; one sentence per phase with a
-   different verb and mood. Colour, aura, fire, size, a crown or accessories alone = FAIL. Phase 1 and phase 3 must
-   differ as much as any pair (a Rat King P3 with P1's smirk and raised coin hand failed).
-2. **INTERESTING**: each phase is interesting to look at, not merely different ("is every phase unique and
-   different and interesting enough").
-3. **CLARITY**: "is it easy to see what is going on?": a one-second read at panel size and blurred, the character
-   dominant, nothing cluttered or ambiguous.
-4. **SMOOTH MOTION**: every moving part plays smoothly at the display's own rate; nothing steps, judders or looks low
-   frame rate (measured: per-frame positions over a second at 1x and 2x density, baked AND `__ebikiNoBake`). "Choppy
-   and low frame rate ... looks buggy" (Seraph breath, Rat King chips) FAILS. Measure it the way the owner SEES it: the
-   real asset view with every drawing on the page animating at once, GPU raster, under CPU throttling, counting
-   PRESENTED frames per moving part (held frames = stutter), never one drawing in software raster (a Banshee float and
-   Kaleido crystals measured "smooth" that way still stuttered on the owner's 480 Hz screen: "every animation even
-   subtle isn't low framerate").
-5. **MOTION SENSE**: for each moving part, should it move at all? Objects and constructs (metal, stone, wood, clockwork)
-   never "breathe"; a living breath must read clearly as breathing; a whole-figure drift so slow and small it "looks
-   like the svg is glitching up and down" FAILS: give it real range, smooth it, or stop it.
-6. **THREAT**: a dangerous foe bigger than the player in every phase ("the showman looks like a weakling").
-Plus the whole Kitsune test in `docs/legends-art-guide.md` "RAID BOSSES". The coordinator checks all six on
-the owner-view panel (`phasepanel.mjs`, colour AND greyscale) and on idle frames, not only the agent's renders, and
-puts them in EVERY artist and reviewer brief.
+## ⭐⭐ RAID BOSS CHECKMARKS: VERY SERIOUS RULES (owner: "its a very serious rule it should be taken seriously")
+**The vision**: a raid boss is a dangerous foe, "detailed yet beautiful", "easy to see what is going on", and "every
+phase feels unique and amazing"; "go all out" means QUALITY and IMPACT, never more stuff ("make sure that its all
+quality"). The KITSUNE is the gold standard: detailed and clear at once, full of character, each phase a different
+moment (P1 sly with her fan and a wink, P2 snarling with both arms up summoning foxfire, P3 serene and divine in a
+golden corona). Every raid boss, every phase, every change (even a one-line edit) is judged against her, PASS/FAIL per
+item, before anything reaches the owner or a commit; any FAIL = not done, however clean the automated checks are.
+1. **PHASE FEEL**: each phase a different MOMENT of the same character: pose and gesture, expression, action, idle
+   animation. Holds in GREYSCALE; one sentence per phase with a different verb and mood; P1 and P3 differ as much as
+   any pair. Colour, aura, fire, size, a crown or accessories alone FAIL.
+2. **INTERESTING**: each phase worth looking at, not merely different.
+3. **CLARITY**: a one-second read at panel size and blurred; one big figure dominant; a background only if it fits the
+   boss, simple and alike in every phase; P3 the most impactful AND the clearest.
+4. **DETAILED AND BEAUTIFUL, BETTER THAN THE CHOSEN VERSION**: beside the version the owner picked in the asset view's
+   version picker, better on character, menace, detail and beauty; detail is ORGANISED (focal figure, value contrast,
+   grouping), never deleted; path count and visible detail at least the chosen version's unless the owner asked.
+5. **THREAT**: a dangerous foe bigger than the player in every phase, at least as threatening as before; bulk is muscle,
+   never fat; power ON the boss and coming out of what casts it.
+6. **SAME CHARACTER, DIFFERENT SILHOUETTES**: one anchor (face, proportions, build, face view); three silhouettes no
+   more alike than the kitsune's (each pair), the BODY-ONLY P1-P3 pair no higher than hers with no margin.
+7. **NOTHING BROKEN OR STRAY**: every phase zoomed 4x: no floating, detached, doubled or cut parts, broken mouths or box
+   hands; anatomy connects; every element nameable in one word.
+8. **SMOOTH AND SENSIBLE MOTION**: every moving part smooth at the display's own rate, measured as the owner sees it
+   (the real asset view, everything animating, GPU raster, CPU throttled, presented frames; per-frame positions at 1x
+   and 2x, baked and `__ebikiNoBake`); objects and constructs never breathe; a living breath reads clearly.
+**How raid art is made**: start from the owner's CHOSEN version and EDIT it (never regenerate from primitives by
+script; a full redesign only when asked); ONE boss at a time; the owner sees it (panel + previous version) BEFORE it is
+committed; an independent review asks "better than the chosen version, equal to the kitsune?" first. The coordinator
+checks every item on its own owner-view panel (`phasepanel.mjs`, colour AND greyscale) and idle frames, and puts the
+checkmarks in EVERY artist and reviewer brief. Full criteria, process and tools (silhouettes, check-art and the checks
+it runs): `docs/legends-art-guide.md` "RAID BOSSES". Past mistakes and what they taught: `docs/raid-art-lessons.md`.
 
 ## ⭐ THE VISION: runs well on ANY computer, device, screen and platform
 The owner's standing rule for EVERY change, not only art: Ebiki must feel smooth on a weak laptop with an integrated
@@ -1403,21 +1401,16 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   at `/dev/legends-gallery/` (dev server only).
 - **⭐⭐ RAID BOSSES: the kitsune is the gold standard (the owner: "super crucial").** Any raid boss work, even a
   one-line edit ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST QA"): read `docs/legends-art-guide.md` "RAID
-  BOSSES" FIRST and follow every line. In short: "go all out" means QUALITY and IMPACT, never MORE STUFF. The
-  character IS the picture: one big centered figure; a background only when it makes sense for the boss, simple and never disrupting it, in every
-  phase alike (owner 2026-10-10: "it is not required for a character to have a fully clear background"; the Rat King's
-  vault and casino are approved; CLUTTER failed, not backgrounds), each phase readable
-  in one sentence, detail intentional and ON the character, one anchor (face, proportions, signature features) while the CHARACTER evolves each phase (expression,
-  hair, props, aura, palette; not the scenery), phase 3 the most impactful AND the clearest, a raid boss with its
-  power ON it, elegant, a calm idle with presence (a blink), every animation with its own feeling. The 2026-10-09
-  redesigns and the Headless Horseman were all rejected for the opposite (crammed detail, "too much background",
-  "hard to tell whats going on", no significant change per phase, broken phase 3s). No time limit; the guide's
-  Kitsune test and process before the owner sees anything.
+  BOSSES" FIRST and follow every line, and pass the RAID BOSS CHECKMARKS at the top of this file. In short: "go all
+  out" means QUALITY and IMPACT, never MORE STUFF; the character IS the picture (one big centered figure, a background
+  only when it fits the boss, simple and alike in every phase); one anchor while the CHARACTER evolves each phase;
+  detail intentional and ON the character; phase 3 the most impactful AND the clearest; its power ON it; a calm idle
+  with presence; every animation with its own feeling. No time limit. Past mistakes: `docs/raid-art-lessons.md`.
 - **SVG motion rules**: `<animateTransform>`/`<animateMotion>` only (the sanitizer drops `<animate>`/`<set>`/
   `calcMode`); `keyTimes` must match `values` one to one and end at 1, or the browser silently drops it (tested).
   **The app EASES every animateTransform after sanitizing** (`easeMotion.js` in `loadArt`, tested): speed comes to rest
   at each turn or hold and carries through a keyframe where the motion goes on (linear playback reversed bobs in one
-  frame: the owner's "choppy and low frame rate ... looks buggy" breaths); never write `calcMode` in a file.
+  frame and looked choppy); never write `calcMode` in a file.
   Tag `class="lg-in"` (entrance) or `lg-loop` (idle); `withMotion` strips per `animated` mode ('intro' card, 'idle'
   arena/banners, still on map icons, locked areas, reduced motion), so the file's own attributes must be the finished
   pose. Card motion per motif = `ENTRANCES` (BossArena.jsx keyframes, landing at `ENTRANCE.impact`). No `url()`, so no
@@ -1771,6 +1764,23 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   page forgets its timeline** (`box.__lgClock = null`): continuity is only for one animated SVG replacing another
   (baked rig, phase change); kept across a pause, every later hover started mid-animation. Small still TILES are
   snapshots (rest pose, never animate).
+- **Live drawings play COMPOSITED, never as SMIL** (`motion/plan.js` pure + tested, `motion/web.js`; art.jsx live
+  effect): SMIL runs on the main thread and re-ran the page's style, paint and layerization every frame (owner 2026-10-11:
+  the Banshee's float and the Kaleido's crystals "low choppy framerate"; measured on his 480 Hz PC: the asset view drew
+  258 to 400 of 480 frames, 77 under a 4x slower CPU). Each SMIL animation becomes a Web Animation on the same element
+  (values, keyTimes, keySplines, begin, dur, freeze one to one; animateMotion sampled along its length), which the
+  compositor plays: 480 of 480 frames, 0 main-thread ms, at any CPU speed. Never ship what pulls it back onto the main
+  thread: a leftover SMIL animation in the SVG, `composite: 'add'` (several animations on one element = nested wrapper
+  `<g data-lg-motion>`, one each), an animation left running on a REMOVED element (`releaseMotion`; one kept the app at 400
+  lifecycles a second), or a CSS zoom other than EXACTLY 1 on the SVG (the body zoom: the SVG takes the inverse, nudged
+  float by float, its holder too when no single float works, e.g. 1.7; re-fit on resize). The SVG keeps its clock API
+  (pause/unpause/setCurrentTime drive both), so freeze, keepTimeline, sleep and hit-stop are unchanged. An element the
+  page's CSS reaches (`lg-<motif>-*`) keeps its transform; its idle goes on an inner wrapper. A SHAPE (circle, path)
+  can't hold a wrapper (a `<g>` inside a `<circle>` is never drawn: the Leviathan's bubbles lost their pop and ticked
+  the main thread): it moves into new groups carrying all its layers. Eager pages (gallery,
+  check-art) keep SMIL. `node dev/legends-gallery/check-smooth.mjs` (in check-art) fails a leftover SMIL, a refused
+  composite, main-thread frames while only a drawing plays, and any look difference from the SMIL;
+  `__ebikiNoComposite = true` compares.
 - **The art clock is OFF (`ART_CLOCK = false`, art.jsx)**: paced at 30 redraws a second under a shared page budget,
   every boss and the whole app looked choppy on the owner's 480 Hz screen. Drawings play NATIVELY at the display's rate;
   `keepTimeline` only keeps continuity (a baked rig or phase swap carries on at the old SVG's time); the bake keeps that
