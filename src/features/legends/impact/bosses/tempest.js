@@ -17,7 +17,7 @@ export default {
       heavy: [['beam', { dir: 'down', width: 0.4, color: '#e6f6ff' }], ['sparks', { n: 20, color: '#e6f6ff', reach: 1.3 }], ['quake', { n: 2, color: '#9fd8ff' }], ['vignette', { color: '#3d7cff' }]],
       block: [['sigil', { sides: 6, rot: 30, turn: 90 }], ['sparks', { n: 14, color: '#e6f6ff', reach: 1.3 }]],
       shield: [['bubble', {}], ['deflect', { n: 5, glyph: 'bolt' }]],
-      wind: [['heart', {}], ['gust', { n: 4, color: '#e6f6ff', turn: 120 }]],
+      wind: [['heart', {}], ['gust', { n: 4, color: '#e6f6ff', turn: 120, y: 28, size: 50 }]],
       body: { hit: 'flinch', crit: 'jolt', sharpen: 'sever', strike: 'cast', heavy: 'quake', block: 'recoil', shield: 'glance', wind: 'sway', ko: 'burnout' },
   },
   assault: { travel: 'bolt', impact: 'shock' }, // lightning to your heart, arcs crawl around the screen

@@ -88,6 +88,7 @@ export const FLOATER = {
   peakRise: 0.2, // em risen at the peak scale
   bottom: 0.9, // where it sits: its bottom at 90% of the box, over the head
   minPx: 10, // 13.5 px on screen at the default zoom; only the compact arena gets this small
+  lowest: 0.77, // the lowest its bottom comes (two lines at the floor on the compact arena): below, it shows its first sentence
   margin: 1, // px kept inside the card's top edge
 }
 // The floater's pop (BossArena's ability floater): lgJuicePop's shape with the rise in em, so a small floater rises
@@ -133,9 +134,32 @@ export function floaterLines(text, px, maxW) {
   return lines
 }
 
-// { fontSize, maxWidth, bottom } in px for a floater over a `boxPx` boss whose size would be `basePx` (fx/_juice.js
-// floaterPxFor). `headPx` = the room above the box inside the card (art.jsx headroomPx).
+// The shorter forms of a floater, longest first: the text cut after each sentence it holds ("-3 Serpent falls!
+// Serpent's Venom" → "-3 Serpent falls!", "-3 蛇が倒れた！蛇の毒" → "-3 蛇が倒れた！"). The first sentence carries the
+// news (and the damage); the rest is its flourish.
+export function floaterShorter(text) {
+  const s = String(text ?? '')
+  const out = []
+  const re = /[!?.！？。](?=[\s​]*\S)/gu
+  let m
+  while ((m = re.exec(s))) out.push(s.slice(0, m.index + 1).trim())
+  return out.filter((v) => /\p{L}/u.test(v.replace(/^-\d+\s*/, ''))).reverse()
+}
+
+// { fontSize, maxWidth, bottom, text } in px for a floater over a `boxPx` boss whose size would be `basePx`
+// (fx/_juice.js floaterPxFor). `headPx` = the room above the box inside the card (art.jsx headroomPx). `text` = what to
+// show: the whole floater, or, when even the floor size would bring it down over the face (below FLOATER.lowest of the
+// box: the Chimera's "-3 Serpent falls! Serpent's Venom" in three lines on the compact arena), its first sentence.
 export function floaterFit(text, boxPx, basePx, headPx = Math.round(boxPx * 0.2)) {
+  const fit = fitOne(text, boxPx, basePx, headPx)
+  if (fit.bottom >= FLOATER.lowest * boxPx) return fit
+  for (const short of floaterShorter(text)) {
+    const f = fitOne(short, boxPx, basePx, headPx)
+    if (f.bottom >= FLOATER.lowest * boxPx) return f
+  }
+  return fit
+}
+function fitOne(text, boxPx, basePx, headPx) {
   const F = FLOATER
   const maxWidth = Math.floor((boxPx + 2 * headPx) / F.peak)
   const longest = Math.max(1, ...floaterWords(text).map(floaterEm))
@@ -147,5 +171,5 @@ export function floaterFit(text, boxPx, basePx, headPx = Math.round(boxPx * 0.2)
   // every word on one line where a size down to the floor allows it; then smaller until it sits over the head
   let px = Math.max(F.minPx, Math.min(basePx, Math.floor(maxWidth / longest)))
   while (px > F.minPx && place(px) < F.bottom * boxPx - 0.01) px--
-  return { fontSize: px, maxWidth, bottom: Math.floor(Math.max(0, place(px)) * 10) / 10 }
+  return { fontSize: px, maxWidth, bottom: Math.floor(Math.max(0, place(px)) * 10) / 10, text }
 }

@@ -17,7 +17,7 @@ export default {
       heavy: [['bansheeNotes', { n: 14, mode: 'in' }], ['quake', { n: 1, color: '#7ff0ff' }], ['vignette', { color: '#0b8fb0' }]],
       block: [['deflect', { n: 6, from: 'side' }], ['bansheeNoteRise', { n: 10, size: 0.7 }]],
       shield: [['bubble', {}], ['deflect', { n: 4, from: 'side' }], ['bansheeScream', { n: 1, inward: true }]],
-      wind: [['heart', {}], ['pulse', { color: '#7ff0ff' }], ['gust', { n: 2, color: '#c8fbff', turn: -45 }]],
+      wind: [['heart', {}], ['pulse', { color: '#7ff0ff', y: 26, size: 44 }], ['gust', { n: 2, color: '#c8fbff', turn: -45, y: 28, size: 50 }]],
       flash: { y: 80, size: 26 }, // the shared hit flash lands on her chest, never over her face
       body: { hit: 'flicker', crit: 'jolt', sharpen: 'sever', strike: 'scream', heavy: 'charge', block: 'reel', shield: 'glance', wind: 'sway', ko: 'silence' },
   },

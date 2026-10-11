@@ -671,10 +671,13 @@ trophies work. Do not recreate it.
   pivots per phase (fx/horseman.jsx `PIV`; rider parts in the rider's own units). Knockout (round 9: a visible fall BEFORE the DEFEATED plate: the horse rears and tips from about 8% of the
   cinematic, the rider slumps and slides off from 18%, and he is down by about 48%, well before the plate): the forelegs fold under and the
   horse kneels (P3's nightmare folds its forelegs flat under its chest, hind legs bent under the rump), he lets go of
-  the reins, is thrown out of the saddle and lands SITTING in front of the horse's barrel, legs out, arms limp, the
-  soulfire a wisp; the whole fallen pose sits high in the box so it stays inside the card above the DEFEATED tag (the
+  the reins, is thrown BACK out of the saddle and lands SITTING on the ground at the right, a clear gap from the horse,
+  while the horse lies down smaller at the left (scale 0.64, P2 levelled out of its rear) with its forelegs tucked
+  under the chest and a hind leg folded under the haunch; its head (P1 head, P3 skull) rests at the far left, never
+  behind him or on his empty collar, so the greyed end card reads "a headless rider and his horse" (round 9c), legs out, arms limp, the
+  soulfire a wisp; his torso and empty collar sit above the DEFEATED tag (the
   `unhorsed` body move in impact/body.js now only settles a few px instead of sinking 18 px). His lantern head slips from
-  his fist, falls ahead of him and lands at the knockout part's spot (6%, 84% of the box) at 46.2% of the drawing's
+  his fist, falls ahead of him and lands at the knockout part's spot (6%, 84% of the box; the shatter part draws the P3 lantern: brighter skin, a pale glow, fire from the eyes) at 46.2% of the drawing's
   knockout, where `horsemanShatter` breaks it open: measured in the real arena (`handover.mjs`), the drawn lantern is
   last seen about 16 ms (one frame) before the halves appear and never on the same frame (per phase `lgrHorseKoBody1..3` /
   `lgrHorseKoHorse1..3` / `lgrHorseKoLegs1..3` / `lgrHorseKoHind1..3` / `lgrHorseKoLantern1..3`, `lgrHorseKoSit`,
@@ -682,11 +685,11 @@ trophies work. Do not recreate it.
   `.scratch/raid-kitsune/horseman/kosolve7.mjs` and the lantern's landing from `ko7lantern.mjs`). Every move stays inside the arena's inset(-20%) clip (checked frame by frame by
   `.scratch/raid-kitsune/horseman/clipcheck.mjs` and by `dev/legends-gallery/check-moment-clip.mjs`, 0 cuts): round 7 made the drawing big again and
   sized the MOVES instead (the `...7` keyframes: rears and tosses of a few degrees, no scaling of the horse, the soulfire
-  flaring without towering); his strike is one throw per phase (`lgrHorseThrow1..3` + `lgrHorseFly1..3`, round 9: the arm winds
-  back, then swings out and up (P1 about 35 degrees, the fist rising from the hip to the shoulder), and the lantern LEAVES the
-  fist and travels UP and OUT on its own side, clear of the hip and the skull, growing a little and fading out before the
-  clip edge (P2 has the least room: its lantern is already at the top right, so it lifts a short way and fades fast), then
-  reappears in the hand as the arm swings home);
+  flaring without towering); his strike is one throw per phase (`lgrHorseThrow1..3` + `lgrHorseFly1..3`, round 9b: the lantern always stays BELOW or beside the fist, never under it,
+  so the fist never covers the carved face. P1 swings the lantern out to the side, whips the arm forward and hurls it DOWN
+  and forward over the horse's flank toward your hearts. P2 thrusts it OUT and down from the raised fist into the open
+  space in front of the cloak. P3 flings it up and out over his head, clear of the skull. Each throw grows a little and
+  fades before the clip edge, then the lantern reappears in the hand as the arm swings home);
   the heavy blow flails low (P1), hoists it high over the shoulder (P2) or raises and smashes it (P3), the lantern
   counter-swinging on its bail (`lgrHorseHang1..3`). Drawn by
   `.scratch/raid-kitsune/horseman/gen-v4.mjs`.

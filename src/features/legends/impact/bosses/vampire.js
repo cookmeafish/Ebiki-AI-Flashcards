@@ -17,7 +17,7 @@ export default {
       heavy: [['claws', { n: 4, angle: -20, color: '#ff2442' }], ['splat', { n: 8, color: '#c8001e', big: true }], ['quake', { n: 1, color: '#8a0016' }]],
       block: [['sigil', { sides: 4, rot: 45, turn: 90 }], ['burst', { n: 5, glyph: 'bat', size: 0.6, spin: 40 }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'bat', from: 'side' }]],
-      wind: [['heart', {}], ['rise', { n: 6, glyph: 'drop', size: 0.4, color: '#ff6b8a' }], ['gust', { n: 3, color: '#ff2442', turn: -130 }]],
+      wind: [['heart', {}], ['rise', { n: 6, glyph: 'drop', size: 0.4, color: '#ff6b8a', from: 34, to: 24 }], ['gust', { n: 3, color: '#ff2442', turn: -130, y: 28, size: 50 }]],
       body: { hit: 'flinch', crit: 'twirl', sharpen: 'gash', strike: 'dart', heavy: 'pounce', block: 'stumble', shield: 'ricochet', wind: 'dim', ko: 'batBurst' },
   },
   assault: { travel: 'swarm', impact: 'bite' }, // bats pour out, then the fangs close on you

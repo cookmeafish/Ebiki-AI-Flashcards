@@ -19,7 +19,7 @@ export default {
       heavy: [['horsemanHooves', {}], ['quake', { n: 2, color: '#ff7a1a' }], ['dust', { n: 10 }]],
       block: [['sigil', { sides: 6, turn: 45 }], ['burst', { n: 6, glyph: 'pumpkin', size: 0.6, spin: -200 }]],
       shield: [['bubble', {}], ['deflect', { n: 4, glyph: 'pumpkin' }], ['sparks', { n: 6, color: '#ffd25a' }]],
-      wind: [['heart', {}], ['gust', { n: 4, color: '#6dff9c', turn: 70 }], ['rise', { n: 6, glyph: 'ember', size: 0.4, color: '#6dff9c' }]],
+      wind: [['heart', {}], ['gust', { n: 4, color: '#6dff9c', turn: 70, y: 28, size: 50 }], ['rise', { n: 6, glyph: 'ember', size: 0.4, color: '#6dff9c', from: 34, to: 24 }]],
       ko: [['speedlines', { color: '#6dff9c', n: 30, rot: -10 }], ['flash', { big: true }], ['horsemanWisp', { at: 300 }], ['rays', { at: 800, n: 10, color: '#6dff9c' }],
         ['horsemanShatter', { at: 1300 }], ['ring', { at: 1400, scale: 2.6, color: '#ff7a1a' }], ['sparks', { at: 1400, n: 14, color: '#ffd25a' }], ['dust', { at: 1450, n: 14 }]],
       koMs: 2400, koPeak: 1400,

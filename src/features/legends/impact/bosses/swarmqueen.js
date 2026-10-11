@@ -17,7 +17,7 @@ export default {
       heavy: [['swarmqueenLegion', {}], ['swarmqueenStab', {}], ['quake', { n: 1, color: '#ffb21a' }]],
       block: [['swarmqueenRebound', {}], ['sigil', { sides: 6, rot: 0, turn: 120 }], ['burst', { n: 6, glyph: 'hex', size: 0.5, spin: 90 }]],
       shield: [['bubble', {}], ['swarmqueenRebound', { dome: true, n: 9 }], ['deflect', { n: 8, glyph: 'hex' }]],
-      wind: [['heart', {}], ['glint', { n: 6, color: '#ffe08a' }]],
+      wind: [['heart', {}], ['glint', { n: 6, color: '#ffe08a', y: 26, spread: 0.55 }]],
       body: { hit: 'flinch', crit: 'jolt', sharpen: 'nick', strike: 'dart', heavy: 'pounce', block: 'reel', shield: 'ricochet', wind: 'shrink', ko: 'scattered' },
   },
   assault: { travel: 'swarm', impact: 'poison' }, // the swarm stings, venom drips down the screen

@@ -450,9 +450,10 @@ const KO_HITSTOP = 180
 // the owner saw words covering every boss's eyes), sized and placed for the box by impact/labelFit.js floaterFit: inside
 // the arena card at its highest (two lines at 26 px stood above the card: "Bound!", "-4 アンコール！"), as wide as the box
 // and its headroom, lower over the face only when even its smallest size needs it.
+// Its text may come back shorter (its first sentence) where the whole line would cover the face.
 function abilityFloaterFit(text, box, base) {
-  const { fontSize, maxWidth, bottom } = floaterFit(text, box, base, headroomPx(box))
-  return { fontSize, maxWidth, bottom }
+  const { fontSize, maxWidth, bottom, text: shown } = floaterFit(text, box, base, headroomPx(box))
+  return { style: { fontSize, maxWidth, bottom }, text: shown }
 }
 function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
   const [st, setSt] = useState(IDLE_JUICE)
@@ -738,6 +739,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const idleKey = !down && animOk && abMod?.idle ? abMod.idle(abS, abCtx) : ''
   const fxSize = juice.size
   const abFloater = last?.fx && floaterKeyFor(ability, last.fx) ? `${last.damage ? `-${last.damage} ` : ''}${t(floaterKeyFor(ability, last.fx), last.fxVars || {})}` : ''
+  const abFloaterFit = abilityFloaterFit(abFloater, compact ? BOSS.arenaCompact : BOSS.arena, floaterPxFor(fxSize, abFloater))
   const shakeSpec = juice.shake ? JUICE.shake[juice.shake] : null
   const flashSpec = juice.flash ? JUICE.flash[juice.flash] : null
   const abCssText = abMod ? abilityCss(ability, abAttrs) : ''
@@ -867,10 +869,10 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
             {juice.fx && <AbilityFx fx={last?.fx || ''} ability={ability} />}
             {!focus && floaterKeyFor(ability, last?.fx) && <style>{FLOATER_POP_CSS}</style>}
             {!focus && floaterKeyFor(ability, last?.fx) && (
-              <div data-ab-floater="" style={{ position: 'absolute', left: '50%', width: 'max-content', transformOrigin: 'center bottom', ...abilityFloaterFit(abFloater, compact ? BOSS.arenaCompact : BOSS.arena, floaterPxFor(fxSize, abFloater)), whiteSpace: 'normal', wordBreak: 'keep-all', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900,
+              <div data-ab-floater="" style={{ position: 'absolute', left: '50%', width: 'max-content', transformOrigin: 'center bottom', ...abFloaterFit.style, whiteSpace: 'normal', wordBreak: 'keep-all', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900,
                 color: FLOATER_FILL[floaterToneFor(ability, last.fx)] || FLOATER_FILL.purple, WebkitTextStroke: `.08em ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', zIndex: 2,
                 animation: `lgFloaterPop 900ms cubic-bezier(.22,1,.36,1) ${JUICE.floaterDelay}ms both` }}>
-                {floaterBreaks(abFloater)}
+                {floaterBreaks(abFloaterFit.text)}
               </div>
             )}
           </div>

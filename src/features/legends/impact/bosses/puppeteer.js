@@ -17,7 +17,7 @@ export default {
       heavy: [['puppeteerBar', {}], ['volley', { n: 10 }], ['quake', { n: 2 }], ['crack', { n: 5, color: '#ff3b52' }]],
       block: [['sigil', { sides: 4, rot: 0, turn: -90 }], ['strings', { n: 3, cut: true }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'needle' }]],
-      wind: [['heart', {}], ['gust', { n: 2, color: '#ffb0bc', turn: -100 }]],
+      wind: [['heart', {}], ['gust', { n: 2, color: '#ffb0bc', turn: -100, y: 28, size: 50 }]],
       body: { hit: 'puppeteerDangle', crit: 'whiplash', sharpen: 'sever', strike: 'dart', heavy: 'overreach', block: 'rebound', shield: 'skid', wind: 'falter', ko: 'cutStrings' },
   },
   assault: { travel: 'chain', impact: 'drain' }, // strings hook your heart and pull the life out of it

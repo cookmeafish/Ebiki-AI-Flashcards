@@ -17,7 +17,7 @@ export default {
       heavy: [['pillar', { width: 0.45, color: '#5fd0ff' }], ['splat', { n: 12, color: '#bde9ff', big: true }], ['quake', { n: 3, color: '#5fd0ff' }]],
       block: [['sigil', { sides: 5, rot: 0, turn: 144 }], ['burst', { n: 6, glyph: 'fang', size: 0.6, spin: 120 }]],
       shield: [['bubble', {}], ['deflect', { n: 3, glyph: 'fang', from: 'side' }]],
-      wind: [['heart', {}], ['pulse', { color: '#5fd0ff' }], ['gust', { n: 2, color: '#bde9ff', turn: 60 }]],
+      wind: [['heart', {}], ['pulse', { color: '#5fd0ff', y: 26, size: 44 }], ['gust', { n: 2, color: '#bde9ff', turn: 60, y: 28, size: 50 }]],
       body: { hit: 'reel', crit: 'knock', sharpen: 'sever', strike: 'rear', heavy: 'pounce', block: 'stumble', shield: 'skid', wind: 'falter', ko: 'severed' },
   },
   assault: { travel: 'shards', impact: 'poison', glyph: 'fang' }, // a hail of fangs and spat venom

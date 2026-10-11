@@ -17,7 +17,7 @@ export default {
       heavy: [['ophanimWheels', {}], ['rays', { n: 24, color: '#ffcf4a' }], ['shards', { n: 14, color: '#ffcf4a' }], ['quake', { n: 2 }]],
       block: [['sigil', { sides: 16, turn: 45 }], ['rays', { n: 12, color: '#ffcf4a' }]],
       shield: [['bubble', {}], ['deflect', { n: 5, glyph: 'eye' }]],
-      wind: [['heart', {}], ['gust', { n: 3, color: '#fff6c8', turn: -150 }], ['glint', { n: 5 }]],
+      wind: [['heart', {}], ['gust', { n: 3, color: '#fff6c8', turn: -150, y: 28, size: 50 }], ['glint', { n: 5, y: 26, spread: 0.55 }]],
       body: { hit: 'clank', crit: 'stun', sharpen: 'nick', strike: 'cast', heavy: 'loom', block: 'recoil', shield: 'rebuff', wind: 'dim', ko: 'eyeShut' },
   },
   assault: { travel: 'arc', impact: 'blast' }, // the wheels sweep across, a burst of blinding light

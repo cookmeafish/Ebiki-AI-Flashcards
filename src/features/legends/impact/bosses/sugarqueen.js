@@ -18,7 +18,7 @@ export default {
       heavy: [['volley', { n: 12 }], ['fountain', { n: 16, glyph: 'candy', size: 0.5 }], ['quake', { n: 2, color: '#ff9cc7' }]],
       block: [['sigil', { sides: 8, rot: 0, turn: 45 }], ['burst', { n: 8, glyph: 'candy', size: 0.5, spin: 500 }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'candy', from: 'side' }]],
-      wind: [['heart', {}], ['pulse', { color: '#ff9cc7' }], ['glint', { n: 6, color: '#ffffff', size: 0.7 }]],
+      wind: [['heart', {}], ['pulse', { color: '#ff9cc7', y: 26, size: 44 }], ['glint', { n: 6, color: '#ffffff', size: 0.7, y: 26, spread: 0.55 }]],
       body: { hit: 'wobble', crit: 'buckle', sharpen: 'carve', strike: 'surge', heavy: 'crush', block: 'jar', shield: 'rebuff', wind: 'shrink', ko: 'melted' },
   },
   assault: { travel: 'thrown', impact: 'flood' }, // a candy hurled at you, syrup floods the screen

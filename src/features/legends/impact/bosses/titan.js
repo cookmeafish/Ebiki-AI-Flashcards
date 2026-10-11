@@ -17,7 +17,7 @@ export default {
       heavy: [['quake', { n: 3, rubble: 10 }], ['crack', { n: 8 }], ['sparks', { n: 18, color: '#ffd27a', reach: 1.4 }], ['dust', { n: 14 }]],
       block: [['sigil', { sides: 6, turn: 0 }], ['burst', { n: 6, glyph: 'nut', size: 0.6, spin: 400 }]],
       shield: [['bubble', {}], ['deflect', { n: 3, glyph: 'fist' }]],
-      wind: [['heart', {}], ['dust', { n: 10, color: '#ffd27a' }], ['gust', { n: 3, color: '#ff7a1c', turn: 70 }]],
+      wind: [['heart', {}], ['dust', { n: 10, color: '#ffd27a', y: 10 }], ['gust', { n: 3, color: '#ff7a1c', turn: 70, y: 28, size: 50 }]],
       body: { hit: 'clank', crit: 'buckle', sharpen: 'nick', strike: 'slam', heavy: 'crush', block: 'jar', shield: 'skid', wind: 'shrink', ko: 'topple' },
   },
   assault: { travel: 'lunge', impact: 'crush' }, // the fist comes at the camera and slams down

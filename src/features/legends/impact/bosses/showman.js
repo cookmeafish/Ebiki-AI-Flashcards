@@ -17,7 +17,7 @@ export default {
       heavy: [['ring', { color: '#ffb52e', scale: 2.4, width: 5, dashed: true }], ['volley', { n: 14 }], ['quake', { n: 1, color: '#ffb52e' }]], // a spotlight ring that frames him, never a burst over his face
       block: [['sigil', { sides: 4, turn: 180 }], ['confetti', { n: 14 }]],
       shield: [['bubble', {}], ['deflect', { n: 5, glyph: 'card', from: 'side' }]],
-      wind: [['heart', {}], ['glint', { n: 8, color: '#ffe7b0' }], ['gust', { n: 2, color: '#ffb52e', turn: 140 }]],
+      wind: [['heart', {}], ['glint', { n: 8, color: '#ffe7b0', y: 26, spread: 0.55 }], ['gust', { n: 2, color: '#ffb52e', turn: 140, y: 28, size: 50 }]],
       body: { hit: 'spin', crit: 'twirl', sharpen: 'split', strike: 'showmanFlourish', heavy: 'showmanBow', block: 'rebound', shield: 'glance', wind: 'sway', ko: 'curtainCall' },
   },
   assault: { travel: 'shards', impact: 'cut', glyph: 'card' }, // razor cards fly, one slices the screen in two

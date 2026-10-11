@@ -17,7 +17,7 @@ export default {
       heavy: [['drops', { n: 20, glyph: 'feather', size: 0.7 }], ['rays', { n: 10, color: '#ffb300' }], ['quake', { n: 2, color: '#ffe79a' }]],
       block: [['sigil', { sides: 8, turn: 22 }], ['glint', { n: 7, color: '#fffbe6' }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'feather' }], ['glint', { n: 4 }]],
-      wind: [['heart', {}], ['pulse', { color: '#ffe79a' }], ['rise', { n: 5, glyph: 'feather', size: 0.5 }]],
+      wind: [['heart', {}], ['pulse', { color: '#ffe79a', y: 26, size: 44 }], ['rise', { n: 5, glyph: 'feather', size: 0.5, from: 34, to: 24 }]],
       body: { hit: 'flinch', crit: 'whiplash', sharpen: 'carve', strike: 'cast', heavy: 'loom', block: 'recoil', shield: 'rebuff', wind: 'falter', ko: 'fallFromGrace' },
   },
   assault: { travel: 'beam', impact: 'blast' }, // a lance of judgment and a holy detonation

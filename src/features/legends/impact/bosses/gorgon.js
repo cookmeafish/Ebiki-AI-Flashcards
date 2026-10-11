@@ -17,7 +17,7 @@ export default {
       heavy: [['gorgonFangs', { n: 5 }], ['quake', { n: 2, color: '#c9d1cc', rubble: 8 }], ['dust', { n: 12, color: '#a7b0aa' }]],
       block: [['sigil', { sides: 3, turn: 120 }], ['shards', { n: 8, color: '#c9d1cc', inward: true }]],
       shield: [['bubble', {}], ['deflect', { n: 4, glyph: 'scale' }], ['crack', { n: 3, color: '#c9d1cc' }]],
-      wind: [['heart', {}], ['gust', { n: 2, color: '#3fe08a', turn: 80 }]],
+      wind: [['heart', {}], ['gust', { n: 2, color: '#3fe08a', turn: 80, y: 28, size: 50 }]],
       body: { hit: 'flinch', crit: 'stun', sharpen: 'split', strike: 'rear', heavy: 'loom', block: 'reel', shield: 'rebuff', wind: 'sway', ko: 'stoneSet' },
   },
   assault: { travel: 'beam', impact: 'frost', tint: '#b9c4bd' }, // her gaze turns the screen to stone from the corners

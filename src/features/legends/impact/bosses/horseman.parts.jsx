@@ -17,12 +17,15 @@ const SOUL_HI = '#e2ffe6'
 const IRON = '#9aa3b8'
 
 // the carved head as a small inline SVG (the same face as the art: slanted eyes, a jagged grin)
-const Head = ({ blaze = 1 }) => (
+// p3: the phase 3 lantern the knockout drops (a brighter skin, a pale glow, fire pouring from the eyes)
+const Head = ({ blaze = 1, p3 = false }) => (
   <svg viewBox="-14 -14 28 28" width="100%" height="100%" aria-hidden="true" style={{ display: 'block', overflow: 'visible' }}>
-    <path d="M0 -9C7 -10 13 -6 13 1C13 8 7 11 0 11C-7 11 -13 8 -13 1C-13 -6 -7 -10 0 -9Z" fill={PUMP} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
+    <path d="M0 -9C7 -10 13 -6 13 1C13 8 7 11 0 11C-7 11 -13 8 -13 1C-13 -6 -7 -10 0 -9Z" fill={p3 ? '#f2851e' : PUMP} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
     <path d="M-5 -8.4C-7 -3 -7 5 -5 10.4M5 -8.4C7 -3 7 5 5 10.4" fill="none" stroke={PUMP_DK} strokeWidth="1" />
     <path d="M-1.4 -9C-1.8 -11.6 -0.8 -13.2 1 -13.6L1.6 -12.4C0.6 -11.8 0.4 -10.4 0.8 -9Z" fill="#4b3a1c" stroke={INK} strokeWidth=".8" />
-    <path d="M-8.4 -3.4L-2.4 -1.2L-6 2.4ZM8.4 -3.4L2.4 -1.2L6 2.4ZM-8.6 4.4L-6 5.4L-5 4.4L-3.4 5.8L-1.6 5L0.2 6L2.2 5L3.8 5.8L5.2 4.6L8.6 4C7.6 7.8 4.2 9.4 0 9.4C-4.2 9.4 -7.4 7.8 -8.6 4.4Z" fill={blaze > 1 ? '#fff6c8' : GLOW} stroke="#7c2c06" strokeWidth=".9" strokeLinejoin="round" />
+    <path d="M-8.4 -3.4L-2.4 -1.2L-6 2.4ZM8.4 -3.4L2.4 -1.2L6 2.4ZM-8.6 4.4L-6 5.4L-5 4.4L-3.4 5.8L-1.6 5L0.2 6L2.2 5L3.8 5.8L5.2 4.6L8.6 4C7.6 7.8 4.2 9.4 0 9.4C-4.2 9.4 -7.4 7.8 -8.6 4.4Z" fill={p3 || blaze > 1 ? '#fff6c8' : GLOW} stroke="#7c2c06" strokeWidth=".9" strokeLinejoin="round" />
+    {p3 && <path d="M-5.6 -1.6C-7.4 -4.4 -6.6 -7.6 -5.4 -10C-5 -7.6 -3.6 -6.6 -3.8 -4.2C-3.9 -2.8 -4.6 -1.8 -5.6 -1.6ZM5.6 -1.6C7.4 -4.4 6.6 -7.6 5.4 -10C5 -7.6 3.6 -6.6 3.8 -4.2C3.9 -2.8 4.6 -1.8 5.6 -1.6Z" fill="#ffa62b" stroke="#7c2c06" strokeWidth=".6" strokeLinejoin="round" />}
+    {p3 && <path d="M-5.3 -2.6C-6.2 -4.4 -5.8 -6.2 -5.2 -7.6C-4.8 -6 -4.4 -4.4 -5.3 -2.6ZM5.3 -2.6C6.2 -4.4 5.8 -6.2 5.2 -7.6C4.8 -6 4.4 -4.4 5.3 -2.6Z" fill="#fffbe8" />}
   </svg>
 )
 
@@ -82,7 +85,7 @@ export default {
     const ms = 900 * ctx.speed
     const w = 26 * ctx.scale
     const half = (side, key) => (
-      <div key={key} style={{ position: 'absolute', left: '6%', top: '84%', width: `${w}cqw`, height: `${w}cqw`, clipPath: side < 0 ? 'polygon(0 0, 54% 0, 44% 40%, 56% 62%, 46% 100%, 0 100%)' : 'polygon(54% 0, 100% 0, 100% 100%, 46% 100%, 56% 62%, 44% 40%)', animation: `${side < 0 ? 'lghorsemanHalfL' : 'lghorsemanHalfR'} ${ms}ms cubic-bezier(.4,0,.7,1) both` }}><Head /></div>
+      <div key={key} style={{ position: 'absolute', left: '6%', top: '84%', width: `${w}cqw`, height: `${w}cqw`, clipPath: side < 0 ? 'polygon(0 0, 54% 0, 44% 40%, 56% 62%, 46% 100%, 0 100%)' : 'polygon(54% 0, 100% 0, 100% 100%, 46% 100%, 56% 62%, 44% 40%)', animation: `${side < 0 ? 'lghorsemanHalfL' : 'lghorsemanHalfR'} ${ms}ms cubic-bezier(.4,0,.7,1) both` }}><Head p3 /></div>
     )
     const seeds = Array.from({ length: 12 }, (_, i) => (
       <div key={`sd${i}`} style={{ position: 'absolute', left: '6%', top: '84%', width: '1.8cqw', height: '2.6cqw', borderRadius: '50%', background: i % 3 ? '#f6e7b8' : ctx.color, border: `0.3cqw solid ${INK}`, '--a': `${i * 30}deg`, '--d': `${-14 - (i % 4) * 5}cqw`, animation: `lghorsemanSeed ${ms}ms ease-out both` }} />

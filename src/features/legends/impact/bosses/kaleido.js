@@ -18,7 +18,7 @@ export default {
       block: [['kaleidoPane', { y: 74 }], ['shards', { n: 12, rainbow: true }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'shard' }]],
       shieldRingTop: 80, // the save's ring starts at the chest prism (from the box's centre it sat on his mouth, an "O")
-      wind: [['heart', {}], ['glint', { n: 10, color: '#ffffff', size: 0.7 }]],
+      wind: [['heart', {}], ['glint', { n: 10, color: '#ffffff', size: 0.7, y: 26, spread: 0.55 }]],
       body: { hit: 'flinch', crit: 'twirl', sharpen: 'split', strike: 'kaleidoThrow', heavy: 'kaleidoCleave', block: 'jar', shield: 'rebuff', wind: 'sway', ko: 'refract' },
   },
   assault: { travel: 'shards', impact: 'crack' }, // a volley of mirror shards flies off him and the screen splinters into facets (a beam crossed his own face and washed him out)

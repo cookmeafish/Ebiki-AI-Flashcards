@@ -227,17 +227,19 @@ export const PARTS = {
           : { x1: x, y1: y, r0: deg(a) + 90, r1: deg(a) + 90 + (rnd(i) - 0.5) * 200, s0: 0.5, s1: 1.1, w: 6 + rnd(i, 19) * 4, ms: 700 * ctx.speed, delay: rnd(i, 17) * 50 })
     })
   },
-  // Particles raining from above the box.
+  // Particles raining from above the box (p.from / p.to: cqw from the centre where they start and land, default the
+  // whole box; Second wind keeps them under the face).
   drops: (p, ctx) => Array.from({ length: p.n || 8 }, (_, i) => {
     const x = (rnd(i, 21) - 0.5) * 90
     return fly(`dr${i}`, <Glyph name={glyphOf(p, ctx)} color={colorOf(p, ctx)} accent={ctx.accent} />,
-      { x0: x, y0: -58, x1: x + (rnd(i, 23) - 0.5) * 14, y1: 52, r0: (rnd(i, 25) - 0.5) * 60, r1: (rnd(i, 27) - 0.5) * 300, s0: 1, s1: 1, w: 12 * (p.size || 1), ms: 900 * ctx.speed, delay: rnd(i, 29) * 260, ease: 'cubic-bezier(.45,0,.8,.6)' })
+      { x0: x, y0: p.from ?? -58, x1: x + (rnd(i, 23) - 0.5) * 14, y1: p.to ?? 52, r0: (rnd(i, 25) - 0.5) * 60, r1: (rnd(i, 27) - 0.5) * 300, s0: 1, s1: 1, w: 12 * (p.size || 1), ms: 900 * ctx.speed, delay: rnd(i, 29) * 260, ease: 'cubic-bezier(.45,0,.8,.6)' })
   }),
-  // Particles floating up and away.
+  // Particles floating up and away (p.from / p.to: cqw from the centre where the lowest start and the highest end,
+  // default chest to above the box; Second wind stops them under the face).
   rise: (p, ctx) => Array.from({ length: p.n || 8 }, (_, i) => {
     const x = (rnd(i, 31) - 0.5) * 70
     return fly(`ri${i}`, <Glyph name={glyphOf(p, ctx)} color={colorOf(p, ctx)} accent={ctx.accent} />,
-      { x0: x * 0.5, y0: 10 + rnd(i, 33) * 25, x1: x + (rnd(i, 35) - 0.5) * 30, y1: -70 - rnd(i, 37) * 20, r0: 0, r1: (rnd(i, 39) - 0.5) * 120, s0: 0.5, s1: 1.1, w: 11 * (p.size || 1), ms: 1050 * ctx.speed, delay: rnd(i, 41) * 220, ease: 'cubic-bezier(.2,.6,.4,1)' })
+      { x0: x * 0.5, y0: (p.from ?? 10) + rnd(i, 33) * 25, x1: x + (rnd(i, 35) - 0.5) * 30, y1: (p.to ?? -70) - rnd(i, 37) * 20, r0: 0, r1: (rnd(i, 39) - 0.5) * 120, s0: 0.5, s1: 1.1, w: 11 * (p.size || 1), ms: 1050 * ctx.speed, delay: rnd(i, 41) * 220, ease: 'cubic-bezier(.2,.6,.4,1)' })
   }),
   // Conic rays turning behind the boss. They fade out INSIDE the layer's clip at every moment of the spin: grown to 1.4x
   // with the fade at 68% the rays reached 90cqw from the centre, past the knockout clip (box + 20%: 70cqw), and showed
@@ -297,12 +299,13 @@ export const PARTS = {
     })
     return svgBox('ck', lines)
   },
-  // Dust puffs rolling out along the ground.
+  // Dust puffs rolling out along the ground (p.y: cqw lower, Second wind keeps the grown puffs off the face).
   dust: (p, ctx) => Array.from({ length: p.n || 10 }, (_, i) => {
     const side = i % 2 ? 1 : -1
     const c = p.color || '#d8c8b0'
+    const dy = p.y || 0
     return fly(`du${i}`, <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: `radial-gradient(circle, ${c}ee, ${c}00 70%)` }} />,
-      { x0: side * 6, y0: 30, x1: side * (20 + rnd(i, 51) * 40), y1: 22 - rnd(i, 53) * 22, s0: 0.4, s1: 1.8, w: 14, ms: 820 * ctx.speed, delay: rnd(i, 55) * 120, ease: 'cubic-bezier(.1,.7,.3,1)', midOpacity: 0.8 })
+      { x0: side * 6, y0: 30 + dy, x1: side * (20 + rnd(i, 51) * 40), y1: 22 - rnd(i, 53) * 22 + dy, s0: 0.4, s1: 1.8, w: 14, ms: 820 * ctx.speed, delay: rnd(i, 55) * 120, ease: 'cubic-bezier(.1,.7,.3,1)', midOpacity: 0.8 })
   }),
   // The Vampire: two fangs stab down, blood beads where they bit.
   fangs: (p, ctx) => {
@@ -551,10 +554,11 @@ export const PARTS = {
       </div>
     ))
   },
-  // Small four-point twinkles popping at fixed spots (a fresh edge, a holy glint, a sugar sparkle).
+  // Small four-point twinkles popping at fixed spots (a fresh edge, a holy glint, a sugar sparkle). p.y (cqw below the
+  // centre) and p.spread (share of the height they scatter over, default 1) keep Second wind's under the face.
   glint: (p, ctx) => Array.from({ length: p.n || 5 }, (_, i) => {
     const x = (rnd(i, 141) - 0.5) * 80
-    const y = (rnd(i, 143) - 0.5) * 80
+    const y = (p.y || 0) + (rnd(i, 143) - 0.5) * 80 * (p.spread ?? 1)
     const s = (p.size || 1) * (8 + rnd(i, 145) * 8)
     return <div key={`gl${i}`} style={{ position: 'absolute', left: `calc(50% + ${x}cqw)`, top: `calc(50% + ${y}cqw)`, width: `${s}cqw`, height: `${s}cqw`, filter: `drop-shadow(0 0 1.2cqw ${colorOf(p, ctx)})`,
       '--r0': '0deg', '--r1': '90deg', '--s0': 0, '--s1': 1, animation: `lgiTwinkle ${520 * ctx.speed}ms ease-out ${120 + rnd(i, 147) * 380}ms both` }}><Glyph name="star4" color={i % 2 ? '#ffffff' : colorOf(p, ctx)} accent={ctx.accent} outline={false} /></div>
@@ -601,11 +605,12 @@ export const PARTS = {
       { x0: Math.cos(a) * far, y0: Math.sin(a) * far, xm: Math.cos(a) * hit, ym: Math.sin(a) * hit, x1: Math.cos(a + (i % 2 ? 0.9 : -0.9)) * far * 1.1, y1: Math.sin(a + (i % 2 ? 0.9 : -0.9)) * far * 1.1,
         r0: 0, r1: (i % 2 ? 1 : -1) * 260, s0: 1.2, s1: 0.9, w: 18, ms: 760 * ctx.speed, delay: 60 + i * 55, ease: 'linear' })
   }),
-  // Second wind: p.n curved gusts sweep up around the boss.
+  // Second wind: p.n curved gusts sweep up around the boss. p.y (cqw below the centre) and p.size (cqw, default 110)
+  // swirl them round the heart instead of the face.
   gust: (p, ctx) => {
     const c = colorOf(p, ctx)
     return (
-      <div key="gu" style={{ position: 'absolute', left: '50%', top: '50%', width: '110cqw', height: '110cqw', '--r0': `${p.rot || 0}deg`, '--r1': `${(p.rot || 0) + (p.turn ?? -70)}deg`, '--s0': 0.7, '--s1': 1.1,
+      <div key="gu" style={{ position: 'absolute', left: '50%', top: `calc(50% + ${p.y || 0}cqw)`, width: `${p.size || 110}cqw`, height: `${p.size || 110}cqw`, '--r0': `${p.rot || 0}deg`, '--r1': `${(p.rot || 0) + (p.turn ?? -70)}deg`, '--s0': 0.7, '--s1': 1.1,
         animation: `lgiSpin ${1000 * ctx.speed}ms cubic-bezier(.3,.7,.4,1) both`, filter: `drop-shadow(0 0 1.2cqw ${c})` }}>
         <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
           {Array.from({ length: p.n || 3 }, (_, i) => {
@@ -618,9 +623,10 @@ export const PARTS = {
       </div>
     )
   },
-  // A heartbeat: lub-dub pulses of soft light (Second wind's life coming back).
+  // A heartbeat: lub-dub pulses of soft light (Second wind's life coming back). p.y (cqw below the centre) and p.size
+  // (cqw, default 70) put it round the heart: centred, it tinted the face (the Banshee's turned cyan).
   pulse: (p, ctx) => [0, 1].map((i) => (
-    <div key={`pu${i}`} style={{ position: 'absolute', left: '50%', top: '50%', width: '70cqw', height: '70cqw', borderRadius: '50%', background: `radial-gradient(circle, ${colorOf(p, ctx)}aa, ${colorOf(p, ctx)}33 55%, transparent 70%)`,
+    <div key={`pu${i}`} style={{ position: 'absolute', left: '50%', top: `calc(50% + ${p.y || 0}cqw)`, width: `${p.size || 70}cqw`, height: `${p.size || 70}cqw`, borderRadius: '50%', background: `radial-gradient(circle, ${colorOf(p, ctx)}aa, ${colorOf(p, ctx)}33 55%, transparent 70%)`,
       animation: `lgiPulse ${900 * ctx.speed}ms ease-out ${i * 220}ms both` }} />
   )),
 
@@ -1041,3 +1047,18 @@ export const PARTS = {
 // Every raid boss's own drawn parts (impact/bosses/<motif>.parts.jsx), named <motif><Name>, join the shared ones.
 Object.assign(PARTS, BOSS_PARTS)
 export const PART_NAMES = Object.keys(PARTS)
+
+// THE FACE LINE for Second wind (the owner: effects never cover a boss's face): the highest point, in cqw from the box's
+// centre (negative = up), each of its parts reaches while it can be seen, from the same numbers the parts draw with.
+// windFace.test.js keeps every boss's wind at or below the centre: faces sit in the upper half.
+const r1 = (p) => p.reach || 1
+export const PART_TOP = {
+  heart: () => 30 - (15 * 1.1) / 2,
+  burst: (p, ctx = { scale: 1 }) => (p.y || 0) - 40 * r1(p) * ctx.scale * 1.2 - (13 * (p.size || 1) * Math.sqrt(ctx.scale)) / 2,
+  pulse: (p) => (p.y || 0) - ((p.size || 70) / 2) * 0.62 * 1.5, // visible to 62% of its radius; faint past 1.5x
+  gust: (p) => (p.y || 0) - ((22 + 8 * ((p.n || 3) - 1) + 2.5) / 100) * (p.size || 110) * 1.1,
+  glint: (p) => (p.y || 0) - 40 * (p.spread ?? 1),
+  rise: (p) => (p.to ?? -70) - 20 - (11 * (p.size || 1) * 1.1) / 2,
+  drops: (p) => Math.min(p.from ?? -58, p.to ?? 52) - (12 * (p.size || 1)) / 2,
+  dust: (p) => (p.y || 0) - (14 * 1.8 * 0.7) / 2, // its highest puff ends at p.y; the glow ends at 70% of it
+}

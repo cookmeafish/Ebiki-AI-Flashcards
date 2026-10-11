@@ -17,7 +17,7 @@ export default {
       heavy: [['pull', { n: 12, glyph: 'skull' }], ['ring', { color: '#5dff9e', scale: 2.6, width: 6 }], ['quake', { n: 2, color: '#2bd46f' }]],
       block: [['sigil', { sides: 5, rot: 36, turn: 72 }], ['shards', { n: 8, color: '#5dff9e' }]],
       shield: [['bubble', {}], ['deflect', { n: 5, glyph: 'skull' }]],
-      wind: [['heart', {}], ['rise', { n: 8, glyph: 'wisp', color: '#b8ffd4', size: 0.6 }], ['gust', { n: 2, color: '#5dff9e', turn: 100 }]],
+      wind: [['heart', {}], ['rise', { n: 8, glyph: 'wisp', color: '#b8ffd4', size: 0.6, from: 34, to: 24 }], ['gust', { n: 2, color: '#5dff9e', turn: 100, y: 28, size: 50 }]],
       body: { hit: 'flicker', crit: 'jolt', sharpen: 'split', strike: 'cast', heavy: 'loom', block: 'jar', shield: 'rebuff', wind: 'shrink', ko: 'unbound' },
   },
   assault: { travel: 'orb', impact: 'curse' }, // a necrotic orb and a curse sigil burned onto your heart

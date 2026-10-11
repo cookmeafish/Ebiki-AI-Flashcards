@@ -17,7 +17,7 @@ export default {
       heavy: [['pillar', { width: 0.6, color: '#38b6ff' }], ['drops', { n: 16, glyph: 'drop', size: 0.5 }], ['quake', { n: 2, color: '#38b6ff' }]],
       block: [['sigil', { sides: 9, turn: 40 }], ['splat', { n: 6, color: '#e8f8ff' }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'drop' }]],
-      wind: [['heart', {}], ['gust', { n: 3, color: '#9fdcff', turn: -60 }]],
+      wind: [['heart', {}], ['gust', { n: 3, color: '#9fdcff', turn: -60, y: 28, size: 50 }]],
       body: { hit: 'wobble', crit: 'knock', sharpen: 'gash', strike: 'surge', heavy: 'charge', block: 'reel', shield: 'skid', wind: 'sway', ko: 'founder' },
   },
   assault: { travel: 'wave', impact: 'flood' }, // a tide rolls out and the screen floods

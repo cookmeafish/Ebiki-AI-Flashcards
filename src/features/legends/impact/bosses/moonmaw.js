@@ -17,7 +17,7 @@ export default {
       heavy: [['moonmawGale', {}], ['claws', { n: 3, angle: -35, color: '#f2edff' }], ['quake', { n: 2, color: '#c9b8ff' }]],
       block: [['sigil', { sides: 12, rot: 15, turn: -45 }], ['burst', { n: 6, glyph: 'crescent', size: 0.6 }]],
       shield: [['bubble', {}], ['deflect', { n: 5, glyph: 'crescent' }]],
-      wind: [['heart', {}], ['gust', { n: 3, color: '#f2edff', turn: 90 }]],
+      wind: [['heart', {}], ['gust', { n: 3, color: '#f2edff', turn: 90, y: 28, size: 50 }]],
       body: { hit: 'reel', crit: 'whiplash', sharpen: 'gash', strike: 'swipe', heavy: 'moonmawWingbeat', block: 'recoil', shield: 'glance', wind: 'dim', ko: 'totality' },
   },
   assault: { travel: 'lunge', impact: 'bite' }, // the maw lunges at the camera and snaps shut

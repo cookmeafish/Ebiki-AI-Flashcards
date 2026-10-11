@@ -17,7 +17,7 @@ export default {
       heavy: [['pull', { n: 16, glyph: 'bubble' }], ['scream', { n: 3, color: '#ff5cf0', inward: true }], ['quake', { n: 2, color: '#c23cff' }]],
       block: [['sigil', { sides: 8, rot: 22, turn: -80 }], ['burst', { n: 8, glyph: 'bubble', size: 0.6 }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'bubble', from: 'side' }]],
-      wind: [['heart', {}], ['pulse', { color: '#ff5cf0' }], ['rise', { n: 5, glyph: 'bubble', size: 0.4 }]],
+      wind: [['heart', {}], ['pulse', { color: '#ff5cf0', y: 26, size: 44 }], ['rise', { n: 5, glyph: 'bubble', size: 0.4, from: 34, to: 24 }]],
       body: { hit: 'wobble', crit: 'twirl', sharpen: 'split', strike: 'surge', heavy: 'loom', block: 'rebound', shield: 'rebuff', wind: 'sway', ko: 'popped' },
   },
   assault: { travel: 'shadow', impact: 'frost', tint: '#7b5cff' }, // nightmare dark creeps in from the corners

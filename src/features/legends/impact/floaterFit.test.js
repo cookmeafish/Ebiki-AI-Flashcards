@@ -2,7 +2,7 @@
 // the normal and the compact arena, stays inside the arena card at its highest and over the head where it can (two
 // lines at 26 px stood above the card: "-5 Bound!" on Cerberus, "-4 アンコール！" on the Showman, 51 px out).
 import { describe, it, expect } from 'vitest'
-import { floaterFit, floaterLines, floaterBreaks, floaterEm, FLOATER, FLOATER_POP_CSS } from './labelFit'
+import { floaterFit, floaterLines, floaterBreaks, floaterEm, floaterShorter, FLOATER, FLOATER_POP_CSS } from './labelFit'
 import { BOSS } from '../BossArena'
 import { headroomPx } from '../art'
 import { RAID_ABILITY, RAID_ORDER } from '../raid'
@@ -45,15 +45,15 @@ describe('ability floaters', () => {
     it(`stay inside the arena card at their highest, at a readable size (${box} px box)`, () => {
       const head = headroomPx(box)
       for (const f of floaters) {
-        const { fontSize, maxWidth, bottom } = floaterFit(f.text, box, f.base, head)
+        const { fontSize, maxWidth, bottom, text } = floaterFit(f.text, box, f.base, head)
         const what = `${f.lang} ${f.motif} ${f.fx} "${f.text}" @${box}`
         expect(fontSize, what).toBeGreaterThanOrEqual(FLOATER.minPx)
         expect(fontSize, what).toBeLessThanOrEqual(f.base)
         expect(bottom, what).toBeGreaterThanOrEqual(0)
-        expect(bottom + reachOf(f.text, fontSize, maxWidth), what).toBeLessThanOrEqual(box + head - FLOATER.margin + 0.01)
+        expect(bottom + reachOf(text, fontSize, maxWidth), what).toBeLessThanOrEqual(box + head - FLOATER.margin + 0.01)
         // every word fits one line (never broken: keep-all), or at the floor a little wider than the room (measured at the
         // pop's 1.25 peak, so at rest it still fits the box and its headroom): 15%, a long katakana word 25%
-        for (const w of floaterBreaks(f.text).split(/[\s\u200b]+/)) expect(floaterEm(w) * fontSize, `${what} "${w}"`).toBeLessThanOrEqual(maxWidth * (fontSize === FLOATER.minPx ? (/[\u3040-\u30ff\u4e00-\u9fff]/u.test(w) ? 1.25 : 1.15) : 1) + 0.01)
+        for (const w of floaterBreaks(text).split(/[\s\u200b]+/)) expect(floaterEm(w) * fontSize, `${what} "${w}"`).toBeLessThanOrEqual(maxWidth * (fontSize === FLOATER.minPx ? (/[\u3040-\u30ff\u4e00-\u9fff]/u.test(w) ? 1.25 : 1.15) : 1) + 0.01)
       }
     })
   }
@@ -70,14 +70,40 @@ describe('ability floaters', () => {
     const box = BOSS.arenaCompact
     let lowered = 0
     for (const f of floaters) {
-      const { fontSize, maxWidth, bottom } = floaterFit(f.text, box, f.base, headroomPx(box))
+      const { fontSize, maxWidth, bottom, text } = floaterFit(f.text, box, f.base, headroomPx(box))
       const what = `${f.lang} ${f.motif} ${f.fx} "${f.text}"`
       if (bottom >= box * FLOATER.bottom - 0.05) continue
       lowered++
       expect(fontSize, what).toBe(FLOATER.minPx)
-      expect(floaterLines(f.text, fontSize, maxWidth), what).toBeGreaterThan(1)
+      expect(floaterLines(text, fontSize, maxWidth), what).toBeGreaterThan(1)
     }
     expect(lowered).toBeLessThan(floaters.length / 5)
+  })
+  // The owner: never over the face. No floater of any boss in any language comes below FLOATER.lowest of the box (two
+  // lines at the floor on the compact arena): a longer one shows its first sentence there (the Chimera's "-3 Serpent
+  // falls! Serpent's Venom" came down to 40 to 60% of the box, over its faces).
+  for (const box of [BOSS.arena, BOSS.arenaCompact]) {
+    it(`never come below ${FLOATER.lowest * 100}% of the box, over the face (${box} px box)`, () => {
+      for (const f of floaters) {
+        const fit = floaterFit(f.text, box, f.base, headroomPx(box))
+        const what = `${f.lang} ${f.motif} ${f.fx} "${f.text}" @${box}`
+        expect(fit.bottom, what).toBeGreaterThanOrEqual(box * FLOATER.lowest)
+        // shortened only where the whole line would not sit, and then to its own first sentence(s), damage kept
+        if (fit.text !== f.text) {
+          expect(f.text.startsWith(fit.text), what).toBe(true)
+          if (/^-d/.test(f.text)) expect(fit.text, what).toMatch(/^-d/)
+        }
+      }
+    })
+  }
+  it('shortens to whole sentences, never to a bare number', () => {
+    expect(floaterShorter("-3 Serpent falls! Serpent's Venom")).toEqual(['-3 Serpent falls!'])
+    expect(floaterShorter('-3 ¡Cae la serpiente! Veneno de serpiente')).toEqual(['-3 ¡Cae la serpiente!'])
+    expect(floaterShorter('-3 蛇が倒れた！​蛇の毒')).toEqual(['-3 蛇が倒れた！'])
+    expect(floaterShorter('-3 蛇が倒れた！蛇の毒')).toEqual(['-3 蛇が倒れた！'])
+    expect(floaterShorter('Wail!')).toEqual([])
+    expect(floaterShorter('-4 Silenced!')).toEqual([])
+    expect(floaterShorter('-2.5 Hit! More')).toEqual(['-2.5 Hit!'])
   })
   it('Wail! stays over the Banshee head on both arenas', () => {
     for (const box of [BOSS.arena, BOSS.arenaCompact]) {

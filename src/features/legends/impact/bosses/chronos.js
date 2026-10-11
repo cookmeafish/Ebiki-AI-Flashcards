@@ -17,7 +17,7 @@ export default {
       heavy: [['quake', { n: 3 }], ['drops', { n: 18, glyph: 'grain', size: 0.45 }], ['crack', { n: 5 }], ['vignette', {}]],
       block: [['sigil', { sides: 12, turn: 60 }], ['sparks', { n: 12, color: '#fff2b0' }]],
       shield: [['bubble', {}], ['deflect', { n: 5 }]],
-      wind: [['heart', {}], ['gust', { n: 3, color: '#ffd27a', turn: -90 }]],
+      wind: [['heart', {}], ['gust', { n: 3, color: '#ffd27a', turn: -90, y: 28, size: 50 }]],
       body: { hit: 'clank', crit: 'stun', sharpen: 'nick', strike: 'rear', heavy: 'loom', block: 'jar', shield: 'rebuff', wind: 'dim', ko: 'timeStop' },
   },
   assault: { travel: 'swarm', impact: 'drain', glyph: 'gear' }, // a storm of gears, then time drains your heart away

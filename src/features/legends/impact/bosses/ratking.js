@@ -17,7 +17,7 @@ export default {
       heavy: [['ratkingIngot', {}], ['drops', { n: 14, glyph: 'coin', size: 0.5 }], ['quake', { n: 2 }]],
       block: [['sigil', { sides: 10, turn: 36 }], ['burst', { n: 10, glyph: 'coin', size: 0.5, spin: 900 }]],
       shield: [['bubble', {}], ['deflect', { n: 7, glyph: 'coin' }]],
-      wind: [['heart', {}], ['glint', { n: 8, color: '#ffe68a', size: 0.8 }]],
+      wind: [['heart', {}], ['glint', { n: 8, color: '#ffe68a', size: 0.8, y: 26, spread: 0.55 }]],
       body: { hit: 'clank', crit: 'jolt', sharpen: 'nick', strike: 'swipe', heavy: 'charge', block: 'rebound', shield: 'skid', wind: 'shrink', ko: 'dethroned' },
   },
   assault: { travel: 'shards', impact: 'blast', glyph: 'coin' }, // a volley of hard coins and a gold burst

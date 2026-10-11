@@ -17,7 +17,7 @@ export default {
       heavy: [['chimeraTrio', {}], ['claws', { n: 5, angle: 15 }], ['quake', { n: 1 }]],
       block: [['sigil', { sides: 3, rot: 180, turn: -60 }], ['sparks', { n: 10, color: '#ffb36a' }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'claw' }]],
-      wind: [['heart', {}], ['rise', { n: 8, glyph: 'ember', size: 0.35, color: '#ffb36a' }]],
+      wind: [['heart', {}], ['rise', { n: 8, glyph: 'ember', size: 0.35, color: '#ffb36a', from: 34, to: 24 }]],
       body: { hit: 'reel', crit: 'knock', sharpen: 'carve', strike: 'lunge', heavy: 'pounce', block: 'stumble', shield: 'glance', wind: 'falter', ko: 'threeRoars' },
   },
   assault: { travel: 'lunge', impact: 'claws' }, // a pounce and three claw rakes across the screen

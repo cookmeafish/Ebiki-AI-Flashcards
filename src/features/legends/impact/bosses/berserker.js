@@ -17,7 +17,7 @@ export default {
       heavy: [['claws', { n: 4, angle: 30, color: '#ff4a1a' }], ['quake', { n: 3, rubble: 8 }], ['rise', { n: 12, glyph: 'ember', size: 0.4 }]],
       block: [['sigil', { sides: 4, turn: 45 }], ['sparks', { n: 16, color: '#ffb36a' }]],
       shield: [['bubble', {}], ['deflect', { n: 4, glyph: 'axe' }]],
-      wind: [['heart', {}], ['dust', { n: 8, color: '#ff8a5a' }], ['gust', { n: 2, color: '#ff4a1a', turn: 160 }]],
+      wind: [['heart', {}], ['dust', { n: 8, color: '#ff8a5a', y: 10 }], ['gust', { n: 2, color: '#ff4a1a', turn: 160, y: 28, size: 50 }]],
       body: { hit: 'reel', crit: 'buckle', sharpen: 'carve', strike: 'slam', heavy: 'overreach', block: 'stumble', shield: 'ricochet', wind: 'falter', ko: 'lastStand' },
   },
   assault: { travel: 'thrown', impact: 'crush' }, // a spinning axe hurled at you, the ground caves in

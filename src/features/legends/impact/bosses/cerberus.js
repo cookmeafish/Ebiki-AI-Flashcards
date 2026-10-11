@@ -18,7 +18,7 @@ export default {
       heavy: [['rise', { n: 14, glyph: 'flame', size: 0.6, color: '#ff8a3a' }], ['claws', { n: 3, angle: 20, color: '#3fffd5' }], ['quake', { n: 2, color: '#ff8a3a' }]],
       block: [['sigil', { sides: 3, turn: 60 }], ['burst', { n: 6, glyph: 'chain', size: 0.6, spin: 300 }]],
       shield: [['bubble', {}], ['deflect', { n: 3, glyph: 'chain', from: 'side' }], ['sparks', { n: 6, color: '#ff8a3a' }]],
-      wind: [['heart', {}], ['rise', { n: 6, glyph: 'flame', size: 0.5, color: '#3fffd5' }], ['gust', { n: 3, color: '#3fffd5', turn: -75 }]],
+      wind: [['heart', {}], ['rise', { n: 6, glyph: 'flame', size: 0.5, color: '#3fffd5', from: 34, to: 24 }], ['gust', { n: 3, color: '#3fffd5', turn: -75, y: 28, size: 50 }]],
       body: { hit: 'reel', crit: 'cerberusKnockback', sharpen: 'gash', strike: 'cerberusLunge', heavy: 'cerberusPounce', block: 'cerberusCrouch', shield: 'ricochet', wind: 'falter', ko: 'unchained' },
   },
   assault: { travel: 'chain', impact: 'bite' }, // the chain lashes out, three jaws bite down

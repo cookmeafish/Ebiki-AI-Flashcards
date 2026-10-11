@@ -17,7 +17,7 @@ export default {
       heavy: [['cleave', {}], ['rise', { n: 10, glyph: 'wisp', size: 0.7 }], ['quake', { n: 2, color: '#3fb8d6' }]],
       block: [['sigil', { sides: 7, turn: -51 }], ['sparks', { n: 8, color: '#bff4ff' }]],
       shield: [['bubble', {}], ['deflect', { n: 4, glyph: 'wisp', from: 'side' }]],
-      wind: [['heart', {}], ['pulse', { color: '#6fe3ff' }]],
+      wind: [['heart', {}], ['pulse', { color: '#6fe3ff', y: 26, size: 44 }]],
       body: { hit: 'reel', crit: 'whiplash', sharpen: 'sever', strike: 'reaperChop', heavy: 'reaperCleave', block: 'recoil', shield: 'glance', wind: 'dim', ko: 'reaped' },
   },
   assault: { travel: 'arc', impact: 'cut' }, // the scythe swings across the card and leaves a gash

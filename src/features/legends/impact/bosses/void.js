@@ -17,7 +17,7 @@ export default {
       heavy: [['voidRend', {}], ['shards', { n: 14, color: '#b067ff', inward: true }], ['quake', { n: 3, color: '#b067ff' }]],
       block: [['sigil', { sides: 8, rot: 0, turn: 270 }], ['shards', { n: 10, color: '#e3c9ff', inward: true }]],
       shield: [['bubble', {}], ['deflect', { n: 7, glyph: 'star4', from: 'side' }]],
-      wind: [['heart', {}], ['gust', { n: 4, color: '#e3c9ff', turn: 200 }]],
+      wind: [['heart', {}], ['gust', { n: 4, color: '#e3c9ff', turn: 200, y: 28, size: 50 }]],
       body: { hit: 'flicker', crit: 'jolt', sharpen: 'split', strike: 'surge', heavy: 'quake', block: 'reel', shield: 'ricochet', wind: 'shrink', ko: 'eventHorizon' },
   },
   assault: { travel: 'orb', impact: 'drain' }, // a black hole that swallows your heart's light

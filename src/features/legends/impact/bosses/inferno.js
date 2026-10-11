@@ -17,7 +17,7 @@ export default {
       heavy: [['infernoGeyser', {}], ['drops', { n: 12, glyph: 'flame', size: 0.55 }], ['quake', { n: 2, color: '#ffe08a' }]],
       block: [['infernoBackfire', {}], ['sigil', { sides: 6, turn: -30 }], ['burst', { n: 8, glyph: 'ember', size: 0.5 }]],
       shield: [['infernoGout', { angle: -6, reach: 0.55 }], ['bubble', {}], ['deflect', { n: 6, glyph: 'flame', from: 'side' }]],
-      wind: [['heart', {}], ['gust', { n: 3, color: '#ffe08a', turn: -120 }]],
+      wind: [['heart', {}], ['gust', { n: 3, color: '#ffe08a', turn: -120, y: 28, size: 50 }]],
       body: { hit: 'flinch', crit: 'stun', sharpen: 'nick', strike: 'lunge', heavy: 'charge', block: 'jar', shield: 'skid', wind: 'dim', ko: 'gutterOut' },
   },
   assault: { travel: 'beam', impact: 'burn' }, // fire breath and a wall of flame from below
