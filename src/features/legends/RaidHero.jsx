@@ -80,6 +80,13 @@ export default function RaidHero({ onOpen }) {
   if (stored === undefined) return <Skeleton boxRef={boxRef} t={t} />
 
   const s = raidHeroState({ stored, date: todayKey(), dueIds: Array.isArray(due) ? due : null, due: Array.isArray(due) ? null : due, anki, hasKey: !!ctx.ai?.hasKey, runSize: raidRunSize(featureCfg(ctx, LEGENDS_ID).raidRunSize) })
+  // A boss a newer build added: a plain note, no art and no Fight button (it is never fought here as another boss).
+  if (s.kind === 'newer') return (
+    <div ref={boxRef} data-practice-hero="raid" data-raid-newer="" role="status" style={{ borderRadius: RADIUS.xl, marginBottom: 20, background: STAGE, color: C.white, padding: '18px 22px', display: 'grid', gap: 6 }}>
+      <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 13, letterSpacing: '.12em', textTransform: 'uppercase', color: `color-mix(in srgb, ${C.white} 70%, transparent)` }}>{t('lg_raidTile')}</div>
+      <div style={{ fontSize: 15, fontWeight: 800 }}>⬆️ {t('lg_raidNewerBoss')}</div>
+    </div>
+  )
   const beaten = s.kind === 'beaten'
   const shownMotif = beaten && s.beaten ? s.beaten : s.motif
   const tint = raidTint(shownMotif, C.danger)

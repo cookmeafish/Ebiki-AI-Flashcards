@@ -17,5 +17,7 @@ export { buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_JOBS, SCENE_M
 export { matchTyped, leaksAnswer, sanitizeQuestions, normalizeAnswer, missesFromResults } from './grade'
 export { learnerContextText, learnerContextFor } from './learnerContextUse'
 export { studyBlock, studyBlockText } from './studyGuard'
-export { fightCtx, fightRules, rulesPatch, fightSubject, fightWords, isImmersive, generationKey, ensureLetterCue, stripLetterSkeleton, questionAnswersOf, FIGHT_STYLES, ladderOn } from './fightSettings'
+export { withPoolChoices, withPoolChoicesAll } from './fightChoices'
+export { checkChoices, choiceCheckItems, applyChoiceCheck } from './choiceCheck'
+export { fightCtx, fightRules, rulesPatch, fightSubject, fightWords, isImmersive, generationKey, ensurePrefixHint, stripLetterHints, questionAnswersOf, FIGHT_STYLES, ladderOn } from './fightSettings'
 export { default as TierChip } from './TierChip'

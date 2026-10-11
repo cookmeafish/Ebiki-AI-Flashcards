@@ -6,7 +6,7 @@
 // Bosses are balanced WITHOUT powers, so a power only ever makes a fight easier. Anki stays honest: a power that helps
 // with the QUESTION (50:50, hint) records a right answer as Hard (it is graded like a hint); the others change only
 // the fight.
-//   unlock   different raid bosses beaten needed to unlock it (the roster has 26: the last one unlocks with all of them)
+//   unlock   different raid bosses beaten needed to unlock it (the roster has 27: the last one unlocks with all of them)
 //   kind     aid (helps with the question) | survival (hearts) | offense (damage) | siege (between runs) | passive
 //            (works by being brought, no button)
 //   normal   only on a raid's own question (never on an attack or a question an ability inserted)
@@ -15,6 +15,7 @@
 // stop a heal; late ones last a 3-question window or change the whole fight, because late bosses are 2 to 4 times
 // bigger. A window power still needs RIGHT answers to do anything (no power ever turns a wrong answer right).
 import { DAMAGE } from './abilities/_rules'
+import { longerPrefix } from '../../utils/prefixHint'
 
 export const POWERS = {
   shield: { icon: '🛡', kind: 'survival', unlock: 1, normal: false },
@@ -27,8 +28,8 @@ export const POWERS = {
   siphon: { icon: '🩸', kind: 'survival', unlock: 17, normal: true, window: true },
   ward: { icon: '🔰', kind: 'survival', unlock: 19, normal: false },
   momentum: { icon: '🔥', kind: 'offense', unlock: 21, normal: true, window: true },
-  fury: { icon: '💢', kind: 'offense', unlock: 23, normal: true, window: true },
-  steadfast: { icon: '⚓', kind: 'passive', unlock: 26, normal: false },
+  fury: { icon: '💢', kind: 'offense', unlock: 24, normal: true, window: true },
+  steadfast: { icon: '⚓', kind: 'passive', unlock: 27, normal: false },
 }
 export const POWER_IDS = Object.keys(POWERS)
 // How many powers one fight may bring; Sharpen's extra damage; a window power's length in raid questions; Steadfast's
@@ -103,13 +104,39 @@ export const isFightPower = (id) => !!POWERS[id] && POWERS[id].kind !== 'siege' 
 
 // Different raid bosses beaten (trophies by motif; a boss beaten twice counts once).
 export const bossesBeaten = (state) => new Set((Array.isArray(state?.trophies) ? state.trophies : []).map((x) => x?.motif).filter((m) => typeof m === 'string' && m)).size
-export const unlockedPowers = (beaten) => POWER_IDS.filter((id) => beaten >= POWERS[id].unlock)
-// The next power to unlock (for the intro and the result screen): { id, beaten } or null.
-export const nextUnlock = (beaten) => { const id = POWER_IDS.find((x) => POWERS[x].unlock > beaten); return id ? { id, beaten: POWERS[id].unlock } : null }
+// UNLOCKED FOR GOOD: a power once unlocked never locks again, whatever later changes the thresholds (a new raid boss
+// raises the last ones: the Horseman moved Fury 23 -> 24 and Steadfast 26 -> 27) or the trophy list (shapeRaid keeps
+// the newest 200). The raid state keeps a HIGH-WATER MARK, `powers` (the ids unlocked so far): shapeRaid writes the
+// union of it and what the thresholds give now, so every raid save carries it forward; updateRaid reads the stored
+// state fresh before each write (another computer's unlocks are in it) and never writes after a failed read, so the
+// list only grows. A state with no `powers` (written before this rule, or by an older build, which drops the field)
+// is seeded from the thresholds the builds before it used (PAST_UNLOCKS), so nobody loses what an older build gave.
+// Adding a raid boss: append the table being replaced here when a threshold moves.
+export const PAST_UNLOCKS = Object.freeze([
+  Object.freeze({ fury: 23, steadfast: 26 }), // the 26-boss roster (1.38.0 to 1.51.0)
+])
+// The kept unlocks of a raid state: its stored `powers` (known ids, in POWER_IDS order), else the older tables' seed.
+export function keptPowers(state) {
+  const raw = state && typeof state === 'object' ? state.powers : undefined
+  if (Array.isArray(raw)) return POWER_IDS.filter((id) => raw.includes(id))
+  const beaten = bossesBeaten(state)
+  return POWER_IDS.filter((id) => PAST_UNLOCKS.some((tb) => Number.isFinite(tb[id]) && beaten >= tb[id]))
+}
+// A raid state's unlock PROGRESS: { beaten, kept }. Every function below takes it, or a plain number of different
+// bosses beaten (a test fight, an older caller: nothing kept).
+export const powerProgress = (state) => ({ beaten: bossesBeaten(state), kept: keptPowers(state) })
+const progressOf = (p) => (typeof p === 'number'
+  ? { beaten: Number.isFinite(p) ? p : 0, kept: [] }
+  : { beaten: Number.isFinite(Number(p?.beaten)) ? Number(p.beaten) : 0, kept: Array.isArray(p?.kept) ? p.kept : [] })
+// Different bosses beaten, from a progress or a number.
+export const beatenOf = (p) => progressOf(p).beaten
+export const unlockedPowers = (p) => { const { beaten, kept } = progressOf(p); return POWER_IDS.filter((id) => beaten >= POWERS[id].unlock || kept.includes(id)) }
+// The next power to unlock (for the intro and the result screen): { id, beaten } or null. A kept power is skipped.
+export const nextUnlock = (p) => { const open = unlockedPowers(p); const id = POWER_IDS.find((x) => !open.includes(x)); return id ? { id, beaten: POWERS[id].unlock } : null }
 
 // THE LOADOUT: the powers brought into fights. From the setting (known, unlocked, no repeats, at most LOADOUT_MAX);
 // no setting yet = the first LOADOUT_MAX unlocked. An explicit empty list stays empty (bringing none is a choice).
-// `max`: the resolved loadoutMax (a variant may change it).
+// `max`: the resolved loadoutMax (a variant may change it). `beaten`: a powerProgress, or a number of bosses beaten.
 export function shapeLoadout(raw, beaten, max = LOADOUT_MAX) {
   const open = unlockedPowers(beaten)
   if (!Array.isArray(raw)) return open.slice(0, max)
@@ -127,7 +154,10 @@ export function toggleLoadout(loadout, id, beaten, max = LOADOUT_MAX) {
 // `asChoice`: it is shown as choices, `phase`: QuizRunner's ('answer' only), `loadout`: the powers brought, `used`:
 // the ones this fight already used, `usedOnQ`: a power already used on this question, `livesLost`: this fight's,
 // `armed`: the powers armed now ({ shield, sharpen, ward } true, window powers: questions left).
-export function powerUsable(id, { q = {}, asChoice = false, phase = 'answer', loadout = [], used = [], usedOnQ = false, livesLost = 0, armed = {} } = {}) {
+// `isLanguage` + `clue`: the Hint shows letters only in a language mode, and only on a question that shows its prefix
+// hint (`noHint` = its options could not keep to one: letters would pick the tile); a general mode's Hint is an
+// understanding CUE (powerClue), so it needs one.
+export function powerUsable(id, { q = {}, asChoice = false, phase = 'answer', loadout = [], used = [], usedOnQ = false, livesLost = 0, armed = {}, isLanguage = true, clue = '' } = {}) {
   const p = POWERS[id]
   if (!p || !isFightPower(id) || phase !== 'answer' || !loadout.includes(id) || used.includes(id) || usedOnQ) return false
   const reask = !!(q._attack || q._inserted || q._lastStand)
@@ -135,7 +165,7 @@ export function powerUsable(id, { q = {}, asChoice = false, phase = 'answer', lo
   // On the typed question it opens two choices; with the choices already on screen it narrows them to two (it was
   // greyed out on every question for a player who answers with choices).
   if (id === 'fifty') return !!q.alt && Array.isArray(q.alt.choices) && q.alt.choices.length > 2
-  if (id === 'hint') return !asChoice && q.kind !== 'choice' && !q.open && Array.isArray(q.accepted) && !!q.accepted[0]
+  if (id === 'hint') return !asChoice && q.kind !== 'choice' && !q.open && Array.isArray(q.accepted) && !!q.accepted[0] && (isLanguage ? !q.noHint : !!clue)
   if (id === 'shield') return !armed.shield
   if (id === 'sharpen') return !armed.sharpen && !asChoice
   if (id === 'wind') return livesLost > 0
@@ -185,13 +215,31 @@ export function fiftyFifty(alt, rnd = Math.random) {
   const keep = [right, wrong[Math.floor(rnd() * wrong.length) % wrong.length]].sort((a, b) => a - b)
   return { choices: keep.map((i) => choices[i]), answerIdx: keep.indexOf(right) }
 }
-// The hint: the first HALF of every word of the answer, the rest as dots ("buenos días" → "bue··· dí··"). Never only
-// the first letter: every typed question already carries that in its cue. A word of 2+ letters keeps one hidden.
-export const powerHint = (ans) => String(ans || '').split(/(\s+)/).map((w) => {
-  if (/^\s+$/.test(w)) return w
-  const chars = [...w]
-  const letters = chars.filter((ch) => /\p{L}/u.test(ch)).length
-  const show = letters < 2 ? letters : Math.min(letters - 1, Math.max(2, Math.ceil(letters / 2)))
-  let seen = 0
-  return chars.map((ch) => (!/\p{L}/u.test(ch) ? ch : seen++ < show ? ch : '·')).join('')
-}).join('')
+// The hint (LANGUAGE modes): the first HALF of every word of the answer, then "…" ("buenos días" → "bue… dí…"), one
+// engine with Study's retry hint (utils/prefixHint.js longerPrefix): never how many letters are left, a short word of
+// a phrase stays "…", an elision shows the word after it ("l'ea…"). A word too short for more keeps its first letter.
+export function powerHint(ans) {
+  const more = longerPrefix(ans, 0.5)
+  if (more) return more
+  const w = String(ans || '').trim()
+  const first = [...w].find((ch) => /\p{L}/u.test(ch)) || ''
+  return [...w].filter((ch) => /\p{L}/u.test(ch)).length > 1 ? `${first}…` : w
+}
+// The hint in a GENERAL mode (the question goal: understanding, never half the term): the card's own explanation with
+// the answer masked, a pointer to the idea ("A hardware-isolated area of a processor that keeps … away from the main
+// OS"). '' when masking leaves too little to help (under 4 words) or nothing was masked and the line IS the answer.
+export function powerClue(back, accepted = []) {
+  const line = String(back || '').split(/\r?\n| · /).map((l) => l.replace(/^[*_\s]*[\p{L} ]{1,24}[:：][*_\s]*/u, '').trim()).find(Boolean) || ''
+  if (!line) return ''
+  const fold = (x) => x.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  let out = line
+  for (const a of (accepted || []).map((x) => String(x || '').trim()).filter((x) => x.length >= 2).sort((x, y) => y.length - x.length)) {
+    const f = fold(out)
+    const k = fold(a)
+    let i = f.indexOf(k)
+    while (i >= 0) { out = `${out.slice(0, i)}…${out.slice(i + a.length)}`; i = fold(out).indexOf(k, i + 1) }
+  }
+  const words = out.replace(/…/g, ' ').split(/\s+/).filter((x) => /\p{L}|\p{N}/u.test(x))
+  if (words.length < 4) return ''
+  return out.length > 160 ? `${out.slice(0, 160).replace(/\s+\S*$/, '')}…` : out
+}

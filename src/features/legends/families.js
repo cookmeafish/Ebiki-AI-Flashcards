@@ -38,10 +38,11 @@ export const FAMILY_TREES = [
   { id: 'beastPit', top: 'chimera', links: { chimera: ['savanna'] } },
   { id: 'lastGate', top: 'cerberus', links: { cerberus: ['underworld'] } },
   { id: 'hive', top: 'swarmqueen', links: { swarmqueen: ['hive'] } },
+  { id: 'sleepyHollow', top: 'horseman', links: { horseman: ['garden', 'forest'] } },
 ]
 
 // Legends bosses with no raid boss of their own yet (no lines). i18n: lg_famTree_misfits, lg_famWhy_misfits.
-export const FAMILY_MISFITS = { id: 'misfits', motifs: ['forest', 'ice', 'swamp', 'lab', 'arcade', 'garden', 'mine', 'primeval'] }
+export const FAMILY_MISFITS = { id: 'misfits', motifs: ['ice', 'swamp', 'lab', 'arcade', 'mine', 'primeval'] }
 
 export const MAX_PARENTS = 3
 

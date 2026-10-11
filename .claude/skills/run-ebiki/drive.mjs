@@ -18,7 +18,7 @@ import { pathToFileURL } from 'url'
 const argv = process.argv.slice(2)
 const flag = (name, dflt = null) => { const i = argv.indexOf(name); return i > -1 ? (argv[i + 1] ?? true) : dflt }
 
-const APP_URL = flag('--url') || process.env.APP_URL || 'http://localhost:3000/'
+const APP_URL = flag('--url') || process.env.APP_URL || 'http://localhost:3001/'
 const SHOTS = path.join(flag('--shots') || process.env.SHOTS || path.join(os.tmpdir(), 'ebiki-drive-shots'), '/')
 const brief = argv.includes('--studio') ? (flag('--studio') === true ? 'Learn persuasion and negotiation' : flag('--studio')) : null
 

@@ -94,6 +94,13 @@ describe('replaceQuestion / storableQuestion / reshuffleChoices', () => {
     expect(storableQuestion({ ...q('a'), tier: 3 }).tier).toBe(3)
     expect('tier' in storableQuestion({ ...q('a'), tier: 'x' })).toBe(false)
   })
+  it('never saves a meaning form\'s options (meanings) as a word question\'s', () => {
+    const s = storableQuestion({ ...q('a'), choices: ['dog', 'cat', 'hat', 'pig'], answerIdx: 0, choiceMode: 'meaning', choicePrompt: 'What does "perro" mean?' })
+    expect(s.choices).toBe(null)
+    expect(s.answerIdx).toBe(null)
+    expect('choicePrompt' in s).toBe(false)
+    expect(storableQuestion({ ...q('a'), choices: ['perro', 'pato', 'pan'], answerIdx: 0 }).choices).toEqual(['perro', 'pato', 'pan'])
+  })
   it('fixes the saved copy of one question', () => {
     const bank = addSet(null, key, [q('a1'), q('a2')], 1)
     const id = bank.sets[0].id

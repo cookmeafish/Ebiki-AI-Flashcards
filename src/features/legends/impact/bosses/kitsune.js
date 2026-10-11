@@ -10,9 +10,12 @@ export default {
       hit: [['burst', { n: 7, spin: 200, size: 0.7 }], ['sparks', { n: 6, color: '#ffd6e0' }]],
       crit: [['orbit', { n: 3, color: '#7fe8ff' }], ['burst', { n: 12, spin: 300, size: 0.8 }], ['starburst', { points: 9, inner: 0.55, spin: 160 }]],
       strike: [['kitsuneWisps', {}], ['orbit', { n: 5, color: '#7fe8ff' }], ['vignette', { color: '#ff5a7a' }]],
-      ko: [['speedlines', { color: '#7fe8ff', n: 42, rot: 23 }], ['flash', { big: true }], ['tails', { at: 150 }], ['orbit', { at: 1000, n: 6, out: true, color: '#7fe8ff' }],
-        ['drops', { at: 1150, n: 26, glyph: 'petal', size: 0.6 }], ['ring', { at: 1450, color: '#7fe8ff', scale: 2.6, dashed: true }], ['burst', { at: 1450, n: 16, spin: 400, reach: 1.4, size: 0.7 }]],
-      koMs: 2400, koPeak: 1450,
+      // her knockout (no spin): frozen on the blow; fox-fire flames rise all round her silhouette and gutter out; at
+      // the climax the nine tails burst into flame, her fox spirit tears away upward, a shockwave and a storm of petals
+      ko: [['speedlines', { color: '#7fe8ff', n: 42, rot: 23 }], ['flash', { big: true }], ['kitsuneFlare', { at: 250 }],
+        ['tails', { at: 1300, ms: 1100 }], ['kitsuneSpirit', { at: 1400 }], ['ring', { at: 1400, color: '#ff5a7a', scale: 2.6 }], ['ring', { at: 1480, color: '#7fe8ff', scale: 2, dashed: true, width: 2 }],
+        ['burst', { at: 1400, n: 18, spin: 400, reach: 1.5, size: 0.7 }], ['drops', { at: 1500, n: 28, glyph: 'petal', size: 0.6 }]],
+      koMs: 2500, koPeak: 1400,
       sharpen: [['blade', { angle: -30, n: 2, color: '#7fe8ff', fan: 36 }], ['drops', { n: 8, glyph: 'petal', size: 0.45 }]],
       heavy: [['kitsuneSweep', {}], ['rise', { n: 12, glyph: 'flame', color: '#7fe8ff', size: 0.6 }], ['quake', { n: 2, color: '#ff5a7a' }]],
       block: [['sigil', { sides: 9, rot: 20, turn: 80 }], ['drops', { n: 6, glyph: 'petal', size: 0.5 }]],

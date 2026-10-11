@@ -43,6 +43,8 @@ export const GLYPHS = {
   petal: { d: 'M12 22.2C6.6 15.8 5.6 8.6 9 2.2l3 2.8 3-2.8c3.4 6.4 2.4 13.6-3 20Z', inner: 'M11.4 8h1.2v10h-1.2Z' },
   eye: { d: 'M1.8 12C5.6 5.2 18.4 5.2 22.2 12 18.4 18.8 5.6 18.8 1.8 12Z', inner: 'M12 7.6a4.4 4.4 0 1 0 .01 0Z' },
   star4: { d: 'M12 1.5c.8 6.6 3.3 9.6 10.5 10.5-7.2.9-9.7 3.9-10.5 10.5-.8-6.6-3.3-9.6-10.5-10.5 7.2-.9 9.7-3.9 10.5-10.5Z' },
+  // The Headless Horseman's carved jack-o'-lantern (slanted eyes and a jagged grin cut out in the accent color).
+  pumpkin: { d: 'M12 5.6C16.6 4.6 21.6 7 21.6 13.2C21.6 18.8 17.4 21.6 12 21.6C6.6 21.6 2.4 18.8 2.4 13.2C2.4 7 7.4 4.6 12 5.6Z M11 5.6C10.8 3.8 11.4 2.4 13 1.8L13.6 3C12.6 3.6 12.4 4.6 12.6 5.6Z', inner: 'M6.4 10.4L10.2 12L7.4 14Z M17.6 10.4L13.8 12L16.6 14Z M6.2 15.4L7.8 16.2L9 15.2L10.4 16.6L12 15.8L13.6 16.6L15 15.2L16.2 16.2L17.8 15.4C17 18 14.6 19.4 12 19.4C9.4 19.4 7 18 6.2 15.4Z' },
   // Shared secondary particles (never a boss's own glyph): sand, bolts, rubble, bones, embers.
   grain: { d: 'M12 6a6 6 0 1 0 .01 0Z' },
   nut: { d: 'M12 2.5 20.2 7.2v9.6L12 21.5l-8.2-4.7V7.2Z M12 8.2a3.8 3.8 0 1 0 .01 0Z' },
@@ -51,7 +53,7 @@ export const GLYPHS = {
   ember: { d: 'M12 2.5 15.5 12 12 21.5 8.5 12Z' },
 }
 // The secondary particles above are shared; a boss's own glyph is one of these.
-export const BOSS_GLYPHS = ['gear', 'note', 'feather', 'fist', 'bat', 'scale', 'claw', 'coin', 'card', 'wisp', 'drop', 'skull', 'chain', 'bolt', 'bubble', 'axe', 'flame', 'hex', 'crescent', 'fang', 'shard', 'needle', 'candy', 'petal', 'eye', 'star4']
+export const BOSS_GLYPHS = ['gear', 'note', 'feather', 'fist', 'bat', 'scale', 'claw', 'coin', 'card', 'wisp', 'drop', 'skull', 'chain', 'bolt', 'bubble', 'axe', 'flame', 'hex', 'crescent', 'fang', 'shard', 'needle', 'candy', 'petal', 'eye', 'star4', 'pumpkin']
 export const GLYPH_NAMES = Object.keys(GLYPHS)
 
 // One glyph as inline SVG (fill = color, inner = accent), with a thin dark outline so it reads over art of its own color.

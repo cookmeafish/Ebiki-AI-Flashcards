@@ -1,7 +1,7 @@
 // THE RAID HERO (pure; named heroState.js, not raidHero.js: on Windows that resolves the same as RaidHero.jsx): what the Practice hub's big raid card shows, from today's stored raid and the deck's due count.
 // Never writes anything: raidToday() only computes today's state the way the fight will start it (the siege brought
 // forward: hearts back, the boss healed a little per day). RaidHero.jsx renders it.
-import { RAID, RAID_ORDER, RAID_ABILITY, raidToday, raidMotif, raidBossNumber, isRaidMotif, siegeOf, raidAsked } from './raid'
+import { RAID, RAID_ORDER, RAID_ABILITY, raidToday, raidMotif, raidBossNumber, isRaidMotif, siegeOf, raidAsked, isNewerRaidBoss } from './raid'
 import { raidProfile } from './raidProfiles'
 
 // Each raid boss's signature color, picked from its own drawing (its fire, eyes, gold...): the hero card's stage is
@@ -12,7 +12,7 @@ export const RAID_TINT = {
   chimera: '#ee4a18', ratking: '#c38a1e', showman: '#2fc489', reaper: '#3fd6ff', leviathan: '#ff5a2a', lich: '#4dff96',
   cerberus: '#3fe0c0', tempest: '#2f8fd0', dreamer: '#ff3df0', berserker: '#ff4318', inferno: '#ff5a14',
   swarmqueen: '#eb951a', moonmaw: '#b8a8ff', hydra: '#6fb6f0', kaleido: '#ff7a1a', puppeteer: '#ff2b3d',
-  sugarqueen: '#ff3d8b', kitsune: '#e0233e', ophanim: '#ffc650', void: '#9a5cff',
+  sugarqueen: '#ff3d8b', kitsune: '#e0233e', ophanim: '#ffc650', void: '#9a5cff', horseman: '#f08a1c',
 }
 export const raidTint = (motif, fallback) => RAID_TINT[motif] || fallback
 
@@ -27,9 +27,11 @@ export const raidUses = (dueNotes, runSize = RAID.runSize) => Math.min(Math.max(
 // beatenToday, healthKnown }:
 //   kind: 'counting' (due not known yet) | 'ready' (a fight is possible) | 'few' (a FRESH boss needs minCards due) |
 //         'none' (0 due) | 'beaten' (only with RAID.nextBossSameDay off: `motif`
-//         is tomorrow's boss, `beaten` today's) | 'anki' | 'nokey' | 'unknown' (count failed)
+//         is tomorrow's boss, `beaten` today's) | 'anki' | 'nokey' | 'unknown' (count failed) | 'newer' (the stored boss
+//         comes from a newer build: update Ebiki to fight it; `motif` is '')
 //   runs: the runs (runSize each) today's due cards make; heal: what the boss heals each new day; beatenToday: a boss beaten today (the next is out).
 export function raidHeroState({ stored = null, date, due = null, dueIds = null, anki = true, hasKey = true, runSize = RAID.runSize } = {}) {
+  if (isNewerRaidBoss(stored)) return { kind: 'newer', motif: '', num: 0, total: RAID_ORDER.length, ability: '', hp: 0, damage: 0, left: 0, attempts: 0, due: null, uses: 0, runs: 0, hearts: 0, heartsMax: 0, heal: 0, healthKnown: false, beaten: '', beatenToday: '' }
   const motif = raidMotif(stored)
   const asked = new Set(raidAsked(stored, date).map(String))
   const count = Array.isArray(dueIds) ? dueIds.filter((id) => !asked.has(String(id))).length : due

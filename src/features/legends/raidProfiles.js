@@ -41,6 +41,7 @@ export const RAID_PROFILES = {
   reaper: { hp: 60, hearts: 5, heal: 4 },
   leviathan: { hp: 70, hearts: 6, heal: 5 },
   lich: { hp: 56, hearts: 6, heal: 4 },
+  horseman: { hp: 62, hearts: 6, heal: 4 },
   cerberus: { hp: 64, hearts: 6, heal: 4 },
   tempest: { hp: 66, hearts: 6, heal: 5 },
   dreamer: { hp: 70, hearts: 6, heal: 3 },

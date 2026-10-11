@@ -62,9 +62,10 @@ export default {
 .lg-boss[data-fx="volley"] [class*="lg-ab-rally-"] { transform-box: fill-box; transform-origin: center; animation: lgrKitsuneRallyPop 320ms cubic-bezier(.22,1,.36,1) both }
 /* THE ATTACK ON THE PLAYER (impact/assault.js orb + burn; data-assault-on, the fire leaves at 120 ms and lands near
    520 ms): she draws her fox-fire ring in tight, then FLINGS it open as the orb leaves for your heart, her face turning
-   after it with a smile and the tails flaring behind her. Inner wrappers (-headA/-hairA/-tailsA/-firesA). */
+   after it with a smile and the tails flaring behind her. Inner wrappers (-headA/-hairA/-tailsA/-firesA). Her head only TILTS and scales on its neck joint (the wrappers pivot at
+   view-box 60 70): a translate parts it from the neck (dev/legends-gallery/check-joints.mjs). */
 @keyframes lgrKitsuneGather { 0% { transform: none } 7% { transform: scale(.72) rotate(-70deg) } 15% { transform: scale(1.4) rotate(30deg) } 32% { transform: scale(1.12) rotate(120deg) } 100% { transform: rotate(360deg) } }
-@keyframes lgrKitsuneSend { 0% { transform: none } 7% { transform: rotate(-7deg) } 16% { transform: rotate(10deg) translateX(3%) scale(1.07) } 45% { transform: rotate(7deg) translateX(2%) scale(1.04) } 100% { transform: none } }
+@keyframes lgrKitsuneSend { 0% { transform: none } 7% { transform: rotate(-7deg) } 16% { transform: rotate(10deg) scale(1.04) } 45% { transform: rotate(7deg) scale(1.02) } 100% { transform: none } }
 @keyframes lgrKitsuneFlare { 0% { transform: none } 7% { transform: scale(.93) } 16% { transform: scale(1.13) rotate(5deg) } 50% { transform: scale(1.04) rotate(2deg) } 100% { transform: none } }
 .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-firesA { animation: lgrKitsuneGather 1600ms cubic-bezier(.3,.7,.3,1) both }
 .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-headA, .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-hairA { animation: lgrKitsuneSend 1500ms cubic-bezier(.3,.7,.3,1) both }
@@ -73,14 +74,14 @@ export default {
    the ball bursts in her face (head knocked back, tails blown wide, the fox-fires flare); caught = she plucks it out of
    the air: a crisp double lash of every tail and a smug tilt. */
 @keyframes lgrKitsuneSwatR { 0% { transform: none } 30% { transform: rotate(16deg) } 60% { transform: rotate(-4deg) } 100% { transform: none } }
-@keyframes lgrKitsuneFlickHead { 0%, 100% { transform: none } 35% { transform: rotate(6deg) translateX(2%) } }
-@keyframes lgrKitsuneBlownBack { 0% { transform: none } 14% { transform: rotate(-13deg) translateY(-4%) scale(.95) } 50% { transform: rotate(-5deg) translateY(-1%) } 100% { transform: none } }
+@keyframes lgrKitsuneFlickHead { 0%, 100% { transform: none } 35% { transform: rotate(8deg) } }
+@keyframes lgrKitsuneBlownBack { 0% { transform: none } 14% { transform: rotate(-14deg) scale(.94) } 50% { transform: rotate(-5deg) scale(.99) } 100% { transform: none } }
 @keyframes lgrKitsuneBlownL { 0% { transform: none } 14% { transform: rotate(-18deg) } 50% { transform: rotate(-6deg) } 100% { transform: none } }
 @keyframes lgrKitsuneBlownR { 0% { transform: none } 14% { transform: rotate(18deg) } 50% { transform: rotate(6deg) } 100% { transform: none } }
 @keyframes lgrKitsuneFlareUp { 0% { transform: none; opacity: 1 } 14% { transform: scale(1.45); opacity: 1 } 50% { transform: scale(1.1) } 100% { transform: none } }
 @keyframes lgrKitsuneLashL { 0%, 100% { transform: none } 18% { transform: rotate(-12deg) } 36% { transform: rotate(6deg) } 54% { transform: rotate(-8deg) } 72% { transform: rotate(2deg) } }
 @keyframes lgrKitsuneLashR { 0%, 100% { transform: none } 18% { transform: rotate(12deg) } 36% { transform: rotate(-6deg) } 54% { transform: rotate(8deg) } 72% { transform: rotate(-2deg) } }
-@keyframes lgrKitsuneSmug { 0%, 100% { transform: none } 40% { transform: rotate(-7deg) translateY(-2%) } }
+@keyframes lgrKitsuneSmug { 0%, 100% { transform: none } 40% { transform: rotate(-8deg) scale(1.03) } }
 .lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-tailR { animation: lgrKitsuneSwatR 340ms cubic-bezier(.2,.9,.3,1) both }
 .lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-hair { animation: lgrKitsuneFlickHead 340ms ease-out both }
 .lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-hair { animation: lgrKitsuneBlownBack 900ms cubic-bezier(.2,.9,.3,1) both }
@@ -90,5 +91,14 @@ export default {
 .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-tailL { animation: lgrKitsuneLashL 620ms ease-out both }
 .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-tailR { animation: lgrKitsuneLashR 620ms ease-out both }
 .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-hair { animation: lgrKitsuneSmug 620ms ease-out both }
+/* KNOCKED OUT: her knockout cinematic (impact/bosses/kitsune.parts.jsx) ends in this pose and data-down holds it: the
+   fires out, the tails wilted, the head bowed on its neck, the bust sunk, the mask gone. */
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-fires { transform: scale(.3) rotate(90deg); opacity: 0 }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailL { transform: rotate(36deg) scaleY(.74) }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailR { transform: rotate(-36deg) scaleY(.74) }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailC { transform: scaleY(.62) }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-hair { transform: rotate(14deg) scale(.97) }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-bust { transform: translateY(5px) scale(1.02, .95) }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-mask, .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-maskL, .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-maskR { opacity: 0 }
 `,
 }

@@ -9,6 +9,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { parseAiJson, canonKeys, pickObject, pickList, asList } from './aiJson'
 import { parseQuestionReview, parseOpenChoices } from './questionTier'
+import { parseDistractorCheck } from './distractorCheck'
 import { parseVerdict, parseExplain, parseRecheck, gradeObject } from '../features/kit/fightJudge'
 import { parseQuestions, parseQuizCheck, parseTalkScore, parseBossName } from '../features/legends/prompt'
 import { parseRaidQuestions } from '../features/legends/raidQuestions'
@@ -196,6 +197,13 @@ describe('reviews and checks', () => {
     expect(parseOpenChoices({ choices, answer: 3 })).toEqual({ choices, answerIdx: 3 })
     expect(parseOpenChoices({ choices: choices.map((text, i) => ({ text, correct: i === 0 })) })).toEqual({ choices, answerIdx: 0 })
     expect(parseOpenChoices({ choices })).toBe(null) // no index: never guessed
+  })
+  it('parseDistractorCheck: a bare list, "Flagged", one option as "option", fenced prose', () => {
+    const items = [{ answer: 'buenos días', options: ['buenos días', 'buen día', 'bien dicho', 'bajo dos'] }]
+    expect([...parseDistractorCheck([{ i: '0', options: ['buen día'] }], items).get(0)]).toEqual(['buen día'])
+    expect([...parseDistractorCheck({ Flagged: [{ I: 0, Option: 'Buen día.' }] }, items).get(0)]).toEqual(['buen día'])
+    expect([...parseDistractorCheck(parseAiJson('Sure:\n```json\n{"flagged":[{"i":0,"options":["“buen día”"]}]}\n```'), items).get(0)]).toEqual(['buen día'])
+    expect(parseDistractorCheck(parseAiJson('All options look fine to me.'), items)).toBe(null)
   })
   it('parseQuizCheck: "Bad", bare list, objects or numbers as text', () => {
     expect([...parseQuizCheck({ Bad: [{ i: '1', why: 'x' }] }, 3)]).toEqual([1])

@@ -8,10 +8,12 @@ import { ChunkyButton, Card } from '../ui'
 import { AreaArt, ArtLabels, BossArt, LegendsArt, artUrl, BANNER, ArtMotion } from './art'
 import { BossIntro, BossArena, BossStyle, BOSS, ABILITY_ICON } from './BossArena'
 import { newFight } from './fight'
+import { demoHearts, demoBlow, demoGain, demoHeartsFull, demoSteadfast, demoHeartsLeft } from './heartTargets'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, raidBossNumber } from './raid'
 import { raidProfile } from './raidProfiles'
-import { POWERS, POWER_IDS, WIND_HEARTS } from './powers'
+import { POWERS, POWER_IDS, WIND_HEARTS, STEADFAST_HEARTS } from './powers'
+const STEADFAST_DEMO = STEADFAST_HEARTS // the gold hearts the demo's Steadfast brings
 import { POWER_ARMED, POWER_PROC, PowerIcon } from './impact/PowerFx'
 import { RAID_VOICES } from './raidVoices'
 import { bestiaryRows } from './abilities/_triggers'
@@ -329,9 +331,16 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
   const [cast, setCast] = useState(null) // { id, n }: a raid power used (impact/PowerFx.jsx)
   const [armedDemo, setArmedDemo] = useState({}) // the armed looks shown (POWER_ARMED): a toggle or a countdown each
   const [procDemo, setProcDemo] = useState(null) // { id, n }: a window power doing its thing (POWER_PROC)
-  // A window power counts 3, 2, 1, off; Steadfast 2, 1, off; the rest on, off.
-  const stepArmed = (id) => setArmedDemo((a) => {
-    const top = id === 'steadfast' ? 2 : POWER_ARMED[id].window ? 3 : 1
+  // THE DEMO HEARTS (heartTargets.js): a real count, so every boss attack takes the heart it hits and the next press
+  // the next one; Gain gives one back like a refund, Reset fills them all. A demo only: no stored raid, no Anki.
+  // PhaseDemo is keyed by the boss (AssetView), so a new boss always opens with full hearts and nothing playing.
+  const total = raidProfile(motif).hearts
+  const [hearts, setHearts] = useState(() => demoHearts(total))
+  const [refund, setRefund] = useState(null) // { rn }: the last Gain, played as a refund (fight.js applyRefund's last)
+  const left = demoHeartsLeft(hearts)
+  // A window power counts 3, 2, 1, off; the rest on, off. Steadfast is its gold hearts (on: 2 full, off: none).
+  const stepArmed = (id) => id === 'steadfast' ? setHearts((h) => demoSteadfast(h, h.goldOf ? 0 : STEADFAST_DEMO)) : setArmedDemo((a) => {
+    const top = POWER_ARMED[id].window ? 3 : 1
     const cur = a[id] === true ? 1 : Number(a[id]) || 0
     const next = cur === 0 ? top : cur - 1
     return { ...a, [id]: top === 1 ? next > 0 : next }
@@ -345,8 +354,30 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
   const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), fx: mine.fx, n: mine.n }
   // A demo may also set the ability's state after the moment (`ab`: the hydra shows 5 heads after Grow).
   const demoAb = mine && fxDemoFor(ability, mine.fx)?.ab
-  const impactLast = imp && !mine ? { lives: 0, damage: 0, ...imp[2], n: 1000 + impact.n, ...(imp[0] === 'wind' ? { wn: impact.n } : {}) } : null
-  const state = { ...newFight(raidProfile(motif)), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
+  // A boss attack takes the hearts it really took (`impact.took`: fewer when only one was left).
+  const impactLast = imp && !mine ? { lives: 0, damage: 0, ...imp[2], ...(imp[2].lives ? { lives: impact.took || 0 } : {}), n: 1000 + impact.n, ...(imp[0] === 'wind' ? { wn: impact.n } : {}) } : null
+  // A Gain keeps the strike's n (as fight.js applyRefund does) with its own refund counter, so nothing else replays.
+  const refundLast = refund && !mine ? { kind: 'refund', refund: true, damage: 0, lives: 0, healedLives: 1, crit: false, shielded: false, attack: false, fx: '', fxVars: null, n: impactLast?.n || 0, rn: refund.rn } : null
+  const state = { ...newFight(raidProfile(motif)), ...(demoAb ? { ab: demoAb } : {}), damage, livesLost: hearts.lost, last: fxLast || refundLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
+  const armedShown = { ...armedDemo, ...(hearts.goldOf ? { steadfast: hearts.gold, steadfastOf: hearts.goldOf } : {}) }
+  const blow = (id, lives) => {
+    const r = demoBlow(hearts, lives)
+    if (!r.took) return
+    onClearShot(); setRefund(null); setArmedDemo({})
+    setHearts(r.hearts)
+    setImpact((x) => ({ id, n: (x?.n || 0) + 1, took: r.took }))
+  }
+  const gain = () => {
+    const r = demoGain(hearts)
+    if (!r.healed) return
+    onClearShot()
+    setHearts(r.hearts)
+    setRefund((x) => ({ rn: (x?.rn || 0) + 1 }))
+  }
+  // Quiet: the last moment stays as it was (swapping it would replay that moment), only the row fills.
+  const resetHearts = () => setHearts((h) => demoHeartsFull(h))
+  const allFull = hearts.lost === 0 && hearts.gold === hearts.goldOf
+  const heartBtn = { fontSize: 11.5, padding: '5px 9px' }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', minWidth: 0, gap: 10 }}>
       {/* Frozen at the top like a spreadsheet's frozen row (the owner): the demo rows below grow long, and scrolling to
@@ -357,16 +388,27 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
           style={{ ...S.ghostBtn, position: 'absolute', ...(pinBeside ? { top: 0, left: 'calc(100% + 8px)' } : { bottom: 6, right: 6, zIndex: 6 }), fontSize: 11, padding: '4px 9px', whiteSpace: 'nowrap', color: C.purple, borderColor: `color-mix(in srgb, ${C.purple} 35%, transparent)`, background: C.bg }}>
           📌{pinBeside ? ` ${t(pinned ? 'lg_assetsUnpin' : 'lg_assetsPin')}` : ''}
         </button>
-        <BossArena key={motif} t={t} area={area} name={motif} need={hp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} proc={procDemo} />
+        <BossArena key={motif} t={t} area={area} name={motif} need={hp} lives={total} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedShown} proc={procDemo} />
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setImpact(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
+        <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setImpact(null); setRefund(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
+      </div>
+      {/* THE HEARTS: each boss attack takes the next heart from the end of the row (Steadfast's gold ones first). */}
+      <div data-hearts-demo="" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsHearts', { n: left, max: total + hearts.goldOf })}</span>
+        {IMPACT_DEMOS.filter((d) => d[2].lives > 0).map(([id, key, d]) => (
+          <ChunkyButton key={id} variant="ghost" color={C.danger} data-hearts-attack={id} disabled={left === 0} onClick={() => blow(id, d.lives)} style={heartBtn}>{t(key)}</ChunkyButton>
+        ))}
+        <ChunkyButton variant="ghost" color={C.success} data-hearts-gain="" disabled={allFull} onClick={gain} style={heartBtn}>💖 {t('lg_assetsHeartGain')}</ChunkyButton>
+        <ChunkyButton variant="ghost" color={C.inkDim} data-hearts-reset="" disabled={allFull} onClick={resetHearts} style={heartBtn}>↺ {t('lg_assetsHeartsReset')}</ChunkyButton>
+        {left === 0 && <span data-hearts-out="" style={{ flex: '1 1 220px', minWidth: 0, fontSize: 12, fontWeight: 700, color: C.danger, lineHeight: 1.35 }}>{t('lg_assetsHeartsOut')}</span>}
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsImpact')}</span>
-        {IMPACT_DEMOS.map(([id, key]) => (
+        {/* the boss's attacks live in the HEARTS row above (they take real hearts) */}
+        {IMPACT_DEMOS.filter((d) => !(d[2].lives > 0)).map(([id, key]) => (
           <ChunkyButton key={id} variant="ghost" color={id === 'ko' ? C.danger : C.purple} data-impact-demo={id}
-            onClick={() => { onClearShot(); setArmedDemo({}); setImpact((x) => ({ id, n: (x?.n || 0) + 1 })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{t(key, id === 'wind' ? { n: WIND_HEARTS } : {})}</ChunkyButton>
+            onClick={() => { onClearShot(); setRefund(null); setArmedDemo({}); if (id === 'wind') setHearts((h) => { let x = h; for (let k = 0; k < WIND_HEARTS; k++) x = demoGain(x).hearts; return x }); setImpact((x) => ({ id, n: (x?.n || 0) + 1 })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{t(key, id === 'wind' ? { n: WIND_HEARTS } : {})}</ChunkyButton>
         ))}
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -379,7 +421,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsPowersArmed')}</span>
         {Object.keys(POWER_ARMED).map((id) => {
-          const v = armedDemo[id]
+          const v = id === 'steadfast' ? (hearts.goldOf || 0) : armedDemo[id]
           const on = v === true || Number(v) > 0
           return (
             <ChunkyButton key={id} variant={on ? undefined : 'ghost'} color={C.purple} data-power-armed-demo={id} onClick={() => stepArmed(id)} style={{ fontSize: 11.5, padding: '5px 9px', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -500,6 +542,14 @@ export default function AssetView({ ctx, onBack }) {
   // Ebi's Help: what the bestiary shows (bestiaryHelp.js: plain facts, names and rules in the app language). The phase
   // the demo arena shows and the Ebi draft on screen are kept here for it.
   const [demoStep, setDemoStep] = useState(0)
+  // A NEW BOSS OPENS AT REST (the owner: the last boss's "Boss defeated" played the moment the next one was picked).
+  // Every transient demo state is per boss: the ability effect played (`shot`), the phase shown (`demoStep`) and the
+  // entrance replay count reset here, before the new boss paints; the arena demo's own state (impact moments, hearts,
+  // powers cast, armed and proc'd) resets with PhaseDemo, keyed by the same `demoFor`. Kept on purpose: the palette,
+  // the motion switches, the pinned arena and the folded sections (preferences, not moments).
+  const demoFor = `${tab}:${motif}`
+  const [seenDemo, setSeenDemo] = useState(demoFor)
+  if (seenDemo !== demoFor) { setSeenDemo(demoFor); setShot(null); setDemoStep(0); setReplay(0) }
   const [ebiPick, setEbiPick] = useState('')
   const ebiPickName = !ebiPick ? '' : ebiPick === EBI_CURRENT ? t('lg_ebiDraftsCurrent') : ebiPick === EBI_ALL ? t('lg_ebiDraftsAll')
     : t(EBI_DRAFTS.candidates.find((c) => c.id === ebiPick)?.nameKey || '') || ebiPick
@@ -655,7 +705,7 @@ export default function AssetView({ ctx, onBack }) {
             <div style={h}>{t('lg_assetsPhases')}</div>
             {/* The ability card and lore sit INSIDE the demo, so the pinned arena stays on screen while their Try buttons
                 play on it. */}
-            <PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} step={demoStep} setStep={setDemoStep}>
+            <PhaseDemo key={demoFor} t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} step={demoStep} setStep={setDemoStep}>
               <AbilityCard t={t} motif={motif} ability={RAID_ABILITY[motif]} onTry={(fx) => setShot((x) => ({ motif, fx, n: 1000 + ((x && x.n) || 0) + 1 }))} />
               <Fold id="lore" title={t('lg_assetsLoreFold')} defaultOpen={false}><RaidLore t={t} motif={motif} /></Fold>
             </PhaseDemo>

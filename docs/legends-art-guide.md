@@ -3,138 +3,202 @@
 Read this BEFORE drawing any Legends art (a new motif, a redraw, "make more bosses"): the owner's art direction plus
 the technical rules the app enforces. Files: `public/assets/legends/` (`areas/<motif>.svg` banners,
 `bosses/<motif>.svg`, `raids/<motif>.svg`); `public/assets/legends/README.md` is the short version for hand edits.
-Each rule is stated once; the sections after the top rules give the details and the cases behind them.
+Raid bosses: the RAID BOSSES section first. Every boss: "Rules for every boss and banner". The sections after give
+the details and the cases behind them.
 
-## ⭐⭐ RAID BOSSES GO ALL OUT, EVERY TIME (the owner: "super crucial")
+## ⭐⭐ RAID BOSSES (read before ANY raid boss work, even a one-line edit)
 
-Read this before making a NEW raid boss, REDESIGNING one, or touching any raid boss phase, effect or animation. The
-owner's words (2026-10-09), after several redraws came back broken or bland: "sloppy terrible job with this raid. this
-is NOT the quality i EXPECT WITH RAID BOSSES"; "where the hell is the quality??? kitsune and ophanim are good examples
-of quality. please go all out with them like kitsune and ophanim... put in a lot of effort into these raid bosses and
-phases and animations and everything"; "IT DOESN'T MATTER HOW LONG IT TAKES, THEY MUST GO ALL THE WAY CRAZY AND TRIPLE
-CHECK FOR QUALITY AND THAT ITS NOT BROKEN SVG"; "raid bosses must GO ALL OUT and all phases must be distinct and
-animations should go hard for all of them and all animations for abilities are crazy distinct... so that if i tell it to
-make another raid boss or to redesign or make a new one that it has the quality of kitsune and ophanim". Time is never
-a reason to stop early. "Good enough" is a failure.
+**The goal:** every raid boss as good as `raids/kitsune.svg` (and `raids/ophanim.svg`), the GOLD STANDARD of quality
+(a standard to match, not a side-by-side render test). **"Go all out" means QUALITY and IMPACT, never MORE STUFF.** No
+time limit ("IT DOESN'T MATTER HOW LONG IT TAKES"); "good enough" is a failure; even a one-line edit gets the full
+process ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST QA").
 
-### The bar
-**`raids/kitsune.svg` and the photo `raids/ophanim.svg` are the GOLD STANDARD of quality** (the owner: the standard
-to match, NOT a test of placing renders beside them at some size). Every raid boss, at every phase, matches them in
-anatomy quality, layered shading (3 to 4 values per material, rim light, ambient color), detail
-density, clean joins, props gripped in hands, and as much alive at once. Weaker anywhere = not done.
+### Why the Kitsune is the gold standard
+The owner: "simple yet beautiful... clear background. simple yet elegant and beautiful design. It's easy to see what
+she is doing and what is going on in the picture. her eye blinks once in a while to show that she is present. every
+phase is very unique yet elegant and yet the user can easily tell its the same character but evolved. every animation
+is also very unique and animated to give it a certain feeling." "there is detail on kitsune but its all very
+intentional. the beauty is in its simplicity and beauty without compromising on detail."
 
-### The character
-- **One clear concept the owner can NAME at a glance**, one silhouette idea, big in frame (head and torso dominate;
-  never zoom out to a tiny full figure).
-- **One character across all three phases**: same face, proportions, fur/skin, line style, palette family, signature
-  props. (Rejected: the Rat King's Chad phase that looked like "a different character entirely".)
-- **Personality constant**: escalate with power, scale and swagger, never turn a smug or cool boss into a screaming
-  monster. Villains look strong and charismatic: never a soft, weak, pretty-boy face (rejected Showman).
-- **Anatomy that connects**: shoulder → upper arm → elbow → forearm → wrist → hand; necks grow out of shoulders;
-  heads sit on necks; hands grip what they hold. NEVER floating gloves, tube arms, pasted heads or necks (rejected
-  Hydra), stuck-on props, parts sliced by another shape (rejected sewer ears). Multi-part bosses (Hydra heads, Cerberus
-  heads) are designed FROM those parts out: the ability's state (head slots, stumps) is part of the drawing's plan.
-- **Minions and lackeys** (mice for the Rat King) are small, comic, each with its own character, never covering the boss.
+What she does, concretely:
+- **No background.** Only her own aura (nine tails, a thin gold ring, foxfire, petals), all part of her. Her
+  silhouette is the edge of the picture; the app shows around it. No square tile, no scenery.
+- **One bust, face centered, the same framing in every phase.** The face is always the focus.
+- **A fixed anchor**: face construction, red markings, the bell, the purple kimono with gold crests. Every phase is
+  obviously her.
+- **SHE changes, the scene doesn't:**
+  - P1 Courtly: one eye winking, fan at her lips, mask pushed up, soft pink tails folded. Sly and composed.
+  - P2 Unveiled: mask cracked and hanging, hair whipped loose, a fanged grin, crimson tails flung wide, tipped in
+    violet foxfire, a petal storm. Her true nature breaks out.
+  - P3 Celestial: face and tails turn white-gold (the tails a corona of flame), a rope halo, a third eye, eyes of
+    light, a serene closed smile; the purple kimono stays. Ascended.
+- **The silhouette changes through her own aura** (tails: folded fan, flung spikes, flame corona), so the phases tell
+  apart at a glance without moving the camera.
+- **One mood and one palette per phase** over the fixed kimono: pink and red; crimson and violet; white and gold.
+- **Intentional detail, all on her**: hairpins, markings, crests, the bell. Clean ink outlines, cel shading with few
+  values.
+- **Her magic is part of her**: foxfire, petals, sparks, a halo, few and attached to her. She shows her power without
+  any scenery.
+- **Calm presence**: slow tail sway, flickering foxfire, an occasional blink. Each phase's motion has its own feeling:
+  playful, fierce, divine.
+- **Beautiful AND dangerous**: menace through expression and power, never by uglifying her.
 
-### The phases: three DISTINCT pictures
-Each phase changes CAMERA, POSE, HEAD ANGLE, FACE, LIGHT, PALETTE and usually SETTING; tellable apart by silhouette at
-120 px. A story: P1 the boss at rest in its domain; P2 the fight turns (dynamic camera, the boss acts); P3 THE
-SPECTACLE: the climax, the most happening on screen (moving lights, particles, magic, transformations, falling things),
-the boss still the one dominant, readable figure, the most idle motion. "Phase 3 is boring af, nothing happens" is a
-rejection. The backdrop is part of each phase and fills the frame (muted, no flat blobs, no rounded inset frame).
+The ophanim (photo version) is the standard for QUALITY and PRESENCE: one centered subject (the eye in its rings and
+wings), a soft light of its own and a cloud bed instead of a scene. Its glow and photo realism are its own approved
+exception; the kitsune is the model for phase design. A background is not banned (rule 2): the Rat King's simple vault
+and casino backdrops are approved.
 
-### Animations: go hard on ALL of them
-- **Idle**: every part that would move moves (breath, fur/hair, cloth, eyes and blinks, props, lights, particles,
-  backdrop), at LAYERED rhythms so it never reads as one thing bobbing. Loops seamless; time-based SMIL only.
-- **Entrance** (`ENTRANCES`): its own movement, dramatic, ending on the file's pose.
-- **The nine impact moments** (hit, crit, sharpen, strike, heavy, block, shield, second wind, knockout) and **the attack
-  on the player**: the DRAWING's own parts act each one out hard (wind-up, blow toward the hearts, recoil), plus its own
-  parts and glyph (`impact/bosses/<motif>.*`); the knockout is a themed cinematic held in a fallen pose.
-- **Every ABILITY effect is CRAZY DISTINCT**: each `fx` key of each boss has its own big, unmistakable effect (its own
-  shapes, motion, colors, sound-like juice) AND moves the boss's real parts (eyes open, heads snap, arms throw, wings
-  beat). No two abilities, and no two bosses, share a look. Never a generic flash, never covering or hiding the boss.
+### Rejected (2026-10-10): what the opposite looks like
+The 2026-10-09 Showman, Rat King, Cerberus, Seraph, Kaleido, Chronos and Banshee redesigns and the new Headless
+Horseman passed every check of the old rules (scene backdrops, a new camera and setting per phase, "detail is the
+point", phase 3 "the most happening on screen") and were all rejected. Those rules are gone. They had 2,000 to 4,000
+paths and 200 to 720 animations each.
+- Chronos: "a ton of details crammed for the sake of details not an intentional art design. too much going on and its
+  hard to say what is actually on screen. the background is overwhelming. Each phase is also not as impactful as
+  kitsune."
+- Banshee: "if the character is defined by her keyboard or organ pips or whatever keep it but... its hard to tell what
+  is going on and too much background and phase 3 is just broken in general."
+- Seraph: "i love the design of this seraph more but same thing with background and hard to understand what is going
+  on and phase 3 just sucks and they aren't any significant changes per phase."
+- Showman: "he jus looks like a regular guy. where are his powers?? his magic powers??? All phases look boring."
+- Rat King phase 3: "looks like a different character" (twice: a new head, then the same head on a different body).
 
-### Process (mandatory, no time limit, for EVERY change: "EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST QA")
-A small fix (moving a table, fixing an ear, a pivot, one effect) gets the same full process as a redraw: a small edit
-can break a join, a phase or an animation elsewhere in the file.
-1. Read this section, then the rest of this guide, CLAUDE.md's raid sections and `impact/bosses/README.md`; back up
-   the file.
-2. Draw. Then at least THREE rounds of: render → written critique → fix. Each round: every phase zoomed 2 to 4x (every
-   join, outline, draw order; nothing floating, clipped, popping or sliding), the three phases side by side (distinct?
-   one character?), judged against the kitsune/ophanim quality standard.
-3. Animation check: frames across the idle loop, the entrance, every moment, the attack and every ability; zoomed,
-   looking for parts that detach, slide, pop or cover the face.
-4. The TRIPLE CHECK (below), `check-art.mjs` 0 failures, tests green.
-5. An INDEPENDENT REVIEW: a separate agent (who did not draw it) looks at the final renders against the owner's words
-   and this guide and lists every defect; fix them and re-check. **A report without this review is not done and goes
-   straight back** (two 2026-10 redraws skipped it; both had defects a fresh look caught at once: a rounded inset
-   backdrop panel, tube necks, a box-shaped head and neck).
-6. Report what was checked, the review's findings and fixes, and an honest list of what is still weaker.
-7. The coordinator inspects the zoomed renders before the owner sees anything. Never relay art as done from one
-   overview render.
+### The rules
+1. **The character is the picture.** One figure, big, centered, the brightest and highest-contrast thing in frame.
+   Its core (face, eye or heads) dominates; never a small full figure.
+2. **A background only if it makes sense for the boss, and then simple and easy to look at.** The owner
+   (2026-10-10): "it is not required for a character to have a fully clear background. If it makes sense for the raid
+   boss to have a background then have a background." Approved example: the Rat King's vault ring and coin hoard (P1)
+   and casino table (P2): simple, clearly his world, never disrupting him; "its clear what is going on". What failed
+   was CLUTTER, not backgrounds: Chronos's, the Banshee's and the Seraph's were "overwhelming", "too much", "hard to tell
+   what is going on". So: no background is a fine default (the kitsune), the boss's own aura always counts as the
+   character, and a background, when the boss has one, is simple, muted, readable in one second, subordinate to the
+   boss, and present in EVERY phase in the same spirit (a P3 without one beside a P1 and P2 with one breaks the set: the
+   Rat King's P3 must get one too).
+3. **Readable in one second.** One sentence per phase says what the boss is doing; one clear gesture per phase.
+4. **Intentional detail, on the character.** Detail serves identity, expression or the phase's action; anything added
+   "for detail" is cut. Simple is not plain: the character itself is finely made (her hairpins, chains, crests,
+   markings). The boss's own magic counts as the character (foxfire, petals, sparks, sound), few and attached to it,
+   never filling the frame. Defining props stay (the Banshee's organ, the Seraph's veil and single eye), kept simple.
+   Path count is a warning light, not the goal: the kitsune is 787 paths and 138 animations for all three phases, the
+   rejected redesigns 2,000 to 4,000; far past hers must be justified (`grep -o '<path' file | wc -l`).
+5. **One anchor, everything else evolves.** Identical in all three phases: face construction, head shape, proportions,
+   build, the face VIEW it is known by, signature features. Shared markup alone is not identity. What changes:
+   expression, eyes, hair, costume, the signature prop transforming, the aura, light, palette.
+6. **A significant change every phase, ON the character.** P1 composed, power held but visible; P2 the true nature
+   breaks out; P3 the ascended or true form. New scenery, swapped hand props or only a new halo behind an unchanged
+   body do not count (a Chronos whose ring became blades then a sun, over the same cape, armour and colours, failed).
+   The BODY itself changes: face, colours, costume, silhouette. Keep one framing like the
+   kitsune; a camera change is optional and never costs size or clarity. The SILHOUETTE differs per phase (costume, cape, hair, pose), not only colour: see test item 6.
+7. **Each phase's silhouette changes through the boss's own aura or body** (tails, wings, flames, hair, horns), so the
+   three tell apart at 120 px.
+8. **Phase 3 is the most impactful AND the clearest.** The spectacle is the transformation (light, color, silhouette),
+   never piling on things. Never crowded, twisted or broken; the face and the phase's key gesture are never cropped
+   (aura may bleed off the sides).
+9. **One small palette per phase** with one accent.
+10. **A raid boss, not a person in a costume.** Its power shows ON it in every phase (glowing eyes, its fire, horns,
+    wings, possession), escalating by phase.
+11. **Elegant and strong.** A clean silhouette, graceful shapes, a confident villain face (never soft or pretty-boy).
+    Threatening from phase 1 (menace can be a sly smile, like hers). Personality constant: escalate power, never
+    temper. A beautiful boss stays beautiful.
+12. **Anatomy connects.** Shoulder, upper arm, elbow, forearm, hand; necks grow from shoulders; hands grip what they
+    hold. Never floating gloves, tube arms, pasted heads or necks.
+13. **Bold concept, simple execution.** Nameable at a glance, unique in the set (silhouette, palette, face, entrance),
+    its ability visible in the art.
 
-## The owner's top rules, in short (2026-10)
+### Animation
+- **Idle = calm presence** (the boss feels alive and watching): a blink every few seconds, breathing, a slow sway of
+  hair, tails, cloth and aura on layered rhythms; small fast motion (flame flicker, sparks) is fine, big motion is for
+  the entrance and the fight. Not everything moving at once. Time-based SMIL only.
+- **Every animation is unique and has a feeling that fits the character**: its own entrance, the nine impact moments,
+  the attack on the player, a themed knockout, and each ability effect "crazy distinct", moving the boss's own parts.
+  Effects never bury the figure or cover its face; nothing detaches, slides or pops.
 
-Every boss, raid boss and banner brief starts from these.
+### The Kitsune test (written out pass/fail before anything else; one fail = not done)
+On the real asset view "Phase drawings" panel (all three phases), by the artist, the reviewer and the coordinator:
+0. **Nothing broken (LOOK at the screenshot, every phase, then each face AND each hand zoomed in 3 to 4x).** Every feature where it
+   belongs and only once: two eyes, glasses ON the eyes (a Rat King phase 3 shipped yellow eyes plus a tiny pair of
+   shades on its snout and gold lines across its face), ears and limbs attached, hands that read as hands (not a
+   box), no stray lines, holes, doubled or floating parts. It must look good and NORMAL at a glance. A render the
+   artist never looked at counts as broken. Also make a HOLES map (pixels exactly the page background painted
+   magenta): page showing inside the outline is a break (a Cerberus phase 3 had a hole between its necks and floating
+   heads that every self-check passed). And an ARM check: every arm cropped at 4x, its parts named in order (shoulder,
+   upper arm, elbow, tapering forearm, a hand gripping what it holds); a part you cannot point to does not exist (tube
+   arms, sticks on balls and fists with no forearm failed six bosses in one pass).
+1. Background: none, or one that makes sense for the boss, is simple and never disrupts it, in every phase alike?
+2. One sentence per phase of what is happening.
+3. Blur the screenshot 6 to 8 px: does the figure still stand out in every phase?
+4. Every element not on the character listed with its reason; paths and animations against the kitsune's.
+5. Same character? (faces covered: proportions and build; heads only: the face; personality the same)
+6. A significant change per phase, on the character? Labels covered, can a stranger order the three phases and say what
+   changed in each? **SILHOUETTE check** (owner 2026-10-10 on a Showman whose phases kept the same bust, hat, coat and pose: "they are too similar in each phase", "it needs to be more different each phase"): render each phase as a solid black silhouette at 60 px beside the kitsune's three; the shapes must be clearly different, and the pairwise silhouette overlap (IoU of the alpha masks) must be no higher than the kitsune's same pair. Colour, horns or a new halo over the same outline fail. Measure it ONLY with `node .scratch/raid-kitsune/silhouettes.mjs <motif>` (frame 0, committed kitsune, EACH pair no more alike than her same pair, entrances stripped; run it again with `--hide=<background selector>` when the boss has a background); hand-made scripts gave every artist a different kitsune number, and a highest-pair rule let the owner-rejected Showman pass.
+7. Phase 3 the most impactful and the clearest?
+8. Power visible in every phase?
+9. Anatomy connects at 2 to 4x zoom; a confident villain face?
+10. Exciting? Would the owner say "go all out" was met, or "boring"?
+11. Would it hang beside the kitsune as her equal? Answered as the owner, never as the maker.
 
-1. **Quality bar: `raids/kitsune.svg`** ("basically the gold standard of quality"), then `raids/void.svg`, then
-   `titan`/`hydra`. Super detailed, layered cel shading (3 to 4 values per material), rim light, materials that read
-   (gold, steel, fur, feathers, cloth folds). Never flat shapes, never cute blobs. Legends bosses meet the same bar
-   (raids must not make them look lackluster).
-2. **Silhouette and concept first.** Reads at 120 px (64 on the map), fills its frame, seen from below, bleeding past
-   the edges. The owner must be able to NAME the creature at a glance ("i love phase 3 but i don't understand what the
-   boss is trying to be"): one clear silhouette idea per boss.
-3. **BIG in frame, always. Variety never comes from zooming out.** A full-body or far shot shrinking the face to a few
-   pixels was rejected every time (rat king, sugar queen, showman). Head and torso fill most of the frame.
-4. **Each raid phase is a new picture: new CAMERA ANGLE, HEAD ANGLE, POSE, FACE, LIGHT and COLOR**, often a new
-   SETTING. Props swapped on the same crop, or the same pose recolored, is "lackluster" / "boring". Test: the three
-   phases tell apart by silhouette alone at 120 px.
-5. **Personality is constant across phases.** Escalate with status, scale, power and spectacle, never by turning a
-   smug or sly character into a screaming maw. Approved exception (2026-10-03): phase 3 may change MOOD when it tells
-   the boss's story, the character staying recognizable (the rat king's furious phase 3 was later redrawn smug; the showman's
-   cool snapping into a manic grin). Ask the owner before doing this for another boss.
-6. **The phases are ONE creature** ("they look like brothers", berserker): phase 2 is what phase 1 becomes when it
-   breaks, phase 3 what phase 2 becomes. Keep head shape, eyes, signature mark, helm or crown; transform what makes it
-   loved, never remove it.
-7. **Distinct parts of one creature.** Repeated heads, minions or wings share the creature's features (eye color,
-   skin, crest, brows, teeth) but each has its own character (size, shape, scars, expression, angle). Clones read lazy.
-8. **The backdrop is subordinate.** Muted, darker, lower saturation, with depth; the boss is the brightest, most
-   saturated thing. No rainbow bursts, no flat colored blobs or auras, no fake glows or hard light sticks.
-9. **Faces:** mouths never where eyes go, no ring-shaped maws, no unibrows, no eyelash brows; teeth only where they fit
-   the character (a smirk with a gold tooth beats a wall of teeth). Raid bosses terrifying or imposing from phase 1;
-   Legends bosses vary in mood.
-10. **Raid variants of loved Legends bosses go all out but stay recognizable** (same vibe and personality), and look
-    clearly different from the Legends boss even in phase 1 (own costume, prop, setting, pose).
-11. **Fire only where it belongs** (the arena knight has none). All-ages content (tasteful figures, no revealing
-    designs), except where the owner asks otherwise: the Sugarplum Heiress's phase 3 has a deep V neckline with
-    visible cleavage at the owner's request (2026-10-03), never explicit (fully dressed, no nudity). Don't raise it.
-12. **Photo-real layers and gradients are opt-in per boss** (only the ophanim so far). Never on another boss unless the
-    owner asks.
-13. **Every change gets a backup and a before/after render**, and the owner gets an honest critique, not just praise.
-14. **Phase 3 is the climax, never a letdown**: bigger, more alive and more spectacular than phase 2, as different from
-    phase 1 as phase 2 is (ratking and showman phase 3 were sent back). An EVENT, not a pose. One dominant readable
-    figure, never a pile of equal-weight parts.
-15. **The true form moves the most.** Idle life grows with the phases; phase 3 has the most motion (a pet, a jaw, a
-    sway, spilling props, smoke), big enough to read at 120 to 340 px, on different rhythms ("not enough movement on
-    phase 3", ratking).
-16. **Anatomy must survive a glance.** A limb bends at one clear joint from a shoulder or hip and ends on something (a
-    foot planted with a contact shadow); cloth must not read as a leg; no stick arms, peg shins, stumps, double knees,
-    blob legs, box fists or floating legless bodies (tempest phase 3 took three rounds). Held objects read instantly
-    and are GRIPPED (fingers wrap in front), or are removed (a yellow blob in a fist, a gold disc in a mouth read as
-    nothing).
-17. **Shapes stay sleek, not blocky.** Heads and necks taper and curve (arrowhead skulls, waisted necks); straight
-    parallel sides and coffin outlines read "blocky" (hydra heads). Never round, puffy or rubbery either.
-18. **Necklines read clearly in every phase**; props, bands and pendants never hide them (the sugar queen's pendant).
-19. **Abilities animate the boss itself.** An effect moves the boss's REAL parts (the ophanim's lids open and blink,
-    the seraph's wings spread and eyes turn gold, the hydra's heads rise) and is rich, not bare bones (seraph Grace was
-    sent back). It never covers the boss (no stand-in eye over the real one) and the boss never disappears for a frame.
-    Parts an ability is about get hook classes in the SVG.
-20. **Light files.** Keep shapes economical (the asset view and fights must stay smooth on a high refresh monitor); a
-    reshape that bloats a file is redone with fewer points.
-21. **Voices are part of the design.** Every raid boss has its own way of talking (see "Raid boss voices"); a redesign
-    updates its lore and voice to match the art.
-22. **"Badass" is the owner's word.** When in doubt push harder: meaner face, bigger silhouette, sharper materials;
-    "more badass in every way" is a valid whole brief. Never cute where it should be fierce.
+### Process (every change, even a one-line fix)
+1. Read this section, `src/features/legends/impact/bosses/README.md` and CLAUDE.md's raid notes; back up the file.
+2. Plan in writing before drawing: what the owner liked in the current version (it stays); the concept in one line;
+   the anchor; per phase the one-sentence action, the palette and how the silhouette changes; the background
+   (ideally none).
+3. Draw, then at least three rounds of: the Kitsune test on the panel, every join zoomed 2 to 4x, fix.
+4. Animation check: frames across the idle, entrance, moments, attack and every ability.
+5. `check-art.mjs` 0 failures, tests green. It includes the JOINT check (`check-joints.mjs`): in every fight animation
+   the head must stay on its neck (a kitsune head shifted off her neck in 40 animations); add the boss to its
+   `STRICT` list once it passes, and look at its `--sheet` contact sheets.
+6. Independent review by a fresh agent given the owner's words and this section; anything below "equal to the kitsune"
+   fails; repeat with a fresh reviewer until nothing must be fixed.
+7. The coordinator runs the Kitsune test on its OWN panel screenshot before the owner sees anything, and reports
+   honestly what is still weaker.
+8. **Interrupted work gets an extra check** (the owner: if an artist is ever interrupted, check it is not broken and
+   that the vision is still there). Before resuming AND before reporting: (a) NOT BROKEN: the file is well-formed XML
+   and complete (ends with `</svg>`, every phase layer and hook class present), a half-written generator run or partial
+   edit is redone from the backup or the last good version, tests and `check-art.mjs` pass, a fresh panel screenshot of
+   every phase (faces zoomed) is looked at; (b) THE VISION IS STILL THERE: re-read the plan and this section, then run
+   the whole Kitsune test again on that screenshot (a resumed artist drifts toward finishing, not toward the vision).
+
+**Phase layers** (switched by the arena's `data-phase`): `lg-p1` phase 1 only, `lg-p2` / `lg-p3` shown from that phase
+on (start `style="display:none"`), `lg-p12` gone in phase 3. A shared layer hidden in some phases is copied into
+`lg-p1` and `lg-p3` groups, never painted over. The fight half (impact moments, knockout, powers, fair health):
+"The owner's vision for the FIGHT" in `docs/raid-bosses-plan.md`.
+
+## Rules for every boss and banner (Legends and raid)
+
+Raid bosses: the RAID BOSSES section above wins where they differ.
+
+1. **Quality bar: `raids/kitsune.svg`.** Clear, elegant, intentional detail; layered cel shading (3 to 4 values per
+   material), rim light, materials that read (gold, steel, fur, feathers, cloth). Never flat shapes, cute blobs or
+   crammed detail. Legends bosses meet the same bar.
+2. **Concept first.** The owner can NAME it at a glance ("i don't understand what the boss is trying to be" was a
+   rejection); one silhouette idea; reads at 120 px (64 on the map).
+3. **BIG in frame.** Head and torso fill most of it; variety never comes from zooming out (rat king, sugar queen and
+   showman full-body shots were all rejected).
+4. **Personality constant across phases**: escalate status and power, never turn a smug character into a screaming
+   maw. Approved exceptions: the rat king and showman phase 3 moods. Ask before another.
+5. **Repeated parts** (heads, minions, wings) share the creature's features, each with its own character. Clones read
+   lazy.
+6. **The background is subordinate**: muted, dark, simple; the boss is the brightest, most saturated thing. No rainbow
+   bursts, flat colored blobs (they read as stains) or fake glows.
+7. **Faces**: no mouth where eyes go, no ring maws, unibrows or eyelash brows; teeth only where they fit (a smirk with a
+   gold tooth beats a wall of teeth). Raid bosses imposing from phase 1; Legends bosses vary in mood.
+8. **Raid variants of loved Legends bosses** keep the DNA (theme, signature props, palette, personality) and are clearly
+   their own design.
+9. **Fire only where it belongs** (the arena knight has none). All-ages, except the Sugarplum Heiress's phase 3 V
+   neckline the owner asked for (2026-10-03; never explicit). Don't raise it.
+10. **Photo layers and gradients are opt-in**: only the ophanim.
+11. **Anatomy survives a glance**: a limb bends at one clear joint and ends on something (a planted foot with a contact
+    shadow); no stick arms, peg shins, double knees, blob legs, box fists or legless bodies. Held objects read at once
+    and are GRIPPED (fingers wrap in front), or are removed.
+12. **Shapes sleek**: heads and necks taper and curve; parallel sides read blocky, round and puffy read rubbery.
+13. **Necklines read in every phase**; nothing hides them.
+14. **Abilities animate the boss itself** (the ophanim's lids, the hydra's heads), richly, never covering it; the parts
+    an ability is about get hook classes in the SVG.
+15. **Light files**: economical shapes, fewer points; a reshape that bloats a file is redone.
+16. **Voices are part of the design**: a redesign updates its lore and voice ("Raid boss voices").
+17. **"Badass"** = a meaner face, a bigger silhouette, sharper materials. Through the design, never through clutter.
+18. **Every change gets a backup, a before/after render and an honest critique.**
 
 > **Retired raid boss: the Glutton (the Bottomless Maw).** Removed by the owner in 2026-10 ("i dont even like the
 > concept of glutton"). Never draw, recreate or propose it again. It stays in `RAID_ROSTER` only as a `RAID_RETIRED`
@@ -142,18 +206,18 @@ Every boss, raid boss and banner brief starts from these.
 
 ## What the owner wants from Legends bosses and banners
 
-- **Real bosses, super detailed**: glowing eyes, a maw, claws, spikes, scars, armor, cracks of light; never a smiley
+- **Real bosses, finely made** (intentional detail on the creature, never crammed): glowing eyes, a maw, claws, spikes, scars, armor, cracks of light; never a smiley
   blob with teeth. Reads at 64 px on the map and rewards a close look at 190 px on its intro card.
-- **Mood: RAID bosses are all terrifying; Legends bosses VARY.** "Raid bosses should look super threatening but normal
+- **Mood: RAID bosses are all threatening (power and a villain's confidence; a sly smile counts); Legends bosses VARY.** "Raid bosses should look super threatening but normal
   Legends bosses don't all need to be mean looking. Some mean looking ones, but also variety." Pick the mood from the
   area (mean, smug, playful, proud, eerie, sleepy, regal, sad, comic-menacing), then check the set for a spread. Mean
   stays where the design calls for it ("if it makes sense for the boss design then yea keep it mean": dread knight,
   lava wyrm, three-headed hound). Not every one gets the angry V brow.
 - **Every boss and banner truly unique**, not a recolor: silhouette and pose (bust, full body, winged, profile, rising
-  out of something), what is behind it (spotlight cone, storm cloud, turning sun, smoke, crystal halo, never the same
+  out of something), what is behind a Legends boss (spotlight cone, storm cloud, turning sun, smoke, crystal halo, never the same
   round glow), number and kind of eyes, mouth type (maw, beak, mandibles, carved grin, jaw of rock), the entrance.
 - **Detail stays readable when small**: layered shading, highlights, texture strokes (bark, scales, fur, rivets,
-  stitches), small story props, strong ink outline, clear shapes first.
+  stitches), strong ink outline, clear shapes first.
 - **Each banner is its boss's LAIR, with the boss present** and recognizable as the same creature (eyes in the dark,
   its silhouette on the ridge, a tentacle holding a wreck, its face in the cliff). As detailed and alive as the boss:
   layered depth (far silhouettes, mid scenery, a framing foreground), moving weather and light, a small story (a path,
@@ -200,7 +264,7 @@ Every boss, raid boss and banner brief starts from these.
 
 ## The boss recipe (what made the 2026-09 raid redesign land)
 
-The first raid bosses were "boring, uninspired and weak" (small figures in empty space, one neck, a boxy robot, a
+The first raid bosses were "boring, uninspired and weak" (small figures lost in their frame: the fix was a BIG figure, not a fuller backdrop; one neck, a boxy robot, a
 skeleton in a robe, a lion like a house cat); the redesign got "YESS, much better". Every boss, Legends and raid, is
 held to this. Worked example: `docs/raid-bosses-plan.md`.
 
@@ -210,9 +274,10 @@ grows or opens, the idle motion, the SVG entrance beats and the card entrance. E
 **Size and presence**
 - **Fill the frame and bleed past it** (horns, fins, wings, fists run off the edge into the 20% headroom). A figure
   floating small in its box reads weak whatever its detail.
-- **Shoulders wider than the frame, seen from below**: low horizon, big upper body.
-- **A backdrop that is part of the boss** (a maelstrom it rises from, a gear halo, a rune circle, a black hole's disk),
-  animating on its own rhythm, never a plain glow.
+- **Shoulders wider than the frame, seen from below** (Legends bosses; raid bosses: rule 6):
+  low horizon, big upper body.
+- **At most one simple shape behind the boss that is part of it** (a halo, a ring, its own tails or wings as an aura),
+  quiet and clearly behind it. Never a scene.
 - **Bosses look AT the player.** Bodies may be side or three-quarter for action, but HEADS turn to the camera (Zeus:
   "make the enemies focus on the user").
 
@@ -236,11 +301,11 @@ grows or opens, the idle motion, the SVG entrance beats and the card entrance. E
 - **Contrast against the backdrop in BOTH palettes.** A dark membrane on a dark sky, a translucent wraith over a busy
   rune circle all vanished: fix with a lit rim, a brighter mid-tone or a glow copy behind.
 
-**Every phase is a transformation with a story** (raids; a Legends boss's rage too)
+**Every phase is a transformation with a story** (a Legends boss's rage; raid bosses follow the RAID BOSSES section)
 - Phase 1 controlled (sealed armor, one power). Phase 2 hurt and WORSE (armor cracks on molten veins, a cut neck grows
-  two heads, more eyes open, the face rages). Phase 3 the true form (a skull under the split helm, a wraith hood
-  framing the scene, a jaw unhinged to the chest), colors hot.
-- Damage and menace only ESCALATE (a phase 3 with fewer teeth than phase 2 was caught; a phase 2 hourglass needed more
+  two heads, more eyes open, the face rages). Phase 3 the true form (a skull under the split helm, a jaw unhinged).
+- Damage and menace only ESCALATE for Legends bosses; raid bosses escalate POWER (an ascended, serene P3 like the
+  kitsune's is right) (a phase 3 with fewer teeth than phase 2 was caught; a phase 2 hourglass needed more
   cracks). Nothing only "added": something breaks, grows, opens or turns on.
 - A new element READS at 120 px: big, bright, framed (a ghost face behind the figure showed only pale blobs; redrawn as
   a hood around the frame, it worked). Pick the two or three changes that tell the story and make them big: stacking
@@ -253,8 +318,8 @@ was rejected), big motion belongs to the entrance; teeth hold still unless the w
 and own card entrance (see Motion).
 
 **No hard edges from the frame**: bands spanning the width (cloud layer, floor) end in organic shapes inside the
-headroom, or they show as a rectangle when the boss scales in. Nothing cut off: measure every animated part's outline
-over the idle loop (widest moment, not at rest) and keep it inside x and y -22 to 142 (seraph wings were sized so).
+headroom, or they show as a rectangle when the boss scales in. Nothing cut off: measure every animated part's outline over the idle
+loop (widest moment) and keep it inside x and y -22 to 142.
 
 **Parts join organically**: no seam where a tentacle beard meets the face, no loose decorations on a forehead (blue
 circles on the ocean boss were "weird"); accessories read as what they are (the banshee's bells read as "weird green
@@ -264,12 +329,12 @@ hair that floats").
 
 **Approved (do more of this)**
 - Phases that change the creature: a head cut off and two growing back, armor bursting open on a molten core, a helm
-  splitting on a skull, a crown shattering into orbiting shards, bony legs where the robe burned away, waterspouts
+  splitting on a skull, a crown shattering into orbiting shards, bony legs where the robe burned away, (Legends only:) waterspouts
   rising from a whirlpool, a bolt striking the crowned head.
 - **The face changes every phase** (the owner's idea). Lich: calm eyes, then a V brow ridge narrowing them, then
   blazing wide eyes over a dropped jaw. Titan: sealed visor, then the grille torn off a snarling molten mouth with
   flames from the eyes, then a split helm on a molten skull.
-- Chunky, colorful, readable shapes with a strong outline, a darker depth edge and a highlight.
+- Bold, readable shapes with a strong outline, a darker depth edge and a highlight; graceful, never chunky.
 - Owner reference images are the brief: match their palette, materials, structure and mood in the flat cel style.
 
 **Rejected (never again)**
@@ -288,207 +353,50 @@ hair that floats").
 - Ebi drafts far from the current Ebi ("way too different") or low detail ("a shitty low quality version"): variations
   are polished and only a little different.
 
-## How the owner wants RAID bosses made (2026-10: "i love the new raid bosses")
+## Lessons from rejected drawings (each applies to every boss)
 
-**Art is half of it.** How the fight FEELS is the other half: nine unique impact moments per boss, a dramatic themed
-knockout, power effects in the lower half never over the face, numbers from the game, fair crafted health and hearts.
-Read "The owner's vision for the FIGHT" in `docs/raid-bosses-plan.md` before making or redesigning a raid boss.
-
-The owner loved the third and fourth waves (leviathan to dreamer) and the 2026-10 redraws of lich, chimera, hydra,
-titan, void and seraph. On top of everything above:
-- **"Super crazy bonkers", "like WTF is that".** The most extreme drawings in the app: a creature nobody has seen, not a
-  big Legends boss.
-- **Detail is the point**: a 30 KB raid boss reads lackluster beside the set (today 124 KB void to 761 KB ophanim,
-  kitsune 167 KB), but every addition must read at 120 px; cut what muddies the small read.
-- **The backdrop fills the frame and changes with the phases** (a crypt throne of skulls, a foundry crucible, a black
-  hole's disk).
-- **Terrifying from PHASE 1**; the phases make it worse, not scary for the first time. Phase 3 is a true form, nearly a
-  different creature that is still the same one.
-- **Each phase a different POSE** ("Kitsune raid boss is a good example of phase variation"): phase 1 enthroned or
-  composed, phase 2 lunging, rearing or arms flung wide, phase 3 a new silhouette.
-- **Raid variations of loved Legends bosses** ("I LOVE THE DESIGN AND CONCEPT ... make a raid version that goes ALL
-  OUT"): heavily inspired, NOT a copy. Keep the DNA (theme, loved signature props, palette, lair, PERSONALITY), redesign
-  the creature (body, face construction, silhouette, bigger, crazier). The first rat raid was "too similar to the
-  normal boss"; the second became a gritty plague warlord and "does not look pimpin like the regular boss".
-- **"Inspired by X" does not mean drop what made X loved.** The first Thousand-Eyed Judge kept only "an angel" and lost
-  the eyes ("where is the scary eyes and dangerous white celestial figure???"). Keep the loved signature, change the
-  rest.
-- **A beautiful boss stays beautiful** (the first kitsune: "very ugly ... compare it to sakura being so beautiful"):
-  grander and more dangerous through scale, light and stillness, never by uglifying the face.
-- **The ability shows in the art** (hydra's regrowing heads, titan's plating, the lich's phylactery in every phase) and
-  has its own fight effect (`src/features/legends/fx/<motif>.jsx`).
-- **Unique against the whole set**: silhouette, palette, backdrop, face, entrance movement.
-- **Phase layers** (switched by the arena's `data-phase`, BossArena CSS): `lg-p1` phase 1 only, `lg-p2` / `lg-p3`
-  shown from that phase on (start `style="display:none"`), `lg-p12` gone in phase 3. A phase redrawn as a whole scene
-  wraps phase 1 in `lg-p1`, phase 2 in `lg-p12 > lg-p2`, phase 3 in `lg-p3`, each with its own backdrop, face and
-  fx/ability layers. To hide a SHARED layer in some phases (a floor drawn for all), copy it into `lg-p1` and `lg-p3`
-  groups instead of painting over it.
-- **Process**: one agent per boss with a written plan (the brief lists these rules and the checks), a generator script
-  kept OUTSIDE the repo, renders of every phase, vitest and `check-art.mjs`, then the owner looks in the asset viewer
-  (Raid bosses tab: phases and every ability effect).
-
-## What the 2026-10 review rounds taught
-
-The cases behind the top rules, per boss (Legends and raid). Each lesson applies to every boss.
-- **Rat king (`raids/ratking.svg`)**: a snarling phase 2 and a roaring phase 3 made of a muddy mass of rats were
-  "terrible": "MAKE THIS RAT KING SMUG AND COOL THROUGHOUT THE WHOLE THING". Then "phase 2 and 3 aren't different
-  enough ... different face too ... still smug tho"; then zooming out to a full figure or a small figure on a throne
-  "look absolutely terrible" (stick legs, a blob claw, a lost face); then a plan escalating props around phase 1's head
-  was "phase 1 plus stuff". What landed: BIG every phase with new camera, head angle, hands (a foreshortened claw at the
-  viewer, a goblet), light and a new setting with its own palette (emerald and gold vault; magenta, cyan and black neon
-  casino; all gold on purple treasure temple). A crowd is a few posed figures or one ordered structure, never a mass;
-  small figures stand on something ("why are the mice floating"). A true form must not REPLACE the character: a gold
-  statue rat read as "a gold cat statue"; his hoard rising as a gold dragon coiling round him landed. Sketch three
-  120 px silhouette concepts per phase first. 2026-10-03: phase 3 low angle, chin up, a gold wyrm pet, violet treasury,
-  then much more idle motion. 2026-10-08 "phase 3 is bad" (that wyrm scene, then a furious version: a cluttered mess,
-  small lost face): redrawn as one clear picture, the smug Gold Emperor on his vault throne (big face, chin up, crown,
-  scepter, goblet toast, coin rain); its head then read as jagged grey slabs (an oversized mirrored copy of phase 2's
-  head with the shades removed: the far eye sat alone on the snout ridge, the crown and scepter ran off the frame).
-  2026-10-09 "different design for phase 3", then "make this guy a chad on phase 3": the Chad Emperor, a poster shot
-  from below (V-taper, bare furry chest, flexing bicep, fist on the hip, square stubbled jaw, shades, the calm "yes."
-  smirk); the first chad drew a new long-snouted head in cold grey and "looks like a different character entirely", so
-  phase 3 now REUSES phase 2's head markup and phase 1's paws, chains and henchmen in his warm palette. Keep one
-  character by reusing the loved parts, not by redrawing them from memory. Small figures at the bottom edge stand on something that
-  runs into the bleed (the arena shows below y 120). A rat is a wedge (long snout, nose at the TIP, high thin round ears, buck teeth); the
-  sewer kingpin's round head and short muzzle read as a cat. Check the species at 120 px first. A bare chest is lit
-  from the scene (here the gold hoard: warm bounce under the pecs and arms, cool shadow side, gold rim), with pecs,
-  obliques and rounded ab PADS, never a flat grey slab ruled into boxes; a flexing fist shows its knuckles to the camera.
-- **Infernal Impresario (`raids/showman.svg`, from stage, "I LOVE THE DESIGN OF STAGE ... GOES ALL OUT")**: keeping the
-  parent's bust, costume and stage read as the parent through v1 to v6; a hellfire circus ringmaster was too close, then
-  a flat red devil melting into his tent. Then "do a different magic trick per phase and also redesign the character",
-  on a transparent background. Then (v9): a tall ash-grey demon conjurer in an emerald sequin tailcoat (the tinted part),
-  one trick per phase: Ember Doves, the Levitation (cold mean face), the Infernal Encore (sawing himself in half, the
-  manic face). A trick per phase gives each phase its own silhouette and event. Lessons from the passes: a full-figure
-  phase needs a WHOLE body ("it's almost as if his lower body doesn't exist": 3.5 to 4 heroic heads tall, waist, hips,
-  legs, shoes, coat tails behind the legs, a contact shadow); props carrying the concept are ARTIFACTS (masks with
-  filigree, gems, carved brows), unique designs not recolors; "PHASE 3 IS REALLY UNEVENTFUL" on a frontal bust: a final
-  phase is an event (diagonal action, something breaking open, things flying, foreground debris, idle that keeps it
-  happening). v9 then got "the character looks weird ... what happened to him swapping masks for phase 2? ... phase 3
-  has 2 of the same character ... looks broken" (thin stretched limbs, small head, odd bare hands, a ghosted second head
-  and a sawn box read as two of him). v10: a big bust every phase (head ~1.3 to 1.4x, thick tapered sleeves with a round
-  elbow, white gloves with claws through the tips, masks on gold batons or floating), ONE character per phase; the
-  masks are the act: the Overture (presenting), the Swap (an earlier draft's mask carousel the owner remembered: masks
-  float mid switch and the idle swaps them across his face), the Grand Finale (spotlights, card fan, masks raised like
-  trophies, still smug). Never draw a second copy of a character's head or body as a "trick".
-  2026-10-09 "this guy looks like a soyboy ... redesign him from scratch": the grey horned elf (narrow chin, long thin
-  neck, wide doll eyes, small features, timid smile, tube arms, the same flat pose three times) was thrown away. v3 is
-  a human-shaped ringmaster villain: a strong angular face (heavy V brows over deep-set glowing eyes, sharp cheekbones,
-  a square stubbled jaw, a waxed moustache), a tall top hat, broad epaulette shoulders, thick sleeves and gloves that
-  grip; Overture (straight on, footlights), Swap (dutch angle, brim pulled low, masks held at face size and swept
-  across it), Grand Finale (scarlet quick change, cane crackling, card cascade, orbiting glowing masks, fireworks).
-  The first v3 pass was then "broken": gloves floating with no sleeve, tube arms rising behind the head like
-  antennae, epaulettes stuck on as separate blobs, flat sticker masks pasted at odd angles, and "phase 3 is boring af".
-  Fixed by building every arm as one limb (shoulder, upper arm, elbow, forearm, cuff, glove; the forearm drawn over
-  the upper arm, the epaulette sitting on the shoulder top), masks as thick rimmed carved plates HELD in the fist, and
-  a phase 3 that is an event with layered motion. The next review still found a head and neck that read as one block
-  (a jaw as wide as the temples on a neck as wide as the jaw), phase 3 masks pasted ON the epaulettes, a mask cropped
-  by the frame, a hat crown lost in a dark backdrop, a mask covering the face most of the loop and on every strike, and
-  three phases that matched in silhouette. Fixed with a jaw that narrows to the chin, cheek planes, ears and a neck
-  narrower than the jaw (tendons, a cast shadow under the jaw, set into the collar); a rim light on the hat against
-  dark backdrops; masks that FLOAT above the hands with a gap, an aura and trails; strikes that whip the arms OUTWARD
-  so a flung mask drops low; and a camera per phase that changes the outline (upright, tilted lean, arms up in a V).
-  **Never give a villain a soft, weak, pretty-boy face**: a narrow chin, a long thin neck, big doll eyes, small features
-  and a timid smile read as weak whatever the costume. A villain needs a strong jaw and brow, eyes in shadow that
-  glow, a confident smirk, thick limbs and hands that hold something.
-- **Sugar queen (`raids/sugarqueen.svg`)**: one front half figure with a scepter, a sword, a halo was "boring"; a leap
-  and a float keeping her head the same size in the same place still "need to be more interesting"; a small figure
-  surfing a caramel wave was "too far away". The fix is a new camera ANGLE and pose at the SAME closeness. A villainess
-  sells through face, styling and attitude. "The castles and background are too colorful": dusk plum, mauve,
-  chocolate, small warm accents, farther = lower contrast. "Her hair is too long": a short styled cut; hair keeps one
-  identity across phases (may whip or float, never grow). Her phase 3 pendant hid the neckline.
-- **Hive empress (`raids/swarmqueen.svg`)**: phase 1 with cracked eyes and two fire bursts "isn't different enough".
-  The redraw changed the BODY PLAN (sprawled wide and symmetric over her egg sac, then rearing tall on a tilt, gaster
-  curled with the stinger at the viewer); same red eyes, V brow and crown.
-- **Banshee (`raids/banshee.svg`)**: phase 2 was phase 1 plus frost stars, phase 3 the same crop with the face split
-  ("more variation"). Redrawn as whole scenes, then an audit (2026-10-09, 4/10) found a long oval maw in all three
-  phases (too close to the banned ring maw), tube arms on ball shoulders with floating claws, flat ice-white shading, a
-  square inset and an arch. Rebuilt from scratch as one gaunt veiled woman: the same head construction in every phase
-  (one generator function, so it can never drift), a real mouth whose EXPRESSION changes (moan, shriek, sneering wail),
-  arms drawn as one continuous sleeve outline that bends at the elbow (outer contour rounds it, inner contour creases),
-  every backdrop a full scene (organ loft, storm-burst nave, flooded ruin from below). Lessons: a scream reads from lips,
-  teeth, a stretched face and nose folds, not from a hole's size; a pale figure needs a mid-dark gown or a backlit rim to
-  separate from a teal or violet backdrop; small ghost minions turn cute the moment they get round eyes and smiles
-  (hollow sockets and long mouths keep them eerie); a busy pipe backdrop must be darker than her.
-- **Hydra (`raids/hydra.svg`)**: heads "all look too different, the eyes are different color", then "all the snakes are
-  too similar to each other in every phase", then blocky coffin heads (2026-10-03). Shared features, then per-head
-  character through skull and gear (snout length, view, horns, scars, frill, barbels, tusks, expression and pose),
-  tapered skulls on waisted necks. Each head nameable by silhouette at 120 px.
-  2026-10-09 "redesign the hydra entirely and make the head thing a priority": rebuilt from the heads out. Six fixed neck
-  roots filled in order (King centre, inner pair, a low front head, outer pair), the same slot on the same root in every
-  phase, a seared stump at every root a cut head leaves; heads are small faceted 3D meshes so each phase's camera and
-  light turn them. The old art bolted heads onto each phase (the young head sat on a different neck per phase, extra
-  heads left no stump, sideways necks sprouted from mid neck): never again.
-- **Chronos (`raids/chronos.svg`)**: an audit (2026-10-09) graded it 3.5/10: segmented tube arms coming out from under
-  pasted-on bells with fists floating at the sides, phases 1 and 2 the same picture with cracks, phase 1 nearly static,
-  empty dark corners, phase 3 the same face crop. Redrawn from scratch from ONE set of parts (a generator places the same
-  head, torso, bells, arms, hands and key per phase): an arm is upper arm, a cog at the elbow, vambrace, gauntlet, and
-  its pauldron bell sits ON the shoulder (on a raised arm the bell goes behind it, never a cup the arm grows out of); a
-  hand always does something (grips the key, cups sand, thrusts a HALT palm, raises an hourglass); a signature prop (the
-  winding key) carries through all three phases; each phase is a new camera and setting (front at dusk, dutch angle in a
-  storm, from below under an eclipse). Lessons: a brow made of clock hands must sit ABOVE the eyes or it reads as
-  glasses; a palm needs its fingers rooted at its top edge or it reads as a cup; compose inside 0 to 120 (small still
-  tiles show only the frame), let only extremities bleed.
-- **Zeus, the Thunder God (`raids/tempest.svg`)**: "make zeus more muscular and handsome": V-taper (broad deltoids,
-  pecs with a hard shadow, six-pack, obliques), thick arms, strong neck, a handsome face with real irises and a
-  confident half smile, a beard short enough to show face and chest; outline only the outer arc of the deltoid or he
-  reads as an action figure. Glowing visor eyes with a scowl read as a mask. Phase 3 riding: a figure on top of a
-  head-on dragon "doesn't look like he is riding it"; mount in profile charging across, rider seated BEHIND the head,
-  thigh along the neck, foot hanging below, one hand gripping, hair and cloak streaming; heads turned to the viewer.
-  2026-10-03: a broken leg and unreadable held objects took three rounds (a short kilt, two bent bare legs on a serpent
-  coil, a big gripped thunderbolt, a ball of lightning).
-- **Thousand-Eyed Judge (`raids/seraph.svg`)**: a redraw into a calm cowled judge in a heavy robe was "lame" and "too
-  bulky". Raising an older boss to the new bar means re-RENDERING it: keep the loved silhouette (tall, spiky, airy, many
-  limbs, negative space), upgrade shading and structure, fix only what was wrong (a mouth under the eye became a gold
-  mask plate; thin spider sticks became fewer, shaded bones). The one head eye stays in phase 3 (the owner asked for it
-  back when a maw replaced it). Check effect faces: a closed lid drawn as a curve with lash ticks read as a grinning
-  MOUTH; keep the whole almond, lid lowered. 2026-10-09 audit (3/10: a small figure in an empty frame, stick arms with
-  ball joints ending in floating eye-orbs, cages hanging from nothing, a phase 3 that became a burning wheel with one eye
-  like the ophanim): rebuilt from scratch as ONE big judge per phase (cowl, eye, mask, thorn crown, halo, crimson robe,
-  six eyed wings, the Scales of Judgment it is named for). Arms that read: a gauntlet FIST gripping the scales' post or a
-  lantern handle out of a crimson sleeve, a raised arm whose sleeve has fallen to the elbow on a porcelain vambrace,
-  praying hands in phase 3; generic tube-limb arms read as sausages and were thrown away. White parts need value
-  separation: white hands vanish on white wings (crimson sleeves and robe behind them), and a white pointed hood alone
-  reads as a cone, so porcelain blades sweep out from its sides like a helm's wings. The ability is read on the drawing's
-  own scales (wrath slams them, grace tips them, mercy swings them level), never on a ghost copy in front of it.
-- **Hound of the Last Gate (`raids/cerberus.svg`)**: "svg looks broken too on this one and all phases are too similar"
-  (three heads crammed side by side in an arch, slab bodies, a cropped jumble with a giant paw and a flat red circle,
-  phase 3 the same row of heads again). Redrawn 2026-10-09 as one hound with three necks out of the shoulders, three
-  heads on one 3D skull with their own features, and a different arrangement per phase: a resting triangle, a dutch
-  lunge with a paw at the camera, a crowned fan from below. A multi-headed creature tells its phases apart by WHERE
-  the heads are, not by what they wear: a row of heads in two phases reads as the same picture.
-- **Divine bosses are perfect and omnipotent** (the Wheel of Eyes, `raids/ophanim.svg`, from the owner's reference
-  images): an immaculate central eye, interlocking rings studded with eyes, layered parchment-feather wings, a white
-  void, overwhelming scale. Serene and flawless is scarier for them than a snarl.
-- **Lunar Strix (`raids/moonmaw.svg`)**: "i love the idea of a MOON boss but this design ain't it. redesign from
-  scratch": a cratered ball with one eye and tentacles read as a pale Void and copied the Legends space boss. A loved
-  theme on a weak creature becomes a new creature whose signature part IS the theme (the moon as an owl's facial disc,
-  moon phases as the phases: silver, blood red, eclipse black and gold); check the set for the silhouette first. Moon
-  readable above the brows (one V ridge, a narrow forehead wedge), craters soft and unoutlined (never extra eyes).
-  2026-10-03 "doesn't look like an owl" (a round plate, then a heraldic shield): an owl reads from a two-lobed facial
-  disc with feather-edged rims, two big round forward eyes (brow ridge cutting their tops), a short hooked beak in
-  bristles, tall ear tufts. Stuck-on owl features or owlets peeking from craters read as an odd hybrid.
-- **Liked concept, disliked character = redesign the character, keep the concept** (kaleido, chronos, tempest: ability
-  and theme stay). "Redesign completely" means a new silhouette, pose and face. A color note is part of the brief
-  ("more yellow because of lightning").
-- **"Mutant" is not "creepy"** (the forest hart): a proud or noble boss gets no horror shorthand (skull face, snarl,
-  tear streaks, exposed ribs, spine spikes); keep the strangeness in its SHAPE, give it a living face and details.
-  Colors carry mood (green bat wings alien, brown feathered wings of the forest).
-- **One creature, one set of features across phases** (the lich's phase 3 skeleton got the lich's own skull).
-- **Anatomy and focus**: arms bend at an elbow from a shoulder ("arms are weird", ice); a hand doing something specific
-  (clawed into its own chest, vampire) beats a hand flung out; eyes on stalks like a snail beat little eyes dotted
-  around a face (lab).
-- **A mouths boss** (since retired) read as "a monster of eyes": mouths are few, big, unmistakable slashes with teeth.
-- **2026-10-03, also sent back**: a stand-in eye covering the ophanim's real eye; seraph Grace "bare bones".
-- **Mirror Knight (`raids/kaleido.svg`, 2026-10-09 redraw)**: the audit found a faceless great helm, reflections that
-  were flat copies, and a phase 3 that became a different flat knight with tube fingers and a stuck-on sword. Lessons:
-  a helmed knight still needs a FACE the owner can read (here a living silver mirror face framed by cheek guards, the
-  helm's brow plate as the angry V); a reflection reads as a reflection when it is MIRRORED, recolored as glass (darker,
-  cooler, the fire kept warm) and its motion lags his (phase-shifted copies of his own loops), not when it is a pasted
-  duplicate; arms are plate (rerebrace, a pointed couter, a flared vambrace with lames and a gold band), never a tube with
-  a ball joint; a theme boss's phase 3 shows the theme (the hall becomes a turning kaleidoscope and his echoes flank him)
-  instead of burying it under flame wings; ability overlays aim at the part the ability is about (his chest prism), never
-  the face. The drawing comes from a generator (`.scratch/redraw-kaleido/`): parts are functions reused by every phase,
-  so the three phases stay one character.
+- **Rat King**: smug and cool throughout. A rat is a wedge (long snout, nose at the tip, high round ears); a round head
+  and short muzzle read as a cat. Phase 3 failed twice as "a different character" (a new head, then phase 2's head on a
+  bodybuilder): keep proportions, build and face view. A true form never replaces the character (a gold statue rat read
+  as "a gold cat statue"). Minions stand on something, few and posed, never a mass.
+- **Showman**: a costume is not a power. Power floating AROUND a man still reads "a guy with masks": it must be ON him
+  (his face, horns from his head, fire from his palms). Never a soft pretty-boy face (narrow chin, thin neck, doll eyes,
+  timid smile). Never a second copy of the character as a "trick". Arms are one limb (shoulder to glove); masks are
+  thick carved artifacts HELD in the hand, never pasted on.
+- **Sugar queen**: "too far away" and "background too colorful". Hair keeps one identity (may whip, never grow); a
+  pendant must not hide the neckline.
+- **Hive empress**: phase 1 "not different enough" was fixed by changing her POSE (sprawled, then rearing).
+- **Banshee**: a scream reads from lips, teeth and a stretched face, not a big hole (a long oval maw was too close to a
+  ring maw). A pale figure needs value separation from what is behind her. Ghost minions with round eyes turn cute.
+  Thin upward hair locks read as horns. Her bells read as "weird green hair that floats".
+- **Hydra**: heads share features (one eye color), each its own character (snout, horns, scars, expression); tapered
+  skulls on waisted necks. Built from the heads out: fixed neck roots, the same head on the same root in every phase,
+  a stump where a head was cut.
+- **Chronos**: an arm is upper arm, elbow, vambrace, gauntlet, the bell ON the shoulder turning with the arm. A hand
+  always does something. A signature prop (the winding key) runs through all phases. Clock-hand brows sit ABOVE the
+  eyes or read as glasses. The head-to-body ratio never changes.
+- **Zeus (tempest)**: muscular and handsome (V-taper, real irises, a confident half smile, a short beard); glowing visor
+  eyes read as a mask. A rider sits BEHIND the mount's head in profile, thigh along the neck, one hand gripping.
+- **Seraph**: keep the loved silhouette and the single eye (the owner wanted it back when a maw replaced it). A pointed
+  white hood over red robes reads as a hate group's hood: never. Nothing symmetric under the single eye (reads as teeth);
+  a rounded dome read as "a tombstone": a face needs a face's structure. White hands vanish on white wings. A closed lid
+  drawn with lash ticks read as a grin.
+- **Cerberus**: every neck roots into the shared shoulders, or it reads as several animals; a neck is longer than it is
+  wide; the heads change ARRANGEMENT per phase, not only what they wear.
+- **Headless Horseman**: fire is several tongues, never one teardrop (reads as a tulip). A horse reads in profile or
+  three-quarter, never head-on. A lantern hangs BELOW the forearm that holds it.
+- **Ophanim**: a divine boss is serene and flawless; scarier than a snarl. An effect never puts a stand-in eye over the
+  real one.
+- **Lunar Strix (moonmaw)**: a loved theme on a weak creature becomes a creature whose signature part IS the theme (the
+  moon as an owl's facial disc). An owl reads from a two-lobed disc, two big forward eyes, a short hooked beak, ear tufts.
+- **Mirror Knight (kaleido)**: a helmed knight still needs a readable face. A reflection is mirrored, recolored as glass
+  and lags his motion, never a pasted copy. Arms are plate, never a tube with a ball joint. An ability overlay aims at
+  the part it is about (his chest prism), never the face.
+- **Kitsune (first version)**: "very ugly... compare it to sakura being so beautiful". A beautiful boss gets grander
+  through scale, light and stillness, never an uglier face.
+- **General**: liked concept, disliked character = redesign the character, keep the concept. "Redesign completely" = a
+  new silhouette, pose and face. "Mutant" is not "creepy" (no horror shorthand on a noble boss). A hand doing something
+  specific beats a hand flung out. Mouths are few, big and unmistakable.
 
 ## Raid boss voices (what the owner wants when a boss talks)
 
@@ -511,6 +419,8 @@ Voices live in `src/features/legends/raidVoices.js` (persona per boss + `RAID_VO
 
 ## Process and checks (before the owner sees anything)
 
+Raid bosses: the RAID BOSSES process replaces this section.
+
 1. Plan per boss (see the boss recipe).
 2. Draw, render ALL phases side by side at 300 and 120 px on dark AND light, and look. Does each phase read as a
    different moment? Does the face change? Anything floating, flat or weird? Fix, render again.
@@ -530,7 +440,7 @@ Voices live in `src/features/legends/raidVoices.js` (persona per boss + `RAID_VO
 
 The one list, a line per motif (boss, idea, entrance, lair), is `dev/legends-gallery/catalog.js` (a test keeps it
 equal to `MOTIFS` in `src/features/legends/map.js`). Read it before adding a motif and add the new entry there. Raid
-bosses: 26 active in `RAID_ORDER` (`src/features/legends/raid.js`), one file each in `raids/`.
+bosses: 27 active in `RAID_ORDER` (`src/features/legends/raid.js`), one file each in `raids/`.
 
 **Every entrance is completely different**: no two bosses share a MOVEMENT, not only a keyframe name. A new entrance
 tells the boss's own story (a kitsune blinks left, right, then appears; a poltergeist billows up like a sheet; a rex

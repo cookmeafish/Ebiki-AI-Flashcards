@@ -5,7 +5,7 @@ Brand color **#DF2540**. Themes **Ocean Light** + **Dark**. Fonts Baloo 2 (displ
 
 ## ⭐ THE QA RULE: TRIPLE CHECK EVERYTHING (the owner: "triple check for everything to ensure quality", "the QA must be amazing")
 **QA ALWAYS HAPPENS, unasked: it is part of every change, never a step the owner has to request.** "QA" means THIS
-WHOLE SECTION (plus, for anything raid boss, even a one-line edit, the full "RAID BOSSES GO ALL OUT" process in
+WHOLE SECTION (plus, for anything raid boss, even a one-line edit, the full "RAID BOSSES" process in
 `docs/legends-art-guide.md`). **When the owner SAYS "QA", it means QA FAILED** (the owner: "QA should always happen.
 but when i mention it its because QA failed"): something broken reached him. Then: find what slipped through and
 why, fix it, re-run the whole QA on it, and tighten the process (a new check, a rule here) so that kind of miss can
@@ -19,7 +19,23 @@ Nothing reaches the owner (or a commit) on one look. Every change, code or art, 
 3. **An independent review**: a second pass by someone who did not write it (a separate agent or the coordinator)
    reads the diff and the screenshots hunting for what's broken, missing or off-brief, against the owner's words.
    Findings are fixed and re-checked, not listed and shipped.
+**Interrupted work (usage limit, crash, cut-off agent) gets an extra check** before it resumes and before it is
+reported: NOT BROKEN (files complete and well-formed, an SVG ends with `</svg>`, partial edits redone from the backup,
+tests green, a fresh screenshot looked at) AND THE VISION STILL THERE (re-read the brief and run the owner's checks
+again, e.g. the Kitsune test, on that screenshot).
 Reports say what was checked and what is still weak, honestly. The coordinator verifies before relaying "done".
+**Judge it the way the OWNER sees it** (a Rat King phase 3 passed close-up renders, a review and the coordinator, yet
+was "a different character" the moment the owner opened the asset view): the coordinator's own check is a screenshot
+of the REAL screen the owner will open (for raid art: the asset view's "Phase drawings" panel with all phases side by
+side), taken by the coordinator, not only the agent's renders, and EVERY owner rule is checked against it one by one,
+never just the rule of the latest complaint (a Showman then passed "same character" and was rejected as "a regular guy
+... where are his powers"). For raid art the list is **the Kitsune test** in `docs/legends-art-guide.md` "RAID BOSSES" (first: LOOK at a screenshot
+of every phase and each face zoomed for anything broken: doubled eyes, misplaced glasses, stray lines, box hands,
+floating parts (a Rat King phase 3 shipped with all of these); then a background that is none or simple and fitting,
+one sentence per phase, a blurred screenshot, three clearly different SILHOUETTES (solid black at 60 px, overlap no higher than the kitsune's: a Showman with the same bust, hat and coat each phase was "too similar"), intentional detail with path counts, same character, a significant
+change per phase on the character, phase 3 clearest, power visible, anatomy, exciting, "equal to the kitsune?"). Write the list out with a pass/fail per item before
+relaying anything, and judge it honestly as the owner would ("would it hang beside the kitsune as her equal?"), never
+as the one who made it.
 
 ## ⭐ THE VISION: runs well on ANY computer, device, screen and platform
 The owner's standing rule for EVERY change, not only art: Ebiki must feel smooth on a weak laptop with an integrated
@@ -1352,24 +1368,24 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   edit: `public/assets/legends/README.md`. Palette CSS: `src/config/palette.js` (`PALETTE_CSS`, App + gallery).
 - **Making or redrawing Legends art (boss, RAID boss, banner) or a raid boss voice/lore? Read
   `docs/legends-art-guide.md` FIRST and follow it** (a raid boss also: "The owner's vision for the FIGHT" in
-  `docs/raid-bosses-plan.md`: nine unique impact moments, a dramatic themed knockout, fair profile, the checklist) (owner's top rules, boss recipe, mood rules, raid boss voices,
-  approved/rejected list; `raids/kitsune.svg` is the gold standard). Hard rules: every new or redrawn asset gets the
+  `docs/raid-bosses-plan.md`: nine unique impact moments, a dramatic themed knockout, fair profile, the checklist). Hard rules: every new or redrawn asset gets the
   guide's TRIPLE CHECK (each alone, the set side by side, real app screens + tests + check-art) before the owner sees
   it; every boss and banner truly unique (not a recolor), each banner its boss's lair with the boss present; each
   boss its OWN entrance MOVEMENT (`ENTRANCES`, optional pivot `origin`); everything has idle life.
   `dev/legends-gallery/catalog.js` is the one motif list (a test keeps it equal to `MOTIFS`); the owner reviews all art
   at `/dev/legends-gallery/` (dev server only).
-- **⭐⭐ RAID BOSSES GO ALL OUT, EVERY TIME (the owner: "super crucial").** Making a NEW raid boss, REDESIGNING one,
-  or touching any raid phase, effect or animation, EVEN A SMALL EDIT ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST
-  QA": a one-line fix gets the same zoomed checks, animation check and triple check as a redraw): read `docs/legends-art-guide.md` "RAID BOSSES GO ALL OUT" FIRST and
-  follow every line. In short: the bar is `raids/kitsune.svg` and `raids/ophanim.svg`: the GOLD STANDARD of quality
-  (the owner: a standard to match, NOT a side-by-side render test); one nameable character, big in frame, the SAME character in every phase, personality
-  constant, strong villain faces; anatomy that connects (no floating gloves, tube arms, pasted heads/necks); three
-  DISTINCT phases (new camera, pose, face, light, palette, setting) with phase 3 the SPECTACLE; animations go hard on
-  everything (layered idle, entrance, nine moments, the attack on the player, a themed knockout) and every ABILITY
-  effect is CRAZY DISTINCT and moves the boss's real parts. No time limit ("IT DOESN'T MATTER HOW LONG IT TAKES"):
-  at least three render → critique → fix rounds zoomed 2 to 4x, an animation check, the triple check, an honest
-  report; the coordinator inspects zoomed renders before the owner sees anything.
+- **⭐⭐ RAID BOSSES: the kitsune is the gold standard (the owner: "super crucial").** Any raid boss work, even a
+  one-line edit ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST QA"): read `docs/legends-art-guide.md` "RAID
+  BOSSES" FIRST and follow every line. In short: "go all out" means QUALITY and IMPACT, never MORE STUFF. The
+  character IS the picture: one big centered figure; a background only when it makes sense for the boss, simple and never disrupting it, in every
+  phase alike (owner 2026-10-10: "it is not required for a character to have a fully clear background"; the Rat King's
+  vault and casino are approved; CLUTTER failed, not backgrounds), each phase readable
+  in one sentence, detail intentional and ON the character, one anchor (face, proportions, signature features) while the CHARACTER evolves each phase (expression,
+  hair, props, aura, palette; not the scenery), phase 3 the most impactful AND the clearest, a raid boss with its
+  power ON it, elegant, a calm idle with presence (a blink), every animation with its own feeling. The 2026-10-09
+  redesigns and the Headless Horseman were all rejected for the opposite (crammed detail, "too much background",
+  "hard to tell whats going on", no significant change per phase, broken phase 3s). No time limit; the guide's
+  Kitsune test and process before the owner sees anything.
 - **SVG motion rules**: `<animateTransform>`/`<animateMotion>` only (the sanitizer drops `<animate>`/`<set>`/
   `calcMode`); `keyTimes` must match `values` one to one and end at 1, or the browser silently drops it (tested).
   Tag `class="lg-in"` (entrance) or `lg-loop` (idle); `withMotion` strips per `animated` mode ('intro' card, 'idle'
@@ -1397,8 +1413,10 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   untranslated, grades understanding in any language), so EVERY fight prompt follows without knowing. Changing
   learned language / Ebi speaks / dialect on the intro rewrites the questions (`generationKey`). Grammar feedback off:
   grammar outside the tested word never makes a strike glancing. **Every typed language question in QuizRunner shows
-  the letter COUNT** (the owner: ALWAYS): `ensureLetterCue` adds the skeleton `(s·······)` unless one is there, even
-  beside a quoted first letter; answered with choices it is stripped (`stripLetterSkeleton`).
+  its PREFIX HINT** (`ensurePrefixHint`, the one engine `utils/prefixHint.js`, see "Hints and choices"); answered with
+  choices every hint goes (`stripLetterHints`), and a meaning-form `alt` shows its own `alt.prompt` with no "Type it
+  instead". Raids (`RaidRun` `poolChoices`) and Legends (`makeQuiz` → `legendsPool`) replace each typed question's `alt`
+  through `kit/fightChoices.js` `withPoolChoices`.
   **`ctx.words.tappable(text, source, sentence, opts)`** (`opts` = { answers, glosses, lang }) = Study's question
   formatting for any text (muted cues, word-hint slot, answer words untappable), tappable when `tapAllowed` (language
   mode, or text not in the app language). `src/utils/tapTokens.js` is the ONE tap tokenizer (Intl.Segmenter,
@@ -1495,7 +1513,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     prompt, `parseTaunt`, overlap check `sharesPhrase`, `islandVoice`) + `kit/tauntStore.js` (role `help`; each boss's
     last `RECENT_MAX` lines per device in `platform.kv`, sent as "never repeat"; a reply sharing a 3+ word phrase (4
     chars CJK) is retried once, then NOTHING shown; the persona sample is a fallback only when the model failed, once
-    per fight). Voices: `RAID_VOICES` (raidVoices.js); Legends bosses `islandVoice` + `RAID_VOICE_RULES`/`STOCK_WORDS`.
+    per fight). **What the voice MANDATES is never a repeat** (`tauntRepeats(line, recent, sample, voice)`, RaidRun
+    passes the `RAID_VOICES` entry as `mandated`): a word run touching its opener, signature or nickname, or the
+    first words of a non-English line not starting with the literal opener (its slot, `leadOf`: a translated opener;
+    `tauntTranslated(userLang)`), is left out on both sides; the line's other wording is still checked, and a line
+    whose OWN words equal another's is a repeat (a short line of mandated words had no run left to compare) (without it 24 of 27 bosses' lines matched their own
+    sample and every second line matched the first, so nothing showed). `raidTaunts.test.js` builds a line in every
+    persona's structure. Voices: `RAID_VOICES` (raidVoices.js); Legends bosses `islandVoice` + `RAID_VOICE_RULES`/`STOCK_WORDS`.
     `TauntBubble` under the arena; a line arriving after the next question is dropped; Help hears it (`boss-taunt`).
 - **Accent grading is ONE setting** with Study's accent drill (`studyRules.accentDrill`; `subject.strictAccents`,
   `subject.setStrictAccents`), only for languages with accents: fights pass `strictAccents: !!subject.accents && ...`
@@ -1545,8 +1569,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     `siege: {boss, hp, damage, hearts, date, bandage?}`; a siege saved by an older build keeps its health until beaten;
     `day.hp/damage` written in step for older builds; a state without `siege` restarts from `day` (`siegeOf`).
   - **Powers** (`powers.js`, raids ONLY). **Making or changing a power? Read `docs/raid-powers-guide.md` FIRST.**
-    12 powers UNLOCKED FOR GOOD by DIFFERENT bosses beaten (`bossesBeaten`; 1 to 26, the last needs the whole roster;
-    no bag, no drops). The player brings up to `LOADOUT_MAX` (3) chosen on the raid intro (`PowerLoadout`,
+    12 powers UNLOCKED FOR GOOD by DIFFERENT bosses beaten (`bossesBeaten`; 1 to 27, the last needs the whole roster;
+    no bag, no drops). **For good is STORED**: the raid state's `powers` is a high-water mark (shapeRaid writes the
+    stored list plus what the trophies give now; `powerProgress(state)` = `{ beaten, kept }`, which `unlockedPowers`/
+    `shapeLoadout`/`toggleLoadout`/`nextUnlock` take instead of a count), so a new boss raising a threshold or a trimmed
+    trophy list never re-locks one; it only grows (updateRaid re-reads before each write). A state without it (older
+    builds drop the field) is seeded from `PAST_UNLOCKS`: **a threshold that moves appends the old table there**.
+    Tests: `powerUnlocks.test.js`. The player brings up to `LOADOUT_MAX` (3) chosen on the raid intro (`PowerLoadout`,
     `features.legends.raidLoadout`, `shapeLoadout`); EACH WORKS ONCE PER FIGHT, one per question. Window powers (Focus,
     Siphon, Momentum, Fury) last `POWER_WINDOW` raid questions (`powerAfterAnswer` counts down, names the `proc`);
     Ward only on an incoming attack; Steadfast is passive (extra hearts lost first, subtracted before the siege write);
@@ -1555,7 +1584,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     50:50 or Hint is `aided` (struck like a choice, recorded Hard; titled `lg_strikeAided`, refunded like a choice).
     Icons: `public/assets/legends/powers/<id>.svg` (`/dev/raid-powers/`); animations: `impact/PowerFx.jsx` (cast,
     armed, proc, all distinct). A test fight brings every power. Bosses are balanced WITHOUT powers; `powers.test.js`
-    caps a power's window damage and keeps later powers stronger; `furycap.test.js` holds the cap WITH all 26 abilities.
+    caps a power's window damage and keeps later powers stronger; `furycap.test.js` holds the cap WITH all 27 abilities.
     **"Clean" is Focus-aware everywhere** (`hitClean(ctx, res)`, abilities/_rules.js): Fury, Sharpen, Siphon and the
     clean-answer abilities treat a slip under Focus as clean; a glancing slip under Focus brings no attack back.
     **Fury multiplies only the strike's own damage**, never an ability's banked burst. A refund pays the answer's
@@ -1580,13 +1609,17 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     builds on a share read the same indices): a removed boss is RETIRED (`RAID_RETIRED`, skipped by
     `activeBossIndex`; a stored one moves to the next, keeping wounds), never deleted; its trophies draw as a plain cup
     (`isRaidMotif`, `lg_raidRetired`). Retired: the Glutton (owner disliked the concept; do not recreate).
+    **An index at or past the roster's end came from a NEWER build** (`isNewerRaidBoss`): never `% length` (an older build
+    turns the Horseman into the Hydra that way), the state is kept exactly as stored by every writer (boss,
+    day, siege), `raidMotif` is '', no fight starts: RaidRun phase `newer`, the hero's `kind: 'newer'` and Help say
+    to update Ebiki (`lg_raidNewerBoss`). Tests: `raidNewerBoss.test.js`.
   - **Raid art**: `public/assets/legends/raids/<motif>.svg`, phase layers `lg-p2`/`lg-p3` (start
     `style="display:none"`), `lg-p1` (phase 1 only), `lg-p12` (gone in phase 3), switched by the arena's `data-phase`.
-    Hard rules: each fills its frame, its backdrop is part of it, every phase is a TRANSFORMATION (not a sticker) and
-    changes the FACE; no flat colored blobs behind the boss (read as stains). Plan and direction:
+    Art rules: the guide's RAID BOSSES section (no clutter: a simple fitting background or none, the character evolves per phase, phase 3 clearest). Plan and direction:
     `docs/raid-bosses-plan.md`, `docs/legends-art-guide.md` (read first). Edit the SVGs directly (generator scripts are
     outside the repo). Phase change: `usePhaseShift` (rises only) flashes/shakes (`lgPhaseShift`) and fades "PHASE N"
-    UNDER the boss (`lgPhaseTag`; a stamp over it hid the change); focus mode skips it.
+    UNDER the boss (`lgPhaseTag`; a stamp over it hid the change); focus mode skips it, and so does a knockout (never
+    while `down`: it sat over the falling boss; any non-rise ends the stamp at once).
   - **Every raid boss needs lore and a voice** (`raidLore.test.js`): `lg_raidLore_<motif>` (2 to 4 sentences, four
     locales) and a `RAID_VOICES` entry. Each has its own card entrance in `ENTRANCES` (names there; a test keeps all
     Legends + raid entrance names distinct).
@@ -1606,7 +1639,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   `plates`, lich `minions`, chimera `threeheads`, void `horizon`, seraph `verdicts`, leviathan `current`, inferno
   `vent`, chronos `loop`, vampire `wards`, tempest `drums`, kaleido `prism`, puppeteer `puppets`, berserker `allin`,
   swarmqueen `wildfire`, gorgon `mirror`, banshee `scream`, reaper `execute`, dreamer `sleep`, moonmaw `moons`, kitsune
-  `rally`, ophanim `grace`, ratking `hoard`, sugarqueen `sugarrush`, showman `encore`, cerberus `shackles`.
+  `rally`, ophanim `grace`, ratking `hoard`, sugarqueen `sugarrush`, showman `encore`, cerberus `shackles`, horseman `ride`.
   - **Every effect is reachable and documented**: `_triggers.js` holds each effect's numbers and whether it is a
     button; `lg_fxWhen_<motif>_<fx>` / `lg_fxDoes_<motif>_<fx>` (four locales) feed the bestiary card (`bestiaryRows`).
     `triggers.test.js` plays each trigger and checks the effect fires (not one step short); `reachability.test.js`
@@ -1630,7 +1663,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     red crack on a heavy blow) and adds the labels. `impact.test.js`: every RAID_ORDER boss has a style, no two
     share a glyph, a strike or a knockout, only known parts/glyphs/moves, fixed hex colors. A new raid boss needs a
     `RAID_IMPACT` entry. Played by the SAME `useJuice` (`moment`, `STRIKE_FX` juice), so every juice limit
-    applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 26:
+    applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 27:
     `/dev/raid-impact/?moment=hurt` (dev only; `freeze(ms)` in the console). Asset view: "Impact moments" and
     "Powers" buttons under the phase demo.
   - **ONE FOLDER PER BOSS: `impact/bosses/<motif>.js` + `<motif>.parts.jsx`** (README there): `style` (what was
@@ -1658,7 +1691,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     still `KoTag` under the greyed boss. `impact/styles.js` ko spec + `koTiming`, one death part per boss
     (`impact/parts.jsx`), its own ko body move (`impact/body.js`); `impact.test.js` checks length, stages, uniqueness,
     opacity never below 0.25, everything finished at the end. Calm (focus, Still bosses, reduced motion): greyed + tag.
-    Review: `/dev/raid-impact/?moment=ko&times=peak` (all 26) and `?arena=<motif>`.
+    Review: `/dev/raid-impact/?moment=ko&times=peak` (all 27) and `?arena=<motif>`.
   - **Powers animate in the LOWER HALF of the boss box, never over the face** (the owner: best mix of visibility and
     position; `impact/PowerFx.jsx`): a cast (`power` {id, n}) and a power hit (`proc`) play in BossArena's POWER STAGE
     (`POWER_STAGE` share of the box height, `data-power-stage`; labels must never clip); armed powers are pills in the hearts row (`PowerBadges`: icon in
@@ -1767,10 +1800,18 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   to a figure** (`room` prop / `headroomPx(size)`: asset view, gallery, intro card, arena, results, raid hall), else
   tags and titles were drawn over (the owner). Banners clip at their own edge; keep their animated parts inside.
 - **Run `node dev/legends-gallery/check-art.mjs` (dev server up) before committing ANY art change.** FAILS on a boss
-  part moving past frame + headroom and an idle scale/skew that slides instead of pulsing in place; WARNS on banner
+  part moving past frame + headroom, a raid boss part SITTING past it (`clip`, static parts too: Banshee pipe caps
+  and the Titan's top were sliced flat; FAILS for every raid boss, judged on the real outline, never the rotated box, over each loop's WHOLE period (a
+  220 s ring spin is cut late);
+  only an owner-approved background goes in `CLIP_REVIEWED`; `EBIKI_ONLY=raids/<motif>` checks one) and an idle
+  scale/skew that slides instead of pulsing in place; WARNS on banner
   parts cut mid-motion and OVERDRAW (a decorative stroke must END inside the fill it decorates). Travellers and
   deliberate collapses are allowed; lines meant to leave a shape go in `REVIEWED` only after looking. Write edit
   scripts holding regex backslashes with the Write tool (a heredoc turned `\b` into a backspace, `\s` into `s`).
+  It also runs **`check-joints.mjs`** (JOINT: the kitsune's head "dislocated from her body" in 40 fight animations):
+  every moment, ability fx, assault and knockout hold, 3 phases, every 60 ms, the head's neck joint followed through
+  head vs body wrappers; over 2.5 units FAILS for its `STRICT` bosses (kitsune), warns per boss for the rest
+  (`--sheet <dir>` = contact sheets). A head moves by TILTING on its neck (pivot at the joint) or rides a bust wrapper.
 - **SVG pivots**: scale/rotate/skew pivot on local (0,0); a part drawn elsewhere needs
   `style="transform-box:fill-box;transform-origin:center"` (the sanitizer keeps it) or it slides. Flames pivot
   `center bottom`, drips `center top`, flags/capes/sails/hanging banners at the top or pole side, plants at the base.
@@ -1886,18 +1927,84 @@ whose KIND climbs with the card's maturity (`tierOf(card)` from Anki: 0 Meet = n
 relearning or due within 2 days, 2 Recall 3-6 days, 3 Use 7-20, 4 Produce 21-89 (Anki's mature), 5 Master 90+).
 Struggling cards drop on their own: Anki shrinks a lapsed card's interval. Legends items: `tierOfItem(codex, {kind})`.
 - **Tier 0 TEACHES**: answerable correctly first try from what it shows (exempt from the leak guard, `tierTeaches`).
-  Open tiers (`tierOpen`) get no letter cue and are graded on USE (`openTierGradingRule`; fights `tierJudgeLine`).
+  Open tiers (`tierOpen`) get no prefix hint and are graded on USE (`openTierGradingRule`; fights `tierJudgeLine`).
 - **Same features everywhere** (Study, raids, Legends lessons/boss/Legendary): `TierChip` above the question, typed by
   default with a PER-QUESTION "🛡 Show choices" / "⌨ Type it instead" toggle (`qt_*`; a choice rates at most Good,
-  `cs.byChoice`), the letter count, and the TRIPLE CHECK: `CLEAR_ANSWER_RULE` + ambiguity self-check in the prompt,
+  `cs.byChoice`), the prefix hint, and the TRIPLE CHECK: `CLEAR_ANSWER_RULE` + ambiguity self-check in the prompt,
   code guards (leak, letter cue, `buildChoices`), and an independent REVIEW PASS (`QUESTION_CHECK_RULES`,
   `buildQuestionReviewPrompt`/`parseQuestionReview`, AI role `qcheck`): a reject is rewritten once naming the reason,
   then the safe fallback. A failed review keeps the question but never saves it (`_unreviewed`).
-- **Choices are always available**: `ladderFinish` gives every question its tier and verified choices (word answers
-  borrow distractors from other cards, `choicesFromPool`; open questions get one background call,
-  `buildOpenChoicesPrompt`/`parseOpenChoices`). Study's first card shows before its review and is swapped if rejected
-  while unanswered; raids review in the background during the intro (Fight waits at most 4 s).
+- **Choices are always available**: `ladderFinish` gives every question its tier and choices by THE CHOICE POOL rule
+  below (`planStudyChoices`, planned again the moment "Show choices" is pressed, when the deck pool is fuller); open
+  questions get one background call (`buildOpenChoicesPrompt`/`parseOpenChoices`, told the prefix). Study's first card
+  shows before its review and is swapped if rejected while unanswered; raids review in the background during the intro
+  (Fight waits at most 4 s).
 - Question reuse keys on the tier (`t<N>` in `sig`; tier 2 = the old sets). Ladder off = the old depth rule below.
+
+### ⭐ THE QUESTION GOAL (`utils/questionGoal.js`, tested; every subject; the most important rule here)
+The owner (2026-10-10): "ALWAYS KEEP IN MIND WHAT THE QUESTION SHOULD BE ASKING OR NEED THE USER TO REPRODUCE TO MAKE
+SURE THE USER UNDERSTANDS IT ... DIFFERENT CARDS AND SUBJECT MIGHT NEED A DIFFERENT TREATMENT. A CHECK FOR WHAT TYPE OF
+QUESTION OR LEARNING EXPERIENCE IT SHOULD GIVE BASED ON THE GOAL IS REQUIRED." A CompTIA learner who can type "secure
+enclave" may still not know what it is.
+- **Before a question is written, the card's GOAL is decided** (`cardGoal`, memoized per card): language `word` (recall,
+  then use) / `phrase` (say it, know when) / `rule` (apply it, never recite it); general `concept` (understand: what it
+  is, what for, when, how it differs, applied; the default) / `fact` (exact, then its context) / `procedure` (steps in
+  order, what breaks) / `formula` (apply, then each part). From what the app knows: mode kind, card shape, a Legends
+  item's kind. The writer may state its own `goal` in the JSON (`shapeGoal` keeps a valid one).
+- **The goal travels with the question**: `tierInstruction(tier, { goal })` and `goalLine(goal, tier)` in Study's prompt,
+  `goalsBlock` + `GOAL <id>` per card/item in raid and Legends prompts. The ladder climbs toward FULL understanding per
+  goal: a concept stops asking for its name past TIER 1 (general TIER 2/3 texts need understanding, never the
+  definition restated).
+- **The review pass judges it** (`GOAL_CHECK_RULES` inside `QUESTION_CHECK_RULES`; `buildQuestionReviewPrompt({ goal })`
+  shows each question's goal at its tier): a question that does not serve the goal at its tier is rejected, and so is a
+  letter or prefix hint on a non-language card.
+- In a general mode the goal is part of the question-reuse signature (`style` gets `|goal:<id>`): it changes the questions.
+- **A new question surface states the goal and lets the review judge it.** Never a template that only asks for the
+  name of a thing.
+
+### Hints and choices (the owner, 2026-10-10: "the first letter basically gives it away and also the fact that the user knows that the card is in the deck gives it away")
+- **THE PREFIX HINT replaced the letter count** (the old "always show the count" rule is SUPERSEDED: no length
+  anywhere, retry hints and the raid Hint power included). One engine, `utils/prefixHint.js` (tested), used by Study
+  (`utils/letterCue.js`) and fights (`kit/fightSettings.js`): one word = its first ~20% of letters, at least 1, never
+  leaving under 2 hidden (perro "(p…)", sombrero "(so…)", pantalones "(pa…)"); several words = each word's first letter
+  ("(b… d…)"), a SHORT word (1 to 2 letters) only "…" ("a veces" "(… v…)"), all-short phrases none; an ELISION shows
+  the word after it ("l'eau" "(l'e…)", `splitElision`). Han/kana-first and 1-letter answers get none (only Han/kana
+  ask the model for the reading's first sound in quotes, `needsReadingCue`). LANGUAGE modes only, typed
+  recall/fill_blank only, never an open tier, never while choices show (`choicePromptText` / `stripLetterCues`;
+  `stripPrefixHint(text, answers)` strips only THOSE answers' group, a bare "(…)" never). `typedPrompt` puts it after
+  the blank or before the closing punctuation, idempotent; prefix tokens are never tappable. Prompts never ask the
+  model for letters. Retry hints after a miss: a LONGER prefix, then the model's clue (`retryHints`; none with
+  `noPrefix`).
+- **THE CHOICE POOL** (`utils/choicePool.js` `planChoices`, tested; `planStudyChoices` in App, `withPoolChoices` in
+  fights): distractors are OTHER cards of the same deck the learner has ALREADY STUDIED (never a new card), the same kind
+  (part of speech where known, the same number of words) and, in a language mode, SHARING THE SHOWN PREFIX, so neither
+  the hint nor "the one in my deck" picks the tile; filled up with the model's options that share it. At least 3, with
+  `spare`s for swaps. Only a HEADWORD answer gets headword distractors (an inflected "comió" stood out). A longer prefix
+  the learner saw (a retry hint) is the one options must share (`shownPrefix`). Each pool card is read on its OWN
+  sides (`poolEntries`: a script difference, else a reversed card's shape, else the side that looks like the learned
+  words; a word of the asked card's meaning is dropped): a reversed card never adds a user-language word.
+- **⭐ A WRONG OPTION IS NEVER ALSO RIGHT** (it marks a correct answer wrong: "buen día" among the options for "buenos
+  días", good morning in LatAm). Code guard on every deck and model option (`meaningsOverlap`: the same back, a shared
+  gloss word, one class of stand-ins like greetings, data in `MEANING_CLASSES`; `sameLemma` / `closeForm` against the
+  accepted answers), then THE OPTION CHECK (`utils/distractorCheck.js`, the review model, one cheap fail-soft call):
+  Study checks every card's next question (`optionCheckedRef`, job `study.review`, `choicesChecked`), raids beside the
+  review pass (`checkChoices` in kit/choiceCheck.js, job `raid.check`; unusable = rewritten), Legends quizzes in
+  `makeQuiz` (job `legends.check`). A flagged option is swapped for a spare in place or dropped while 2 wrong ones remain.
+- **CHOICES NEVER BEAT THE HINT.** No set keeps to the hint while it is not on screen yet (generation, fights): the
+  question shows NO hint (`noHint`, honored by `withLetterCount`, `ensurePrefixHint`, `retryHints`, the Hint power) and
+  gets options planned for that. The hint already on screen (Show choices after a re-plan, the background options
+  call): the MEANING form, else no options, never ones it gives away. The **MEANING form** (`choiceMode: 'meaning'` +
+  `choicePrompt`, `qt_meaningPick`: the word shown, its meaning picked) otherwise only when the options open FIRST (a
+  choices session, `cs.mc`), never in fights; no "Type it instead" after it; question reuse never saves its options
+  (`storableQuestion`); graded rows show the question as ASKED (`byChoice` → `choiceQuestionText`).
+- `distractorRule` tells every writer the same rules. General modes: deck terms of the same shape when 3 exist, else
+  the model's (never a prefix). Legends choice-only questions go through the same pool and guard when their answer is
+  the item's word. Pools: Study = the session's studied cards + the learner context's studied sample of the same deck
+  (its read starts at `beginStudy`); raids = the due cards read + that sample; Legends = the map's taught items
+  (`legendsPool`). The raid **Hint power**: language = `powerHint` (`longerPrefix` at half), not on a `noHint`
+  question; general = `powerClue` (the card's explanation, the term masked; the question goal), never half the term.
+- Question reuse: the goal joins the signature only for general CONCEPT cards (their old sets asked to name the term),
+  so those retire once; every other card keeps its saved sets.
 
 ### Question depth (`studyRules.questionDepth`: `'adaptive'` default | `'thorough'`; `utils/studyDepth.js`)
 - With the ladder on, adaptive gives EVERY flashcard one question at its tier; thorough keeps `questionsPerCard`, the
@@ -1913,7 +2020,8 @@ Struggling cards drop on their own: Anki shrinks a lapsed card's interval. Legen
 
 ### Multiple choice (`studyAnswerStyle` = `'typed' | 'choices'`)
 - `ebiki-study-style`; "Record reviews in Anki" (`studyPracticeSync`) defaults CHECKED (`!== '0'`).
-- MC questions: 4 options + `answerIdx`, no "explain" questions, NO letter cues. **`buildChoices`** (also Fix
+- MC questions: 4 options + `answerIdx`, no "explain" questions, NO letter cues; options by THE CHOICE POOL rule
+  (above). **`buildChoices`** (also Fix
   question): dedupe with the matcher's `norm()`, SHUFFLE (models bias the correct slot), verify against
   `acceptedAnswers` (one match beats a wrong `answerIdx`; two that differ only by accents, "él"/"el", keep the model's
   pick since the accent is the test; two different words → ask typed). Rows without question text are dropped.
@@ -1954,15 +2062,14 @@ App imports them. Change them there, never re-inline.
   unslashed article in `GENDERED_ARTICLES` fixes gender ("el médico/a" → el médico only). Endings inside a phrase
   expand word by word, genders aligned; never a phrase starting with a bare ending.
 - Beside another slash a plural ending keeps only the singular (else "la jovenes"). Fractions are never split.
-  `answerLetterCounts` counts expanded forms.
 
 ### Answer-leak guard (question + hint)
 `questionAnswerLeak` (exact, accent-insensitive, whole word, ≥3 chars; explanation type and general modes' final deep
 question exempt) and `hintRevealsAnswer` (fuzzy). Both REGENERATE first (two rewrites naming the violation);
 `scrubAnswerFromQuestion`/`scrubHint` are the last resort, and **a question still leaking after its scrub is DROPPED**.
 - `leakNorm` folds apostrophes; answers with non-letters ("aujourd'hui") match as BOUNDED substrings in hints.
-- Fix question refuses a scrub that blanked the subject (`blankedSubject`). `letterSkeleton` never builds from a
-  Han-first answer.
+- Fix question refuses a scrub that blanked the subject (`blankedSubject`). No prefix hint is built from a Han- or
+  kana-first answer.
 - `leakAnswers(q)` = accepted + correct choice, but when a distractor is named in the question ("True or false")
   accepted answers that ARE choices are left out (else it shipped blanked).
 
@@ -2195,13 +2302,14 @@ calls `generate()`, tested); **only the user turns it on** (Settings > AI & cost
   reuse read waits (3s) for the card's pending write. Questions carry `_bank`; `storableQuestion` strips session state.
 
 ## Question generation (`generateQuestionsForCard`)
-- **Pin exactly one answer with an INLINE cue, ALWAYS**: a parenthetical sense in `quizLang` at the blank PLUS the
-  first letter, in the question text (hints don't count).
-- **The first-letter cue is guaranteed in code**: typed language recall/fill_blank goes through `needsLetterCue`; a
-  miss regenerates (3 attempts), last resort `appendLetterCue` skeleton (`(s·······)`). `hasLetterCue` detects by FORM
-  (one quoted `\p{L}` in any quote style, or a skeleton), never English phrases, and only when that letter starts an
-  accepted answer or one of its words (Han: a quoted kana/pinyin initial): else “雨” or で___ read as cues. MC exempt
-  (a cue leaks). Same in `fixCurrentQuestion`; conjugations need none.
+- **Pin exactly one answer with an INLINE cue, ALWAYS**: a parenthetical SENSE cue in `quizLang` at the blank, in the
+  question text (hints don't count); the app adds the PREFIX HINT (see "Hints and choices"). The model writes no letters.
+- **The cue is guaranteed in code**: every typed language recall/fill_blank gets the prefix hint (`finish` →
+  `withLetterCount`, saved sets too); only an answer the app cannot hint (Han, kana, one letter) goes through
+  `needsLetterCue` and regenerates (3 attempts) until the model wrote its reading's first sound in quotes. `hasLetterCue`
+  detects by FORM (the prefix hint, or one quoted `\p{L}` in any quote style), never English phrases, and only when that
+  letter starts an accepted answer or one of its words (Han: a quoted kana/pinyin initial): else “雨” or で___ read as
+  cues. MC exempt (a cue leaks). Same in `fixCurrentQuestion`; conjugations need none.
 - `leakExempt` (general modes) covers the last question only when all `n > 1` came back; a scrub blanking a whole
   quoted subject drops the question. If the final attempt throws, the last parsed set gets `lastResort`, not the
   give-up set (whose answers go through `expandSlashAnswers`).
@@ -2320,7 +2428,7 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   | `discover` | cheap | User reviews suggestions; verify pass catches errors. |
   | `chat` | normal | Tutoring quality is felt on "why" answers. |
   | `picture` | normal | Vision on busy screens needs a capable model. |
-  | `study` | normal | Deterministic guards (leak, letter cue); grading fine at mid. |
+  | `study` | normal | Deterministic guards (leak, prefix hint); grading fine at mid. |
   | `general` | normal | Mode creation matters but is rare. |
   | `qcheck` | normal | The second look at every question; a cheap model misses ambiguity. |
   | `deck` | max | Cards get MEMORIZED; never cheap out here. |
@@ -2415,6 +2523,7 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   plus every unpriced or user-priced row (`rowsToShow`).
 
 ## Testing (two halves; `npm test` is only the first)
+- **Dev and agent work runs on PORT 3001, never 3000** (owner 2026-10-10: "use port 3001 for dev stuff ... so i can work on a working build while you operate on the dev port one"). Port 3000 belongs to the owner's own app (the shortcut launch). Start the agent server with `npm run dev:agent` (`vite --port 3001 --strictPort`); every script (`drive.mjs`, `check-art.mjs`, `check-joints.mjs`, `dev/bake-sweep/*`, scratch scripts) points at `localhost:3001` (`EBIKI_URL`/`APP_URL`/`--url` override). Never stop, restart or kill whatever answers on 3000. Both servers read the SAME folder and data, so agent runs stub every data write (Playwright routes), and the owner's app shows uncommitted edits after a reload.
 - **Browser automation must use Playwright's bundled Chromium. Never set executablePath to the installed Chrome/Edge;
   it causes Windows account lockouts on this machine** (failed logons, event 4625, from chrome.exe). Applies to
   `drive.mjs`, `check-art.mjs` and every agent or scratch script. **Launch it MUTED** (`args: ['--mute-audio']`, and stub

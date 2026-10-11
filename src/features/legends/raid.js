@@ -13,24 +13,25 @@
 // with full hearts and a fresh health.
 //
 // STORED SHAPE: { boss, day: { date, hp, damage, attempts, won, ab?, asked? }, trophies, siege: { boss, hp, damage,
-// hearts, date, bandage?, variant? } | null }. `variant` (raidProfiles.js RAID_VARIANTS; absent = 'normal') picks the
+// hearts, date, bandage?, variant? } | null, powers }. `powers`: the power ids unlocked so far, a high-water mark that only grows
+// (powers.js keptPowers: a roster change or a trimmed trophy list never locks one again). `variant` (raidProfiles.js RAID_VARIANTS; absent = 'normal') picks the
 // boss's tunables through raidProfile(motif, variant); an older build ignores it and fights the normal numbers. `day.hp`/`day.damage` are written in step with the siege, so an older build (which reads
 // only `day`) sees the boss as it is; an older build writes no `siege`, and siegeOf() then starts it from `day`.
 import { abilityForMotif, abilityById } from './abilities'
 import { raidProfile, MAX_HEARTS } from './raidProfiles'
-import { bossesBeaten, POWERS, POWER_IDS, POWER_DEFAULTS, powersOf, shapePowers } from './powers'
+import { POWERS, POWER_IDS, POWER_DEFAULTS, powersOf, shapePowers, powerProgress, unlockedPowers, bossesBeaten, keptPowers } from './powers'
 import { strike, barPhase, canAttack, attackSlot, attackGapFor, raidRating, rulesOf, abilityK, FIGHT_RULES } from './fight'
 
 // THE ROSTER is append-only: a stored raid state's `boss` is an INDEX into it (older builds on a shared folder read
 // the same indices), so a boss is never removed from it, only RETIRED. A retired boss is skipped by the rotation: a
 // stored boss that is retired moves on to the next active one, and its old trophies are kept (shown generically).
-export const RAID_ROSTER = ['hydra', 'titan', 'lich', 'chimera', 'void', 'seraph', 'leviathan', 'inferno', 'chronos', 'vampire', 'tempest', 'kaleido', 'glutton', 'puppeteer', 'berserker', 'swarmqueen', 'gorgon', 'banshee', 'reaper', 'dreamer', 'moonmaw', 'kitsune', 'ophanim', 'ratking', 'sugarqueen', 'showman', 'cerberus']
+export const RAID_ROSTER = ['hydra', 'titan', 'lich', 'chimera', 'void', 'seraph', 'leviathan', 'inferno', 'chronos', 'vampire', 'tempest', 'kaleido', 'glutton', 'puppeteer', 'berserker', 'swarmqueen', 'gorgon', 'banshee', 'reaper', 'dreamer', 'moonmaw', 'kitsune', 'ophanim', 'ratking', 'sugarqueen', 'showman', 'cerberus', 'horseman']
 // Retired by the owner (2026-10, the Glutton: "i dont even like the concept"): no art, ability, texts or voice remain.
 export const RAID_RETIRED = ['glutton']
 // THE PROGRESSION (owner-approved, 2026-10): the ONE place the order lives. A win brings out the next motif here
 // (wrapping); a new raid starts at RAID_ORDER[0]. Storage stays the roster INDEX (raidBossIndex), so an existing
 // player keeps their boss and just continues from its place here. Every active boss once, no retired one (tested).
-export const RAID_ORDER = ['chronos', 'banshee', 'seraph', 'titan', 'vampire', 'gorgon', 'chimera', 'ratking', 'showman', 'reaper', 'leviathan', 'lich', 'cerberus', 'tempest', 'dreamer', 'berserker', 'inferno', 'swarmqueen', 'moonmaw', 'hydra', 'kaleido', 'puppeteer', 'sugarqueen', 'kitsune', 'ophanim', 'void']
+export const RAID_ORDER = ['chronos', 'banshee', 'seraph', 'titan', 'vampire', 'gorgon', 'chimera', 'ratking', 'showman', 'reaper', 'leviathan', 'lich', 'horseman', 'cerberus', 'tempest', 'dreamer', 'berserker', 'inferno', 'swarmqueen', 'moonmaw', 'hydra', 'kaleido', 'puppeteer', 'sugarqueen', 'kitsune', 'ophanim', 'void']
 // The bosses that exist (art, ability, lore, voice), in progression order (= RAID_ORDER).
 export const RAID_MOTIFS = RAID_ORDER
 export const isRaidMotif = (m) => RAID_MOTIFS.includes(m)
@@ -96,30 +97,42 @@ export function dayGap(a, b) {
 }
 
 // Raid state per mode (see STORED SHAPE above). newRaidState = never fought.
-export const newRaidState = () => ({ boss: raidBossIndex(RAID_ORDER[0]), day: null, trophies: [], siege: null })
+export const newRaidState = () => ({ boss: raidBossIndex(RAID_ORDER[0]), day: null, trophies: [], siege: null, powers: [] })
 const idList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'number' || (typeof x === 'string' && x.length < 40)).slice(-RAID.askedKeep) : [])
 const clampInt = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt }
+// A stored boss index this build does not know: at or past the end of RAID_ROSTER, written by a NEWER build that
+// appended a boss. Never wrapped onto another boss (`% length` once turned a newer build's boss into the Hydra): the
+// state is kept exactly as stored (boss, day and siege untouched by every writer below), no fight starts, and the
+// screens ask to update Ebiki (RaidRun 'newer', the raid hero, Help).
+export const isNewerRaidBoss = (state) => !!state && typeof state === 'object' && Number.isInteger(state.boss) && state.boss >= RAID_ROSTER.length
 export function shapeRaid(raw) {
   const s = raw && typeof raw === 'object' ? raw : {}
-  const stored = Number.isInteger(s.boss) && s.boss >= 0 ? s.boss % RAID_ROSTER.length : raidBossIndex(RAID_ORDER[0]) // none stored: a new raid
+  // Every trophy is kept, a retired (or newer build's) boss too: the hall shows those generically (isRaidMotif).
+  const allTrophies = (Array.isArray(s.trophies) ? s.trophies : []).filter((x) => x && typeof x.motif === 'string' && /^[a-z][a-z0-9-]{0,39}$/.test(x.motif) && typeof x.date === 'string')
+  const trophies = allTrophies.slice(-200)
+  // Unlocked powers: the stored high-water mark plus what the trophies give now (every valid trophy, before the list is
+  // trimmed to 200), so every save carries them forward and none is ever taken away.
+  const powers = unlockedPowers({ beaten: bossesBeaten({ trophies: allTrophies }), kept: keptPowers({ ...s, trophies: allTrophies }) })
+  if (isNewerRaidBoss(s)) return { ...s, trophies, powers }
+  const stored = Number.isInteger(s.boss) && s.boss >= 0 ? s.boss : raidBossIndex(RAID_ORDER[0]) // none stored: a new raid
   const boss = activeBossIndex(stored)
   const moved = boss !== stored // a retired boss: the next one takes over today's wounds, not the old ability's state
   const d = s.day && typeof s.day === 'object' && typeof s.day.date === 'string' ? s.day : null
   const asked = d ? idList(d.asked) : []
   const day = d ? { date: d.date, hp: Math.max(1, Number(d.hp) || RAID.minHp), damage: Math.max(0, Number(d.damage) || 0), attempts: Math.max(0, Number(d.attempts) || 0), won: !!d.won, ...(!moved && d.ab && typeof d.ab === 'object' && !Array.isArray(d.ab) ? { ab: d.ab } : {}), ...(asked.length ? { asked } : {}) } : null
-  // Every trophy is kept, a retired (or newer build's) boss too: the hall shows those generically (isRaidMotif).
-  const trophies = (Array.isArray(s.trophies) ? s.trophies : []).filter((x) => x && typeof x.motif === 'string' && /^[a-z][a-z0-9-]{0,39}$/.test(x.motif) && typeof x.date === 'string').slice(-200)
   // The siege belongs to ONE boss: a siege of another (a retired boss that moved on) is dropped.
   const g = !moved && s.siege && typeof s.siege === 'object' && typeof s.siege.date === 'string' && s.siege.boss === stored ? s.siege : null
   const variant = variantOf(g)
   const hp = g ? clampInt(g.hp, 0, Math.max(RAID.maxHp * 4, bossHp(boss, variant)), 0) : 0
   const siege = g && hp > 0 ? { boss, hp, damage: clampInt(g.damage, 0, hp, 0), hearts: clampInt(g.hearts, 0, Math.max(MAX_HEARTS, bossHearts(boss, variant)), bossHearts(boss, variant)), date: g.date, ...(typeof g.bandage === 'string' ? { bandage: g.bandage } : {}), ...(variant ? { variant } : {}) } : null
-  return { boss, day, trophies, siege }
+  return { boss, day, trophies, siege, powers }
 }
 // The siege of the current boss: the stored one, else one started from the day record (an older build wrote the
-// state and dropped `siege`: its day holds the boss's health and wounds, hearts start full), else null (none yet).
+// state and dropped `siege`: its day holds the boss's health and wounds, hearts start full), else null (none yet, or a
+// boss this build does not know).
 export function siegeOf(state) {
   const s = shapeRaid(state)
+  if (isNewerRaidBoss(s)) return null
   if (s.siege) return s.siege
   if (s.day && !s.day.won) return { boss: s.boss, hp: s.day.hp, damage: Math.min(s.day.damage, s.day.hp), hearts: bossHearts(s.boss), date: s.day.date }
   return null
@@ -139,7 +152,8 @@ export function regenSiege(siege, date) {
     damage: Math.max(0, siege.damage - nights * bossHeal(siege.boss, siege.variant)),
   }
 }
-export const raidMotif = (state) => RAID_ROSTER[shapeRaid(state).boss]
+// The current boss's motif; '' for a boss this build does not know (isNewerRaidBoss).
+export const raidMotif = (state) => RAID_ROSTER[shapeRaid(state).boss] || ''
 
 // Today's raid, as a fight would start it (pure, never stored by itself): the siege brought forward to `date` (hearts
 // back, the boss healed per day), or a fresh boss with health from `due` (the run's cards) and full hearts. `day`
@@ -147,6 +161,7 @@ export const raidMotif = (state) => RAID_ROSTER[shapeRaid(state).boss]
 // taken as it is. With RAID.nextBossSameDay off, a boss beaten today keeps the day beaten.
 export function raidToday(state, date, due) {
   const s = shapeRaid(state)
+  if (isNewerRaidBoss(s)) return s // no fight with a boss this build does not know
   if (s.day && s.day.date === date && s.day.won && !RAID.nextBossSameDay) return s
   const had = siegeOf(s)
   const regen = had ? regenSiege(had, date) : null
@@ -167,7 +182,7 @@ const mergeIds = (a, b) => [...new Set([...(a || []), ...(b || [])])].slice(-RAI
 // `dayAb`: the raid ability's state to keep for today's next attempt (its dayState: the Chimera's wounded heads).
 export function applyRaidAttempt(state, date, damage, dayAb, { livesLost = 0, asked = [] } = {}) {
   const s = shapeRaid(state)
-  if (!s.day || s.day.date !== date || s.day.won) return { state: s, won: false, firstWin: false }
+  if (isNewerRaidBoss(s) || !s.day || s.day.date !== date || s.day.won) return { state: s, won: false, firstWin: false }
   const siege = siegeOf(s)
   const dealt = Math.max(0, Number(damage) || 0)
   const won = siege.damage + dealt >= siege.hp
@@ -188,8 +203,10 @@ export function applyRaidAttempt(state, date, damage, dayAb, { livesLost = 0, as
   const day = { ...s.day, hp: siege.hp, damage: dmg, attempts: s.day.attempts + 1, ...(dayAb && typeof dayAb === 'object' ? { ab: dayAb } : {}), ...(askedAll.length ? { asked: askedAll } : {}) }
   if (!won) return { state: { ...s, day, siege: { ...siege, damage: dmg, hearts, date: day.date } }, won: false, firstWin: false, rallied, fell: left <= 0 }
   const motif = RAID_ROSTER[s.boss]
+  const trophies = [...s.trophies, { motif, date }]
   return {
-    state: { boss: nextBossIndex(s.boss), day: { ...day, won: true }, trophies: [...s.trophies, { motif, date }], siege: null },
+    // The new trophy may unlock a power: it joins the kept ones at once.
+    state: { boss: nextBossIndex(s.boss), day: { ...day, won: true }, trophies, siege: null, powers: unlockedPowers(powerProgress({ trophies, powers: s.powers })) },
     won: true, firstWin: true,
   }
 }
@@ -198,13 +215,13 @@ export function applyRaidAttempt(state, date, damage, dayAb, { livesLost = 0, as
 // it cannot be used (not unlocked, no boss out, already bandaged today). Whether it was brought is the caller's check.
 export function applyBandage(state, date) {
   const s = raidToday(state, date, 0)
-  if (!s.siege || s.day.won || s.siege.bandage === date || bossesBeaten(s) < POWERS.bandage.unlock) return null
+  if (isNewerRaidBoss(s) || !s.siege || s.day.won || s.siege.bandage === date || !unlockedPowers(powerProgress(s)).includes('bandage')) return null
   return { ...s, siege: { ...s.siege, bandage: date } }
 }
 
 export function raidMarkAsked(state, date, asked = []) {
   const s = shapeRaid(state)
-  if (!s.day || s.day.date !== date || !asked.length) return s
+  if (isNewerRaidBoss(s) || !s.day || s.day.date !== date || !asked.length) return s
   return { ...s, day: { ...s.day, asked: mergeIds(s.day.asked, asked) } }
 }
 
@@ -371,6 +388,9 @@ export function raidAttemptOutcome(stored, { date, damage, livesLost = 0, asked 
     return { state: null, won: r.won, firstWin: false, rallied: r.rallied || 0, fell: !!r.fell }
   }
   const cur = shapeRaid(stored)
+  // A boss this build does not know: its boss, day and siege are written back as read (a newer build's fight is not
+  // ours to change; only the trophy list's shaping and the kept powers apply).
+  if (isNewerRaidBoss(cur)) return { state: cur, won: false, firstWin: false }
   // The boss fought is gone (beaten on another computer meanwhile): only the answered notes are kept.
   if (motif && RAID_ROSTER[cur.boss] !== motif) return { state: raidMarkAsked(cur, date, asked), won: false, firstWin: false }
   const base = raidToday(stored, date, due)
@@ -406,6 +426,7 @@ export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, h
   const hearts = `${livesLeft}/${lives} hearts`
   const pw = powers ? ` ${powers}` : ''
   const lap = lapLeft || aftermathLeft
+  if (view === 'newer') return 'Daily raid: the current raid boss comes from a newer version of Ebiki; this computer must update Ebiki to fight it (its siege is kept as it is). Nothing can be fought here until then.'
   if (view === 'loading') return `Daily raid: Ebi is gathering the due cards and writing the questions for ${who}.`
   if (view === 'intro') return `Daily raid: the intro card of ${who}, health ${hpLeft}/${hpMax}, ${hearts}, ${total} due cards to fight with. Not started yet.${pw} ${powerNums ? siegeRule(powerNums) : SIEGE_RULE}`
   if (view === 'fight') return `Daily raid RUNNING against ${who}: boss health ${hpLeft}/${hpMax}, phase ${phase} of ${RAID.phases}, ${hearts} left, ${asked} of ${total} due cards answered.${pw} Each card's first answer is a real Anki review: never give the answer to the question on screen unless they explicitly ask.`
@@ -421,7 +442,7 @@ export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, h
 export function raidWhere({ view = '', boss = '', test = false } = {}) {
   const who = boss || 'the raid boss'
   const what = test ? `a raid TEST fight against ${who} (started from the bestiary, cheat mode)` : `the daily raid against ${who}`
-  const stage = { loading: 'loading', intro: 'intro card', fight: 'fight running', more: 'out of questions, continue or stop', aftermath: 'victory lap running', lap: 'victory lap running', saving: 'saving', done: 'result' }[view]
+  const stage = { newer: 'a boss from a newer version of Ebiki, update to fight it', loading: 'loading', intro: 'intro card', fight: 'fight running', more: 'out of questions, continue or stop', aftermath: 'victory lap running', lap: 'victory lap running', saving: 'saving', done: 'result' }[view]
   return stage ? `${what}: ${stage}` : what
 }
 

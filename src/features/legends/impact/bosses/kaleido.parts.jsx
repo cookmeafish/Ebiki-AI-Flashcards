@@ -4,27 +4,34 @@
 //
 // THE THOUSAND REFLECTIONS ACT OUT EVERY MOMENT with the knight's own drawn parts (raids/kaleido.svg hook classes, kept
 // live by the bake): lg-kaleido-head (helm, pivot on the neck), -pauldl / -pauldr (the burning pauldrons), -chest,
-// and in phases 1 and 2 his two mirror REFLECTIONS -refl / -refr, which echo his every move a beat late (his signature:
-// nothing he does happens only once); phase 3's -sword arm and -gauntlet. Keyed on the arena's data-moment
+// and his REFLECTIONS -refl / -refr (viewer's left / right: the fans of mirror blades behind his shoulders, each blade
+// holding his reflected eye; in phase 3 the two halves of his prism corona), which echo his every move a beat late; the
+// arms: -armr (his right, viewer's left: the RAISED arm, upper arm, couter, vambrace and gauntlet doing the phase's
+// gesture: a mirror shard gripped before his chest, a fist thrust at us spraying splinters, an open palm holding his light; pivot at the shoulder,
+// measured per phase) and -arml (his left, viewer's right: the hanging upper arm, pivot at its top). Keyed on the arena's data-moment
 // (impact/bosses/README.md). His attack on the player, his ability reactions and his fallen pose live in fx/kaleido.jsx.
 
 const B = '.lg-boss[data-motif="kaleido"]'
 const M = (m) => `${B}[data-moment="${m}"]`
 const FB = 'transform-box: fill-box'
 export const pivots = `
-${B} .lg-kaleido-head { ${FB}; transform-origin: 50% 92% }
+${B} .lg-kaleido-head { ${FB}; transform-origin: 52% 92% }
+${B}[data-phase="3"] .lg-kaleido-head { transform-origin: 51% 93% }
 ${B} .lg-kaleido-pauldl { ${FB}; transform-origin: 100% 30% }
 ${B} .lg-kaleido-pauldr { ${FB}; transform-origin: 0% 30% }
-${B} .lg-kaleido-chest { ${FB}; transform-origin: 50% 100% }
-${B} .lg-kaleido-refl, ${B} .lg-kaleido-refr { ${FB}; transform-origin: 50% 100% }
-${B} .lg-kaleido-sword { ${FB}; transform-origin: 18% 92% }
-${B} .lg-kaleido-gauntlet { ${FB}; transform-origin: 85% 12% }
+${B} .lg-kaleido-chest { ${FB}; transform-origin: 50% -10% }
+${B} .lg-kaleido-refl { ${FB}; transform-origin: 100% 100% }
+${B} .lg-kaleido-refr { ${FB}; transform-origin: 0% 100% }
+${B} .lg-kaleido-arml { ${FB}; transform-origin: 50% 4% }
+${B} .lg-kaleido-armr { ${FB}; transform-origin: 17% 67% }
+${B}[data-phase="2"] .lg-kaleido-armr { transform-origin: 14% 51% }
+${B}[data-phase="3"] .lg-kaleido-armr { transform-origin: 16% 64% }
 `
 const rule = (m, parts, anim) => `${parts.map((p) => `${M(m)} .lg-kaleido-${p}`).join(', ')} { animation: ${anim} }`
 
 // A HIT: the helm is knocked back, the pauldrons jolt; a beat later each reflection flinches the same way.
 const hit = `
-@keyframes lgkaleidoHitHead { 0% { transform: translateY(-6%) rotate(-9deg) } 35% { transform: translateY(-3%) rotate(-5deg) } 70% { transform: rotate(2deg) } 100% { transform: none } }
+@keyframes lgkaleidoHitHead { 0% { transform: rotate(-9deg)} 35% { transform: rotate(-5deg)} 70% { transform: rotate(2deg)} 100% { transform: none} }
 @keyframes lgkaleidoHitPaul { 0% { transform: translateY(-10%) } 40% { transform: translateY(-4%) } 100% { transform: none } }
 @keyframes lgkaleidoEchoL { 0%, 15% { transform: none } 30% { transform: translateX(-8%) rotate(-6deg) scale(.95) } 65% { transform: translateX(-2%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgkaleidoEchoR { 0%, 15% { transform: none } 30% { transform: translateX(8%) rotate(6deg) scale(.95) } 65% { transform: translateX(2%) rotate(2deg) } 100% { transform: none } }
@@ -36,26 +43,26 @@ ${rule('hit', ['refr'], 'lgkaleidoEchoR 560ms ease-out both')}
 // A CRITICAL: the helm is wrenched round, both pauldrons are flung up, and the reflections SHATTER-SHUDDER, each a
 // different way (the mirror cracks), before they settle.
 const crit = `
-@keyframes lgkaleidoCritHead { 0% { transform: rotate(22deg) translateX(8%) scale(.94) } 25% { transform: rotate(25deg) translateX(9%) scale(.94) } 55% { transform: rotate(-8deg) } 80% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgkaleidoCritHead { 0% { transform: rotate(18deg) scale(.94)} 25% { transform: rotate(20deg) scale(.94)} 55% { transform: rotate(-8deg)} 80% { transform: rotate(3deg)} 100% { transform: none} }
 @keyframes lgkaleidoFlingL { 0% { transform: rotate(-22deg) translateY(-8%) } 45% { transform: rotate(-12deg) } 100% { transform: none } }
 @keyframes lgkaleidoFlingR { 0% { transform: rotate(22deg) translateY(-8%) } 45% { transform: rotate(12deg) } 100% { transform: none } }
 @keyframes lgkaleidoShudder { 0% { transform: none } 12% { transform: translate(-6%, 2%) rotate(-5deg) scale(.92) } 24% { transform: translate(5%, -2%) rotate(4deg) scale(.95) } 36% { transform: translate(-4%, 1%) rotate(-3deg) } 50% { transform: translate(3%, 0) rotate(2deg) } 70% { transform: rotate(-1deg) } 100% { transform: none } }
 ${rule('crit', ['head'], 'lgkaleidoCritHead 720ms cubic-bezier(.15,.85,.3,1) both')}
-${rule('crit', ['pauldl', 'gauntlet'], 'lgkaleidoFlingL 680ms ease-out both')}
-${rule('crit', ['pauldr', 'sword'], 'lgkaleidoFlingR 680ms ease-out both')}
+${rule('crit', ['pauldl', 'armr'], 'lgkaleidoFlingL 680ms ease-out both')}
+${rule('crit', ['pauldr', 'arml'], 'lgkaleidoFlingR 680ms ease-out both')}
 ${rule('crit', ['refl', 'refr'], 'lgkaleidoShudder 720ms linear both')}
 `
 // A SHARPENED strike: a clean diagonal cut: the knight tilts along it (one pauldron drops, the other rises), the helm
 // ducks, and the reflections slide APART like an image split by the blade.
 const sharpen = `
-@keyframes lgkaleidoDuck { 0% { transform: translateY(10%) rotate(6deg) scale(.94) } 50% { transform: translateY(6%) rotate(4deg) } 100% { transform: none } }
+@keyframes lgkaleidoDuck { 0% { transform: rotate(6deg) scale(.94)} 50% { transform: rotate(4deg)} 100% { transform: none} }
 @keyframes lgkaleidoDropL { 0% { transform: translateY(14%) rotate(12deg) } 55% { transform: translateY(8%) rotate(7deg) } 100% { transform: none } }
 @keyframes lgkaleidoRiseR { 0% { transform: translateY(-12%) rotate(10deg) } 55% { transform: translateY(-7%) rotate(6deg) } 100% { transform: none } }
 @keyframes lgkaleidoApartL { 0%, 10% { transform: none } 28% { transform: translate(-14%, 6%) } 65% { transform: translate(-8%, 3%) } 100% { transform: none } }
 @keyframes lgkaleidoApartR { 0%, 10% { transform: none } 28% { transform: translate(14%, -6%) } 65% { transform: translate(8%, -3%) } 100% { transform: none } }
 ${rule('sharpen', ['head'], 'lgkaleidoDuck 600ms cubic-bezier(.2,.9,.3,1) both')}
-${rule('sharpen', ['pauldl', 'gauntlet'], 'lgkaleidoDropL 600ms ease-out both')}
-${rule('sharpen', ['pauldr', 'sword'], 'lgkaleidoRiseR 600ms ease-out both')}
+${rule('sharpen', ['pauldl', 'armr'], 'lgkaleidoDropL 600ms ease-out both')}
+${rule('sharpen', ['pauldr', 'arml'], 'lgkaleidoRiseR 600ms ease-out both')}
 ${rule('sharpen', ['refl'], 'lgkaleidoApartL 640ms ease-out both')}
 ${rule('sharpen', ['refr'], 'lgkaleidoApartR 640ms ease-out both')}
 `
@@ -74,11 +81,11 @@ ${rule('hurt', ['refl'], 'lgkaleidoCastL 800ms ease-out both')}
 ${rule('hurt', ['refr'], 'lgkaleidoCastR 800ms ease-out both')}
 `
 // HIS HEAVY BLOW (a missed attack): all three knights CONVERGE: the reflections stride in to flank him, he swells up
-// behind them, the pauldrons blaze up twice; in phase 3 the gauntlet slams down.
+// behind them, the pauldrons blaze up twice; his right arm (the shield) slams down.
 const heavy = `
 @keyframes lgkaleidoConvergeL { 0% { transform: none } 18% { transform: translateX(22%) scale(1.12) } 55% { transform: translateX(18%) scale(1.1) } 80% { transform: translateX(4%) } 100% { transform: none } }
 @keyframes lgkaleidoConvergeR { 0% { transform: none } 18% { transform: translateX(-22%) scale(1.12) } 55% { transform: translateX(-18%) scale(1.1) } 80% { transform: translateX(-4%) } 100% { transform: none } }
-@keyframes lgkaleidoTower { 0% { transform: none } 18% { transform: translateY(-6%) scale(1.08) } 34% { transform: translateY(2%) scale(.98) } 50% { transform: translateY(-5%) scale(1.07) } 100% { transform: none } }
+@keyframes lgkaleidoTower { 0% { transform: none } 18% { transform: scale(1.1) } 34% { transform: scale(.98) } 50% { transform: scale(1.08) } 100% { transform: none } }
 @keyframes lgkaleidoBlazeL { 0% { transform: none } 15% { transform: rotate(-16deg) scale(1.18) } 30% { transform: rotate(4deg) } 45% { transform: rotate(-14deg) scale(1.15) } 100% { transform: none } }
 @keyframes lgkaleidoBlazeR { 0% { transform: none } 15% { transform: rotate(16deg) scale(1.18) } 30% { transform: rotate(-4deg) } 45% { transform: rotate(14deg) scale(1.15) } 100% { transform: none } }
 @keyframes lgkaleidoSlam { 0% { transform: none } 15% { transform: rotate(-24deg) translateY(-10%) } 30% { transform: rotate(14deg) translateY(10%) scale(1.15) } 50% { transform: rotate(10deg) translateY(8%) } 100% { transform: none } }
@@ -87,38 +94,38 @@ ${rule('hurtBig', ['refr'], 'lgkaleidoConvergeR 1000ms cubic-bezier(.3,.9,.4,1) 
 ${rule('hurtBig', ['chest'], 'lgkaleidoTower 1000ms ease-out both')}
 ${rule('hurtBig', ['pauldl'], 'lgkaleidoBlazeL 1000ms ease-out both')}
 ${rule('hurtBig', ['pauldr'], 'lgkaleidoBlazeR 1000ms ease-out both')}
-${rule('hurtBig', ['gauntlet'], 'lgkaleidoSlam 1000ms ease-out both')}
+${rule('hurtBig', ['armr'], 'lgkaleidoSlam 1000ms ease-out both')}
 `
 // A BLOCK (his ray was parried): it bounces back into his visor: the helm snaps back, the pauldrons brace, the
-// reflections recoil OUT to the mirror frames; in phase 3 the sword is knocked up.
+// reflections recoil OUT to the mirror frames; his left arm is knocked up.
 const block = `
-@keyframes lgkaleidoSnapBack { 0% { transform: translateY(-9%) scale(.9) } 25% { transform: translateY(-10%) scale(.88) rotate(-4deg) } 55% { transform: translateY(-3%) rotate(3deg) } 100% { transform: none } }
+@keyframes lgkaleidoSnapBack { 0% { transform: scale(.9)} 25% { transform: scale(.88) rotate(-4deg)} 55% { transform: rotate(3deg)} 100% { transform: none} }
 @keyframes lgkaleidoBraceL { 0% { transform: rotate(14deg) } 50% { transform: rotate(8deg) } 100% { transform: none } }
 @keyframes lgkaleidoBraceR { 0% { transform: rotate(-14deg) } 50% { transform: rotate(-8deg) } 100% { transform: none } }
 @keyframes lgkaleidoOutL { 0%, 10% { transform: none } 26% { transform: translateX(-16%) rotate(-8deg) } 60% { transform: translateX(-8%) } 100% { transform: none } }
 @keyframes lgkaleidoOutR { 0%, 10% { transform: none } 26% { transform: translateX(16%) rotate(8deg) } 60% { transform: translateX(8%) } 100% { transform: none } }
 @keyframes lgkaleidoKnockUp { 0% { transform: rotate(-30deg) } 40% { transform: rotate(-22deg) } 100% { transform: none } }
 ${rule('block', ['head'], 'lgkaleidoSnapBack 620ms ease-out both')}
-${rule('block', ['pauldl', 'gauntlet'], 'lgkaleidoBraceL 600ms ease-out both')}
+${rule('block', ['pauldl', 'armr'], 'lgkaleidoBraceL 600ms ease-out both')}
 ${rule('block', ['pauldr'], 'lgkaleidoBraceR 600ms ease-out both')}
 ${rule('block', ['refl'], 'lgkaleidoOutL 660ms ease-out both')}
 ${rule('block', ['refr'], 'lgkaleidoOutR 660ms ease-out both')}
-${rule('block', ['sword'], 'lgkaleidoKnockUp 620ms ease-out both')}
+${rule('block', ['arml'], 'lgkaleidoKnockUp 620ms ease-out both')}
 `
 // A SHIELD SAVE: the ray glances off the dome: the knight turns his helm from the glare, and the two mirrors swivel
-// edge-on (they narrow to slivers) to dodge their own reflected light; the sword glances wide.
+// edge-on (they narrow to slivers) to dodge their own reflected light; his left arm glances wide.
 const shield = `
-@keyframes lgkaleidoAvert { 0% { transform: none } 25% { transform: rotate(14deg) translateX(5%) } 65% { transform: rotate(11deg) translateX(4%) } 100% { transform: none } }
+@keyframes lgkaleidoAvert { 0% { transform: none} 25% { transform: rotate(14deg)} 65% { transform: rotate(11deg)} 100% { transform: none} }
 @keyframes lgkaleidoEdgeOn { 0% { transform: none } 25% { transform: scaleX(.3) } 65% { transform: scaleX(.4) } 100% { transform: none } }
 @keyframes lgkaleidoGlanceWide { 0% { transform: none } 25% { transform: rotate(26deg) } 65% { transform: rotate(18deg) } 100% { transform: none } }
 ${rule('shield', ['head'], 'lgkaleidoAvert 760ms ease-out both')}
 ${rule('shield', ['refl', 'refr'], 'lgkaleidoEdgeOn 760ms ease-in-out both')}
-${rule('shield', ['sword'], 'lgkaleidoGlanceWide 760ms ease-out both')}
+${rule('shield', ['arml'], 'lgkaleidoGlanceWide 760ms ease-out both')}
 `
 // SECOND WIND: the player heals; the knight lowers his helm and shakes it slowly, the pauldron fires sink, the
 // reflections sway out of step with him.
 const wind = `
-@keyframes lgkaleidoSlowShake { 0%, 100% { transform: none } 15% { transform: translateY(5%) rotate(-7deg) } 40% { transform: translateY(5%) rotate(7deg) } 65% { transform: translateY(4%) rotate(-5deg) } 85% { transform: translateY(2%) } }
+@keyframes lgkaleidoSlowShake { 0%, 100% { transform: none} 15% { transform: rotate(-7deg)} 40% { transform: rotate(7deg)} 65% { transform: rotate(-5deg)} 85% { transform: none} }
 @keyframes lgkaleidoSink { 0%, 100% { transform: none } 30%, 70% { transform: translateY(10%) scale(.92) } }
 @keyframes lgkaleidoSwayL { 0%, 100% { transform: none } 25% { transform: rotate(6deg) } 55% { transform: rotate(-5deg) } 80% { transform: rotate(3deg) } }
 @keyframes lgkaleidoSwayR { 0%, 100% { transform: none } 25% { transform: rotate(-6deg) } 55% { transform: rotate(5deg) } 80% { transform: rotate(-3deg) } }
@@ -128,10 +135,10 @@ ${rule('wind', ['refl'], 'lgkaleidoSwayL 950ms ease-in-out both')}
 ${rule('wind', ['refr'], 'lgkaleidoSwayR 950ms ease-in-out both')}
 `
 // HIS KNOCKOUT (refracted apart): a last flare with everything thrown wide, then the reflections crack and topple out
-// of their frames, the helm bows, the pauldron fires gutter, the sword arm and gauntlet fall. fx/kaleido.jsx holds the
+// of their frames, the helm bows, the pauldron fires gutter, both arms fall. fx/kaleido.jsx holds the
 // fallen pose after the cinematic.
 const ko = `
-@keyframes lgkaleidoKoHead { 0% { transform: none } 16% { transform: translateY(-8%) rotate(-6deg) scale(1.06) } 45% { transform: translateY(-5%) scale(1.04) } 72% { transform: translateY(16%) rotate(8deg) scale(.92) } 86% { transform: translateY(13%) rotate(6deg) scale(.92) } 100% { transform: translateY(15%) rotate(7deg) scale(.92) } }
+@keyframes lgkaleidoKoHead { 0% { transform: none } 16% { transform: rotate(-6deg) scale(1.06) } 45% { transform: scale(1.04) } 72% { transform: translateY(3%) rotate(9deg) scale(.92) } 86% { transform: translateY(3.6%) rotate(6deg) scale(.92) } 100% { transform: translateY(3.6%) rotate(7deg) scale(.92) } }
 @keyframes lgkaleidoKoPaulL { 0% { transform: none } 16% { transform: rotate(-18deg) scale(1.12) } 50% { transform: rotate(-8deg) } 80%, 100% { transform: translateY(16%) rotate(14deg) scale(.9) } }
 @keyframes lgkaleidoKoPaulR { 0% { transform: none } 16% { transform: rotate(18deg) scale(1.12) } 50% { transform: rotate(8deg) } 80%, 100% { transform: translateY(16%) rotate(-14deg) scale(.9) } }
 @keyframes lgkaleidoKoToppleL { 0% { transform: none } 16% { transform: translateX(6%) scale(1.06) } 40% { transform: translate(-3%, 0) rotate(-4deg) } 70% { transform: translate(-16%, 10%) rotate(-24deg) scale(.86) } 84% { transform: translate(-14%, 8%) rotate(-20deg) scale(.86) } 100% { transform: translate(-15%, 9%) rotate(-22deg) scale(.86) } }
@@ -144,16 +151,19 @@ ${rule('ko', ['pauldl'], 'lgkaleidoKoPaulL 2100ms ease-in both')}
 ${rule('ko', ['pauldr'], 'lgkaleidoKoPaulR 2100ms ease-in both')}
 ${rule('ko', ['refl'], 'lgkaleidoKoToppleL 2100ms cubic-bezier(.4,.1,.5,1) both')}
 ${rule('ko', ['refr'], 'lgkaleidoKoToppleR 2100ms cubic-bezier(.4,.1,.5,1) both')}
-${rule('ko', ['sword'], 'lgkaleidoKoSword 2100ms ease-in both')}
-${rule('ko', ['gauntlet'], 'lgkaleidoKoGauntlet 2100ms ease-in both')}
+${rule('ko', ['arml'], 'lgkaleidoKoSword 2100ms ease-in both')}
+${rule('ko', ['armr'], 'lgkaleidoKoGauntlet 2100ms ease-in both')}
 ${rule('ko', ['chest'], 'lgkaleidoKoChest 2100ms ease-in both')}
 `
 // The fallen pose (held by fx/kaleido.jsx after the cinematic).
-export const FALLEN = { head: 'translateY(15%) rotate(7deg) scale(.92)', pauldl: 'translateY(16%) rotate(14deg) scale(.9)', pauldr: 'translateY(16%) rotate(-14deg) scale(.9)',
-  refl: 'translate(-15%, 9%) rotate(-22deg) scale(.86)', refr: 'translate(15%, 9%) rotate(22deg) scale(.86)', sword: 'rotate(58deg) translateY(10%)', gauntlet: 'rotate(24deg) translateY(14%)', chest: 'translateY(6%) scale(.96, .9)' }
+export const FALLEN = { head: 'translateY(3.6%) rotate(7deg) scale(.92)', pauldl: 'translateY(16%) rotate(14deg) scale(.9)', pauldr: 'translateY(16%) rotate(-14deg) scale(.9)',
+  refl: 'translate(-15%, 9%) rotate(-22deg) scale(.86)', refr: 'translate(15%, 9%) rotate(22deg) scale(.86)', arml: 'rotate(28deg) translateY(12%)', armr: 'rotate(-18deg) translateY(12%)', chest: 'translateY(6%) scale(.96, .9)' }
 
 // HIS OWN DRAWN PARTS
 const OWN = `
+@keyframes lgkaleidoPaneUp { 0% { transform: translate(-50%, -20%) scale(.6, .1); opacity: 0 } 25% { transform: translate(-50%, -50%) scale(1.05); opacity: 1 } 55% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); opacity: 1 } 70% { opacity: 0 } 100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0 } }
+@keyframes lgkaleidoPaneCrack { 0%, 35% { opacity: 0 } 45% { opacity: 1 } 68% { opacity: 1 } 75%, 100% { opacity: 0 } }
+@keyframes lgkaleidoSliver { 0% { transform: translate(-50%, -50%) rotate(var(--a)) translateY(0) scale(1); opacity: 1 } 100% { transform: translate(-50%, -50%) rotate(var(--a)) translateY(-26cqw) rotate(200deg) scale(.4); opacity: 0 } }
 @keyframes lgkaleidoFan { 0% { transform: rotate(var(--a)) scaleX(0); opacity: 1 } 22% { transform: rotate(var(--a)) scaleX(1.04); opacity: 1 } 34% { transform: rotate(var(--a)) scaleX(1) scaleY(1.3) } 60% { opacity: 1 } 100% { transform: rotate(var(--a)) scaleX(1) scaleY(.2); opacity: 0 } }
 @keyframes lgkaleidoPrismPop { 0% { transform: translate(-50%, -50%) rotate(0) scale(.2); opacity: 0 } 18% { transform: translate(-50%, -50%) rotate(30deg) scale(1.2); opacity: 1 } 60% { transform: translate(-50%, -50%) rotate(60deg) scale(1); opacity: 1 } 100% { transform: translate(-50%, -50%) rotate(90deg) scale(.6); opacity: 0 } }
 @keyframes lgkaleidoTri { 0% { transform: translate(-50%, -50%) rotate(var(--a)) scaleX(0); opacity: 1 } 28% { transform: translate(-50%, -50%) rotate(var(--a)) scaleX(1); opacity: 1 } 55% { opacity: 1 } 100% { transform: translate(calc(-50% + var(--x)), -50%) rotate(var(--a)) scaleX(1) scaleY(.4); opacity: 0 } }
@@ -181,11 +191,30 @@ function ray(p, ctx) {
 function triSlash(p, ctx) {
   const s = ctx.scale
   const cut = (k, color, dx, dy, delay, w) => (
-    <div key={k} style={{ position: 'absolute', left: `${50 + dx}%`, top: `${50 + dy}%`, width: `${140 * s}cqw`, height: `${w * s}cqw`, '--a': '-32deg', '--x': `${dx * 0.4}cqw`, borderRadius: '50%',
+    <div key={k} style={{ position: 'absolute', left: `${50 + dx}%`, top: `${(p.y ?? 70) + dy}%`, width: `${140 * s}cqw`, height: `${w * s}cqw`, '--a': '-32deg', '--x': `${dx * 0.4}cqw`, borderRadius: '50%',
       background: `linear-gradient(90deg, transparent, ${color} 18%, #fff 50%, ${color} 82%, transparent)`, boxShadow: `0 0 3cqw ${color}`, animation: `lgkaleidoTri ${640 * ctx.speed}ms cubic-bezier(.15,1,.3,1) ${delay}ms both` }} />
   )
   return [cut('r', RGB3[0], -6, -4, 0, 6), cut('g', RGB3[1], 0, 0, 50, 6), cut('b', RGB3[2], 6, 4, 100, 6), cut('w', '#ffffff', 0, 0, 230, 9)]
 }
 
+// kaleidoPane: his block: a tall mirror pane snaps up in front of his chest (at p.y %), a crack runs across it, it
+// shatters into slivers. Kept below the face.
+function pane(p, ctx) {
+  const s = ctx.scale, y = p.y ?? 74
+  const out = [
+    <div key="pn" style={{ position: 'absolute', left: '50%', top: `${y}%`, width: `${30 * s}cqw`, height: `${40 * s}cqw`, border: `${0.9 * s}cqw solid #ffd27a`, borderRadius: '45% 45% 4% 4% / 30% 30% 4% 4%',
+      background: 'linear-gradient(135deg, rgba(220,236,255,.75), rgba(120,150,220,.35) 45%, rgba(220,236,255,.65) 55%, rgba(80,100,170,.4))', boxShadow: '0 0 2cqw #cfe0ff',
+      animation: `lgkaleidoPaneUp ${620 * ctx.speed}ms cubic-bezier(.2,.9,.3,1) both` }} />,
+    <div key="ck" style={{ position: 'absolute', left: '50%', top: `${y}%`, width: `${30 * s}cqw`, height: `${40 * s}cqw`, transform: 'translate(-50%, -50%)',
+      background: 'linear-gradient(115deg, transparent 44%, #ffffff 46%, transparent 48%), linear-gradient(60deg, transparent 52%, #ffffff 53.5%, transparent 55%)', animation: `lgkaleidoPaneCrack ${620 * ctx.speed}ms ease-out both` }} />,
+  ]
+  for (let i = 0; i < 8; i++) {
+    const a = -150 + i * 17
+    out.push(<div key={`sv${i}`} style={{ position: 'absolute', left: '50%', top: `${y}%`, width: `${3 * s}cqw`, height: `${7 * s}cqw`, background: i % 2 ? '#e6f0ff' : '#9fb4e0', clipPath: 'polygon(50% 0, 100% 100%, 0 100%)',
+      '--a': `${a}deg`, animation: `lgkaleidoSliver ${560 * ctx.speed}ms cubic-bezier(.2,.8,.4,1) ${300 * ctx.speed}ms both` }} />)
+  }
+  return out
+}
+
 export const css = pivots + hit + crit + sharpen + strike + heavy + block + shield + wind + ko + OWN
-export default { kaleidoRay: ray, kaleidoTriSlash: triSlash }
+export default { kaleidoRay: ray, kaleidoTriSlash: triSlash, kaleidoPane: pane }

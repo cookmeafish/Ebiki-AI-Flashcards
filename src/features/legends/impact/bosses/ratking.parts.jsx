@@ -23,13 +23,15 @@ export const css = `
   12% { opacity: 1 } 70% { opacity: 1 }
   100% { transform: translate(-50%, -50%) translate(calc(var(--x1) * 1cqw), calc(var(--y1) * 1cqw)) scale(var(--s1, 1.3)); opacity: 0 } }
 @keyframes lgratkingArc { 0% { stroke-dashoffset: var(--len); opacity: 1 } 38% { stroke-dashoffset: 0; opacity: 1 } 100% { stroke-dashoffset: 0; opacity: 0 } }
-@keyframes lgratkingSkull { 0% { transform: translate(-50%, -50%) translate(-34cqw, -38cqw) rotate(-80deg) scale(.7); opacity: 0 } 10% { opacity: 1 }
+@keyframes lgratkingSkull { 0% { transform: translate(-50%, -50%) translate(-34cqw, -46cqw) rotate(-80deg) scale(.7); opacity: 0 } 10% { opacity: 1 }
+  22% { transform: translate(-50%, -50%) translate(30cqw, -42cqw) rotate(-10deg) scale(1) }
   38% { transform: translate(-50%, -50%) translate(40cqw, 22cqw) rotate(40deg) scale(1.25); opacity: 1 } 46% { transform: translate(-50%, -50%) translate(37cqw, 20cqw) rotate(30deg) scale(1.15) }
   100% { transform: translate(-50%, -50%) translate(46cqw, 24cqw) rotate(36deg) scale(1.1); opacity: 0 } }
-@keyframes lgratkingBar { 0% { transform: translate(-50%, -50%) translate(-10cqw, -46cqw) rotate(-200deg) scale(.5); opacity: 0 } 12% { opacity: 1 }
-  44% { transform: translate(-50%, -50%) translate(8cqw, 6cqw) rotate(-10deg) scale(1.5) } 52% { transform: translate(-50%, -50%) translate(10cqw, 12cqw) rotate(4deg) scale(1.35, 1.1) }
-  60% { transform: translate(-50%, -50%) translate(12cqw, 10cqw) rotate(0) scale(1.4) } 80% { opacity: 1 }
-  100% { transform: translate(-50%, -50%) translate(60cqw, 14cqw) rotate(16deg) scale(1.2); opacity: 0 } }
+@keyframes lgratkingBar { 0% { transform: translate(-50%, -50%) translate(-78cqw, 30cqw) rotate(-300deg) scale(.6); opacity: 0 } 10% { opacity: 1 }
+  26% { transform: translate(-50%, -50%) translate(-40cqw, 24cqw) rotate(-160deg) scale(1) } 34% { transform: translate(-50%, -50%) translate(-24cqw, 36cqw) rotate(-60deg) scale(1.1) }
+  42% { transform: translate(-50%, -50%) translate(-12cqw, 25cqw) rotate(-20deg) scale(1.2) } 50% { transform: translate(-50%, -50%) translate(-2cqw, 36cqw) rotate(4deg) scale(1.35, 1.05) }
+  58% { transform: translate(-50%, -50%) translate(0, 34cqw) rotate(0) scale(1.25) } 80% { opacity: 1 }
+  100% { transform: translate(-50%, -50%) translate(70cqw, 38cqw) rotate(14deg) scale(1.05); opacity: 0 } }
 @keyframes lgratkingCrack { 0% { transform: scaleX(0); opacity: 0 } 30% { transform: scaleX(1); opacity: 1 } 100% { transform: scaleX(1.05); opacity: 0 } }
 @keyframes lgratkingPour { 0% { transform: translateY(-80cqw) rotate(var(--r0)); opacity: 0 } 15% { opacity: 1 }
   70% { transform: translateY(calc(var(--y1) * 1cqw)) rotate(var(--r1)); opacity: 1 } 78% { transform: translateY(calc(var(--y1) * 1cqw - 3cqw)) rotate(var(--r1)) }
@@ -63,25 +65,26 @@ export default {
     const o = i - (n - 1) / 2
     const w = (p.size || 1) * 9 * Math.sqrt(ctx.scale)
     return (
-      <div key={`rv${i}`} style={{ position: 'absolute', left: '50%', top: '45%', '--x0': -6 + rnd(i, 3) * 6, '--y0': -4 + o * 2, '--x1': 70 + rnd(i, 5) * 22, '--y1': 8 + o * 9, '--s1': 1.1 + rnd(i, 7) * 0.4,
+      <div key={`rv${i}`} style={{ position: 'absolute', left: '62%', top: '74%', '--x0': -6 + rnd(i, 3) * 6, '--y0': -4 + o * 2, '--x1': 70 + rnd(i, 5) * 22, '--y1': 8 + o * 9, '--s1': 1.1 + rnd(i, 7) * 0.4,
         animation: `lgratkingVolley ${(430 + rnd(i, 9) * 120) * ctx.speed}ms cubic-bezier(.2,.7,.4,1) ${(140 + i * 35) * ctx.speed}ms both` }}>
         {coin(w, { animationDelay: `${-i * 37}ms`, filter: `drop-shadow(-2cqw 0 1cqw ${GOLD}aa)` })}
       </div>
     )
   }),
-  // His heavy blow: a whole gold bar hurled end over end, slammed down onto the floor of the box (a crack where it
-  // lands), then it skids out at the hearts.
+  // His heavy blow: a whole gold bar bowled in LOW from his side, end over end along the floor of the box (two hops),
+  // slammed down below his chest (a crack across the floor), then it skids out at the hearts. It stays in the lower
+  // third: his face is never covered, in any phase.
   ratkingIngot: (p, ctx) => {
     const ms = 900 * ctx.speed
     return [
-      <div key="ib" style={{ position: 'absolute', left: '50%', top: '50%', width: `${30 * ctx.scale}cqw`, height: `${15 * ctx.scale}cqw`, animation: `lgratkingBar ${ms}ms cubic-bezier(.45,0,.3,1) both`, filter: `drop-shadow(0 0 2cqw ${GOLD})` }}>
+      <div key="ib" style={{ position: 'absolute', left: '50%', top: '50%', width: `${26 * ctx.scale}cqw`, height: `${13 * ctx.scale}cqw`, animation: `lgratkingBar ${ms}ms cubic-bezier(.45,0,.3,1) both`, filter: `drop-shadow(0 0 2cqw ${GOLD})` }}>
         <svg viewBox="0 0 40 20" width="100%" height="100%" aria-hidden="true">
           <path d="M6 2h28l5 16H1Z" fill={GOLD} stroke={INK} strokeWidth="1.8" strokeLinejoin="round" />
           <path d="M9 4h22l2.2 7H6.8Z" fill={GOLD_HI} />
           <path d="M1 18h38" stroke={GOLD_LO} strokeWidth="2.4" />
         </svg>
       </div>,
-      <svg key="ic" viewBox="0 0 100 20" preserveAspectRatio="none" style={{ position: 'absolute', left: '0%', top: '62%', width: '100%', height: '14%', overflow: 'visible', transformOrigin: '60% 50%', animation: `lgratkingCrack ${520 * ctx.speed}ms ease-out ${400 * ctx.speed}ms both` }} aria-hidden="true">
+      <svg key="ic" viewBox="0 0 100 20" preserveAspectRatio="none" style={{ position: 'absolute', left: '-12%', top: '82%', width: '100%', height: '12%', overflow: 'visible', transformOrigin: '50% 50%', animation: `lgratkingCrack ${520 * ctx.speed}ms ease-out ${400 * ctx.speed}ms both` }} aria-hidden="true">
         <path d="M60 10 L48 6 L40 12 L28 7 L18 11 L4 8 M60 10 L70 4 L80 11 L90 6 L100 10 M60 10 L58 18" fill="none" stroke={INK} strokeWidth="4" strokeLinejoin="round" />
         <path d="M60 10 L48 6 L40 12 L28 7 L18 11 L4 8 M60 10 L70 4 L80 11 L90 6 L100 10 M60 10 L58 18" fill="none" stroke={GOLD_HI} strokeWidth="1.6" strokeLinejoin="round" />
       </svg>,

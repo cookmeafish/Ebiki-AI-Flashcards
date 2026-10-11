@@ -19,7 +19,7 @@ const page = await ctx.newPage()
 const errors = []
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.text().slice(0, 240)) })
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
-await page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' })
+await page.goto('http://localhost:3001/', { waitUntil: 'domcontentloaded' })
 await page.waitForFunction(() => [...document.querySelectorAll('style')].some((s) => s.textContent.includes('--c-brand')), null, { timeout: 90000 })
 const setup = await page.evaluate(async () => {
   const { MOTIFS } = await import('/src/features/legends/map.js')

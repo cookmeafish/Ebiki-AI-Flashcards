@@ -135,10 +135,11 @@ export function useFightCheck(ctx, { onOverturn, isOver } = {}) {
     entryFor: (q) => { const aid = q && typeof q === 'object' ? byQ.current.get(q) : null; return aid ? store.current.get(aid) || null : null } }
 }
 
-// THE TAUNT. opts: { bossKey, voice, rules, avoidWords, sample, bossName, enabled }. onMiss(q, answer, expected) asks for
+// THE TAUNT. opts: { bossKey, voice, rules, avoidWords, sample, mandated, bossName, enabled } (`mandated`: a raid boss's
+// RAID_VOICES entry, whose opener / signature / nickname are never counted as a repeat; keep its identity stable). onMiss(q, answer, expected) asks for
 // one line in the background; a line that arrives after the next question appeared is dropped, and the bubble clears
 // at the next answer.
-export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = '', bossName = '', enabled = true } = {}) {
+export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = '', mandated = null, bossName = '', enabled = true } = {}) {
   const { ai, subject } = ctx
   const [bubble, setBubble] = useState(null) // { text, n }
   const qToken = useRef(0)
@@ -151,7 +152,7 @@ export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = 
     if (!enabled || !voice) return
     const my = qToken.current
     fetchTaunt(ai, {
-      bossKey, voice, rules, avoidWords, sample, bossName,
+      bossKey, voice, rules, avoidWords, sample, mandated, bossName,
       sampleUsed: () => sampleUsed.current, markSample: () => { sampleUsed.current = true },
       isLanguage: !!subject.isLanguage, subjectName: subject.name, learnLang: subject.learnLang, userLang: subject.userLang,
       question: q?.prompt || '', expected, answer,
@@ -159,7 +160,7 @@ export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = 
       if (!r || !alive.current || my !== qToken.current) return // a newer question came first
       setBubble((b) => ({ text: r.line, n: (b?.n || 0) + 1 }))
     }).catch(() => {})
-  }, [enabled, voice, rules, avoidWords, sample, bossName, bossKey, ai, subject])
+  }, [enabled, voice, rules, avoidWords, sample, mandated, bossName, bossKey, ai, subject])
   // Ebi's Help hears what the boss said (about a question already answered; never the live one's answer).
   useHelpEntry(ctx, 'boss-taunt', bubble?.text ? `${bossName || 'The boss'} just taunted the learner about a question they already answered wrong: "${bubble.text}"` : '', ctx.activeTab || 'legends')
   return { bubble, onMiss, onQuestion, onAnswer }

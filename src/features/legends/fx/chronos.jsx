@@ -1,13 +1,14 @@
 // What the Chronos's Time Loop (abilities/chronos.js) LOOKS like. The fx contract is in fx/index.js, the juice in
-// fx/_juice.js. Fixed brass, sand and frozen-blue colors, so they read over any palette.
-//   grain (tick): one grain of sand drops into the glass.
-//   rewind (big): the arena runs backwards: a clock face spins its hands counterclockwise three times in a sepia wash,
-//     ghost clock faces sliding right to left.
-//   paradox (medium): the clock face cracks into its twelve numerals, flung outward.
-//   timestop (big): a grayscale freeze inside a frozen blue ring, then color snaps back on the hit.
-//   overflow (medium): sand spills over the full glass: time is about to stop.
-// Boss reactions (body only; faces are the art pass's lg-fx-<key> layers): Rewind (four stepped jerks backwards with
-// afterimages), Freeze (dead still in grayscale, then a jolt), Stagger, Tick, Brim.
+// fx/_juice.js. Fixed brass, sand and frozen-blue colors, so they read over any palette. Each effect is its own event:
+//   grain (tick): a brass hourglass flips over the titan and one grain drops; the great key gives one click.
+//   rewind (big): the arena runs BACKWARDS: a sepia wash, VHS rewind bars, a clock spinning its hands back three turns
+//     with ghost clocks sliding right to left; the titan jerks back through its last blow in four steps.
+//   paradox (medium): two moments at once: the clock face splits into a cyan and a magenta copy that tear apart, its
+//     twelve numerals flung outward; the head glitches sideways between the two.
+//   timestop (big): everything goes grey inside a frozen blue ring, icicle shards hang in the air, then color snaps back
+//     on the hit; the titan freezes palms up, then lurches.
+//   overflow (medium): the chest glass brims and a curtain of sand pours down the titan, splashing; a frozen-blue
+//     hourglass pulses (time is about to stop).
 import { anim, around, ring, shards } from './_kit'
 
 const BRASS = '#ffc94a'
@@ -17,12 +18,18 @@ const FROST = '#7fd8ff'
 const NUMERALS = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI']
 
 // A clock face with two hands; `spin` is the keyframe on the hands' box.
-const clock = (key, style, spin) => (
-  <div key={key} className="lgx" style={{ left: '50%', top: '50%', width: '80%', height: '80%', marginLeft: '-40%', marginTop: '-40%', borderRadius: '50%', border: `5px solid ${BRASS}`, boxShadow: `0 0 16px ${BRASS}, inset 0 0 18px rgba(255,201,74,.45)`, background: 'radial-gradient(circle, rgba(255,246,214,.5), rgba(255,201,74,.1) 70%)', ...style }}>
-    {around(12, (i, a) => <div key={i} style={{ position: 'absolute', left: '50%', top: '50%', width: 3, height: i % 3 ? 6 : 11, marginLeft: -1.5, background: BRASS, transform: `rotate(${a}deg) translateY(-${i % 3 ? 44 : 41}%)`, transformOrigin: 'center top' }} />)}
+// Every ability effect plays OFF his face (the dial sits at about 41% of the box): low() moves a centred effect down
+// onto his chest; the clocks are drawn small there.
+const low = (key, children) => <div key={key} className="lgx" style={{ left: 0, right: 0, top: '30%', height: '100%' }}>{children}</div>
+// The mantle (lg-chronos-cape) moves exactly with the torso: every torso rule is given to it too. It is its own group so
+// the torso's top stays the chest (the neck joint), never the tips of a mantle blown up past the shoulders.
+const withCape = (css) => css.replace(/([^{}]*?\.lg-chronos-torso\b[^{}]*)\{/g, (m, sel) => `${sel.trimEnd()}, ${sel.trim().replace(/\.lg-chronos-torso\b/g, '.lg-chronos-cape')} {`)
+const clock = (key, style, spin, color = BRASS) => (
+  <div key={key} className="lgx" style={{ left: '50%', top: '50%', width: '80%', height: '80%', marginLeft: '-40%', marginTop: '-40%', borderRadius: '50%', border: `5px solid ${color}`, boxShadow: `0 0 8px ${color}, inset 0 0 14px rgba(255,201,74,.45)`, background: 'radial-gradient(circle, rgba(255,246,214,.5), rgba(255,201,74,.1) 70%)', ...style }}>
+    {around(12, (i, a) => <div key={i} style={{ position: 'absolute', left: '50%', top: '50%', width: 3, height: i % 3 ? 6 : 11, marginLeft: -1.5, background: color, transform: `rotate(${a}deg) translateY(-${i % 3 ? 44 : 41}%)`, transformOrigin: 'center top' }} />)}
     <div style={{ position: 'absolute', inset: 0, animation: spin }}>
-      <div style={{ position: 'absolute', left: '50%', top: '14%', width: 5, height: '36%', marginLeft: -2.5, background: '#ffffff', borderRadius: 3, boxShadow: `0 0 6px ${BRASS}` }} />
-      <div style={{ position: 'absolute', left: '50%', top: '26%', width: 7, height: '24%', marginLeft: -3.5, background: BRASS, borderRadius: 3 }} />
+      <div style={{ position: 'absolute', left: '50%', top: '14%', width: 5, height: '36%', marginLeft: -2.5, background: '#ffffff', borderRadius: 3, boxShadow: `0 0 6px ${color}` }} />
+      <div style={{ position: 'absolute', left: '50%', top: '26%', width: 7, height: '24%', marginLeft: -3.5, background: color, borderRadius: 3 }} />
     </div>
   </div>
 )
@@ -37,185 +44,242 @@ const hourglass = (glass = '#fff3d0') => (
 )
 
 // THE DRAWING ACTS EVERY MOMENT (impact/bosses/README.md): the hook classes in raids/chronos.svg move with the arena's
-// data-moment (a plain strike moment), data-assault-on (its blow on the player) and data-fx (its ability). Pivots are in
-// the drawing's own units (transform-box: view-box): arms turn at the shoulder gears, the head at its neck, the hourglass
-// torso from its base, the phase 3 dial-jaw at its hinge. Every move ends on the drawn pose (the knockout too: the
-// fallen pose is the box's own move, so the parts settle back before the arena drops them).
+// data-moment (a plain strike moment), data-assault-on (its blow on the player), data-fx (its ability) and data-down
+// (the fallen pose after the knockout). Parts: head (pivot at the neck), brow (the hour and minute hands, on the hub),
+// crown, jaw, torso (pivot at its base), armL (the viewer's left arm with the great winding key in phases 1 and 2),
+// armR (the presenting palm under the floating hourglass, the HALT palm, the sand-pouring palm in phase 3), key (pivot: the
+// fist that holds it). Since the 2026-10-10 redraw every phase shares one framing: shoulders (the bell tops) at 31 81 and
+// 89 81, the neck at 60 72; only the key's fist moves per phase (PIV, from .scratch/raid-kitsune/chronos/gen.mjs). The
+// brow sits in the head's own space with the hub at 0 0; the crown pivots on its own stem (inline fill-box style).
+// Every move ends on the drawn pose.
 const P = '.lg-boss[data-motif="chronos"]'
+const PIV = {
+  1: { armL: [31, 81], armR: [89, 81], head: [60, 72], torso: [60, 70], key: [21.4, 79] },
+  2: { armL: [31, 81], armR: [89, 81], head: [60, 72], torso: [60, 70], key: [14.6, 62.4] },
+  3: { armL: [31, 81], armR: [89, 81], head: [60, 72], torso: [60, 70], key: [16.4, 42.6] },
+}
+const PARTS = ['armL', 'armR', 'head', 'torso', 'key']
+const origins = Object.entries(PIV).map(([ph, pv]) => PARTS.map((p) => `${P}${ph === '1' ? '' : `[data-phase="${ph}"]`} .lg-chronos-${p} { transform-box: view-box; transform-origin: ${pv[p][0]}px ${pv[p][1]}px }`).join('\n')).join('\n')
+// THE FALL IN PHASES 2 AND 3: the arms there are raised (the key swung overhead, both arms flung up in a V), so a small
+// droop reads as nothing. They fall the whole way: the raised arm drops from the shoulder past horizontal, the key
+// tumbles from the slack fist, the head slumps hard on its neck and the hourglass body crumbles lower than in phase 1.
+// Each knockout ends exactly on its held pose (data-down), with one rebound on the way.
+const FALL = {
+  // phase 1 SINKS: the titan slumps down into its own sand, head tipped, arms fallen, the key toppled
+  1: { armL: 'translate(-4px, 30px) rotate(-34deg)', armR: 'translate(6px, 32px) rotate(38deg)', head: 'translate(0px, 30px) rotate(-26deg) scale(.94)', torso: 'translateY(30px) scale(1.06, .8)', key: 'translate(-10px, 24px) rotate(-64deg)', crown: 'translate(-6px, 8px) rotate(-30deg)' },
+  // phase 2 SHATTERS: every part is blown apart from the burst chest and hangs there, broken
+  2: { armL: 'translate(-12px, -10px) rotate(-56deg)', armR: 'translate(20px, 12px) rotate(52deg)', head: 'translate(0px, 10px) rotate(-30deg) scale(.92)', torso: 'translate(0px, 10px) rotate(10deg) scale(.96, .82)', key: 'translate(-10px, -12px) rotate(-130deg)', crown: 'translate(-8px, -12px) rotate(-56deg)' },
+  // phase 3 CRUMBLES INTO SAND: the raised arms drop, the body slumps down into its own heap of sand, the key falls
+  // across it and the halo fades; the fallen pose stays above the card's bottom edge (about 104 drawing units)
+  3: { armL: 'translate(8px, 14px) rotate(-38deg)', armR: 'translate(-6px, 6px) rotate(40deg)', head: 'translate(0px, 10px) rotate(-14deg) scale(.92)', torso: 'translateY(10px) scale(.92, .62)', key: 'translate(0px, 44px) rotate(60deg)', crown: 'translate(-4px, 16px) rotate(-24deg)' },
+}
+const FALL_AT = { armL: 50, armR: 50, head: 52, torso: 52, key: 44, crown: 46 }
+function phaseFalls() {
+  return Object.entries(FALL).map(([ph, parts]) => {
+    const st = `${P}[data-phase="${ph}"]`
+    return Object.entries(parts).map(([part, end]) => {
+      const name = `lgrChronosKo${part[0].toUpperCase()}${part.slice(1)}P${ph}`
+      const at = FALL_AT[part]
+      return `@keyframes ${name} { 0%, ${at}% { transform: none } ${at + 16}% { transform: ${end} } ${at + 28}% { transform: translateY(-5px) ${end} } 100% { transform: ${end} } }
+${st}[data-moment="ko"] .lg-chronos-${part} { animation: ${name} 2200ms ease-in both }
+${st}[data-down] .lg-chronos-${part} { transform: ${end} }`
+    }).join('\n')
+  }).join('\n')
+}
+const on = (state, parts) => Object.entries(parts).map(([p, a]) => `${P}${state} .${p.startsWith('lgfa') ? p : `lg-chronos-${p}`} { animation: ${a} }`).join('\n')
 const PARTS_CSS = `
-${P} .lg-chronos-head { transform-box: view-box; transform-origin: 60px 64px }
-${P} .lg-chronos-armL { transform-box: view-box; transform-origin: 18px 62px }
-${P} .lg-chronos-armR { transform-box: view-box; transform-origin: 102px 62px }
-${P} .lg-chronos-torso { transform-box: view-box; transform-origin: 60px 124px }
-${P} .lg-chronos-jaw { transform-box: fill-box; transform-origin: 50% 0% }
-${P} .lgfa-chronos-brow { transform-box: view-box; transform-origin: 60px 31.6px }
-${P}[data-phase="3"] .lgfa-chronos-brow { transform-origin: 60px 33px }
-/* HIT: the dial head is knocked back on its neck and the brow hands jump one hour, like a struck clock. */
-@keyframes lgrChronosHitHead { 0% { transform: none } 12% { transform: translate(-3px, -3px) rotate(-8deg) } 30% { transform: translate(1px, 0) rotate(4deg) } 55% { transform: rotate(-2deg) } 100% { transform: none } }
+${origins}
+${P} .lg-chronos-brow, ${P} .lg-chronos-crown, ${P} .lgfa-chronos-brow, ${P} .lgfa-chronos-seconds { transform-box: view-box; transform-origin: 0px 0px }
+${P} .lg-chronos-jaw, ${P} .lgfa-chronos-jaw { transform-box: fill-box; transform-origin: 50% 0% }
+/* HIT: the dial is knocked back on its neck and the brow hands jump one hour, like a struck clock. */
+@keyframes lgrChronosHitHead { 0% { transform: none} 10% { transform: rotate(-20deg) scale(.9)} 42% { transform: rotate(-13deg) scale(.94)} 64% { transform: rotate(4deg)} 82% { transform: rotate(-1.5deg)} 100% { transform: none} }
+@keyframes lgrChronosHitTorso { 0%, 100% { transform: none} 12%, 40% { transform: rotate(-5deg)} 66% { transform: rotate(1.5deg)} }
 @keyframes lgrChronosHitBrow { 0%, 8% { transform: none } 9%, 62% { transform: rotate(30deg) } 63%, 100% { transform: none } }
-@keyframes lgrChronosHitArmL { 0%, 100% { transform: none } 14% { transform: rotate(-7deg) } 40% { transform: rotate(3deg) } }
-@keyframes lgrChronosHitArmR { 0%, 100% { transform: none } 14% { transform: rotate(7deg) } 40% { transform: rotate(-3deg) } }
-${P}[data-moment="hit"] .lg-chronos-head { animation: lgrChronosHitHead 520ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-moment="hit"] .lgfa-chronos-brow { animation: lgrChronosHitBrow 520ms linear both }
-${P}[data-moment="hit"] .lg-chronos-armL { animation: lgrChronosHitArmL 520ms ease-out both }
-${P}[data-moment="hit"] .lg-chronos-armR { animation: lgrChronosHitArmR 520ms ease-out both }
-/* CRITICAL: the head whips round and the brow hands spin a whole turn out of control; the arms are flung wide and the
-   phase 3 dial-jaw drops open. */
-@keyframes lgrChronosCritHead { 0% { transform: none } 12% { transform: translate(-7px, -5px) rotate(-18deg) scale(.92) } 34% { transform: translate(3px, 1px) rotate(11deg) scale(1.03) } 56% { transform: rotate(-5deg) } 78% { transform: rotate(2deg) } 100% { transform: none } }
+@keyframes lgrChronosHitArmL { 0%, 100% { transform: none } 12% { transform: rotate(-13deg) } 42% { transform: rotate(-6deg) } 64% { transform: rotate(4deg) } }
+@keyframes lgrChronosHitArmR { 0%, 100% { transform: none } 12% { transform: rotate(13deg) } 42% { transform: rotate(6deg) } 64% { transform: rotate(-4deg) } }
+${on('[data-moment="hit"]', { torso: 'lgrChronosHitTorso 520ms ease-out both', head: 'lgrChronosHitHead 520ms cubic-bezier(.2,.9,.3,1) both', brow: 'lgrChronosHitBrow 520ms linear both', armL: 'lgrChronosHitArmL 520ms ease-out both', armR: 'lgrChronosHitArmR 520ms ease-out both' })}
+/* CRITICAL: the head whips round, the brow hands spin a whole turn out of control, the crown rattles loose, the arms
+   are flung wide and the jaw drops. */
+@keyframes lgrChronosCritHead { 0% { transform: none} 10% { transform: rotate(-24deg) scale(.88)} 26% { transform: rotate(18deg) scale(1.06)} 44% { transform: rotate(-12deg) scale(.96)} 62% { transform: rotate(6deg)} 80% { transform: rotate(-2deg)} 100% { transform: none} }
+@keyframes lgrChronosCritTorso { 0%, 100% { transform: none} 10% { transform: scale(1.06, .9)} 26% { transform: scale(.95, 1.06) rotate(3deg)} 44% { transform: scale(1.03, .96) rotate(-2deg)} 64% { transform: rotate(1deg)} }
 @keyframes lgrChronosCritBrow { 0% { transform: none } 70% { transform: rotate(390deg) } 85% { transform: rotate(352deg) } 100% { transform: rotate(360deg) } }
+@keyframes lgrChronosCritCrown { 0%, 100% { transform: none } 14% { transform: translate(2px, -5px) rotate(14deg) } 34% { transform: translate(-1px, -2px) rotate(-8deg) } 56% { transform: rotate(4deg) } }
 @keyframes lgrChronosCritArmL { 0%, 100% { transform: none } 16% { transform: rotate(30deg) translate(-3px, 2px) } 42% { transform: rotate(-8deg) } 66% { transform: rotate(3deg) } }
 @keyframes lgrChronosCritArmR { 0%, 100% { transform: none } 16% { transform: rotate(-30deg) translate(3px, 2px) } 42% { transform: rotate(8deg) } 66% { transform: rotate(-3deg) } }
 @keyframes lgrChronosCritJaw { 0%, 100% { transform: none } 14% { transform: translateY(5px) scaleY(1.2) } 50% { transform: translateY(2px) } }
-${P}[data-moment="crit"] .lg-chronos-head { animation: lgrChronosCritHead 640ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-moment="crit"] .lgfa-chronos-brow { animation: lgrChronosCritBrow 640ms cubic-bezier(.15,.8,.3,1) both }
-${P}[data-moment="crit"] .lg-chronos-armL { animation: lgrChronosCritArmL 640ms ease-out both }
-${P}[data-moment="crit"] .lg-chronos-armR { animation: lgrChronosCritArmR 640ms ease-out both }
-${P}[data-moment="crit"] .lg-chronos-jaw { animation: lgrChronosCritJaw 640ms ease-out both }
-/* SHARPENED: a clean cut across the glass: the hourglass torso shears, the head ducks down the blade's line, the left
-   gauntlet jerks up too late to guard. */
-@keyframes lgrChronosCutTorso { 0%, 100% { transform: none } 10% { transform: skewX(-9deg) translateX(3px) } 24% { transform: skewX(6deg) translateX(-2px) } 40% { transform: skewX(-3deg) } 60% { transform: skewX(1deg) } }
-@keyframes lgrChronosCutHead { 0% { transform: none } 10% { transform: translate(5px, 4px) rotate(7deg) } 28% { transform: translate(-3px, 1px) rotate(-4deg) } 52% { transform: translate(1px, 0) rotate(1.5deg) } 100% { transform: none } }
-@keyframes lgrChronosCutArmL { 0%, 100% { transform: none } 22% { transform: rotate(22deg) translate(2px, -3px) } 60% { transform: rotate(6deg) } }
-${P}[data-moment="sharpen"] .lg-chronos-torso { animation: lgrChronosCutTorso 600ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-moment="sharpen"] .lg-chronos-head { animation: lgrChronosCutHead 600ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-moment="sharpen"] .lg-chronos-armL { animation: lgrChronosCutArmL 600ms ease-out both }
+${on('[data-moment="crit"]', { torso: 'lgrChronosCritTorso 640ms ease-out both', head: 'lgrChronosCritHead 640ms cubic-bezier(.2,.9,.3,1) both', brow: 'lgrChronosCritBrow 640ms cubic-bezier(.15,.8,.3,1) both', crown: 'lgrChronosCritCrown 640ms ease-out both', armL: 'lgrChronosCritArmL 640ms ease-out both', armR: 'lgrChronosCritArmR 640ms ease-out both', jaw: 'lgrChronosCritJaw 640ms ease-out both' })}
+/* SHARPENED: a clean cut across the glass: the hourglass torso shears, the head ducks down the blade's line, the key
+   arm jerks up too late to guard. */
+@keyframes lgrChronosCutTorso { 0%, 100% { transform: none} 10% { transform: skewX(-9deg)} 24% { transform: skewX(6deg)} 40% { transform: skewX(-3deg)} 60% { transform: skewX(1deg)} }
+@keyframes lgrChronosCutHead { 0% { transform: none} 10% { transform: rotate(7deg)} 28% { transform: rotate(-4deg)} 52% { transform: rotate(1.5deg)} 100% { transform: none} }
+@keyframes lgrChronosCutArmL { 0%, 100% { transform: none } 22% { transform: rotate(16deg) translate(2px, -3px) } 60% { transform: rotate(5deg) } }
+${on('[data-moment="sharpen"]', { torso: 'lgrChronosCutTorso 600ms cubic-bezier(.2,.9,.3,1) both', head: 'lgrChronosCutHead 600ms cubic-bezier(.2,.9,.3,1) both', armL: 'lgrChronosCutArmL 600ms ease-out both' })}
 /* ITS BLOW ON THE PLAYER (data-assault-on: every heart it takes, its plain strike and an ability's blow alike): the
-   right gauntlet cocks back and up (anticipation), then hammers forward at the camera and across toward the hearts the
-   instant the gear storm leaves (impact/assault.js travelAt), holds the follow-through, and draws back. */
-@keyframes lgrChronosBlowArmR { 0% { transform: none } 13% { transform: rotate(24deg) translate(-2px, -6px) scale(.9) } 24% { transform: rotate(-32deg) translate(5px, 8px) scale(1.75) } 32% { transform: rotate(-28deg) translate(5px, 7px) scale(1.66) } 52% { transform: rotate(-25deg) translate(4px, 6px) scale(1.58) } 100% { transform: none } }
-@keyframes lgrChronosBlowArmL { 0%, 100% { transform: none } 13% { transform: rotate(12deg) } 26% { transform: rotate(-12deg) } 55% { transform: rotate(-5deg) } }
-${P}[data-assault-on] .lg-chronos-armR { animation: lgrChronosBlowArmR 820ms cubic-bezier(.3,.7,.3,1) both }
-${P}[data-assault-on] .lg-chronos-armL { animation: lgrChronosBlowArmL 820ms ease-out both }
-/* ITS STRIKE (data-moment hurt, with the blow above): the dial head lunges in behind the punch, the dial-jaw gapes, the
-   hourglass leans into it. */
-@keyframes lgrChronosStrikeHead { 0% { transform: none } 14% { transform: translate(4px, 3px) rotate(7deg) scale(1.12) } 40% { transform: translate(3px, 2px) rotate(5deg) scale(1.08) } 100% { transform: none } }
-@keyframes lgrChronosStrikeJaw { 0%, 100% { transform: none } 12%, 40% { transform: translateY(6px) scaleY(1.28) } }
-@keyframes lgrChronosStrikeTorso { 0%, 100% { transform: none } 16%, 40% { transform: rotate(4deg) } }
-${P}[data-moment="hurt"] .lg-chronos-head { animation: lgrChronosStrikeHead 620ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-moment="hurt"] .lg-chronos-jaw { animation: lgrChronosStrikeJaw 620ms ease-out both }
-${P}[data-moment="hurt"] .lg-chronos-torso { animation: lgrChronosStrikeTorso 620ms ease-out both }
-/* ITS HEAVY BLOW (hurtBig): no single punch: BOTH gauntlets heave up over the dial and hammer down together like a
-   bell clapper, the head bowing into the slam and the hourglass squashing under it. */
-@keyframes lgrChronosHeavyArmL { 0% { transform: none } 22% { transform: rotate(44deg) translate(4px, -6px) } 34% { transform: rotate(-16deg) translate(2px, 6px) scale(1.22) } 44% { transform: rotate(-10deg) translate(1px, 4px) scale(1.16) } 70% { transform: rotate(-6deg) translateY(2px) scale(1.06) } 100% { transform: none } }
-@keyframes lgrChronosHeavyArmR { 0% { transform: none } 22% { transform: rotate(-44deg) translate(-4px, -6px) } 34% { transform: rotate(16deg) translate(-2px, 6px) scale(1.22) } 44% { transform: rotate(10deg) translate(-1px, 4px) scale(1.16) } 70% { transform: rotate(6deg) translateY(2px) scale(1.06) } 100% { transform: none } }
-@keyframes lgrChronosHeavyHead { 0% { transform: none } 22% { transform: translateY(-6px) rotate(-3deg) } 34% { transform: translateY(6px) scale(1.14) } 50% { transform: translateY(3px) scale(1.08) } 100% { transform: none } }
-@keyframes lgrChronosHeavyTorso { 0%, 22%, 100% { transform: none } 34% { transform: scale(1.1, .86) } 48% { transform: scale(.97, 1.04) } 62% { transform: scale(1.02, .98) } }
-${P}[data-moment="hurtBig"] .lg-chronos-armL, ${P}[data-assault-on][data-moment="hurtBig"] .lg-chronos-armL { animation: lgrChronosHeavyArmL 900ms cubic-bezier(.3,.7,.3,1) both }
-${P}[data-moment="hurtBig"] .lg-chronos-armR, ${P}[data-assault-on][data-moment="hurtBig"] .lg-chronos-armR { animation: lgrChronosHeavyArmR 900ms cubic-bezier(.3,.7,.3,1) both }
-${P}[data-moment="hurtBig"] .lg-chronos-head { animation: lgrChronosHeavyHead 900ms cubic-bezier(.3,.7,.3,1) both }
-${P}[data-moment="hurtBig"] .lg-chronos-torso { animation: lgrChronosHeavyTorso 900ms ease-out both }
-${P}[data-moment="hurtBig"] .lg-chronos-jaw { animation: lgrChronosStrikeJaw 900ms ease-out both }
-/* BLOCKED: its punch is stopped dead and driven back: the right gauntlet thrusts, jars to a halt and is knocked up and
-   away, the head snapping back from the parry. */
-@keyframes lgrChronosBlockArmR { 0% { transform: none } 12% { transform: rotate(-34deg) translate(8px, 3px) scale(1.3) } 16% { transform: rotate(-31deg) translate(7px, 3px) scale(1.26) } 30% { transform: rotate(34deg) translate(-4px, -6px) scale(.92) } 42% { transform: rotate(26deg) translate(-3px, -4px) } 50% { transform: rotate(30deg) translate(-4px, -5px) } 100% { transform: none } }
-@keyframes lgrChronosBlockHead { 0% { transform: none } 16% { transform: translate(2px, 1px) scale(1.04) } 30% { transform: translate(-4px, -4px) rotate(-6deg) scale(.95) } 56% { transform: rotate(2deg) } 100% { transform: none } }
-${P}[data-moment="block"] .lg-chronos-armR { animation: lgrChronosBlockArmR 680ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-moment="block"] .lg-chronos-head { animation: lgrChronosBlockHead 680ms cubic-bezier(.2,.9,.3,1) both }
-/* SAVED: the punch glances off the shield and the gauntlet is flung high, spinning the titan half round; the dazed dial
+   viewer's right arm cocks back (anticipation), then drives forward at the camera, growing, the instant the gear storm
+   leaves; the great key swings round in the other hand. */
+@keyframes lgrChronosBlowArmR { 0% { transform: none } 13% { transform: rotate(18deg) translate(4px, -6px) scale(.92) } 24% { transform: rotate(-22deg) translate(-8px, 8px) scale(1.5) } 32% { transform: rotate(-18deg) translate(-7px, 7px) scale(1.44) } 52% { transform: rotate(-14deg) translate(-5px, 5px) scale(1.34) } 100% { transform: none } }
+@keyframes lgrChronosBlowArmL { 0%, 100% { transform: none } 13% { transform: rotate(10deg) } 26% { transform: rotate(-12deg) } 55% { transform: rotate(-5deg) } }
+@keyframes lgrChronosBlowKey { 0%, 100% { transform: none } 14% { transform: rotate(-20deg) } 28% { transform: rotate(34deg) } 56% { transform: rotate(12deg) } }
+${on('[data-assault-on]', { armR: 'lgrChronosBlowArmR 820ms cubic-bezier(.3,.7,.3,1) both', armL: 'lgrChronosBlowArmL 820ms ease-out both', key: 'lgrChronosBlowKey 820ms ease-out both' })}
+/* ITS STRIKE (data-moment hurt, with the blow above): the head lunges in behind the blow, the jaw gapes, the hourglass
+   leans into it. */
+@keyframes lgrChronosStrikeHead { 0% { transform: none} 14% { transform: rotate(7deg) scale(1.1)} 40% { transform: rotate(5deg) scale(1.06)} 100% { transform: none} }
+@keyframes lgrChronosStrikeJaw { 0%, 100% { transform: none } 12%, 40% { transform: translateY(4px) scaleY(1.28) } }
+@keyframes lgrChronosStrikeTorso { 0%, 100% { transform: none} 16%, 40% { transform: rotate(4deg)} }
+${on('[data-moment="hurt"]', { head: 'lgrChronosStrikeHead 620ms cubic-bezier(.2,.9,.3,1) both', jaw: 'lgrChronosStrikeJaw 620ms ease-out both', torso: 'lgrChronosStrikeTorso 620ms ease-out both' })}
+/* ITS HEAVY BLOW (hurtBig): no single blow: BOTH arms heave up over the dial and hammer down together like a bell
+   clapper, the head bowing into the slam, the hourglass squashing under it and the crown jolting. */
+@keyframes lgrChronosHeavyArmL { 0% { transform: none } 22% { transform: rotate(34deg) translate(4px, -6px) } 34% { transform: rotate(-14deg) translate(2px, 6px) scale(1.16) } 44% { transform: rotate(-9deg) translate(1px, 4px) scale(1.12) } 70% { transform: rotate(-5deg) translateY(2px) scale(1.05) } 100% { transform: none } }
+@keyframes lgrChronosHeavyArmR { 0% { transform: none } 22% { transform: rotate(-34deg) translate(-4px, -6px) } 34% { transform: rotate(14deg) translate(-2px, 6px) scale(1.16) } 44% { transform: rotate(9deg) translate(-1px, 4px) scale(1.12) } 70% { transform: rotate(5deg) translateY(2px) scale(1.05) } 100% { transform: none } }
+@keyframes lgrChronosHeavyHead { 0% { transform: none} 22% { transform: rotate(-3deg)} 34% { transform: scale(1.1)} 50% { transform: scale(1.05)} 100% { transform: none} }
+@keyframes lgrChronosHeavyTorso { 0%, 22%, 100% { transform: none} 34% { transform: scale(1.08, .9)} 48% { transform: scale(.97, 1.04)} 62% { transform: scale(1.02, .98)} }
+@keyframes lgrChronosHeavyCrown { 0%, 30%, 100% { transform: none } 36% { transform: translateY(-6px) } 52% { transform: translateY(1px) } 66% { transform: translateY(-2px) } }
+${on('[data-moment="hurtBig"]', { armL: 'lgrChronosHeavyArmL 900ms cubic-bezier(.3,.7,.3,1) both', armR: 'lgrChronosHeavyArmR 900ms cubic-bezier(.3,.7,.3,1) both', head: 'lgrChronosHeavyHead 900ms cubic-bezier(.3,.7,.3,1) both', torso: 'lgrChronosHeavyTorso 900ms ease-out both', jaw: 'lgrChronosStrikeJaw 900ms ease-out both', crown: 'lgrChronosHeavyCrown 900ms ease-out both' })}
+${P}[data-assault-on][data-moment="hurtBig"] .lg-chronos-armL { animation: lgrChronosHeavyArmL 900ms cubic-bezier(.3,.7,.3,1) both }
+${P}[data-assault-on][data-moment="hurtBig"] .lg-chronos-armR { animation: lgrChronosHeavyArmR 900ms cubic-bezier(.3,.7,.3,1) both }
+/* BLOCKED: its blow is stopped dead and driven back: the right arm thrusts, jars to a halt and is knocked up and away,
+   the head snapping back from the parry and the key ringing in the other hand. */
+@keyframes lgrChronosBlockArmR { 0% { transform: none } 12% { transform: rotate(-24deg) translate(-6px, 3px) scale(1.2) } 16% { transform: rotate(-22deg) translate(-5px, 3px) scale(1.18) } 30% { transform: rotate(24deg) translate(4px, -6px) scale(.94) } 42% { transform: rotate(18deg) translate(3px, -4px) } 50% { transform: rotate(21deg) translate(4px, -5px) } 100% { transform: none } }
+@keyframes lgrChronosBlockHead { 0% { transform: none} 14% { transform: scale(1.06)} 26% { transform: rotate(10deg) scale(.94)} 52% { transform: rotate(8deg) scale(.95)} 74% { transform: rotate(-2deg)} 100% { transform: none} }
+@keyframes lgrChronosBlockTorso { 0%, 100% { transform: none} 14% { transform: rotate(-3deg)} 28%, 54% { transform: rotate(5deg)} 76% { transform: rotate(-1deg)} }
+@keyframes lgrChronosBlockKey { 0%, 100% { transform: none } 28% { transform: rotate(6deg) } 36% { transform: rotate(-5deg) } 44% { transform: rotate(4deg) } 52% { transform: rotate(-2deg) } }
+${on('[data-moment="block"]', { torso: 'lgrChronosBlockTorso 680ms cubic-bezier(.2,.9,.3,1) both', armR: 'lgrChronosBlockArmR 680ms cubic-bezier(.2,.9,.3,1) both', head: 'lgrChronosBlockHead 680ms cubic-bezier(.2,.9,.3,1) both', key: 'lgrChronosBlockKey 680ms linear both' })}
+/* SAVED: the blow glances off the shield and the arm is flung high, spinning the titan half round; the dazed dial
    wobbles and its brow hands wind dizzily backwards. */
-@keyframes lgrChronosShieldArmR { 0% { transform: none } 14% { transform: rotate(-30deg) translate(7px, 3px) scale(1.25) } 34% { transform: rotate(-96deg) translate(2px, -8px) scale(1.1) } 52% { transform: rotate(-74deg) translate(1px, -6px) } 100% { transform: none } }
-@keyframes lgrChronosShieldHead { 0%, 100% { transform: none } 22% { transform: rotate(9deg) translateX(2px) } 40% { transform: rotate(-8deg) } 58% { transform: rotate(6deg) } 74% { transform: rotate(-3deg) } }
+@keyframes lgrChronosShieldArmR { 0% { transform: none } 14% { transform: rotate(-22deg) translate(-5px, 3px) scale(1.18) } 34% { transform: rotate(-70deg) translate(2px, -8px) scale(1.05) } 52% { transform: rotate(-54deg) translate(1px, -6px) } 100% { transform: none } }
+@keyframes lgrChronosShieldHead { 0%, 100% { transform: none} 22% { transform: rotate(9deg)} 40% { transform: rotate(-8deg)} 58% { transform: rotate(6deg)} 74% { transform: rotate(-3deg)} }
 @keyframes lgrChronosShieldBrow { 0%, 20% { transform: none } 80% { transform: rotate(-200deg) } 100% { transform: rotate(-180deg) } }
-${P}[data-moment="shield"] .lg-chronos-armR { animation: lgrChronosShieldArmR 760ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-moment="shield"] .lg-chronos-head { animation: lgrChronosShieldHead 760ms ease-in-out both }
-${P}[data-moment="shield"] .lgfa-chronos-brow { animation: lgrChronosShieldBrow 760ms ease-in-out both }
-/* SECOND WIND: the titan sags: the dial tips back in disbelief, both gauntlets drop slack, the hourglass settles low. */
-@keyframes lgrChronosWindHead { 0% { transform: none } 30% { transform: translateY(-3px) rotate(-6deg) scale(.96) } 65% { transform: translateY(2px) rotate(-4deg) scale(.97) } 100% { transform: none } }
-@keyframes lgrChronosWindArmL { 0%, 100% { transform: none } 35%, 65% { transform: rotate(-14deg) translateY(4px) } }
-@keyframes lgrChronosWindArmR { 0%, 100% { transform: none } 35%, 65% { transform: rotate(14deg) translateY(4px) } }
-@keyframes lgrChronosWindTorso { 0%, 100% { transform: none } 35%, 65% { transform: scale(1.03, .94) } }
-${P}[data-moment="wind"] .lg-chronos-head { animation: lgrChronosWindHead 1000ms ease-in-out both }
-${P}[data-moment="wind"] .lg-chronos-armL { animation: lgrChronosWindArmL 1000ms ease-in-out both }
-${P}[data-moment="wind"] .lg-chronos-armR { animation: lgrChronosWindArmR 1000ms ease-in-out both }
-${P}[data-moment="wind"] .lg-chronos-torso { animation: lgrChronosWindTorso 1000ms ease-in-out both }
-/* KNOCKOUT (its time runs out): the brow hands race three turns and STOP dead, the head stutters frame by frame in the
-   frozen second, then the dial cracks and lolls, the gauntlets fall slack and the hourglass slumps, before the parts
-   settle into the box's own fallen pose. */
+@keyframes lgrChronosShieldBrowBack { 0% { transform: rotate(-180deg) } 100% { transform: none } }
+${on('[data-moment="shield"]', { armR: 'lgrChronosShieldArmR 760ms cubic-bezier(.2,.9,.3,1) both', head: 'lgrChronosShieldHead 760ms ease-in-out both', brow: 'lgrChronosShieldBrow 620ms ease-in-out both, lgrChronosShieldBrowBack 140ms ease-out 620ms both' })}
+/* SECOND WIND: the titan sags: the dial tips back in disbelief, both arms drop slack, the hourglass settles low, the
+   crown slips askew. */
+@keyframes lgrChronosWindHead { 0% { transform: none} 30% { transform: rotate(-6deg) scale(.96)} 65% { transform: rotate(-4deg) scale(.97)} 100% { transform: none} }
+@keyframes lgrChronosWindArmL { 0%, 100% { transform: none } 35%, 65% { transform: rotate(-12deg) translateY(4px) } }
+@keyframes lgrChronosWindArmR { 0%, 100% { transform: none } 35%, 65% { transform: rotate(12deg) translateY(4px) } }
+@keyframes lgrChronosWindTorso { 0%, 100% { transform: none} 35%, 65% { transform: scale(1.03, .95)} }
+@keyframes lgrChronosWindCrown { 0%, 100% { transform: none } 35%, 65% { transform: rotate(-9deg) translate(-1px, 1px) } }
+${on('[data-moment="wind"]', { head: 'lgrChronosWindHead 1000ms ease-in-out both', armL: 'lgrChronosWindArmL 1000ms ease-in-out both', armR: 'lgrChronosWindArmR 1000ms ease-in-out both', torso: 'lgrChronosWindTorso 1000ms ease-in-out both', crown: 'lgrChronosWindCrown 1000ms ease-in-out both' })}
+/* KNOCKOUT (its time runs out, it shatters into sand): the brow hands race three turns and STOP dead; the head stutters
+   frame by frame in the frozen second; then everything gives: the crown topples off, the key drops from the slack hand,
+   the arms fall, the hourglass body crumbles down into its own sand and the dial lolls forward. It HOLDS that fallen
+   pose (data-down) while the arena greys it. */
 @keyframes lgrChronosKoBrow { 0% { transform: none } 40% { transform: rotate(1080deg) } 100% { transform: rotate(1080deg) } }
-@keyframes lgrChronosKoHead { 0%, 10% { transform: none } 14% { transform: translateX(-3px) } 18% { transform: translateX(3px) } 22% { transform: translateX(-2px) } 26%, 52% { transform: none } 60% { transform: translateY(8px) rotate(-16deg) scale(.94) } 68% { transform: translateY(5px) rotate(-10deg) } 76% { transform: translateY(7px) rotate(-13deg) } 90% { transform: translateY(3px) rotate(-5deg) } 100% { transform: none } }
-@keyframes lgrChronosKoArmL { 0%, 52% { transform: none } 62% { transform: rotate(-30deg) translateY(8px) } 72% { transform: rotate(-22deg) translateY(6px) } 88% { transform: rotate(-10deg) translateY(3px) } 100% { transform: none } }
-@keyframes lgrChronosKoArmR { 0%, 52% { transform: none } 64% { transform: rotate(30deg) translateY(8px) } 74% { transform: rotate(22deg) translateY(6px) } 88% { transform: rotate(10deg) translateY(3px) } 100% { transform: none } }
-@keyframes lgrChronosKoTorso { 0%, 54% { transform: none } 64% { transform: scale(1.08, .82) } 74% { transform: scale(1.04, .9) } 100% { transform: none } }
-@keyframes lgrChronosKoJaw { 0%, 56% { transform: none } 66%, 86% { transform: translateY(7px) rotate(8deg) } 100% { transform: none } }
-${P}[data-moment="ko"] .lgfa-chronos-brow { animation: lgrChronosKoBrow 2200ms cubic-bezier(.3,0,.2,1) both }
-${P}[data-moment="ko"] .lg-chronos-head { animation: lgrChronosKoHead 2200ms linear both }
-${P}[data-moment="ko"] .lg-chronos-armL { animation: lgrChronosKoArmL 2200ms ease-in-out both }
-${P}[data-moment="ko"] .lg-chronos-armR { animation: lgrChronosKoArmR 2200ms ease-in-out both }
-${P}[data-moment="ko"] .lg-chronos-torso { animation: lgrChronosKoTorso 2200ms ease-in-out both }
-${P}[data-moment="ko"] .lg-chronos-jaw { animation: lgrChronosKoJaw 2200ms ease-in-out both }
+@keyframes lgrChronosKoHead { 0%, 10% { transform: none} 14% { transform: none} 18% { transform: none} 22% { transform: none} 26%, 50% { transform: none} 62% { transform: rotate(-16deg) scale(.95)} 72% { transform: rotate(-11deg) scale(.95)} 84% { transform: rotate(-14deg) scale(.95)} 100% { transform: rotate(-18deg) scale(.94)} }
+@keyframes lgrChronosKoCrown { 0%, 46% { transform: none } 58% { transform: translate(-3px, -8px) rotate(-24deg) } 74% { transform: translate(6px, 6px) rotate(28deg) } 86% { transform: translate(5px, 4px) rotate(22deg) } 100% { transform: translate(3px, 3px) rotate(14deg) } }
+@keyframes lgrChronosKoKey { 0%, 44% { transform: none } 60% { transform: rotate(-30deg) translateY(6px) } 74% { transform: rotate(-52deg) translateY(10px) } 86% { transform: rotate(-46deg) translateY(9px) } 100% { transform: rotate(-48deg) translateY(10px) } }
+@keyframes lgrChronosKoArmL { 0%, 50% { transform: none } 64% { transform: rotate(-22deg) translateY(10px) } 76% { transform: rotate(-16deg) translateY(8px) } 100% { transform: rotate(-26deg) translateY(14px) } }
+@keyframes lgrChronosKoArmR { 0%, 50% { transform: none } 66% { transform: rotate(22deg) translateY(10px) } 78% { transform: rotate(16deg) translateY(8px) } 100% { transform: rotate(26deg) translateY(14px) } }
+@keyframes lgrChronosKoTorso { 0%, 52% { transform: none} 64% { transform: scale(1.1, .8)} 76% { transform: scale(1.04, .9)} 88% { transform: scale(1.07, .85)} 100% { transform: scale(1.08, .8)} }
+@keyframes lgrChronosKoJaw { 0%, 56% { transform: none } 66% { transform: translateY(5px) rotate(8deg) } 100% { transform: translateY(4px) rotate(6deg) } }
+${on('[data-moment="ko"]', { brow: 'lgrChronosKoBrow 2200ms cubic-bezier(.3,0,.2,1) both', head: 'lgrChronosKoHead 2200ms linear both', crown: 'lgrChronosKoCrown 2200ms ease-in both', key: 'lgrChronosKoKey 2200ms ease-in both', armL: 'lgrChronosKoArmL 2200ms ease-in-out both', armR: 'lgrChronosKoArmR 2200ms ease-in-out both', torso: 'lgrChronosKoTorso 2200ms ease-in-out both', jaw: 'lgrChronosKoJaw 2200ms ease-in-out both' })}
+${P}[data-down] .lg-chronos-head { transform: rotate(-18deg) scale(.94) }
+${P}[data-down] .lg-chronos-crown { transform: translate(3px, 3px) rotate(14deg) }
+${P}[data-down] .lg-chronos-key { transform: rotate(-48deg) translateY(10px) }
+${P}[data-down] .lg-chronos-armL { transform: rotate(-26deg) translateY(14px) }
+${P}[data-down] .lg-chronos-armR { transform: rotate(26deg) translateY(14px) }
+${P}[data-down] .lg-chronos-torso { transform: scale(1.08, .8) }
+${P}[data-down] .lg-chronos-jaw { transform: translateY(4px) rotate(6deg) }
+${phaseFalls()}
+/* ...the eyes go out on the fallen pose, and the hourglass it levitated drops into the sand. */
+${P}[data-down] .lg-chronos-eyes { filter: saturate(0) brightness(.22) }
+${P}[data-phase="3"][data-down] .lg-chronos-vortex, ${P}[data-phase="3"][data-moment="ko"] .lg-chronos-vortex { display: none }
+${P}[data-down] .lg-chronos-float { transform: translate(0px, 30px) rotate(80deg) }
+@keyframes lgrChronosFloatDrop { 0%, 46% { transform: none } 62% { transform: translate(0px, 30px) rotate(80deg) } 70% { transform: translate(0px, 26px) rotate(76deg) } 100% { transform: translate(0px, 30px) rotate(80deg) } }
+${P}[data-moment="ko"] .lg-chronos-float { transform-box: fill-box; transform-origin: center; animation: lgrChronosFloatDrop 2200ms ease-in both }
+${P}[data-down] .lg-chronos-float { transform-box: fill-box; transform-origin: center }
+/* ...and it is a heap of sand: its own sand rises over it from the base as the body crumbles, the dial splits. */
+@keyframes lgrChronosRuinRise { 0%, 50% { transform: translateY(40px) scaleY(.2); opacity: 0 } 58% { opacity: 1 } 80% { transform: translateY(-2px) scaleY(1.05) } 100% { transform: none; opacity: 1 } }
+@keyframes lgrChronosCrackIn { 0%, 30% { opacity: 0 } 34%, 100% { opacity: 1 } }
+${P}[data-moment="ko"] .lg-chronos-ruin { display: inline !important; transform-box: fill-box; transform-origin: 50% 100%; animation: lgrChronosRuinRise 2200ms ease-out both }
+${P}[data-down] .lg-chronos-ruin, ${P}[data-down] .lg-chronos-ruincrack { display: inline !important }
+/* ...in phase 2 it bursts outward (shards, plates, cogs, a spiral of sand); in phase 3 he crumbles into a heap of sand
+   under his fading halo. */
+@keyframes lgrChronosShardOut { 0%, 48% { transform: scale(.2); opacity: 0 } 58% { opacity: 1 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrChronosHeapGrow { 0%, 50% { transform: scale(.25); opacity: 0 } 58% { opacity: 1 } 80% { transform: scale(1.04) } 100% { transform: none; opacity: 1 } }
+@keyframes lgrChronosAuraOut { 0%, 44% { opacity: 1; transform: none } 72% { opacity: .3; transform: scale(.96) } 100% { opacity: .3; transform: scale(.96) } }
+${P}[data-phase="2"][data-moment="ko"] .lg-chronos-ruin { transform-origin: 50% 50%; animation: lgrChronosShardOut 2200ms cubic-bezier(.2,.9,.3,1) both }
+${P}[data-phase="3"][data-moment="ko"] .lg-chronos-ruin { transform-origin: 50% 100%; animation: lgrChronosHeapGrow 2200ms ease-out both }
+${P}[data-phase="3"][data-moment="ko"] .lg-chronos-aura { transform-box: fill-box; transform-origin: center; animation: lgrChronosAuraOut 2200ms ease-in both }
+${P}[data-phase="3"][data-down] .lg-chronos-aura { transform-box: fill-box; transform-origin: center; opacity: .3; transform: scale(.96) }
+${P}[data-moment="ko"] .lg-chronos-ruincrack { display: inline !important; animation: lgrChronosCrackIn 2200ms linear both }
 /* ITS ABILITY, acted by the drawing.
-   Grain: the dial ticks one notch, like a clock counting the grain. */
-@keyframes lgrChronosGrainHead { 0%, 100% { transform: none } 20%, 60% { transform: rotate(4deg) } }
+   Grain: the dial ticks one notch and the great key gives one click, like a clock counting the grain. */
+@keyframes lgrChronosGrainHead { 0%, 100% { transform: none} 20%, 60% { transform: rotate(4deg)} }
 @keyframes lgrChronosGrainBrow { 0%, 15% { transform: none } 16%, 70% { transform: rotate(-30deg) } 71%, 100% { transform: none } }
-${P}[data-fx="grain"] .lg-chronos-head { animation: lgrChronosGrainHead 340ms steps(1, end) both }
-${P}[data-fx="grain"] .lgfa-chronos-brow { animation: lgrChronosGrainBrow 340ms linear both }
-/* Rewind: the gauntlets swing BACKWARDS through the last blow in four stepped jerks while the head steps back. */
+@keyframes lgrChronosGrainKey { 0%, 100% { transform: none } 18%, 64% { transform: rotate(12deg) } }
+${on('[data-fx="grain"]', { head: 'lgrChronosGrainHead 340ms steps(1, end) both', brow: 'lgrChronosGrainBrow 340ms linear both', key: 'lgrChronosGrainKey 340ms steps(1, end) both' })}
+/* Rewind: the arms swing BACKWARDS through the last blow in four stepped jerks while the head steps back and the
+   crown turns back a notch at a time. */
 @keyframes lgrChronosRewindArmL { 0% { transform: none } 25% { transform: rotate(12deg) } 50% { transform: rotate(-10deg) } 75% { transform: rotate(8deg) } 100% { transform: none } }
 @keyframes lgrChronosRewindArmR { 0% { transform: none } 25% { transform: rotate(-12deg) } 50% { transform: rotate(10deg) } 75% { transform: rotate(-8deg) } 100% { transform: none } }
-@keyframes lgrChronosRewindHead { 0% { transform: none } 25% { transform: translateY(-3px) rotate(4deg) } 50% { transform: translateY(-1px) rotate(-3deg) } 75% { transform: translateY(-2px) rotate(2deg) } 100% { transform: none } }
-${P}[data-fx="rewind"] .lg-chronos-armL { animation: lgrChronosRewindArmL 1000ms steps(4, end) both }
-${P}[data-fx="rewind"] .lg-chronos-armR { animation: lgrChronosRewindArmR 1000ms steps(4, end) both }
-${P}[data-fx="rewind"] .lg-chronos-head { animation: lgrChronosRewindHead 1000ms steps(4, end) both }
-/* Paradox: the dial glitches between two moments at once: the head tears sideways in hard steps, the gauntlets jitter
-   out of sync. */
-@keyframes lgrChronosParadoxHead { 0%, 100% { transform: none } 12% { transform: translateX(-6px) skewX(10deg) } 24% { transform: translateX(5px) skewX(-8deg) } 36% { transform: translateX(-3px) } 48% { transform: translateX(4px) skewX(6deg) } 60% { transform: none } 72% { transform: translateX(-2px) } }
+@keyframes lgrChronosRewindHead { 0% { transform: none} 25% { transform: rotate(4deg)} 50% { transform: rotate(-3deg)} 75% { transform: rotate(2deg)} 100% { transform: none} }
+@keyframes lgrChronosRewindCrown { 0% { transform: none } 100% { transform: rotate(-60deg) } }
+${on('[data-fx="rewind"]', { armL: 'lgrChronosRewindArmL 1000ms steps(4, end) both', armR: 'lgrChronosRewindArmR 1000ms steps(4, end) both', head: 'lgrChronosRewindHead 1000ms steps(4, end) both', crown: 'lgrChronosRewindCrown 1000ms steps(4, start) both' })}
+/* Paradox: the dial glitches between two moments at once: the head tears sideways in hard steps, the arms jitter out
+   of sync, the crown flickers between two tilts. */
+@keyframes lgrChronosParadoxHead { 0%, 100% { transform: none} 12% { transform: skewX(10deg)} 24% { transform: skewX(-8deg)} 36% { transform: none} 48% { transform: skewX(6deg)} 60% { transform: none} 72% { transform: none} }
 @keyframes lgrChronosParadoxArmL { 0%, 100% { transform: none } 15% { transform: rotate(10deg) } 35% { transform: rotate(-8deg) } 55% { transform: rotate(6deg) } }
 @keyframes lgrChronosParadoxArmR { 0%, 100% { transform: none } 25% { transform: rotate(-10deg) } 45% { transform: rotate(8deg) } 65% { transform: rotate(-5deg) } }
-${P}[data-fx="paradox"] .lg-chronos-head { animation: lgrChronosParadoxHead 640ms steps(1, end) both }
-${P}[data-fx="paradox"] .lg-chronos-armL { animation: lgrChronosParadoxArmL 640ms steps(1, end) both }
-${P}[data-fx="paradox"] .lg-chronos-armR { animation: lgrChronosParadoxArmR 640ms steps(1, end) both }
-/* Time Stop: both gauntlets snap up palm-out (halt!) and the dial rears, frozen there while the world is grey, then the
-   whole titan lurches as time snaps back on the hit. */
-@keyframes lgrChronosStopArmL { 0% { transform: none } 8%, 60% { transform: rotate(30deg) translate(3px, -5px) } 68% { transform: rotate(-6deg) translateY(2px) } 82% { transform: rotate(4deg) } 100% { transform: none } }
-@keyframes lgrChronosStopArmR { 0% { transform: none } 8%, 60% { transform: rotate(-30deg) translate(-3px, -5px) } 68% { transform: rotate(6deg) translateY(2px) } 82% { transform: rotate(-4deg) } 100% { transform: none } }
-@keyframes lgrChronosStopHead { 0% { transform: none } 8%, 60% { transform: translateY(-4px) scale(1.06) } 68% { transform: translate(5px, 2px) rotate(6deg) } 82% { transform: rotate(-3deg) } 100% { transform: none } }
-${P}[data-fx="timestop"] .lg-chronos-armL { animation: lgrChronosStopArmL 900ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-fx="timestop"] .lg-chronos-armR { animation: lgrChronosStopArmR 900ms cubic-bezier(.2,.9,.3,1) both }
-${P}[data-fx="timestop"] .lg-chronos-head { animation: lgrChronosStopHead 900ms cubic-bezier(.2,.9,.3,1) both }
-/* Overflow: the hourglass body swells against its frame as sand brims over, the gauntlets brace outward to hold it. */
-@keyframes lgrChronosOverflowTorso { 0%, 100% { transform: none } 30% { transform: scale(1.12, .94) } 50% { transform: scale(1.06, 1.02) } 70% { transform: scale(1.09, .97) } }
-@keyframes lgrChronosOverflowArmL { 0%, 100% { transform: none } 30%, 70% { transform: rotate(14deg) translateX(-2px) } }
-@keyframes lgrChronosOverflowArmR { 0%, 100% { transform: none } 30%, 70% { transform: rotate(-14deg) translateX(2px) } }
-@keyframes lgrChronosOverflowHead { 0%, 100% { transform: none } 30% { transform: translateY(-4px) } 55% { transform: translateY(-1px) } 75% { transform: translateY(-3px) } }
-${P}[data-fx="overflow"] .lg-chronos-torso { animation: lgrChronosOverflowTorso 760ms ease-in-out both }
-${P}[data-fx="overflow"] .lg-chronos-armL { animation: lgrChronosOverflowArmL 760ms ease-in-out both }
-${P}[data-fx="overflow"] .lg-chronos-armR { animation: lgrChronosOverflowArmR 760ms ease-in-out both }
-${P}[data-fx="overflow"] .lg-chronos-head { animation: lgrChronosOverflowHead 760ms ease-in-out both }
+@keyframes lgrChronosParadoxCrown { 0%, 100% { transform: none } 20% { transform: rotate(12deg) } 40% { transform: rotate(-12deg) } 60% { transform: rotate(8deg) } 80% { transform: rotate(-4deg) } }
+${on('[data-fx="paradox"]', { head: 'lgrChronosParadoxHead 640ms steps(1, end) both', armL: 'lgrChronosParadoxArmL 640ms steps(1, end) both', armR: 'lgrChronosParadoxArmR 640ms steps(1, end) both', crown: 'lgrChronosParadoxCrown 640ms steps(1, end) both' })}
+/* Time Stop: both arms snap up (halt!) and the dial rears, frozen there while the world is grey, then the whole titan
+   lurches as time snaps back on the hit. */
+@keyframes lgrChronosStopArmL { 0% { transform: none } 8%, 60% { transform: rotate(24deg) translate(3px, -5px) } 68% { transform: rotate(-6deg) translateY(2px) } 82% { transform: rotate(4deg) } 100% { transform: none } }
+@keyframes lgrChronosStopArmR { 0% { transform: none } 8%, 60% { transform: rotate(-24deg) translate(-3px, -5px) } 68% { transform: rotate(6deg) translateY(2px) } 82% { transform: rotate(-4deg) } 100% { transform: none } }
+@keyframes lgrChronosStopHead { 0% { transform: none} 8%, 60% { transform: scale(1.06)} 68% { transform: rotate(6deg)} 82% { transform: rotate(-3deg)} 100% { transform: none} }
+${on('[data-fx="timestop"]', { armL: 'lgrChronosStopArmL 900ms cubic-bezier(.2,.9,.3,1) both', armR: 'lgrChronosStopArmR 900ms cubic-bezier(.2,.9,.3,1) both', head: 'lgrChronosStopHead 900ms cubic-bezier(.2,.9,.3,1) both' })}
+/* Overflow: the hourglass body swells against its frame as sand brims over, the arms brace outward to hold it and the
+   crown rises on the pressure. */
+@keyframes lgrChronosOverflowTorso { 0%, 100% { transform: none} 30% { transform: scale(1.1, .95)} 50% { transform: scale(1.05, 1.02)} 70% { transform: scale(1.08, .97)} }
+@keyframes lgrChronosOverflowArmL { 0%, 100% { transform: none } 30%, 70% { transform: rotate(12deg) translateX(-2px) } }
+@keyframes lgrChronosOverflowArmR { 0%, 100% { transform: none } 30%, 70% { transform: rotate(-12deg) translateX(2px) } }
+@keyframes lgrChronosOverflowHead { 0%, 100% { transform: none} 30% { transform: none} 55% { transform: none} 75% { transform: none} }
+@keyframes lgrChronosOverflowCrown { 0%, 100% { transform: none } 30%, 70% { transform: translateY(-3px) scale(1.06) } }
+${on('[data-fx="overflow"]', { torso: 'lgrChronosOverflowTorso 760ms ease-in-out both', armL: 'lgrChronosOverflowArmL 760ms ease-in-out both', armR: 'lgrChronosOverflowArmR 760ms ease-in-out both', head: 'lgrChronosOverflowHead 760ms ease-in-out both', crown: 'lgrChronosOverflowCrown 760ms ease-in-out both' })}
 `
 
 export default {
   effects: {
-    // Grain (tick): a brass hourglass flips over above the boss and a thin stream of sand pours through it.
+    // Grain (tick): a brass hourglass flips over above the boss, a thin stream of sand pours through it and a gear
+    // ring ticks one notch round it.
     grain: () => <>
-      <div className="lgx" style={{ left: '50%', top: '4%', width: 30, height: 40, marginLeft: -15, filter: `drop-shadow(0 0 6px ${BRASS})`, animation: anim('lgrChronosFlip', 340, 0, 'cubic-bezier(.34,1.56,.64,1)') }}>{hourglass()}</div>
-      {[0, 1, 2, 3, 4].map((i) => <div key={i} className="lgx" style={{ left: `calc(50% + ${(i % 2 ? 1 : -1) * i}px)`, top: '15%', width: 5, height: 5, marginLeft: -2.5, borderRadius: '50%', background: SAND, boxShadow: '0 0 0 1px #6b4a10', animation: anim('lgrChronosGrain', 300, 40 + i * 45, 'ease-in') }} />)}
+      <div className="lgx" style={{ left: '86%', top: '6%', width: 34, height: 45, marginLeft: -17, filter: `drop-shadow(0 0 6px ${BRASS})`, animation: anim('lgrChronosFlip', 340, 0, 'cubic-bezier(.34,1.56,.64,1)') }}>{hourglass()}</div>
+      <div className="lgx" style={{ left: '86%', top: '6%', width: 58, height: 58, marginLeft: -29, marginTop: -6, borderRadius: '50%', border: `3px dashed ${BRASS}`, animation: anim('lgrChronosTickRing', 340, 0, 'steps(2, end)') }} />
+      {[0, 1, 2, 3, 4].map((i) => <div key={i} className="lgx" style={{ left: `calc(86% + ${(i % 2 ? 1 : -1) * i}px)`, top: '20%', width: 5, height: 5, marginLeft: -2.5, borderRadius: '50%', background: SAND, boxShadow: '0 0 0 1px #6b4a10', animation: anim('lgrChronosGrain', 300, 40 + i * 45, 'ease-in') }} />)}
     </>,
+    // Rewind (big): sepia, VHS rewind bars racing right to left, ghost clocks, the main clock spinning back three turns.
     rewind: () => <>
       <div className="lgx lgx-full" style={{ background: SEPIA, mixBlendMode: 'multiply', borderRadius: '30%', animation: anim('lgxFade', 1150) }} />
-      {[0, 1, 2].map((i) => clock(`g${i}`, { opacity: 0, animation: anim('lgrChronosGhost', 900, 120 + i * 140) }, 'none'))}
-      {clock('main', { animation: anim('lgxFade', 1150) }, anim('lgrChronosHands', 1000, 0, 'cubic-bezier(.45,0,.2,1)'))}
+      {[0, 1, 2, 3].map((i) => <div key={`b${i}`} className="lgx" style={{ left: 0, right: 0, top: `${58 + i * 12}%`, height: 5, background: 'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,243,208,.85), rgba(255,255,255,0))', animation: anim('lgrChronosVhs', 520, i * 90, 'linear') }} />)}
+      {[0, 1, 2].map((i) => clock(`g${i}`, { ...{ top: '78%', width: '46%', height: '46%', marginLeft: '-23%', marginTop: '-23%' }, opacity: 0, animation: anim('lgrChronosGhost', 900, 120 + i * 140) }, 'none'))}
+      {clock('main', { ...{ top: '78%', width: '46%', height: '46%', marginLeft: '-23%', marginTop: '-23%' }, animation: anim('lgxFade', 1150) }, anim('lgrChronosHands', 1000, 0, 'cubic-bezier(.45,0,.2,1)'))}
     </>,
+    // Paradox (medium): the clock splits into a cyan and a magenta copy that tear apart, then cracks into numerals.
     paradox: () => <>
-      {clock('c', { animation: anim('lgrChronosCrack', 420, 0, 'ease-in') }, 'none')}
+      {clock('cy', { ...{ top: '78%', width: '46%', height: '46%', marginLeft: '-23%', marginTop: '-23%' }, animation: anim('lgrChronosSplitL', 420, 0, 'steps(3, end)') }, 'none', '#4ff2ff')}
+      {clock('mg', { ...{ top: '78%', width: '46%', height: '46%', marginLeft: '-23%', marginTop: '-23%' }, animation: anim('lgrChronosSplitR', 420, 0, 'steps(3, end)'), mixBlendMode: 'screen' }, 'none', '#ff4fd8')}
+      {clock('c', { ...{ top: '78%', width: '46%', height: '46%', marginLeft: '-23%', marginTop: '-23%' }, animation: anim('lgrChronosCrack', 420, 0, 'ease-in') }, 'none')}
       {around(12, (i, a) => (
-        <div key={i} className="lgx" style={{ left: '50%', top: '50%', fontFamily: 'Georgia, serif', fontWeight: 900, fontSize: 15, color: BRASS, textShadow: '0 0 5px #ffffff, 0 1px 0 #6b4a10', '--a': `${a}deg`, '--d': `${-80 - (i % 3) * 14}px`, '--spin': `${(i % 2 ? 1 : -1) * 260}deg`, animation: anim('lgxShard', 760, 320 + i * 12) }}>{NUMERALS[i]}</div>
+        <div key={i} className="lgx" style={{ left: '50%', top: '78%', fontFamily: 'Georgia, serif', fontWeight: 900, fontSize: 15, color: BRASS, textShadow: '0 0 5px #ffffff, 0 1px 0 #6b4a10', '--a': `${a}deg`, '--d': `${-52 - (i % 3) * 10}px`, '--spin': `${(i % 2 ? 1 : -1) * 260}deg`, animation: anim('lgxShard', 760, 320 + i * 12) }}>{NUMERALS[i]}</div>
       ))}
     </>,
+    // Time Stop (big): grey world, a frozen blue ring, icicles hanging still in the air, then color snaps back.
     timestop: () => <>
       <div className="lgx lgx-full" style={{ backdropFilter: 'grayscale(1) contrast(1.15)', WebkitBackdropFilter: 'grayscale(1) contrast(1.15)', borderRadius: '30%', animation: anim('lgrChronosStill', 900, 0, 'linear') }} />
       <div className="lgx" style={{ left: '50%', top: '50%', width: '96%', height: '96%', marginLeft: '-48%', marginTop: '-48%', borderRadius: '50%', border: `6px solid ${FROST}`, boxShadow: `0 0 22px ${FROST}, inset 0 0 22px ${FROST}`, animation: anim('lgrChronosFrostRing', 900, 0, 'linear') }} />
-      {ring('#ffffff', 600, 1.9, 6, 500)}
-      {shards(14, FROST, -110, 10)}
+      {[0, 1, 4, 5].map((i) => <div key={`ic${i}`} className="lgx" style={{ left: `${8 + i * 17}%`, top: `${8 + (i % 3) * 7}%`, width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `${22 + (i % 2) * 10}px solid ${FROST}`, filter: 'drop-shadow(0 0 4px #e6fbff)', animation: anim('lgrChronosIcicle', 900, i * 30, 'linear') }} />)}
+      {low('lr', ring('#ffffff', 600, 0.8, 6, 500))}
+      {low('ls', shards(14, FROST, -90, 10))}
     </>,
     // Overflow (medium): the glass brims over: a thick curtain of sand pours down the boss, splashes at its feet and a
-    // frozen-blue tick mark pulses (time is about to stop).
+    // frozen-blue hourglass pulses (time is about to stop).
     overflow: () => <>
-      <div className="lgx" style={{ left: '50%', top: '-6%', width: '26%', height: '92%', marginLeft: '-13%', transformOrigin: 'top', borderRadius: '0 0 40% 40%', background: `linear-gradient(90deg, rgba(245,194,107,0), ${SAND} 25%, #fff3d0 50%, ${SAND} 75%, rgba(245,194,107,0))`, boxShadow: '0 0 0 1.5px rgba(107,74,16,.7)', animation: anim('lgrChronosPour', 760, 0, 'cubic-bezier(.3,.7,.4,1)') }} />
+      <div className="lgx" style={{ left: '50%', top: '60%', width: '26%', height: '40%', marginLeft: '-13%', transformOrigin: 'top', borderRadius: '0 0 40% 40%', background: `linear-gradient(90deg, rgba(245,194,107,0), ${SAND} 25%, #fff3d0 50%, ${SAND} 75%, rgba(245,194,107,0))`, boxShadow: '0 0 0 1.5px rgba(107,74,16,.7)', animation: anim('lgrChronosPour', 760, 0, 'cubic-bezier(.3,.7,.4,1)') }} />
       {around(12, (i) => (
         <div key={i} className="lgx" style={{ left: '50%', top: '82%', width: 6, height: 6, marginLeft: -3, borderRadius: '50%', background: SAND, boxShadow: '0 0 0 1px #6b4a10', '--vx': `${(i - 5.5) * 9}px`, animation: anim('lgrChronosSplash', 520, 260 + (i % 4) * 30, 'cubic-bezier(.2,.8,.4,1)') }} />
       ))}
-      <div className="lgx" style={{ left: '50%', top: '4%', width: 34, height: 44, marginLeft: -17, filter: `drop-shadow(0 0 8px ${FROST})`, animation: anim('lgrChronosBrimPulse', 760) }}>{hourglass(FROST)}</div>
-      {ring(FROST, 300, 1.5, 4, 460)}
+      <div className="lgx" style={{ left: '86%', top: '6%', width: 34, height: 44, marginLeft: -17, filter: `drop-shadow(0 0 8px ${FROST})`, animation: anim('lgrChronosBrimPulse', 760) }}>{hourglass(FROST)}</div>
+      {low('or', ring(FROST, 300, 1.1, 4, 460))}
     </>,
   },
   floaters: { grain: 'lg_fx_sandGrain', rewind: 'lg_fx_rewind', paradox: 'lg_fx_paradox', timestop: 'lg_fx_timeStop', overflow: 'lg_fx_sandOverflow' },
@@ -228,16 +292,21 @@ export default {
     timestop: { size: 'big', shake: 2, flash: 2, hitstop: 1, sfx: 'chronos.stop' },
     overflow: { size: 'medium', sfx: 'chronos.overflow' },
   },
-  css: `
+  css: withCape(`
 @keyframes lgrChronosGrain { 0% { transform: translateY(0); opacity: 0 } 20% { opacity: 1 } 100% { transform: translateY(46px); opacity: 0 } }
 @keyframes lgrChronosFlip { 0% { transform: rotate(-180deg) scale(.5); opacity: 0 } 45% { transform: rotate(12deg) scale(1.15); opacity: 1 } 70% { transform: rotate(0) scale(1); opacity: 1 } 100% { transform: rotate(0) scale(.9); opacity: 0 } }
+@keyframes lgrChronosTickRing { 0% { transform: rotate(0); opacity: .9 } 100% { transform: rotate(30deg); opacity: 0 } }
 @keyframes lgrChronosPour { 0% { transform: scaleY(0); opacity: 0 } 15% { opacity: 1 } 45% { transform: scaleY(1); opacity: 1 } 80% { transform: scaleY(1); opacity: .9 } 100% { transform: scaleY(1) scaleX(.3); opacity: 0 } }
 @keyframes lgrChronosSplash { 0% { transform: translate(0, 0) scale(.6); opacity: 0 } 15% { opacity: 1 } 55% { transform: translate(calc(var(--vx) * .7), -26px) scale(1) } 100% { transform: translate(var(--vx), 4px) scale(.8); opacity: 0 } }
 @keyframes lgrChronosBrimPulse { 0% { transform: scale(.4); opacity: 0 } 20% { transform: scale(1.2); opacity: 1 } 35% { transform: scale(1) } 55% { transform: scale(1.12) } 70% { transform: scale(1) } 100% { transform: scale(1); opacity: 0 } }
 @keyframes lgrChronosHands { 0% { transform: rotate(0) } 100% { transform: rotate(-1080deg) } }
 @keyframes lgrChronosGhost { 0% { transform: translateX(45%) scale(.9); opacity: 0 } 20% { opacity: .35 } 100% { transform: translateX(-55%) scale(.9); opacity: 0 } }
+@keyframes lgrChronosVhs { 0% { transform: translateX(60%); opacity: 0 } 15% { opacity: .9 } 85% { opacity: .9 } 100% { transform: translateX(-60%); opacity: 0 } }
 @keyframes lgrChronosCrack { 0% { transform: scale(1); opacity: 1 } 60% { transform: scale(1.04) rotate(-3deg); opacity: 1 } 100% { transform: scale(1.1) rotate(4deg); opacity: 0 } }
+@keyframes lgrChronosSplitL { 0% { transform: translate(0, 0); opacity: .9 } 100% { transform: translate(-24%, -4%); opacity: 0 } }
+@keyframes lgrChronosSplitR { 0% { transform: translate(0, 0); opacity: .9 } 100% { transform: translate(24%, 4%); opacity: 0 } }
 @keyframes lgrChronosStill { 0%, 60% { opacity: 1 } 61%, 100% { opacity: 0 } }
+@keyframes lgrChronosIcicle { 0% { transform: translateY(-20px); opacity: 0 } 10%, 60% { transform: none; opacity: 1 } 64% { transform: translateY(4px); opacity: 1 } 100% { transform: translateY(60px); opacity: 0 } }
 @keyframes lgrChronosFrostRing { 0% { transform: scale(1.3); opacity: 0 } 12% { transform: scale(1); opacity: 1 } 60% { transform: scale(1); opacity: 1 } 64% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1.5); opacity: 0 } }
 
 @keyframes lgrChronosRewind { 0% { transform: none; filter: none } 20% { transform: translateX(4px); filter: drop-shadow(-8px 0 0 rgba(255,201,74,.45)) } 45% { transform: translateX(8px); filter: drop-shadow(-8px 0 0 rgba(255,201,74,.4)) drop-shadow(-16px 0 0 rgba(255,201,74,.25)) } 70% { transform: translateX(12px); filter: drop-shadow(-8px 0 0 rgba(255,201,74,.35)) drop-shadow(-18px 0 0 rgba(255,201,74,.2)) } 100% { transform: none; filter: none } }
@@ -250,24 +319,22 @@ export default {
 .lgr-chronos-paradox { transform-origin: 50% 90%; animation: lgrChronosStagger 600ms ease-in-out both }
 .lgr-chronos-grain { transform-origin: 50% 90%; animation: lgrChronosTick 320ms steps(2, end) both }
 .lgr-chronos-overflow { transform-origin: 50% 100%; animation: lgrChronosBrim 600ms cubic-bezier(.34,1.56,.64,1) both }
-/* fx-layer motion. Hands pivot on the clock hub in the drawing's own coordinates (view-box), so they turn in place.
-   Rewind: the brow hands spin one full turn counterclockwise (phase 1 and 3), the red seconds hand spins back twice
-   (phase 2), the phase 3 dial-jaw shuts and opens again backwards. Paradox: the phase 3 jaw clacks twice. Every
-   part ends on its drawn pose (each keeps its own translate). */
+/* fx-layer motion. The ability face layers' hands pivot on the hub (the head's own 0 0). Rewind: the brow hands spin one
+   full turn counterclockwise and the red seconds hand spins back twice; the jaw shuts and opens again backwards.
+   Paradox: the jaw clacks twice. Every part ends on its drawn pose. */
 @keyframes lgrChronosBrowSpin { 0% { transform: rotate(0deg) } 100% { transform: rotate(-360deg) } }
 @keyframes lgrChronosSecondsBack { 0% { transform: rotate(0deg) } 100% { transform: rotate(-720deg) } }
-@keyframes lgrChronosJawRewind { 0% { transform: translate(0, 0) } 30% { transform: translate(0, -10px) } 55% { transform: translate(0, -1px) } 80%, 100% { transform: translate(0, -9px) } }
-@keyframes lgrChronosJawClack { 0%, 100% { transform: translate(0, -5px) } 18% { transform: translate(0, -10px) } 38% { transform: translate(0, -3px) } 58% { transform: translate(0, -10px) } 80% { transform: translate(0, -4px) } }
-.lg-boss[data-fx="rewind"] .lgfa-chronos-brow { transform-box: view-box; transform-origin: 60px 31.6px; animation: lgrChronosBrowSpin 1000ms cubic-bezier(.45,0,.2,1) both }
-.lg-boss[data-phase="3"][data-fx="rewind"] .lgfa-chronos-brow { transform-origin: 60px 33px }
-.lg-boss[data-fx="rewind"] .lgfa-chronos-seconds { transform-box: view-box; transform-origin: 60px 34.4px; animation: lgrChronosSecondsBack 1050ms cubic-bezier(.3,.6,.3,1) both }
+@keyframes lgrChronosJawRewind { 0% { transform: none } 30% { transform: translateY(-5px) scaleY(.7) } 55% { transform: none } 80% { transform: translateY(-4px) scaleY(.75) } 100% { transform: none } }
+@keyframes lgrChronosJawClack { 0%, 100% { transform: none } 18% { transform: translateY(-4px) scaleY(.75) } 38% { transform: translateY(2px) } 58% { transform: translateY(-4px) scaleY(.75) } 80% { transform: translateY(1px) } }
+.lg-boss[data-fx="rewind"] .lgfa-chronos-brow { animation: lgrChronosBrowSpin 1000ms cubic-bezier(.45,0,.2,1) both }
+.lg-boss[data-fx="rewind"] .lgfa-chronos-seconds { animation: lgrChronosSecondsBack 1050ms cubic-bezier(.3,.6,.3,1) both }
 .lg-boss[data-fx="rewind"] .lgfa-chronos-jaw { animation: lgrChronosJawRewind 1000ms steps(4, end) both }
 .lg-boss[data-fx="paradox"] .lgfa-chronos-jaw { animation: lgrChronosJawClack 640ms ease-in-out both }
-/* THE REAL PARTS: the state layer this ability draws on the boss (its lg-ab-* group in raids/chronos.svg) moves with
-   the moment, not only the whole figure. Played only while data-fx is set (never in focus mode, with Still bosses or
-   under reduced motion). */
+/* THE REAL PARTS: the state layer this ability draws on the boss (its lg-ab-* sand in the chest glass) moves with the
+   moment, not only the whole figure. Played only while data-fx is set (never in focus mode, with Still bosses or under
+   reduced motion). */
 @keyframes lgrChronosSandShift { 0%, 100% { transform: none } 20% { transform: translateX(2px) rotate(3deg) } 40% { transform: translateX(-2px) rotate(-3deg) } 60% { transform: translateX(1.5px) rotate(2deg) } 80% { transform: translateX(-1px) } }
 .lg-boss[data-fx="grain"] [class*="lg-ab-sand-"], .lg-boss[data-fx="overflow"] [class*="lg-ab-sand-"] { transform-box: fill-box; transform-origin: center; animation: lgrChronosSandShift 320ms cubic-bezier(.22,1,.36,1) both }
 ${PARTS_CSS}
-`,
+`),
 }

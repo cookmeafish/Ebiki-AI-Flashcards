@@ -7,7 +7,7 @@ const { chromium } = await import(pathToFileURL(path.join(os.homedir(), '.ebiki-
 const [filter = ''] = process.argv.slice(2)
 const browser = await chromium.launch({ headless: true, args: ['--mute-audio'] })
 const page = await browser.newPage({ viewport: { width: 520, height: 520 } })
-await page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' })
+await page.goto('http://localhost:3001/', { waitUntil: 'domcontentloaded' })
 await page.waitForFunction(() => [...document.querySelectorAll('style')].some((s) => s.textContent.includes('--c-brand')), null, { timeout: 90000 })
 const list = await page.evaluate(async () => {
   const { MOTIFS } = await import('/src/features/legends/map.js')

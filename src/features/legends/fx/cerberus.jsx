@@ -3,8 +3,8 @@
 //                       yanked down and to the side).
 //   bindIron   (tick)   a padlock slams shut on the Iron head's chain with a spark ring (the head is jerked down).
 //   bindShadow (tick)   its own smoke is pulled out of the shadows into a chain (the Shadow head is dragged right).
-//   bound      (big)    three chains shoot in and meet over him, the gate's iron bars crash down in front of him and
-//                       a great padlock clamps shut (he is slammed down and strains against it, every head pinned).
+//   bound      (big)    two chains shoot in and meet across his chest, the gate's iron bars slam up out of the floor
+//                       in front of his chest and paws and a padlock clamps shut on them (below the faces) (he is slammed down and strains against it, every head pinned).
 //   snap       (medium) the Fire head's chain bursts: links fly, its mane flares (it rears up and shakes its head).
 import { center, anim, around, ring, shards } from './_kit'
 
@@ -34,9 +34,14 @@ const padlock = (extra, key = 'p', s = 1) => (
 // fight long and his attack lands on ability blows too. Transforms and opacity only; the dead pose holds while greyed.
 const B = '.lg-boss[data-motif="cerberus"]'
 const SEL = { fire: '.lgfa-cerberus-fire', iron: '.lgfa-cerberus-iron', shadow: '.lgfa-cerberus-shadow', key: '.lgfa-cerberus-key', pawl: '.lg-cerberus-pawl', pawr: '.lg-cerberus-pawr', chainl: '.lg-cerberus-chainl', chainr: '.lg-cerberus-chainr' }
-const PIVOT = { fire: '60% 95%', iron: '50% 95%', shadow: '40% 95%', key: '50% 0%' }
+// Each head turns about the point where its neck leaves the body (the collar join; the side chain is inside the head's
+// group, so it follows); that point sits at a different share of the group's box per phase (the necks are raised and
+// flung differently), so the pivots are per-phase custom properties.
+const PIVOT = { fire: 'var(--cerb-of, 60% 64%)', iron: 'var(--cerb-oi, 50% 83%)', shadow: 'var(--cerb-os, 43% 67%)', key: '50% 0%' }
+const ROOTS = { 1: ['60% 64%', '50% 83%', '43% 67%'], 2: ['74% 81%', '54% 80%', '29% 89%'], 3: ['64% 92%', '50% 84%', '41% 92%'] }
 const on = (state, parts) => Object.entries(parts).map(([p, a]) => `${B}${state} ${SEL[p]} { ${PIVOT[p] ? `transform-box: fill-box; transform-origin: ${PIVOT[p]}; ` : ''}animation: ${a} }`).join('\n')
 const DRAWING = `
+${Object.entries(ROOTS).map(([ph, [f, i, sh]]) => `${B}[data-phase="${ph}"] { --cerb-of: ${f}; --cerb-oi: ${i}; --cerb-os: ${sh} }`).join(' ')}
 @keyframes lgrCerbYelp { 0% { transform: none } 14% { transform: translateY(-4px) rotate(-4deg) scale(.95) } 40% { transform: translateY(-1px) rotate(2deg) } 70% { transform: rotate(-1deg) } 100% { transform: none } }
 @keyframes lgrCerbFlinchL { 0% { transform: none } 16% { transform: rotate(-9deg) translateX(-2px) } 50% { transform: rotate(-3deg) } 100% { transform: none } }
 @keyframes lgrCerbFlinchR { 0% { transform: none } 16% { transform: rotate(9deg) translateX(2px) } 50% { transform: rotate(3deg) } 100% { transform: none } }
@@ -51,7 +56,7 @@ const DRAWING = `
 @keyframes lgrCerbLeanInL { 0%, 100% { transform: none } 30% { transform: translateX(4px) rotate(8deg) } 60% { transform: translateX(3px) rotate(6deg) } }
 @keyframes lgrCerbRake { 0% { transform: none } 18% { transform: translate(-2px, -10px) rotate(-26deg) } 34% { transform: translate(10px, 2px) rotate(22deg) scale(1.15) } 56% { transform: translate(8px, 1px) rotate(16deg) scale(1.1) } 100% { transform: none } }
 @keyframes lgrCerbChainLash { 0% { transform: none } 16% { transform: rotate(-22deg) } 32% { transform: rotate(38deg) scale(1.08) } 50% { transform: rotate(18deg) } 70% { transform: rotate(-6deg) } 100% { transform: none } }
-@keyframes lgrCerbLungeR { 0% { transform: none } 16% { transform: translateX(-3px) rotate(-6deg) } 32% { transform: translate(12px, 3px) rotate(14deg) scale(1.12) } 58% { transform: translate(9px, 2px) rotate(10deg) scale(1.08) } 100% { transform: none } }
+@keyframes lgrCerbLungeR { 0% { transform: none } 16% { transform: translateX(-1px) rotate(-6deg) } 32% { transform: translate(4px, 2px) rotate(16deg) scale(1.1) } 58% { transform: translate(3px, 1px) rotate(11deg) scale(1.06) } 100% { transform: none } }
 @keyframes lgrCerbSnap3 { 0% { transform: none } 18% { transform: translateY(-5px) scale(.94) } 30% { transform: translateY(7px) scale(1.28, 1.16) } 42% { transform: translateY(4px) scale(1.16, 1.06) } 52% { transform: translateY(7px) scale(1.26, 1.14) } 80% { transform: translateY(2px) scale(1.05) } 100% { transform: none } }
 @keyframes lgrCerbStomp { 0% { transform: none } 22% { transform: translateY(-12px) rotate(-8deg) } 36% { transform: translateY(2px) scale(1.18, .82) } 50% { transform: translateY(0) scale(1.06, .94) } 100% { transform: none } }
 @keyframes lgrCerbTaut { 0%, 100% { transform: none } 30% { transform: scale(1.04, 1.1) } 40% { transform: scale(1.02, 1.05) rotate(3deg) } 50% { transform: scale(1.04, 1.1) rotate(-3deg) } }
@@ -66,8 +71,8 @@ const DRAWING = `
 @keyframes lgrCerbDroopR { 0% { transform: none } 30% { transform: translateY(5px) rotate(14deg) } 70% { transform: translateY(5px) rotate(12deg) } 100% { transform: none } }
 @keyframes lgrCerbDroopC { 0% { transform: none } 30% { transform: translateY(6px) rotate(3deg) scale(.96) } 70% { transform: translateY(5px) rotate(2deg) scale(.97) } 100% { transform: none } }
 @keyframes lgrCerbSlack { 0%, 100% { transform: none } 30% { transform: scaleY(.85) rotate(4deg) } 70% { transform: scaleY(.88) rotate(3deg) } }
-@keyframes lgrCerbKoL { 0%, 22% { transform: none } 30% { transform: translateY(-4px) rotate(10deg) } 42% { transform: translateY(16px) rotate(-38deg) } 50% { transform: translateY(13px) rotate(-32deg) } 100% { transform: translateY(14px) rotate(-34deg) } }
-@keyframes lgrCerbKoR { 0%, 36% { transform: none } 44% { transform: translateY(-4px) rotate(-10deg) } 56% { transform: translateY(16px) rotate(38deg) } 64% { transform: translateY(13px) rotate(32deg) } 100% { transform: translateY(14px) rotate(34deg) } }
+@keyframes lgrCerbKoL { 0%, 22% { transform: none } 30% { transform: translateY(-4px) rotate(10deg) } 42% { transform: translateY(14px) rotate(-26deg) } 50% { transform: translateY(11px) rotate(-21deg) } 100% { transform: translateY(12px) rotate(-22deg) } }
+@keyframes lgrCerbKoR { 0%, 36% { transform: none } 44% { transform: translateY(-4px) rotate(-10deg) } 56% { transform: translateY(14px) rotate(26deg) } 64% { transform: translateY(11px) rotate(21deg) } 100% { transform: translateY(12px) rotate(22deg) } }
 @keyframes lgrCerbKoC { 0% { transform: none } 40% { transform: translateY(-2px) rotate(-2deg) } 54% { transform: translateY(-9px) rotate(-6deg) scale(1.1) } 60% { transform: translateY(-10px) rotate(-6deg) scale(1.12) } 74% { transform: translateY(14px) rotate(10deg) scale(.95) } 82% { transform: translateY(11px) rotate(7deg) scale(.95) } 100% { transform: translateY(12px) rotate(8deg) scale(.95) } }
 @keyframes lgrCerbKoChainL { 0%, 8% { transform: none; opacity: 1 } 14% { transform: rotate(-30deg) } 30% { transform: translate(-10px, 20px) rotate(-80deg); opacity: .8 } 46%, 100% { transform: translate(-14px, 34px) rotate(-100deg); opacity: 0 } }
 @keyframes lgrCerbKoChainR { 0%, 8% { transform: none; opacity: 1 } 14% { transform: rotate(30deg) } 30% { transform: translate(10px, 20px) rotate(80deg); opacity: .8 } 46%, 100% { transform: translate(14px, 34px) rotate(100deg); opacity: 0 } }
@@ -83,9 +88,31 @@ ${on('[data-moment="block"]', { iron: 'lgrCerbCower 700ms cubic-bezier(.2,.9,.3,
 ${on('[data-moment="shield"]', { fire: 'lgrCerbBounceOff 760ms ease-out', iron: 'lgrCerbShakeNo 760ms ease-out', shadow: 'lgrCerbBackOff 700ms ease-out' })}
 ${on('[data-moment="wind"]', { fire: 'lgrCerbDroopL 1100ms ease-in-out', iron: 'lgrCerbDroopC 1100ms ease-in-out', shadow: 'lgrCerbDroopR 1100ms ease-in-out', chainl: 'lgrCerbSlack 1100ms ease-in-out', chainr: 'lgrCerbSlack 1100ms ease-in-out' })}
 ${on('[data-moment="ko"]', { fire: 'lgrCerbKoL 2200ms ease-in both', shadow: 'lgrCerbKoR 2200ms ease-in both', iron: 'lgrCerbKoC 2200ms ease-in-out both', chainl: 'lgrCerbKoChainL 2200ms ease-out both', chainr: 'lgrCerbKoChainR 2200ms ease-out both', key: 'lgrCerbKoKey 2200ms ease-in both', pawl: 'lgrCerbKoPaw 2200ms ease-in both', pawr: 'lgrCerbKoPaw 2200ms ease-in both' })}
-${B}[data-down] .lgfa-cerberus-fire { transform-box: fill-box; transform-origin: 60% 95%; transform: translateY(14px) rotate(-34deg) }
-${B}[data-down] .lgfa-cerberus-shadow { transform-box: fill-box; transform-origin: 40% 95%; transform: translateY(14px) rotate(34deg) }
-${B}[data-down] .lgfa-cerberus-iron { transform-box: fill-box; transform-origin: 50% 95%; transform: translateY(12px) rotate(8deg) scale(.95) }
+${B}[data-down] .lgfa-cerberus-fire { transform-box: fill-box; transform-origin: ${PIVOT.fire}; transform: translateY(10px) rotate(-16deg) }
+${B}[data-down] .lgfa-cerberus-shadow { transform-box: fill-box; transform-origin: ${PIVOT.shadow}; transform: translateY(10px) rotate(16deg) }
+${B}[data-down] .lgfa-cerberus-iron { transform-box: fill-box; transform-origin: ${PIVOT.iron}; transform: translateY(12px) rotate(8deg) scale(.95) }
+/* phase 3: the side necks rise out of the one shoulder mass; knocked out they slump INWARD about that root (onto the
+   Warden), never outward, so no neck ever stands free beside the body. Shade's lunge only nods about its root. */
+@keyframes lgrCerbKoL3 { 0%, 22% { transform: none } 34% { transform: rotate(-4deg) } 50% { transform: rotate(16deg) } 60% { transform: rotate(12deg) } 100% { transform: translateY(7px) rotate(8deg) } }
+@keyframes lgrCerbKoR3 { 0%, 36% { transform: none } 46% { transform: rotate(4deg) } 60% { transform: rotate(-16deg) } 70% { transform: rotate(-12deg) } 100% { transform: translateY(7px) rotate(-8deg) } }
+@keyframes lgrCerbLungeR3 { 0% { transform: none } 20% { transform: rotate(4deg) } 38% { transform: rotate(-12deg) scale(1.06) } 62% { transform: rotate(-8deg) scale(1.03) } 100% { transform: none } }
+${B}[data-phase="3"][data-moment="ko"] .lgfa-cerberus-fire { transform-origin: ${PIVOT.fire}; animation: lgrCerbKoL3 2200ms ease-in both }
+${B}[data-phase="3"][data-moment="ko"] .lgfa-cerberus-shadow { transform-origin: ${PIVOT.shadow}; animation: lgrCerbKoR3 2200ms ease-in both }
+${B}[data-phase="3"][data-down] .lgfa-cerberus-fire { transform-origin: ${PIVOT.fire}; transform: translateY(7px) rotate(8deg) }
+${B}[data-phase="3"][data-down] .lgfa-cerberus-shadow { transform-origin: ${PIVOT.shadow}; transform: translateY(7px) rotate(-8deg) }
+/* truly down: every power goes out (breath, burning eyes, eye smoke) and every head's lids squeeze shut; in phase 3 the
+   Warden only bows, so his neck stays in view between the shoulders */
+${B}[data-down] .lg-cerberus-power { display: none }
+/* his aura (lg-cerberus-portal: the cold soul flames, the hellfire, the soul corona) gutters out with his power */
+@keyframes lgrCerbPortalOut { 0%, 50% { opacity: 1 } 100% { opacity: .12 } }
+${B}[data-moment="ko"] .lg-cerberus-portal { animation: lgrCerbPortalOut 2200ms ease-in both }
+${B}[data-down] .lg-cerberus-portal { opacity: .12 }
+${B}[data-down] .lg-fxh-bound { display: none !important }
+${B}[data-down] .lg-fx-bound { display: inline !important }
+@keyframes lgrCerbKoC3 { 0% { transform: none } 40% { transform: translateY(-2px) rotate(-2deg) } 56% { transform: translateY(-5px) rotate(-4deg) scale(1.06) } 74% { transform: translateY(1px) rotate(5deg) } 100% { transform: rotate(4deg) } }
+${B}[data-phase="3"][data-moment="ko"] .lgfa-cerberus-iron { animation: lgrCerbKoC3 2200ms ease-in-out both }
+${B}[data-phase="3"][data-down] .lgfa-cerberus-iron { transform: rotate(4deg) }
+${B}[data-phase="3"][data-assault-on] .lgfa-cerberus-shadow { transform-origin: ${PIVOT.shadow}; animation: lgrCerbLungeR3 900ms cubic-bezier(.3,1.3,.5,1) }
 ${B}[data-down] .lg-cerberus-chainl, ${B}[data-down] .lg-cerberus-chainr, ${B}[data-down] .lgfa-cerberus-key { opacity: 0 }
 ${B}[data-down] .lg-cerberus-pawl, ${B}[data-down] .lg-cerberus-pawr { transform: translateY(3px) scale(1.1, .82) }
 /* the abilities, on top of the art's own head yanks: Bound splays the paws flat and draws both chains taut; the Fire
@@ -118,15 +145,15 @@ export default {
     </>,
     bound: () => <>
       <div className="lgx lgx-full" style={{ background: `radial-gradient(circle, rgba(95, 240, 210, .28), transparent 60%)`, animation: anim('lgxFlash', 600) }} />
-      {/* three chains shoot in from left, right and above and meet over him */}
-      {chain(10, { left: '-20%', top: '40%', transformOrigin: '0 50%', '--r0': '-50deg', '--r1': '6deg', animation: anim('lgrCerberusLash', 420, 0, 'cubic-bezier(.2,.9,.3,1)') }, 'a')}
-      {chain(10, { right: '-20%', top: '44%', transformOrigin: '100% 50%', flexDirection: 'row-reverse', '--r0': '50deg', '--r1': '-6deg', animation: anim('lgrCerberusLash', 420, 90, 'cubic-bezier(.2,.9,.3,1)') }, 'b')}
-      {chain(8, { left: '50%', top: '-18%', transformOrigin: '0 50%', '--r0': '20deg', '--r1': '90deg', animation: anim('lgrCerberusLash', 420, 180, 'cubic-bezier(.2,.9,.3,1)') }, 'c')}
-      {/* the gate's iron bars crash down in front of him (hidden until they fall: held at their start they hung above
-          the arena; at rest they stay inside the frame and its headroom) */}
-      {[0, 1, 2, 3, 4, 5].map((i) => <div key={`bar${i}`} className="lgx" style={{ left: `${8 + i * 16}%`, top: '-12%', width: 7, height: '104%', background: `linear-gradient(90deg, ${T.ironLo}, ${T.iron} 45%, ${T.ironLo})`, border: `1.5px solid ${T.ink}`, borderRadius: '3px 3px 1px 1px', clipPath: 'polygon(50% 0, 100% 6%, 100% 100%, 0 100%, 0 6%)', animation: anim('lgrCerberusBars', 1100, 260 + (i % 3) * 40, 'cubic-bezier(.5,0,.7,1)') }} />)}
-      {padlock({ ...center, top: '56%', animation: anim('lgrCerberusClamp', 700, 480, 'cubic-bezier(.3,1.6,.5,1)') }, 'big', 1.7)}
-      {ring(T.soul, 520, 1.8, 4, 650)}
+      {/* two chains shoot in from left and right and meet across his chest (never over the faces) */}
+      {chain(10, { left: '-20%', top: '68%', transformOrigin: '0 50%', '--r0': '-50deg', '--r1': '6deg', animation: anim('lgrCerberusLash', 420, 0, 'cubic-bezier(.2,.9,.3,1)') }, 'a')}
+      {chain(10, { right: '-20%', top: '72%', transformOrigin: '100% 50%', flexDirection: 'row-reverse', '--r0': '50deg', '--r1': '-6deg', animation: anim('lgrCerberusLash', 420, 90, 'cubic-bezier(.2,.9,.3,1)') }, 'b')}
+      {/* the gate's iron bars slam UP out of the floor in front of his chest and paws (below the faces: an effect never
+          covers a face; hidden until they rise, at rest inside the frame and its headroom) */}
+      {[0, 1, 2, 3, 4, 5].map((i) => <div key={`bar${i}`} className="lgx" style={{ left: `${8 + i * 16}%`, top: '62%', width: 7, height: '46%', background: `linear-gradient(90deg, ${T.ironLo}, ${T.iron} 45%, ${T.ironLo})`, border: `1.5px solid ${T.ink}`, borderRadius: '3px 3px 1px 1px', clipPath: 'polygon(50% 0, 100% 6%, 100% 100%, 0 100%, 0 6%)', animation: anim('lgrCerberusBars', 1100, 260 + (i % 3) * 40, 'cubic-bezier(.5,0,.7,1)') }} />)}
+      {padlock({ ...center, top: '82%', animation: anim('lgrCerberusClamp', 700, 480, 'cubic-bezier(.3,1.6,.5,1)') }, 'big', 1.3)}
+      {/* a flat ring of soul light slams out along the floor round his paws (never over the faces) */}
+      <div className="lgx" style={{ left: '10%', top: '80%', width: '80%', height: '18%', borderRadius: '50%', border: `4px solid ${T.soul}`, '--s': 1.6, animation: anim('lgxRing', 650, 520) }} />
       {shards(10, T.iron, -80, 9)}
     </>,
     snap: () => <>
@@ -149,7 +176,7 @@ export default {
   css: `
 @keyframes lgrCerberusLash { 0% { transform: rotate(var(--r0)) scaleX(.1); opacity: 0 } 20% { opacity: 1 } 60% { transform: rotate(var(--r1)) scaleX(1.05) } 80% { transform: rotate(var(--r1)) scaleX(1); opacity: 1 } 100% { transform: rotate(var(--r1)) scaleX(1); opacity: 0 } }
 @keyframes lgrCerberusClamp { 0% { transform: translateY(-30px) scale(1.6); opacity: 0 } 30% { opacity: 1 } 55% { transform: translateY(0) scale(.9) } 75% { transform: scale(1.06) } 88% { transform: scale(1); opacity: 1 } 100% { opacity: 0 } }
-@keyframes lgrCerberusBars { 0% { transform: translateY(-55%); opacity: 0 } 12% { opacity: 1 } 34% { transform: translateY(0) } 42% { transform: translateY(-4%) } 50% { transform: translateY(0) } 85% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(0); opacity: 0 } }
+@keyframes lgrCerberusBars { 0% { transform: translateY(60%); opacity: 0 } 12% { opacity: 1 } 34% { transform: translateY(0) } 42% { transform: translateY(-4%) } 50% { transform: translateY(0) } 85% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(0); opacity: 0 } }
 @keyframes lgrCerberusFlare { 0% { transform: scale(.4); opacity: 0 } 25% { transform: scale(1.25); opacity: 1 } 100% { transform: scale(1.5) translateY(-20px); opacity: 0 } }
 .lgr-cerberus-bindFire { animation: lgrCerberusYankL 330ms cubic-bezier(.2,.9,.3,1) both; transform-origin: 50% 100% }
 @keyframes lgrCerberusYankL { 0%, 100% { transform: none } 35% { transform: translate(-6px, 4px) rotate(-6deg) } 70% { transform: translate(-1px, 1px) rotate(-1.5deg) } }
@@ -168,10 +195,10 @@ export default {
 @keyframes lgrCerberusHeadDip { 0%, 100% { transform: none } 35% { transform: translateY(6px) scale(.95) } 70% { transform: translateY(1px) } }
 @keyframes lgrCerberusHeadRear { 0% { transform: none } 30% { transform: translateY(-6px) rotate(-12deg) scale(1.1) } 55% { transform: rotate(8deg) } 75% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgrCerberusKeyFlare { 0%, 100% { transform: none } 30% { transform: scale(1.35) } 55% { transform: scale(.95) } 75% { transform: scale(1.15) } }
-.lg-boss[data-fx="bindFire"] .lgfa-cerberus-fire, .lg-boss[data-fx="bound"] .lgfa-cerberus-fire { transform-box: fill-box; transform-origin: 50% 100%; animation: lgrCerberusHeadDown 330ms cubic-bezier(.2,.9,.3,1) both }
-.lg-boss[data-fx="bindIron"] .lgfa-cerberus-iron, .lg-boss[data-fx="bound"] .lgfa-cerberus-iron { transform-box: fill-box; transform-origin: 50% 100%; animation: lgrCerberusHeadDip 330ms cubic-bezier(.2,.9,.3,1) both }
-.lg-boss[data-fx="bindShadow"] .lgfa-cerberus-shadow, .lg-boss[data-fx="bound"] .lgfa-cerberus-shadow { transform-box: fill-box; transform-origin: 50% 100%; animation: lgrCerberusHeadDownR 330ms cubic-bezier(.2,.9,.3,1) both }
-.lg-boss[data-fx="snap"] .lgfa-cerberus-fire { transform-box: fill-box; transform-origin: 50% 100%; animation: lgrCerberusHeadRear 700ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-fx="bindFire"] .lgfa-cerberus-fire, .lg-boss[data-fx="bound"] .lgfa-cerberus-fire { transform-box: fill-box; transform-origin: var(--cerb-of, 60% 64%); animation: lgrCerberusHeadDown 330ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-fx="bindIron"] .lgfa-cerberus-iron, .lg-boss[data-fx="bound"] .lgfa-cerberus-iron { transform-box: fill-box; transform-origin: var(--cerb-oi, 50% 83%); animation: lgrCerberusHeadDip 330ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-fx="bindShadow"] .lgfa-cerberus-shadow, .lg-boss[data-fx="bound"] .lgfa-cerberus-shadow { transform-box: fill-box; transform-origin: var(--cerb-os, 43% 67%); animation: lgrCerberusHeadDownR 330ms cubic-bezier(.2,.9,.3,1) both }
+.lg-boss[data-fx="snap"] .lgfa-cerberus-fire { transform-box: fill-box; transform-origin: var(--cerb-of, 60% 64%); animation: lgrCerberusHeadRear 700ms cubic-bezier(.22,1,.36,1) both }
 .lg-boss[data-fx="bound"] .lgfa-cerberus-key { transform-box: fill-box; transform-origin: center; animation: lgrCerberusKeyFlare 1000ms ease-in-out both }
 ` + DRAWING,
 }

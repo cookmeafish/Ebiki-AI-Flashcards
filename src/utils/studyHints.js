@@ -1,29 +1,30 @@
-// Count letters, not spaces, punctuation, or combining accent marks.
-export const countAnswerLetters = (answer) =>
-  (String(answer).normalize('NFC').match(/\p{L}/gu) || []).length
+import { longerPrefix, hintAnswer, fold } from './prefixHint'
 
-export function answerLetterCounts(acceptedAnswers = []) {
-  // The expanded forms when there are any: the raw "nosotros/as" kept beside its expansions counted "as" (2)
-  // and "bueno/a" counted "a" (1), so the hint said "2/8 letters" and a wrong 2-letter answer "satisfied" it.
-  const list = acceptedAnswers.map((a) => String(a))
-  const plain = list.filter((a) => !a.includes('/'))
-  // Whole answers keep 1-character words (雨, y, a); only SPLIT pieces drop 1-letter endings.
-  // Split alternatives (actor/actriz) drop 1-letter endings, unless every piece is that short ("y/o").
-  const split = list.flatMap((a) => a.split('/')).map(countAnswerLetters).filter(Boolean)
-  const counts = plain.length ? plain.map(countAnswerLetters).filter(Boolean)
-    : (split.some((n) => n >= 2) ? split.filter((n) => n >= 2) : split)
-  return [...new Set(counts)].sort((a, b) => a - b)
+// THE RETRY HINTS (after a wrong typed answer; pure, tested). The letter COUNT is gone (the owner, 2026-10-10: a length
+// gives the answer away once the question shows its choices; utils/prefixHint.js), so a miss reveals, in order:
+//   1. a LONGER prefix of the answer ("pant…" for pantalones; never its length, never the whole word),
+//   2. the model's own clue about the meaning or context (hint1/hint2), when it is one: a count ("8 letters", "Tiene 5
+//      letras") or a first-letter cue ('starts with "s"': the prefix hint already shows more) is no clue and is dropped.
+// → [{ kind: 'prefix', prefix } | { kind: 'clue', text }], at most 2.
+const QUOTED_ONE = /["'“”‘’«»‹›„「」『』]\s*\p{L}\s*["'“”‘’«»‹›„「」『』]/u
+const isCountHint = (h) => /\d/.test(h) && h.replace(/\d+/g, '').replace(/[\s/,.()]+/g, '').length <= 20
+const isLetterHint = (h) => QUOTED_ONE.test(h) || /\bstarts?\s+with\s+\S{1,3}\s*$/i.test(h)
+// `noPrefix`: the question shows no prefix hint (its options could not keep to one), so a retry hint shows no letters
+// either (the options would give the answer away after it).
+export function retryHints({ hint1 = null, hint2 = null, accepted = [], noPrefix = false } = {}) {
+  const out = []
+  const longer = noPrefix ? '' : longerPrefix(hintAnswer(accepted))
+  if (longer) out.push({ kind: 'prefix', prefix: longer })
+  const clue = [hint1, hint2].map((h) => (typeof h === 'string' ? h.trim() : '')).find((h) => h && !isCountHint(h) && !isLetterHint(h))
+  if (clue) out.push({ kind: 'clue', text: clue })
+  return out.slice(0, 2)
 }
-
-// Keep the generated hint's language, but calculate its number from real answers.
-// Run when revealing the hint so previously generated questions are corrected too.
-export function correctLetterHint(hint, acceptedAnswers) {
-  if (typeof hint !== 'string') return hint
-  const counts = answerLetterCounts(acceptedAnswers)
-  if (!counts.length) return hint
-  // The number group wherever it stands ("Tiene 5 letras", "有5个字母"), but only when there is exactly
-  // one: a hint holding two separate numbers is not a plain count and is left alone.
-  const groups = hint.match(/\d+(?:\s*[/,]\s*\d+)*/g) || []
-  if (groups.length !== 1) return hint
-  return hint.replace(/\d+(?:\s*[/,]\s*\d+)*/, counts.join('/'))
+// Does a typed answer already start the way a prefix hint shows (so showing it would teach nothing)?
+// Every token of the prefix ("… ve…": a short word's bare "…" fits anything) against the answer's words in order.
+export const answerShowsPrefix = (answer, prefix) => {
+  const toks = String(prefix || '').trim().split(/\s+/).filter(Boolean).map((t) => fold(t.replace(/…/g, '')))
+  if (!toks.some(Boolean)) return false
+  const ws = fold(String(answer || '').trim()).split(/\s+/).filter(Boolean)
+  if (toks.length === 1) return !!ws.length && fold(String(answer || '').trim()).startsWith(toks[0])
+  return ws.length >= toks.length && toks.every((t, i) => ws[i].startsWith(t))
 }

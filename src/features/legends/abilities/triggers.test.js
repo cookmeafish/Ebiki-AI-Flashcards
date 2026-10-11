@@ -218,6 +218,12 @@ function scenarios(motif, K) {
       bound: { fire: ['C', 'H', 'A+'], near: ['C', 'H', 'M', 'A+'] },
       snap: { fire: ['H', 'M'], near: ['M'] },
     }
+    case 'horseman': return {
+      gallop: { fire: ['H'], near: ['M'] },
+      close: { fire: rep(K.lead - 1, 'M'), near: ['C', 'H'] },
+      caught: { fire: rep(K.lead, 'M'), near: ['M', 'C', ...rep(K.lead - 1, 'M')] }, // full recall between the misses escapes
+      cross: { fire: rep(K.bridge, 'H'), near: [...rep(K.bridge - 1, 'H'), 'M'] },
+    }
     default: return {}
   }
 }

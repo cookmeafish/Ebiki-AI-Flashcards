@@ -98,15 +98,15 @@ const ko = (pose, rest, opts = {}) => frames([...blow(pose, opts.hot ?? 1), ...r
 // [pose, frames, { hot }]. Exported for the tests (every frame's numbers are checked).
 export const KO_FRAMES = {
   // Chronos: time stops. It ticks in jerks like a stopped clock, a flash as its face shatters, then tips over.
-  timeStop: ['translate(-8px, 2px) rotate(-5deg) scale(1.05)', [
-    [16, 'translate(-6px, 2px) rotate(-3deg) scale(1.04)', 1, { b: 1.5 }, 'steps(1, end)'],
-    [24, 'translate(-4px, 2px) rotate(-1deg) scale(1.03)', 1, { b: 1.2, sp: 0.4 }, 'steps(1, end)'],
-    [32, 'translate(-2px, 2px) rotate(1.5deg) scale(1.03)', 1, { b: 1.1, sp: 0.6 }, 'steps(1, end)'],
+  timeStop: ['translate(-2px, 1px) rotate(-4deg) scale(1.03)', [
+    [16, 'translate(-1.5px, 1px) rotate(-3deg) scale(1.03)', 1, { b: 1.5 }, 'steps(1, end)'],
+    [24, 'translate(-1px, 1px) rotate(-1deg) scale(1.02)', 1, { b: 1.2, sp: 0.4 }, 'steps(1, end)'],
+    [32, 'translate(-0.5px, 1px) rotate(1.5deg) scale(1.02)', 1, { b: 1.1, sp: 0.6 }, 'steps(1, end)'],
     [40, 'translate(0, 2px) rotate(-1deg) scale(1.02)', 1, { b: 1, sp: 0.8 }, 'steps(1, end)'],
     [48, 'translate(0, 2px) rotate(2deg) scale(1.02)', 1, { b: 1, sp: 0.9, c: 1.2 }],
-    [59, 'translate(0, 0) scale(1.07)', 1, { b: 2.6, sp: 0.5 }],
-    [64, 'translate(0, 6px) rotate(-4deg) scale(.95)', 1, { b: 1.3, sp: 0.4, g: 0.3 }, FALL],
-    [100, 'translate(-4px, 16px) rotate(-9deg) scale(.9)', 1, DOWN],
+    [59, 'translate(0, 0) scale(1.04)', 1, { b: 2.6, sp: 0.5 }],
+    [64, 'translate(0, 3px) rotate(-3deg) scale(.96)', 1, { b: 1.3, sp: 0.4, g: 0.3 }, FALL],
+    [100, 'translate(-1px, 5px) rotate(-5deg) scale(.94)', 1, DOWN],
   ]],
   // The Banshee: one last scream that shakes it, cut off dead (silence), then it drifts up like a ghost.
   silence: ['translateY(-4px) scale(1.12)', [
@@ -128,9 +128,9 @@ export const KO_FRAMES = {
     [40, 'translateY(-24px) scale(1.06)', 1, { b: 2, s: 1.2 }],
     [48, 'translateY(-26px) rotate(2deg) scale(1.06)', 1, { b: 1.7, sp: 0.5, s: 2 }],
     [56, 'translateY(-24px) rotate(-3deg) scale(1.04)', 1, { b: 1.4, sp: 0.9, s: 1.6 }, FALL],
-    [76, 'translateY(16px) rotate(7deg) scale(.95)', 1, { b: 0.8, sp: 0.6, g: 0.4 }],
-    [83, 'translateY(10px) rotate(5deg) scale(.96)', 1, { b: 0.85, sp: 0.4, g: 0.5 }],
-    [100, 'translateY(16px) rotate(8deg) scale(.93)', 1, DOWN],
+    [76, 'translateY(14px) rotate(4deg) scale(.95)', 1, { b: 0.8, sp: 0.6, g: 0.4 }],
+    [83, 'translateY(9px) rotate(2.5deg) scale(.96)', 1, { b: 0.85, sp: 0.4, g: 0.5 }],
+    [100, 'translateY(12px) rotate(3deg) scale(.93)', 1, DOWN],
   ], { hot: 0.4 }],
   // The Titan: a jolt for every armor plate blown off, it teeters, then goes over with a THUD.
   topple: ['translateX(10px) rotate(3deg)', [
@@ -382,16 +382,19 @@ export const KO_FRAMES = {
     [78, 'translateY(24px) scale(1.28, .66)', 1, { b: 1, s: 1.2 }],
     [100, 'translateY(26px) scale(1.3, .64)', 1, DOWN],
   ]],
-  // The Kitsune: it rises as its tails fan out, then spins away in a pirouette of foxfire and comes to rest.
-  foxfire: ['translate(8px, -6px) rotate(8deg)', [
-    [18, 'translate(2px, -8px) rotate(2deg) scale(1.04)', 1, { b: 1.5 }],
-    [36, 'translate(0, -10px) rotate(0deg) scale(1.06)', 1, { b: 1.6, s: 1.4 }],
-    [44, 'translate(0, -6px) rotate(-90deg) scale(.95)', 0.85, { b: 1.5, h: -30 }],
-    [52, 'translate(0, -2px) rotate(-200deg) scale(.86)', 0.7, { b: 1.6, bl: 1, h: -60 }],
-    [60, 'translate(0, 2px) rotate(-330deg) scale(.82)', 0.6, { b: 2.2, bl: 1.5, h: -30 }],
-    [70, 'translate(0, 6px) rotate(-360deg) scale(.9)', 0.75, { b: 1.1, bl: 0.5 }],
-    [100, 'translate(0, 10px) rotate(-364deg) scale(.9)', 0.95, DOWN],
-  ]],
+  // The Kitsune (no spin, the owner: "it weirdly spins"): struck back and frozen, then lifted on her own surging fox-fire,
+  // trembling brighter and brighter; at the climax she blazes white as her spirit tears away, then drops, slumped and dimmed.
+  foxfire: ['translate(4px, -3px) rotate(3deg) scale(1.03)', [
+    [24, 'translate(2px, -5px) rotate(1deg) scale(1.04)', 1, { b: 1.3, s: 1.2 }],
+    [32, 'translate(-1px, -6px) scale(1.05)', 1, { b: 1.45, s: 1.3 }],
+    [38, 'translate(1px, -6px) scale(1.05)', 1, { b: 1.6, s: 1.4 }],
+    [44, 'translate(-1px, -7px) scale(1.06)', 1, { b: 1.8, s: 1.5 }],
+    [50, 'translate(1px, -8px) scale(1.07)', 1, { b: 2.1, s: 1.5 }],
+    [56, 'translate(0, -8px) scale(1.08)', 1, { b: 2.6, s: 1.2 }, FALL],
+    [70, 'translate(-2px, 10px) rotate(-3deg) scale(.93)', 1, { b: 0.9, g: 0.5 }],
+    [78, 'translate(-2px, 8px) rotate(-2.5deg) scale(.94)', 1, { b: 0.95, g: 0.6 }],
+    [100, 'translate(-2px, 10px) rotate(-3deg) scale(.93)', 1, DOWN],
+  ], { hot: 0.6 }],
   // The Ophanim: its wheels slow, its light folds in on itself in one last flare, and it dims and tilts.
   eyeShut: ['rotate(-4deg) scale(1.08)', [
     [18, 'rotate(-2deg) scale(1.04)', 1, { b: 1.8 }],
@@ -410,6 +413,16 @@ export const KO_FRAMES = {
     [59, 'rotate(-24deg) scale(1.14)', 1, { b: 2.6 }],
     [66, 'rotate(-8deg) scale(.95)', 1, { b: 1.1 }],
     [100, 'translateY(6px) rotate(-6deg) scale(.92)', 1, DOWN],
+  ]],
+  // The Headless Horseman: rocked back in the saddle, the horse rears one last time and screams, holds there as the
+  // soulfire leaves him, then the whole of them pitches forward and down, sliding into the fog on its side.
+  unhorsed: ['translate(-6px, -4px) rotate(-7deg)', [
+    [24, 'translate(-4px, -10px) rotate(-12deg) scale(1.04)', 1, { b: 1.2 }],
+    [42, 'translate(-6px, -12px) rotate(-14deg) scale(1.05)', 1, { b: 1.4, s: 1.2 }, FALL],
+    [56, 'translate(6px, 10px) rotate(9deg) scale(.97)', 1, { b: 1.7, s: 1.3 }],
+    [62, 'translate(10px, 18px) rotate(14deg) scale(.95)', 1, { b: 1.1 }],
+    [70, 'translate(9px, 16px) rotate(12deg) scale(.95)', 1, { g: 0.4, o: 0.8 }],
+    [100, 'translate(10px, 18px) rotate(13deg) scale(.95)', 1, DOWN],
   ]],
   // A boss with no style of its own (a newer build's boss): a plain heavy fall.
   fall: ['translateX(-8px) rotate(-6deg)', [

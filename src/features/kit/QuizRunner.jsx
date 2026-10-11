@@ -32,6 +32,9 @@
 // same chip Study shows). DUAL QUESTIONS: a typed question with `alt` choices opens TYPED (Study's default) with
 // "🛡 Show choices" (qt_showChoices) beside the box, and "⌨ Type it instead" (qt_typeInstead) goes back while it is
 // unanswered; the feature decides what a choice answer is worth (a safe strike, at most Good).
+// `alt` = { choices, answerIdx, prompt?, meaning? } (utils/choicePool.js planChoices): `prompt` is the question its
+// choices answer when it differs (the MEANING form: the word shown, its meaning picked); `meaning` retires "Type it
+// instead" (the word is on screen).
 // overturnedFor(q)         true once a later check (a re-check or an Appeal) found this answer RIGHT after all: the
 //                          feedback strip turns green and drops the grader's old note (it said "wrong").
 // WORDS (with `ctx.words`): Study's question formatting everywhere. "(...)" sense cues render muted italic, word hints
@@ -47,7 +50,7 @@ import { ChunkyButton, ProgressBar, depthBorder, UI } from '../ui'
 import { useFocusHold } from '../registry'
 import { matchTyped } from './grade'
 import { judgeAnswer } from './judge'
-import { questionAnswersOf, ensureLetterCue, stripLetterSkeleton } from './fightSettings'
+import { questionAnswersOf, ensurePrefixHint, stripLetterHints } from './fightSettings'
 import TalkButton from './TalkButton'
 import TierChip from './TierChip'
 import { speak } from '../../speech'
@@ -172,7 +175,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     const fb = phase === 'feedback' && verdict
       ? `\nThey just answered${lastAnswer.current ? ` "${String(lastAnswer.current).slice(0, 120)}"` : ''}: ${verdict.correct ? 'right' : 'wrong'}${key ? `. The right answer (shown on screen): "${String(key).slice(0, 120)}"` : ''}${verdict.note ? `. Feedback shown: ${String(verdict.note).slice(0, 200)}` : ''}.`
       : '\nIt is being answered now: do NOT give the answer unless they explicitly ask for it; give a hint or explain the idea instead.'
-    helpSet('quiz', { screen: helpScreen, text: `Running quiz${title ? ` "${String(title).slice(0, 80)}"` : ''}: question ${idx + 1} of ${total}${q.audio?.text ? ' (heard as audio, not shown)' : ''}.\nQuestion: ${String(q.prompt || '').slice(0, 400)}${shown}${fb}` })
+    helpSet('quiz', { screen: helpScreen, text: `Running quiz${title ? ` "${String(title).slice(0, 80)}"` : ''}: question ${idx + 1} of ${total}${q.audio?.text ? ' (heard as audio, not shown)' : ''}.\nQuestion: ${String((asChoice && q.kind !== 'choice' && q.alt?.prompt) || q.prompt || '').slice(0, 400)}${shown}${fb}` })
   }, [helpSet, helpScreen, q, idx, total, phase, verdict, asChoice, title]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { helpSet?.('quiz', null) }, [helpSet])
 
@@ -324,9 +327,12 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const tone = partial ? C.warning : good ? C.success : C.danger
   const reveal = asChoice ? view.choices[view.answerIdx] : (q.accepted || [])[0]
   const switchable = !asChoice && !!q.alt && !!canUseChoices?.(q)
-  // A typed language question always shows how many letters its answer has (Study's skeleton, "(s·······)"); answered
-  // with its choices the skeleton goes (its letters would pick the tile).
-  const shownPrompt = asChoice ? stripLetterSkeleton(q.prompt) : ensureLetterCue(q, { isLanguage: !!subject?.isLanguage }).prompt
+  // A typed language question shows its PREFIX HINT (utils/prefixHint.js: "(so…)", never the length); answered with its
+  // choices every hint goes (its letters would pick the tile). A MEANING-form choice view (utils/choicePool.js: the deck
+  // had too few words sharing the hint) asks its own question: the word shown, its meaning picked.
+  const shownPrompt = asChoice
+    ? (q.kind !== 'choice' && q.alt?.prompt ? q.alt.prompt : stripLetterHints(q.prompt, q.accepted))
+    : ensurePrefixHint(q, { isLanguage: !!subject?.isLanguage }).prompt
   // Screen readers hear the result once the feedback is on screen (never earlier: the answer is still secret before).
   const announce = phase !== 'feedback' ? '' : [
     (overturned ? '' : verdict?.title) || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong')),
@@ -350,8 +356,8 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       <div dir="auto" data-quiz-prompt="" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: glossMap && Object.keys(glossMap).length ? 2.2 : 1.35, whiteSpace: 'pre-wrap' }}>{words(shownPrompt, 'q', { guarded: true, gloss: true })}</div>
       {popup('q')}
       {(narrow || hintText) && <style>{POP_CSS}</style>}
-      {hintText && phase === 'answer' && <div key={hintText} role="status" dir="auto" data-quiz-pop="" style={{ fontSize: 14, fontWeight: 700, color: C.warning, animation: 'kitHintIn 520ms cubic-bezier(.2,1.2,.4,1) both' }}>{words(hintText, 'h', { guarded: true })}</div>}
-      {hintText && phase === 'answer' && popup('h')}
+      {hintText && phase === 'answer' && !asChoice && <div key={hintText} role="status" dir="auto" data-quiz-pop="" style={{ fontSize: 14, fontWeight: 700, color: C.warning, animation: 'kitHintIn 520ms cubic-bezier(.2,1.2,.4,1) both' }}>{words(hintText, 'h', { guarded: true })}</div>}
+      {hintText && phase === 'answer' && !asChoice && popup('h')}
       {q.audio?.text && ctx && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <ChunkyButton onClick={(e) => { e?.currentTarget?.blur?.(); play() }} color={C.info} disabled={playing}>🔊 {playing ? t('kit_playing') : t('kit_play')}</ChunkyButton>
@@ -385,7 +391,8 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
             )
           })}
           {view.choices.map((_, i) => <span key={`p${i}`} style={{ display: 'contents' }}>{popup(`c${i}`)}</span>)}
-          {q.kind !== 'choice' && !narrow && phase === 'answer' && (
+          {/* Not after a meaning form: it showed the word, so typing it would be copying. */}
+          {q.kind !== 'choice' && !narrow && phase === 'answer' && !q.alt?.meaning && (
             <button type="button" data-quiz-type-instead="" onClick={() => { setMode('typed'); setPicked(null); setTimeout(() => inputRef.current?.focus(), 30) }}
               style={{ justifySelf: 'start', fontFamily: FONT.body, border: `2px solid color-mix(in srgb, ${C.warning} 40%, transparent)`, background: 'transparent', color: C.warning, fontWeight: 800, fontSize: 13, borderRadius: RADIUS.pill, padding: '5px 12px', cursor: 'pointer' }}>
               {t('qt_typeInstead')}

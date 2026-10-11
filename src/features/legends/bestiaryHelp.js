@@ -5,9 +5,9 @@
 //
 // No card, question or answer is ever in here: a raid's questions are the deck's cards (QuizRunner reports the one on
 // screen, without its key). Published by HelpBridge.jsx (the catalog, every screen) and AssetView.jsx (the bestiary).
-import { RAID, RAID_ORDER, RAID_ABILITY, raidBossNumber, shapeRaid, raidMotif, isRaidMotif, SIEGE_RULE, raidToday, siegeOf } from './raid'
+import { RAID, RAID_ORDER, RAID_ABILITY, raidBossNumber, shapeRaid, raidMotif, isRaidMotif, SIEGE_RULE, raidToday, siegeOf, isNewerRaidBoss } from './raid'
 import { raidProfile } from './raidProfiles'
-import { POWER_IDS, LOADOUT_MAX, bossesBeaten, unlockedPowers, nextUnlock, shapeLoadout } from './powers'
+import { POWER_IDS, LOADOUT_MAX, powerProgress, unlockedPowers, nextUnlock, shapeLoadout } from './powers'
 import { MOTIFS } from './map'
 import { bestiaryRows } from './abilities/_triggers'
 import { FAMILY_TREES, FAMILY_MISFITS, familyMotifs } from './families'
@@ -80,6 +80,7 @@ export function raidBossFacts(t, motif, { full = false, lore = full, ids = true,
 export function raidProgressText(t, raid, today = '', known = true) {
   if (!known) return "The player's raid progress could not be read right now (not loaded yet, or the data folder is unreachable)."
   if (!raid) return `The player's raid: not started in this mode (the first boss is #1 ${raidBossName(t, RAID_ORDER[0])}).`
+  if (isNewerRaidBoss(raid)) return "The player's raid: the current raid boss comes from a newer version of Ebiki; this computer must update Ebiki to fight it (its siege is kept as it is)."
   const r = shapeRaid(raid)
   const motif = raidMotif(r)
   const num = raidBossNumber(motif)
@@ -104,13 +105,14 @@ export function raidProgressText(t, raid, today = '', known = true) {
 export function raidPowersText(t, raid, loadout, known = true) {
   if (!known) return ''
   const name = (id) => tx(t, `lg_pow_${id}`) || id
-  const beaten = bossesBeaten(raid ? shapeRaid(raid) : null)
-  const open = unlockedPowers(beaten)
+  const prog = powerProgress(raid ? shapeRaid(raid) : null) // kept unlocks too: an unlock is for good
+  const beaten = prog.beaten
+  const open = unlockedPowers(prog)
   // The current siege's power numbers (a variant may change how many powers come along), else the normal ones.
   const g = raid ? siegeOf(raid) : null
   const max = g ? raidProfile(raidMotif(raid), g.variant).powers.loadoutMax : LOADOUT_MAX
-  const bring = shapeLoadout(loadout, beaten, max)
-  const next = nextUnlock(beaten)
+  const bring = shapeLoadout(loadout, prog, max)
+  const next = nextUnlock(prog)
   return [
     `The player's powers: ${beaten} different raid boss(es) beaten; unlocked ${open.length} of ${POWER_IDS.length}${open.length ? ` (${open.map(name).join(', ')})` : ' (none yet: the first unlocks at 1 boss beaten)'}.`,
     open.length ? `Brought into the next fight (up to ${max}, picked on the raid intro): ${bring.length ? bring.map(name).join(', ') : 'none'}.` : '',
@@ -131,7 +133,7 @@ export function raidCatalogText({ t, raid = null, known = true, today = '', fxNa
     compact ? RAID_RULES_SHORT : RAID_RULES,
     raidProgressText(t, raid, today, known),
     raidPowersText(t, raid, loadout, known),
-    compact ? `Current boss: ${raidBossFacts(t, cur, { madeFrom: false })}` : `Current boss in full:\n${raidBossFacts(t, cur, { full: true, lore: false, fxName })}`,
+    !cur ? 'Current boss: one from a newer version of Ebiki (update Ebiki to fight it).' : compact ? `Current boss: ${raidBossFacts(t, cur, { madeFrom: false })}` : `Current boss in full:\n${raidBossFacts(t, cur, { full: true, lore: false, fxName })}`,
     'All raid bosses in progression order (a win brings out the next):',
   ].filter(Boolean).join('\n')
   const longLine = (m) => `- ${raidBossFacts(t, m, { ids: false, madeFrom: false })}`

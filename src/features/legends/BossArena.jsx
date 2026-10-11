@@ -21,6 +21,7 @@ import { BODY_CSS, bodyAnimation } from './impact/body'
 import AssaultFx, { hitShake } from './impact/AssaultFx'
 import { assaultFor, assaultMs } from './impact/assault'
 import { PowerFx, PowerBadges, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
+import { heartChange, heartSelector, nextHeart } from './heartTargets'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
 import { RaidBand, BAND_CSS, BAND_STYLE } from './RaidBand'
@@ -59,15 +60,19 @@ export const forgivenMisses = (total, hits, opts) => {
 
 // `popFrom` (s): the hearts pop in one by one from then (the boss entrance); 0 = shown at once.
 // `bonus`: the last hearts are the Weak spots reward: a gold ring and a "+1" tag, and they go first.
-function Lives({ t, lives, left, last, size = 16, popFrom = 0, bonus = 0 }) {
+// `hearts` (BossArena, heartTargets.js heartChange): { lost, gained, mark, gainAt }: the red hearts this strike just took
+// (they break) or a refund just gave back (they pop back in when the flying heart arrives, `gainAt` ms).
+function Lives({ t, lives, left, hearts = null, size = 16, popFrom = 0, bonus = 0 }) {
   return (
     <div role="img" aria-label={bonus ? `${t('lg_livesAria', { n: left })}. ${t('lg_bonusLife', { n: bonus })}` : t('lg_livesAria', { n: left })} style={{ display: 'flex', gap: 4, fontSize: size, flexWrap: 'wrap', justifyContent: 'center' }}>
       {Array.from({ length: lives }, (_, i) => {
         const lost = i >= left
-        const justLost = last?.kind === 'miss' && i === left
+        const justLost = lost && !!hearts?.lost?.includes(i)
+        const justGained = !justLost && !lost && !!hearts?.gained?.includes(i)
         const pop = popFrom ? `lgPopIn .35s cubic-bezier(.3,1.6,.5,1) ${popFrom + i * 0.12}s both` : undefined
         const extra = i >= lives - bonus
-        const heart = <span key={`${i}-${justLost ? last.n : 0}`} aria-hidden="true" data-heart={i} style={{ display: 'inline-block', filter: lost ? 'grayscale(1) opacity(.35)' : 'none', animation: justLost ? 'lgHeartLose .5s ease-out both' : pop }}>{extra ? '💖' : '❤️'}</span>
+        const anim = justLost ? 'lgHeartLose .5s ease-out both' : justGained ? `lgHeartGain .45s cubic-bezier(.3,1.6,.5,1) ${hearts.gainAt || 0}ms both` : pop
+        const heart = <span key={`${i}-${justLost || justGained ? hearts.mark : 0}`} aria-hidden="true" data-heart={i} data-heart-state={lost ? 'lost' : 'full'} style={{ display: 'inline-block', filter: lost ? 'grayscale(1) opacity(.35)' : 'none', animation: anim }}>{extra ? '💖' : '❤️'}</span>
         if (!extra) return heart
         return (
           <span key={`x${i}`} style={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', boxShadow: lost ? 'none' : `0 0 0 2px ${C.warning}, 0 0 12px color-mix(in srgb, ${C.warning} 70%, transparent)`, padding: 1 }}>
@@ -86,7 +91,8 @@ const CSS = `
 @keyframes lgBossFlash { 0% { opacity: .75 } 100% { opacity: 0 } }
 @keyframes lgBossLunge { 0% { transform: scale(1) } 35% { transform: scale(1.22) translateY(10px) } 100% { transform: scale(1) } }
 @keyframes lgBossFloat { 0% { transform: translate(-50%, 0); opacity: 1 } 100% { transform: translate(-50%, -46px); opacity: 0 } }
-@keyframes lgHeartLose { 0% { transform: scale(1) } 40% { transform: scale(1.5) rotate(-12deg) } 100% { transform: scale(.8); opacity: .35 } }
+@keyframes lgHeartLose { 0% { transform: scale(1) } 40% { transform: scale(1.5) rotate(-12deg) } 100% { transform: scale(1) } }
+@keyframes lgHeartGain { 0% { transform: scale(.5); filter: grayscale(1) opacity(.35) } 55% { transform: scale(1.5); filter: none } 100% { transform: scale(1); filter: none } }
 @keyframes lgBossDown { 0% { transform: rotate(0) } 100% { transform: rotate(-14deg) translateY(12px) } }
 @keyframes lgStageIn { 0% { opacity: 0 } 100% { opacity: 1 } }
 @keyframes lgStripeL { 0% { transform: translateX(-110%) } 100% { transform: translateX(0) } }
@@ -156,6 +162,7 @@ const CSS = `
 @keyframes lgSugarDrop { 0% { transform: translateY(-170%) scale(.62, .78); opacity: 0 } 6% { opacity: 1 } 30% { transform: translateY(0) scale(1.38, .58) } 40% { transform: translateY(-30%) scale(.8, 1.24) } 52% { transform: translateY(0) scale(1.24, .74) } 60% { transform: translateY(-11%) scale(.9, 1.12) } 68% { transform: translateY(0) scale(1.08, .9) } 72% { transform: translateY(0) scale(1.16, .84); filter: brightness(1.7) saturate(1.5) } 78% { transform: scale(.9, 1.12); filter: brightness(1.2) } 84% { transform: scale(1.07, .94) } 90% { transform: scale(.97, 1.04) } 95% { transform: scale(1.01, .99) } 100% { transform: none; filter: none } }
 @keyframes lgCurtainPart { 0% { clip-path: inset(-60% 50% -60% 50%); transform: scale(1.06); filter: brightness(.12) saturate(0); opacity: 0 } 6% { opacity: 1 } 38% { clip-path: inset(-60% -60% -60% -60%); transform: scale(1.06); filter: brightness(.14) saturate(0) } 50% { transform: scale(1.02); filter: brightness(2.8) saturate(1.4) } 60% { transform: none; filter: brightness(1.15) } 72% { transform: rotate(-8deg) translateY(5%) scale(.97, .93) } 84% { transform: rotate(2.5deg) translateY(-3%) scale(1.02, 1.05) } 93% { transform: rotate(-.8deg) translateY(.5%) } 100% { clip-path: inset(-60% -60% -60% -60%); transform: none; filter: none } }
 @keyframes lgHoundPace { 0% { transform: translateX(-22%) scale(.78); filter: brightness(.12) saturate(.2); opacity: 0 } 6% { opacity: 1 } 16% { transform: translateX(-4%) scale(.78) rotate(1.5deg); filter: brightness(.14) saturate(.2) } 26% { transform: translateX(20%) scale(.78) rotate(-1.5deg) } 36% { transform: translateX(4%) scale(.78) rotate(1.5deg) } 46% { transform: translateX(-16%) scale(.78) rotate(-1deg) } 56% { transform: translateX(0) scale(.8, .7); filter: brightness(.2) saturate(.3) } 64% { transform: translateY(4%) scale(.86, .62); filter: brightness(.3) } 72% { transform: translateY(-6%) scale(1.34, 1.24); filter: brightness(1.9) saturate(1.4) } 80% { transform: translateY(3%) scale(1.06, .9); filter: brightness(1.2) } 88% { transform: translateY(-1%) scale(.98, 1.04) } 94% { transform: scale(1.01, .99) } 100% { transform: none; filter: none } }
+@keyframes lgFogCharge { 0% { transform: translateY(-10%) scale(.26); filter: brightness(.08) saturate(.2); opacity: 0 } 8% { opacity: 1 } 18% { transform: translateY(-12%) scale(.36); filter: brightness(.1) saturate(.25) } 26% { transform: translateY(-7%) scale(.44) } 34% { transform: translateY(-11%) scale(.54); filter: brightness(.16) saturate(.3) } 42% { transform: translateY(-5%) scale(.66) } 50% { transform: translateY(-9%) scale(.8); filter: brightness(.3) saturate(.5) } 58% { transform: translateY(-2%) scale(.94) } 66% { transform: translateY(-8%) rotate(-9deg) scale(1.12); filter: brightness(1.7) saturate(1.3) } 74% { transform: translateY(-9%) rotate(-11deg) scale(1.16); filter: brightness(1.2) saturate(1.1) } 82% { transform: translateY(3%) rotate(2deg) scale(1.1, .9); filter: brightness(1.5) saturate(1.2) } 88% { transform: translateX(-3%) translateY(1%) scale(1.03, .97) } 94% { transform: translateX(1%) scale(.99, 1.01) } 100% { transform: none; filter: brightness(1) saturate(1) } }
 @keyframes lgRealityTear { 0% { transform: scale(1.3, .02); opacity: 0; filter: brightness(3) } 14% { opacity: 1; transform: scale(1.3, .03) } 28% { transform: scale(1.1, .05) } 46% { transform: scale(.94, 1.28); filter: brightness(2) hue-rotate(40deg) } 54% { transform: translateX(-9px) scale(1.04, .94) } 60% { transform: translateX(8px) scale(.98, 1.04); filter: hue-rotate(-30deg) } 66% { transform: translateX(-5px) } 72% { transform: translateX(3px) scale(1.02) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseShift { 0% { transform: none; filter: none } 10% { transform: scale(1.3); filter: brightness(3) saturate(0) } 22% { transform: scale(.9) translateX(-7px) rotate(-4deg); filter: brightness(1.2) } 32% { transform: scale(1.22) translateX(7px) rotate(4deg); filter: brightness(2.4) } 44% { transform: scale(.96) translateX(-4px) } 58% { transform: scale(1.14); filter: brightness(1.7) saturate(1.6) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseTag { 0% { transform: translate(-50%, -6px); opacity: 0 } 15% { transform: translate(-50%, 0); opacity: 1 } 75% { opacity: 1 } 100% { transform: translate(-50%, 0); opacity: 0 } }
@@ -297,6 +304,7 @@ export const ENTRANCES = {
   sugarqueen: { name: 'lgSugarDrop', ease: 'cubic-bezier(.4,.1,.5,1)', origin: 'bottom center' }, // dropped onto her cake platter from above, splats and bounces twice like jelly, then wobbles still
   showman: { name: 'lgCurtainPart', ease: 'cubic-bezier(.3,.6,.4,1)', origin: 'bottom center' }, // the curtains part on a dark silhouette, the spotlight hits him in a blaze, he sweeps a deep bow and snaps upright
   cerberus: { name: 'lgHoundPace', ease: 'linear', origin: 'bottom center' }, // paces left and right in the dark behind the gate, stops dead, crouches, then rams through at you and plants
+  horseman: { name: 'lgFogCharge', ease: 'linear', origin: 'bottom center' }, // a dark speck far down the road grows in four galloping strides out of the fog straight at you, rears up as the lantern flares, slams down and skids to a stop
 }
 export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `odds`: bossOdds options ({ bonus, pass }); `legendary`: the harder replay of a cleared area.
@@ -456,11 +464,16 @@ function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
   const timers = useRef([])
   const lastFlashAt = useRef(-Infinity)
   const started = useRef('') // the key whose moment has started (JUICE.delay after the strike)
+  // A strike made before this arena mounted never plays (the asset view's next boss opened with the last boss's
+  // knockout cinematic: the arena remounts per boss and was handed the old `last`).
+  const mountKey = useRef(key)
   useEffect(() => {
     const clear = () => { timers.current.forEach(clearTimeout); timers.current = [] }
     const later = (ms, f) => { timers.current.push(setTimeout(f, ms)) }
     clear()
     setSt(IDLE_JUICE)
+    if (key && key === mountKey.current) return clear
+    mountKey.current = null
     if (!on || !key) return clear
     const fx = last.fx || ''
     const n = last.n
@@ -508,7 +521,7 @@ function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
   // `pend`: the ability fx judged but not started yet (the JUICE.delay gap). Computed in render, so the very first paint
   // of the new state already has it: an ability whose art state changes with the strike (the hydra's head count) keeps
   // its BEFORE picture through the gap (data-fx-pending, fx/<motif>.jsx css) instead of jumping to the result early.
-  const pend = on && key && last?.fx && started.current !== key ? last.fx : ''
+  const pend = on && key && key !== mountKey.current && last?.fx && started.current !== key ? last.fx : ''
   return pend ? { ...st, pend } : st
 }
 
@@ -538,7 +551,9 @@ function usePhaseShift(phase) {
   useEffect(() => {
     const was = prev.current
     prev.current = phase
-    if (!phase || !was || phase <= was) return undefined
+    // Any other change ends a stamp at once (a knockout passes 0): this run's start cleared the old timer, so the
+    // stamp used to stay up.
+    if (!phase || !was || phase <= was) { setShift(0); return undefined }
     setShift(phase)
     const id = setTimeout(() => setShift(0), 1700)
     return () => clearTimeout(id)
@@ -565,6 +580,25 @@ function useShortWindow(getZoom) {
 // A refund's motion (fight.js applyRefund): a sweat drop by the sheepish boss, the heart floating back up.
 const REFUND_CSS = '@keyframes lgRefundSweat { 0% { transform: translateY(-6px) scale(.4); opacity: 0 } 20% { transform: translateY(0) scale(1.1); opacity: 1 } 80% { transform: translateY(6px) scale(1); opacity: 1 } 100% { transform: translateY(10px) scale(.9); opacity: 0 } }'
   + ' @keyframes lgRefundHeart { 0% { transform: translate(-50%, 0) scale(.5); opacity: 0 } 25% { transform: translate(-50%, -10px) scale(1.25); opacity: 1 } 100% { transform: translate(120%, -90px) scale(.7); opacity: 0 } }'
+
+// A refund's heart flying from the boss back into the heart it gave back (`from`/`to`: layout px of the arena card).
+const HEART_BACK_MS = 760
+const HEART_BACK_CSS = '@keyframes lgHeartBack { 0% { transform: translate(0, 0) scale(.4); opacity: 0 } 15% { transform: translate(calc(var(--dx) * .08), -18px) scale(1.25); opacity: 1 } 85% { opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(.85); opacity: 0 } }'
+  + ' @keyframes lgHeartBackArc { 0%, 100% { translate: 0 0 } 50% { translate: 0 var(--arc) } }'
+function HeartBack({ from, to, S = 30 }) {
+  const size = Math.max(18, Math.min(34, S * 0.7))
+  return (
+    <div aria-hidden="true" data-heart-back="" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4 }}>
+      <style>{HEART_BACK_CSS}</style>
+      {to.map(([x, y], i) => (
+        <div key={i} style={{ position: 'absolute', left: from[0] - size / 2, top: from[1] - size / 2, width: size, height: size, '--arc': `${-Math.min(70, Math.hypot(x - from[0], y - from[1]) * 0.35)}px`, animation: `lgHeartBackArc ${HEART_BACK_MS}ms ease-in-out ${i * 120}ms both` }}>
+          <div style={{ width: '100%', height: '100%', fontSize: size * 0.9, lineHeight: `${size}px`, textAlign: 'center', filter: 'drop-shadow(0 0 6px #ff7aa8)', '--dx': `${x - from[0]}px`, '--dy': `${y - from[1]}px`,
+            animation: `lgHeartBack ${HEART_BACK_MS}ms cubic-bezier(.45,0,.55,1) ${i * 120}ms both` }}>💖</div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey, power = null, armed = null, proc = null, slim = false }) {
   const motion = useArtMotionAlways()
@@ -630,32 +664,73 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const [assault, setAssault] = useState(null) // { n, big, geo }
   const assaultSeen = useRef(last?.n || 0)
   const assaultOn = kind === 'raids' && animOk && !down && !!last && last.lives > 0 && !last.shielded
+  // WHICH HEART (heartTargets.js): the hearts this strike took or a refund gave back, found by comparing the row with
+  // the one shown before it (red = this fight's hearts still full, gold = Steadfast's). Worked out ONCE per strike (its
+  // `n`, `rn` for a refund and `wn` for Second wind, which keep the strike's n), so a re-render never re-plays or drops it.
+  const goldOf = Math.max(0, Number(armed?.steadfastOf) || 0)
+  const goldNow = Math.max(0, Number(armed?.steadfast) || 0)
+  const rowNow = { red: left, gold: goldNow }
+  const rowBefore = useRef(rowNow)
+  const strikeKey = last ? `${last.n || 0}:${last.rn || 0}:${last.wn || 0}` : ''
+  const change = useRef({ key: strikeKey, ch: null })
+  if (change.current.key !== strikeKey) {
+    change.current = { key: strikeKey, ch: last ? heartChange(rowBefore.current, rowNow, { took: last.shielded ? 0 : last.lives || 0, refund: last.kind === 'refund' || last.kind === 'wind' }) : null }
+  }
+  const ch = change.current.ch
+  // Measures a heart's center in the card's layout px (falls back to the row's end).
+  const heartAt = (root, r, z, h) => {
+    const el = (h && root.querySelector(heartSelector(h))) || root.querySelector('[data-heart]')
+    const box = el ? el.getBoundingClientRect() : { left: r.right - 40, top: r.top + r.height / 2, width: 0, height: 0 }
+    return [(box.left + box.width / 2 - r.left) / z, (box.top + box.height / 2 - r.top) / z]
+  }
+  const measure = () => {
+    const root = rootRef.current, box = bossBoxRef.current
+    if (!root || !box) return null
+    const r = root.getBoundingClientRect()
+    const z = root.offsetWidth ? r.width / root.offsetWidth : 1
+    const b = box.getBoundingClientRect()
+    return { root, r, z, W: root.offsetWidth, H: root.offsetHeight, bx: (b.left + b.width / 2 - r.left) / z, by: (b.top + b.height / 2 - r.top) / z, S: Math.max(20, Math.min(64, (b.height / z) * 0.3)) }
+  }
   useLayoutEffect(() => {
     if (!last?.n || last.n === assaultSeen.current) return undefined
     assaultSeen.current = last.n
     if (!assaultOn) return undefined
-    const root = rootRef.current, box = bossBoxRef.current
-    if (!root || !box) return undefined
-    const r = root.getBoundingClientRect()
-    const z = root.offsetWidth ? r.width / root.offsetWidth : 1
-    const b = box.getBoundingClientRect()
-    const heart = root.querySelector(`[data-heart="${Math.max(0, Math.min(lives - 1, left))}"]`) || root.querySelector('[data-heart]')
-    const h = heart ? heart.getBoundingClientRect() : { left: r.right - 40, top: r.top + r.height / 2, width: 0, height: 0 }
-    const geo = {
-      W: root.offsetWidth, H: root.offsetHeight,
-      bx: (b.left + b.width / 2 - r.left) / z, by: (b.top + b.height / 2 - r.top) / z,
-      tx: (h.left + h.width / 2 - r.left) / z, ty: (h.top + h.height / 2 - r.top) / z,
-      S: Math.max(20, Math.min(64, (b.height / z) * 0.3)),
-    }
+    const m = measure()
+    if (!m) return undefined
+    // The attack lands on the heart it takes; a heavy blow's second impact lands on the second heart it takes.
+    const aim = ch?.aim?.length ? ch.aim : [nextHeart(rowNow)]
+    const [tx, ty] = heartAt(m.root, m.r, m.z, aim[0])
+    const [tx2, ty2] = aim[1] ? heartAt(m.root, m.r, m.z, aim[1]) : [tx, ty]
+    const geo = { W: m.W, H: m.H, bx: m.bx, by: m.by, tx, ty, tx2, ty2, S: m.S }
     const big = last.lives >= 2
-    setAssault({ n: last.n, big, geo })
+    setAssault({ n: last.n, big, geo, aim: aim.map((h) => `${h.gold ? 'g' : 'r'}${h.i}`).join(' ') })
     const id = setTimeout(() => setAssault((x) => (x?.n === last.n ? null : x)), assaultMs(assaultFor(area.motif).travel) + 100)
     return () => clearTimeout(id)
   }, [last?.n]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A REFUND's heart flies from the sheepish boss back into the very heart it gave back.
+  const [heartBack, setHeartBack] = useState(null) // { rn, from: [x, y], to: [[x, y], ...] }
+  const refundSeen = useRef(last?.kind === 'refund' ? last.rn : null)
+  useLayoutEffect(() => {
+    if (last?.kind !== 'refund' || last.rn === refundSeen.current) return undefined
+    refundSeen.current = last.rn
+    if (!animOk || !ch?.gained?.length) return undefined
+    const m = measure()
+    if (!m) return undefined
+    setHeartBack({ rn: last.rn, from: [m.bx, m.by], to: ch.gained.map((h) => heartAt(m.root, m.r, m.z, h)), S: m.S })
+    const id = setTimeout(() => setHeartBack((x) => (x?.rn === last.rn ? null : x)), HEART_BACK_MS + 200)
+    return () => clearTimeout(id)
+  }, [last?.kind, last?.rn]) // eslint-disable-line react-hooks/exhaustive-deps
+  // After every commit: the row as shown, the "before" of the next strike.
+  useLayoutEffect(() => { rowBefore.current = { red: left, gold: goldNow } })
   // The next question: an attack still playing goes at once.
   useEffect(() => { setAssault(null) }, [questionKey])
   const assaultShake = assault && !quiet ? `${hitShake(assaultFor(area.motif).travel, assault.big)}` : ''
-  const assaultLayer = assault && !quiet ? <AssaultFx key={`as${assault.n}`} motif={area.motif} geo={assault.geo} big={assault.big} /> : null
+  const heartBackLayer = heartBack && !quiet ? <HeartBack key={`hb${heartBack.rn}`} {...heartBack} /> : null
+  const assaultLayer = <>{assault && !quiet ? <AssaultFx key={`as${assault.n}`} motif={area.motif} geo={assault.geo} big={assault.big} aim={assault.aim} /> : null}{heartBackLayer}</>
+  // The red hearts that just broke or came back (gold ones: SteadfastHearts gets its own).
+  const heartsMark = ch ? { mark: strikeKey, lost: ch.lost.filter((h) => !h.gold).map((h) => h.i), gained: ch.gained.filter((h) => !h.gold).map((h) => h.i), gainAt: animOk && last?.kind === 'refund' ? HEART_BACK_MS - 120 : 0 } : null
+  const goldMark = ch ? { mark: strikeKey, lost: ch.lost.filter((h) => h.gold).map((h) => h.i), gained: ch.gained.filter((h) => h.gold).map((h) => h.i), gainAt: animOk && last?.kind === 'refund' ? HEART_BACK_MS - 120 : 0 } : null
+  const gold = (size) => !down && (goldOf || goldNow) > 0 ? <SteadfastHearts n={goldNow} total={Math.max(goldOf, goldNow)} hearts={goldMark} size={size} /> : null
   const fxNow = juice.fx
   const artRef = useRef(null)
   useHitStop(artRef, juice.stop)
@@ -667,7 +742,6 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const flashSpec = juice.flash ? JUICE.flash[juice.flash] : null
   const abCssText = abMod ? abilityCss(ability, abAttrs) : ''
   const hpColor = hp / need > 0.5 ? C.danger : hp / need > 0.25 ? C.warning : C.success
-  const heartsLast = missNow || (last?.lives > 0) ? { kind: 'miss', n: last.n } : null
   // `wrap`: a chip with a list in it (the weak items) wraps instead of running past the arena on a narrow window.
   const chip = (color, text, key, wrap = false) => (
     <span key={key} style={{ fontSize: 11.5, fontWeight: 800, color, border: `1.5px solid color-mix(in srgb, ${color} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '1px 8px', ...(wrap ? { whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 0 } : { whiteSpace: 'nowrap' }) }}>{text}</span>
@@ -721,10 +795,10 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
             {armed?.shield && !down ? (
               <span data-power-armed="shield" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, borderRadius: 999, padding: '0 5px', boxShadow: '0 0 0 2px #6fc3ff' }}>
                 <span aria-hidden="true" style={{ fontSize: 11 }}>🛡️</span>
-                <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={12} />
+                <Lives t={t} lives={lives} left={left} hearts={heartsMark} bonus={bonus} size={12} />
               </span>
-            ) : <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={12} />}
-            {!down && armed?.steadfast > 0 && <SteadfastHearts n={armed.steadfast} size={12} />}
+            ) : <Lives t={t} lives={lives} left={left} hearts={heartsMark} bonus={bonus} size={12} />}
+            {gold(12)}
             {!down && armed && <PowerBadges armed={armed} anim={animOk} />}
             {shield && !st.shieldUsed && <span role="img" style={{ fontSize: 11 }} aria-label={t('lg_fightShield')}>🛡</span>}
             {!focus && st.combo >= 2 && <span style={{ fontSize: 11, fontWeight: 800, color: C.warning, whiteSpace: 'nowrap' }}>🔥 {st.combo}</span>}
@@ -769,7 +843,8 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           </div>
         </div>
         </div>
-        {shift > 0 && !quiet && <>
+        {/* never while the boss is down: the knockout cinematic owns the box (the tag sat over the falling boss) */}
+        {shift > 0 && !quiet && !down && <>
           <div key={`r${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: '100%', height: '100%', borderRadius: '50%', border: `2px solid ${C.purple}`, transform: 'translate(-50%, -50%)', animation: 'lgPhaseRing .8s ease-out both', pointerEvents: 'none' }} />
           <div key={`p${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: compact ? 'calc(100% - 3px)' : 'calc(100% + 4px)', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 800, fontSize: compact ? 11 : 13, letterSpacing: '.06em', textTransform: 'uppercase', color: C.white, padding: '1px 9px', borderRadius: 999, background: `color-mix(in srgb, ${C.danger} 70%, transparent)`, transform: 'translateX(-50%)', animation: 'lgPhaseTag 1.8s ease-out both', pointerEvents: 'none', zIndex: 2 }}>{t('lg_fightPhase', { n: shift })}</div>
         </>}
@@ -817,7 +892,6 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           <div key={`rf${last.rn}`} aria-hidden="true" data-refund-fx="" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
             <style>{REFUND_CSS}</style>
             <div style={{ position: 'absolute', right: '6%', top: '4%', fontSize: 26, animation: 'lgRefundSweat 1.6s ease-out both' }}>😅</div>
-            {last.healedLives > 0 && <div style={{ position: 'absolute', left: '50%', bottom: '8%', fontSize: 24, animation: 'lgRefundHeart 1.4s cubic-bezier(.22,1,.36,1) both' }}>💖</div>}
             {last.damage > 0 && <div style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.success, animation: 'lgBossFloat 1.1s ease-out .25s both' }}>-{last.damage}</div>}
           </div>
         )}
@@ -839,10 +913,10 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
             <span data-power-armed="shield" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...(animOk ? wardStyle(true) : { borderRadius: 999, padding: '1px 6px', boxShadow: '0 0 0 2px #6fc3ff' }) }}>
               {animOk && <style>{POWER_ARMED_CSS}</style>}
               <span aria-hidden="true" style={{ fontSize: 14 }}>🛡️</span>
-              <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />
+              <Lives t={t} lives={lives} left={left} hearts={heartsMark} bonus={bonus} size={16} />
             </span>
-          ) : <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />}
-          {!down && armed?.steadfast > 0 && <SteadfastHearts n={armed.steadfast} />}
+          ) : <Lives t={t} lives={lives} left={left} hearts={heartsMark} bonus={bonus} size={16} />}
+          {gold(16)}
           {!down && armed && <PowerBadges armed={armed} anim={animOk} />}
           {shield && chip(st.shieldUsed ? C.inkFaint : C.info, `🛡 ${st.shieldUsed ? t('lg_fightShieldUsed') : t('lg_fightShield')}`, 'sh')}
           {!down && ability && chip(C.purple, `${ABILITY_ICON[ability] || ''} ${t(`lg_ability_${ability}`)}${abNote ? ` · ${t(abNote)}` : ''}`, 'ab')}

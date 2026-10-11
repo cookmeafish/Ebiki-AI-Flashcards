@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fightRules, rulesPatch, fightSubject, fightWords, isImmersive, phrasingLine, generationKey, hasLetterCue, letterSkeleton, hasLetterSkeleton, ensureLetterCue, stripLetterSkeleton, questionAnswersOf } from './fightSettings'
+import { fightRules, rulesPatch, fightSubject, fightWords, isImmersive, phrasingLine, generationKey, hasLetterCue, letterHint, ensurePrefixHint, stripLetterHints, questionAnswersOf } from './fightSettings'
 
 const es = { isLanguage: true, learnLang: 'Spanish', userLang: 'English', name: 'Spanish' }
 const comptia = { isLanguage: false, learnLang: 'English', userLang: 'English', name: 'CompTIA A+' }
@@ -88,43 +88,39 @@ it('generationKey changes only with what the questions are written in', () => {
   expect(generationKey(a)).not.toBe(generationKey({ ...a, dialect: 'Rioplatense' }))
 })
 
-describe('first-letter cue', () => {
-  it('finds a quoted letter or skeleton that starts an answer', () => {
+describe('the prefix hint in fights (one engine with Study: utils/prefixHint.js)', () => {
+  it('finds the prefix hint or a quoted letter that starts an answer', () => {
     expect(hasLetterCue('Tengo un ___ (umbrella, "p")', ['paraguas'])).toBe(true)
-    expect(hasLetterCue('Tengo un ___ (p·······)', ['paraguas'])).toBe(true)
+    expect(hasLetterCue('Tengo un ___ (pa…)', ['paraguas'])).toBe(true)
     expect(hasLetterCue('Tengo un ___ (umbrella)', ['paraguas'])).toBe(false)
     expect(hasLetterCue('“雨” ___', ['paraguas'])).toBe(false)
   })
-  it('skeleton keeps the first letter only, never for Han or kana', () => {
-    expect(letterSkeleton('el sombrero')).toBe('(e· ········)')
-    expect(letterSkeleton('雨伞')).toBe('')
-    expect(letterSkeleton('がっこう')).toBe('')
-    expect(letterSkeleton('학교')).toBe('(학·)')
+  it('the hint never shows the length, and never for Han or kana', () => {
+    expect(letterHint('el sombrero')).toBe('(… s…)')
+    expect(letterHint('pantalones')).toBe('(pa…)')
+    expect(letterHint('雨伞')).toBe('')
+    expect(letterHint('がっこう')).toBe('')
+    expect(letterHint('학교')).toBe('(학…)')
   })
-  it('always shows the letter count, even beside a quoted first letter, and strips it for choices', () => {
+  it('replaces a quoted first letter and a legacy skeleton, and strips everything for choices', () => {
     const q = { kind: 'typed', prompt: 'Hoy ___ mucho (to rain, "l").', accepted: ['llueve'] }
-    expect(ensureLetterCue(q, { isLanguage: true }).prompt).toBe('Hoy ___ (l·····) mucho (to rain, "l").')
-    const done = { ...q, prompt: 'Hoy ___ (l·····) mucho.' }
-    expect(ensureLetterCue(done, { isLanguage: true })).toBe(done)
-    expect(stripLetterSkeleton('Hoy ___ (l·····) mucho.')).toBe('Hoy ___ mucho.')
-    expect(stripLetterSkeleton('Tengo (umbrella) un ___')).toBe('Tengo (umbrella) un ___')
-  })
-  it('a two-letter answer\'s one-dot skeleton counts and strips too; a single "." never does', () => {
-    const q = { kind: 'typed', prompt: '___ (y·) soy de aquí.', accepted: ['yo'] }
-    expect(hasLetterSkeleton(q.prompt, q.accepted)).toBe(true)
-    expect(ensureLetterCue(q, { isLanguage: true })).toBe(q) // never a second skeleton
-    expect(stripLetterSkeleton('___ (y·) soy de aquí.')).toBe('___ soy de aquí.')
-    expect(hasLetterSkeleton('Lleva un ___ (e· ········)', ['el sombrero'])).toBe(true)
-    expect(stripLetterSkeleton('See (p.) 4')).toBe('See (p.) 4')
-    expect(hasLetterSkeleton('See (p.) 4', ['perro'])).toBe(false)
+    expect(ensurePrefixHint(q, { isLanguage: true }).prompt).toBe('Hoy ___ (l…) mucho (to rain).')
+    const legacy = { ...q, prompt: 'Hoy ___ (l·····) mucho.' }
+    expect(ensurePrefixHint(legacy, { isLanguage: true }).prompt).toBe('Hoy ___ (l…) mucho.')
+    const done = ensurePrefixHint(q, { isLanguage: true })
+    expect(ensurePrefixHint(done, { isLanguage: true })).toBe(done)
+    expect(stripLetterHints('Hoy ___ (l…) mucho.')).toBe('Hoy ___ mucho.')
+    expect(stripLetterHints('Hoy ___ (l·····) mucho.')).toBe('Hoy ___ mucho.')
+    expect(stripLetterHints('Tengo (umbrella) un ___')).toBe('Tengo (umbrella) un ___')
+    expect(stripLetterHints('See (p.) 4')).toBe('See (p.) 4')
   })
   it('adds a cue after the blank of a typed language question only', () => {
     const q = { kind: 'typed', prompt: 'Hoy ___ mucho (to rain).', accepted: ['llueve'] }
-    expect(ensureLetterCue(q, { isLanguage: true }).prompt).toBe('Hoy ___ (l·····) mucho (to rain).')
-    expect(ensureLetterCue(q, { isLanguage: false })).toBe(q)
-    expect(ensureLetterCue({ ...q, kind: 'choice' }, { isLanguage: true }).prompt).toBe(q.prompt)
-    expect(ensureLetterCue({ ...q, open: true }, { isLanguage: true }).prompt).toBe(q.prompt)
-    expect(ensureLetterCue({ ...q, accepted: ['下雨'] }, { isLanguage: true }).prompt).toBe(q.prompt)
+    expect(ensurePrefixHint(q, { isLanguage: true }).prompt).toBe('Hoy ___ (l…) mucho (to rain).')
+    expect(ensurePrefixHint(q, { isLanguage: false })).toBe(q)
+    expect(ensurePrefixHint({ ...q, kind: 'choice' }, { isLanguage: true }).prompt).toBe(q.prompt)
+    expect(ensurePrefixHint({ ...q, open: true }, { isLanguage: true }).prompt).toBe(q.prompt)
+    expect(ensurePrefixHint({ ...q, accepted: ['下雨'] }, { isLanguage: true }).prompt).toBe(q.prompt)
   })
 })
 

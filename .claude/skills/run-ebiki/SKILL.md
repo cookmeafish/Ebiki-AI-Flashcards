@@ -11,17 +11,17 @@ server, drive it, read the screenshots.
 ## Start
 
 ```bash
-npm run dev            # in the background; Vite serves port 3000 and never opens a tab
+npm run dev:agent            # in the background; Vite serves port 3001 (3000 is the owner's app) and never opens a tab
 ```
 
 Poll the port instead of sleeping:
 
 ```bash
-until curl -s -o /dev/null --max-time 2 http://localhost:3000/; do sleep 0.5; done
+until curl -s -o /dev/null --max-time 2 http://localhost:3001/; do sleep 0.5; done
 ```
 
-Stop with `lsof -ti:3000 -sTCP:LISTEN | xargs -r kill` (npm doesn't forward SIGTERM to vite, so killing npm
-leaves the port bound). Windows: `npx kill-port 3000`.
+Stop with `lsof -ti:3001 -sTCP:LISTEN | xargs -r kill` (npm doesn't forward SIGTERM to vite, so killing npm
+leaves the port bound). Windows: `npx kill-port 3001`.
 
 Edits hot-reload, except `vite.config.js` (watch-ignored on purpose): restart after changing it.
 
@@ -30,9 +30,9 @@ Never leave a scratch server running with `EBIKI_DATA_DIR` pointed at a throwawa
 happened: a one-line `{}` config.json replaced the live one). Test data-folder behavior in a repo copy, or repair
 `.local-sync/` afterwards.
 
-Use `npm run dev`, not the Ebiki shortcut: a shortcut server sets `EBIKI_AUTO_EXIT=1` and exits soon after the
+Use `npm run dev:agent`, not the Ebiki shortcut: a shortcut server sets `EBIKI_AUTO_EXIT=1` and exits soon after the
 last page closes, so it vanishes when the driver's browser exits and looks like a crash. `curl
-localhost:3000/api/alive` returns `{autoExit, lastBeatAgoMs}` to tell them apart. Never launch Electron from an
+localhost:3001/api/alive` returns `{autoExit, lastBeatAgoMs}` to tell them apart. Never launch Electron from an
 agent: it opens the real app.
 
 ## Drive
@@ -40,7 +40,7 @@ agent: it opens the real app.
 ```bash
 npm run drive                                   # smoke path, no AI calls
 npm run drive -- --studio "learn negotiation"   # Ebi Studio path, SPENDS API CREDITS
-npm run drive -- --shots ./out --url http://localhost:3000/
+npm run drive -- --shots ./out --url http://localhost:3001/
 ```
 
 Works on a fresh clone: `drive.mjs` installs `playwright-core` into `~/.ebiki-drive` on first run (outside the

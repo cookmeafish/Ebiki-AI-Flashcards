@@ -170,7 +170,9 @@ describe('raid impact styles', () => {
         const html = renderToStaticMarkup(createElement(StrikeFxLayer, { t: (k) => k, moment: 'ko', motif: m, n: 1 }))
         // The <style> block holds EVERY boss's own CSS (impact/bosses/*.parts.jsx): checked per boss below, never
         // against another boss's knockout length.
-        const inline = html.replace(/<style[^>]*>[\s\S]*?<\/style>/g, '')
+        // The defeated tag's pop (data-ko-tag-in) is the handover INTO the still tag under the boss, not an effect over
+        // it: it starts as the stamp ends and becomes the tag that stays (StrikeFxLayer, THE HANDOVER).
+        const inline = html.replace(/<style[^>]*>[\s\S]*?<\/style>/g, '').replace(/<div[^>]*data-ko-tag-in[^>]*>[^<]*<\/div>/, '')
         expect(latestEnd(inline), `${m}: an effect still plays after the knockout`).toBeLessThanOrEqual(RAID_IMPACT[m].koMs)
       }
       for (const [file, mod] of Object.entries(BOSS_PART_FILES)) {

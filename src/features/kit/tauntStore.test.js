@@ -25,6 +25,15 @@ describe('fetchTaunt', () => {
     const r = await fetchTaunt(ai(['The seam split before it cooled down.', 'A rivet popped out of your answer.']), facts)
     expect(r?.line).toBe('A rivet popped out of your answer.')
   })
+  it('the words the voice mandates are not a repeat (a raid boss obeying its opener and signature)', async () => {
+    const mandated = { opener: 'This weld', signature: 'forge it properly', nickname: null }
+    const v = { ...facts, sample: 'This weld cracked along its seam. Grind it flat and forge the piece properly.' }
+    rememberTaunt('raid:titan', 'This weld sagged like warm toffee, so forge it properly.')
+    const line = 'This weld wobbled on its stand all night, so forge it properly.'
+    expect(await fetchTaunt(ai([line]), { ...v, mandated })).toEqual({ line, source: 'ai' })
+    // Without them it was refused twice and nothing showed (the bug).
+    expect(await fetchTaunt(ai([line, line]), v)).toBeNull()
+  })
   it('a failed call falls back to the sample, once per fight', async () => {
     let used = false
     const guard = { sampleUsed: () => used, markSample: () => { used = true } }

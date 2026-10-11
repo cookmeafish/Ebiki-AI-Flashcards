@@ -3,7 +3,8 @@
 // needs go in `css` (prefix them lgshowman). Deterministic, container units, transforms and opacity only.
 // His act is his weapon: the Comedy mask thrown like a boomerang blade, razor cards fanned out at you.
 
-const CRIMSON = '#d8213f'
+const GOLD_MASK = '#f2bd3e'
+const RUBY = '#d81f3d'
 const GOLD = '#ffd166'
 const INK = '#1d2230'
 
@@ -15,7 +16,7 @@ export const css = `
 `
 
 export default {
-  // His strike: the grinning Comedy mask is thrown spinning like a blade out of the box at your hearts, carves a pink
+  // His strike: the grinning gold Comedy mask is thrown spinning like a blade out of the box at your hearts, carves a gold
   // trail and arcs back to his hand.
   showmanBoomerang: (p, ctx) => {
     const ms = 760 * ctx.speed
@@ -27,10 +28,10 @@ export default {
       </svg>,
       <div key="mk" style={{ position: 'absolute', left: '50%', top: '42%', width: `${w}cqw`, height: `${w}cqw`, animation: `lgshowmanBoomerang ${ms}ms cubic-bezier(.3,.6,.5,1) both`, filter: `drop-shadow(0 0 1.5cqw ${ctx.color})` }}>
         <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-          <path d="M12 22C6 19 2.5 14 2.5 8.5 2.5 5 5 2.5 8 2.5c1.7 0 3 .8 4 2 1-1.2 2.3-2 4-2 3 0 5.5 2.5 5.5 6 0 5.5-3.5 10.5-9.5 13.5Z" fill={CRIMSON} stroke={INK} strokeWidth="1.3" strokeLinejoin="round" />
+          <path d="M12 22C6 19 2.5 14 2.5 8.5 2.5 5 5 2.5 8 2.5c1.7 0 3 .8 4 2 1-1.2 2.3-2 4-2 3 0 5.5 2.5 5.5 6 0 5.5-3.5 10.5-9.5 13.5Z" fill={GOLD_MASK} stroke={INK} strokeWidth="1.3" strokeLinejoin="round" />
           <path d="M6.2 9.2c.8-1.4 2.6-1.4 3.4 0M14.4 9.2c.8-1.4 2.6-1.4 3.4 0" fill="none" stroke={INK} strokeWidth="1.3" strokeLinecap="round" />
           <path d="M6.5 13c1.4 3.6 9.6 3.6 11 0Z" fill={INK} />
-          <path d="M11.2 3.6 12 2l.8 1.6L12 5.2Z" fill={GOLD} stroke={INK} strokeWidth=".5" />
+          <path d="M11.2 3.6 12 2l.8 1.6L12 5.2Z" fill={RUBY} stroke={INK} strokeWidth=".5" />
         </svg>
       </div>,
     ]

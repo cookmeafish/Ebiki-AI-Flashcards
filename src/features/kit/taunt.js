@@ -6,6 +6,11 @@
 // Every line must be NEW (the owner: "all must be unique"): the boss's last RECENT_MAX lines are sent as "never
 // repeat these", and a reply that shares a 3+ word phrase with any of them (or with the boss's sample line) is
 // rejected (`sharesPhrase`); one retry, then nothing is shown rather than a repeat.
+// What the VOICE MANDATES is never a repeat (`voice`: a raid boss's PERSONAS entry, whose opener, signature and
+// nickname every line is told to use): a word run touching one of them is left out of the check on both sides, and so
+// are the first words of a line that does not start with the opener itself (the opener's slot, `leadOf`: a
+// translated opener is the same in every line too). Only the line's OWN wording must be new. Before this, a boss
+// obeying its voice repeated itself by definition, and after one line (often before any) nothing was ever shown.
 
 export const TAUNT_JOB = 'fight.taunt'
 export const TAUNT_ROLE = 'help' // the cheap tier (providers.js ROLE_TIER): one line per miss
@@ -19,21 +24,66 @@ const words = (text) => String(text || '').toLowerCase().normalize('NFKC')
 // Scripts written without spaces (Chinese, Japanese, Thai, Lao, Khmer, Burmese): their "words" are characters, so phrases are character runs.
 const NO_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u
 
-// Every run of `n` words of a line (characters, for a line in a script without spaces), as strings.
-export function phrasesOf(text, n = PHRASE_WORDS) {
-  const s = String(text || '')
-  const toks = NO_SPACES.test(s) ? [...s.replace(/[\s\p{P}\p{S}]/gu, '')] : words(s)
-  const out = new Set()
-  const size = NO_SPACES.test(s) ? Math.max(n, 4) : n // 4 characters, about one short phrase
-  for (let i = 0; i + size <= toks.length; i++) out.add(toks.slice(i, i + size).join(' '))
-  return out
+const tokensOf = (s, cjk) => (cjk ? [...String(s || '').toLowerCase().normalize('NFKC').replace(/[\s\p{P}\p{S}]/gu, '')] : words(s))
+// How many leading tokens of a line are the OPENER'S SLOT: the opener's words plus one (a translated opener may take
+// one more word), or two characters per opener word plus one in a script without spaces (an opener already written in
+// such a script: its characters plus one).
+export function leadOf(opener, cjk = false) {
+  const o = String(opener || '').trim()
+  if (!o) return 0
+  if (NO_SPACES.test(o)) return tokensOf(o, true).length + 1
+  const n = words(o).length
+  return n ? (cjk ? n * 2 + 1 : n + 1) : 0
 }
 
-// Does `line` share a phrase of `n` or more words with any of `others`? (The overlap check.)
-export function sharesPhrase(line, others = [], n = PHRASE_WORDS) {
-  const mine = phrasesOf(line, n)
-  if (!mine.size) return false
-  return (others || []).some((o) => { for (const p of phrasesOf(o, n)) if (mine.has(p)) return true; return false })
+// Every run of `n` words of a line (characters, for a line in a script without spaces), as strings.
+// opts.keep: phrases the voice MANDATES (a run touching any occurrence of one is left out); opts.opener: the opener,
+// whose slot (the line's first `leadOf` tokens) is left out too. Runs made only of the line's other words still count.
+export function phrasesOf(text, n = PHRASE_WORDS, opts = {}) {
+  const { toks, held, cjk } = heldTokens(text, opts)
+  const out = new Set()
+  const size = cjk ? Math.max(n, 4) : n // 4 characters, about one short phrase
+  for (let i = 0; i + size <= toks.length; i++) {
+    if (held.slice(i, i + size).some(Boolean)) continue
+    out.add(toks.slice(i, i + size).join(' '))
+  }
+  return out
+}
+// A line's tokens and which of them are HELD (the mandated words, or the opener's slot).
+function heldTokens(text, { keep = [], opener = '', slot = true } = {}) {
+  const s = String(text || '')
+  const cjk = NO_SPACES.test(s)
+  const toks = tokensOf(s, cjk)
+  // The opener's slot is for a TRANSLATED opener only: a line that starts with the opener itself holds exactly its
+  // words (below), so the words after it are checked like the rest.
+  const ot = tokensOf(opener, cjk)
+  const literal = ot.length > 0 && ot.every((w, j) => toks[j] === w)
+  const held = toks.map((_, i) => slot && !literal && i < leadOf(opener, cjk))
+  for (const k of [...(Array.isArray(keep) ? keep : []), ...(literal ? [opener] : [])]) {
+    const kt = tokensOf(k, cjk)
+    if (!kt.length) continue
+    for (let i = 0; i + kt.length <= toks.length; i++) {
+      if (kt.every((w, j) => toks[i + j] === w)) for (let j = 0; j < kt.length; j++) held[i + j] = true
+    }
+  }
+  return { toks, held, cjk }
+}
+// The words of a line that are its OWN (not held), as one string.
+const ownWords = (text, opts) => { const { toks, held } = heldTokens(text, opts); return toks.filter((_, i) => !held[i]).join(' ') }
+
+// Does `line` share a phrase of `n` or more words with any of `others`? (The overlap check.) `opts`: phrasesOf's
+// keep / opener, applied to both sides. With words exempt, a line whose OWN words equal another's is a repeat too: a
+// short line of mandated words plus one or two of its own has no run left to compare (it was shown every miss).
+export function sharesPhrase(line, others = [], n = PHRASE_WORDS, opts = {}) {
+  const mine = phrasesOf(line, n, opts)
+  const exempt = !!((Array.isArray(opts.keep) && opts.keep.length) || opts.opener)
+  const own = exempt ? ownWords(line, opts) : ''
+  return (others || []).some((o) => {
+    if (exempt && ownWords(o, opts) === own) return true
+    if (!mine.size) return false
+    for (const p of phrasesOf(o, n, opts)) if (mine.has(p)) return true
+    return false
+  })
 }
 
 // The newest line first, deduped, at most `max`.
@@ -94,5 +144,13 @@ export function parseTaunt(raw, clean = (s) => s) {
   return s
 }
 
-// A reply that repeats the boss (its recent lines or its sample) is refused.
-export const tauntRepeats = (line, recent = [], sample = '') => sharesPhrase(line, [...(recent || []), ...(sample ? [sample] : [])])
+// The phrases a voice mandates ({ opener, signature, nickname }, a raid boss's PERSONAS entry); [] for none.
+export const mandatedPhrases = (voice) => (voice && typeof voice === 'object'
+  ? [voice.opener, voice.signature, voice.nickname].filter((x) => typeof x === 'string' && x.trim()) : [])
+// A reply that repeats the boss (its recent lines or its sample) is refused; `voice` (optional): what it MUST say is not
+// a repeat (see the top). `translated`: the line is in another language than the voice (its English opener): only then
+// does a line not starting with the opener get the opener's slot.
+export const tauntRepeats = (line, recent = [], sample = '', voice = null, { translated = true } = {}) => sharesPhrase(line, [...(recent || []), ...(sample ? [sample] : [])],
+  PHRASE_WORDS, { keep: mandatedPhrases(voice), opener: voice && typeof voice.opener === 'string' ? voice.opener : '', slot: !!translated })
+// Is the taunt written in a language other than English (the voices are English)? '' = the prompt's default, English.
+export const tauntTranslated = (userLang) => !/^\s*(en|english)\b/i.test(String(userLang || 'English'))

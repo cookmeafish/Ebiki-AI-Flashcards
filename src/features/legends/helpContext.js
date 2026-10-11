@@ -5,9 +5,9 @@
 // expected answers (the running question itself is published by QuizRunner, without its key). After a step ends, its
 // result screen (asked / expected / given) is on screen anyway, so it is shared.
 import { itemTier, areaCodex, mapProgress, helperCount, WEAK_RATIO } from './map'
-import { RAID, RAID_ABILITY, shapeRaid, raidMotif, siegeOf, raidToday } from './raid'
+import { RAID, RAID_ABILITY, shapeRaid, raidMotif, siegeOf, raidToday, isNewerRaidBoss } from './raid'
 import { raidProfile } from './raidProfiles'
-import { bossesBeaten, unlockedPowers, nextUnlock } from './powers'
+import { bossesBeaten, unlockedPowers, nextUnlock, powerProgress } from './powers'
 import { learnerLine } from '../kit/learner'
 
 export const HELP_MAX = 5000
@@ -121,13 +121,14 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
       .sort((x, y) => x.r - y.r).slice(0, 12)
     if (weak.length) out.push(`Weakest Legends items (right/seen): ${weak.map(({ it }) => `${short(it.front, 40)} (${it.right || 0}/${it.seen})`).join(', ')}.`)
   }
-  if (raid) {
+  if (raid && isNewerRaidBoss(raid)) out.push('Daily raid: the current raid boss comes from a newer version of Ebiki; this computer must update Ebiki to fight it (its siege is kept as it is).')
+  else if (raid) {
     const r = shapeRaid(raid)
     const motif = raidMotif(r)
     // The siege brought forward to today (hearts back, the daily heal): wounds and hearts carry over between days.
     const g = siegeOf(r) ? (today ? raidToday(r, today, 0).siege : siegeOf(r)) : null
     const runs = r.day && (!today || r.day.date === today) && !r.day.won ? r.day.attempts : 0
-    out.push(`Daily raid (due Anki cards as a boss fight; each card's first answer is a real review; a siege: each boss has its own health and hearts; wounds carry over, each new day the hearts are full again and the boss heals ${raidProfile(motif, g?.variant).heal}): the boss now is the ${motif} (ability: ${RAID_ABILITY[motif]})${g ? `, health ${Math.max(0, g.hp - g.damage)}/${g.hp}, hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif, g?.variant).hearts)}, ${runs} run(s) today` : ', not come out yet'}; ${r.trophies.length} raid trophies won; ${bossesBeaten(r)} different raid bosses beaten; powers unlocked (the player brings up to 3 into each fight, each works once per fight): ${unlockedPowers(bossesBeaten(r)).join(', ') || 'none yet'}${nextUnlock(bossesBeaten(r)) ? `; next unlock: ${nextUnlock(bossesBeaten(r)).id} at ${nextUnlock(bossesBeaten(r)).beaten} different bosses` : ''}.`)
+    out.push(`Daily raid (due Anki cards as a boss fight; each card's first answer is a real review; a siege: each boss has its own health and hearts; wounds carry over, each new day the hearts are full again and the boss heals ${raidProfile(motif, g?.variant).heal}): the boss now is the ${motif} (ability: ${RAID_ABILITY[motif]})${g ? `, health ${Math.max(0, g.hp - g.damage)}/${g.hp}, hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif, g?.variant).hearts)}, ${runs} run(s) today` : ', not come out yet'}; ${r.trophies.length} raid trophies won; ${bossesBeaten(r)} different raid bosses beaten; powers unlocked (the player brings up to 3 into each fight, each works once per fight): ${unlockedPowers(powerProgress(r)).join(', ') || 'none yet'}${nextUnlock(powerProgress(r)) ? `; next unlock: ${nextUnlock(powerProgress(r)).id} at ${nextUnlock(powerProgress(r)).beaten} different bosses` : ''}.`)
   }
   // What is on the Legends screen right now.
   const where = {

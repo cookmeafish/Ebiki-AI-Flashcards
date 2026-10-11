@@ -12,7 +12,7 @@ const RASTER = ['RasterDecoderImpl::DoEndRasterCHROMIUM', 'RasterTask', 'TileTas
 async function measure(kind, motif, how) {
   const page = await browser.newPage({ viewport: { width: 600, height: 600 } })
   await page.addInitScript(() => { try { window.speechSynthesis.speak = () => {} } catch { /* none */ } })
-  await page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' })
+  await page.goto('http://localhost:3001/', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => [...document.querySelectorAll('style')].some((s) => s.textContent.includes('--c-brand')), null, { timeout: 90000 })
   await page.evaluate(async ({ kind, motif, how, S }) => {
     window.__ebikiArtEager = how === 'old'

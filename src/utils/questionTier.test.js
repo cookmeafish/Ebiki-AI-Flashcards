@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildOpenChoicesPrompt, parseOpenChoices, choicesFromPool, openTierGradingRule, buildQuestionReviewPrompt, parseQuestionReview, QUESTION_CHECK_RULES, tierOf, tierOfItem, tierInstruction, TIERS, TIER_DAYS, tierLabelKey, tierTeaches, tierOpen, clampTier } from './questionTier'
+import { buildOpenChoicesPrompt, parseOpenChoices, CLEAR_ANSWER_RULE, openTierGradingRule, buildQuestionReviewPrompt, parseQuestionReview, QUESTION_CHECK_RULES, tierOf, tierOfItem, tierInstruction, TIERS, TIER_DAYS, tierLabelKey, tierTeaches, tierOpen, clampTier } from './questionTier'
 
 describe('the question ladder', () => {
   it('reads the tier from Anki', () => {
@@ -84,29 +84,24 @@ describe('open tier grading wording', () => {
   })
 })
 
-describe('choices from the deck (a question that came without them)', () => {
-  const q = { question: 'How do you say "dog"?', type: 'recall', acceptedAnswers: ['perro', 'perró'] }
-  it('the answer plus 3 other answers, closest in length first, never another form of the answer', () => {
-    const out = choicesFromPool(q, ['Perro', 'gato', 'mariposa', 'casa', 'libro', 'murciélago'])
-    expect(out.answerIdx).toBe(0)
-    expect(out.choices[0]).toBe('perro')
-    expect(out.choices.slice(1)).toEqual(['libro', 'gato', 'casa'])
+describe('the question goal and the prefix hint in the shared rules', () => {
+  it('the review rejects a question that does not serve the card goal, and a hint on a non-language card', () => {
+    expect(QUESTION_CHECK_RULES).toMatch(/GOAL/)
+    expect(QUESTION_CHECK_RULES).toMatch(/not in a language course/)
   })
-  it('none with too few others, for an open question, or with no answer', () => {
-    expect(choicesFromPool(q, ['gato', 'gato', 'Perro'])).toBe(null)
-    expect(choicesFromPool({ ...q, type: 'explanation' }, ['a1', 'b22', 'c333'])).toBe(null)
-    expect(choicesFromPool({ ...q, acceptedAnswers: [] }, ['a1', 'b22', 'c333'])).toBe(null)
-    expect(choicesFromPool(null, [])).toBe(null)
+  it('no prompt asks the model for the first letter in quotes any more (the app adds the prefix hint)', () => {
+    expect(CLEAR_ANSWER_RULE).not.toMatch(/first letter in quotes/)
+    for (let t = 0; t <= 5; t++) expect(tierInstruction(t, { isLanguage: true })).not.toMatch(/first letter in quotes/)
   })
-  it('skips long fronts (a paragraph is not a choice)', () => {
-    expect(choicesFromPool(q, ['gato', 'casa', 'x'.repeat(60)])).toBe(null)
+  it('tierInstruction carries the card goal; a general concept at tier 2 never asks for its definition back', () => {
+    expect(tierInstruction(2, { goal: 'concept' })).toMatch(/THE GOAL \(a concept\)/)
+    expect(tierInstruction(2, {})).toMatch(/never its definition restated/)
+    expect(tierInstruction(2, {})).not.toMatch(/THE GOAL/)
   })
-  it('the fill pool only tops up what the main pool lacks (other answers before fronts)', () => {
-    // 'house' is closer in length to 'perro' than 'mariposa', but it is only a front: the answers come first.
-    const out = choicesFromPool(q, ['gato', 'mariposa'], { fill: ['house', 'cat', 'perro'] })
-    expect(out.choices).toEqual(['perro', 'gato', 'mariposa', 'house'])
-    expect(choicesFromPool(q, ['gato', 'casa', 'libro', 'mesa'], { fill: ['dog'] }).choices).not.toContain('dog')
-    expect(choicesFromPool(q, ['gato'], { fill: ['Perro'] })).toBe(null)
+  it('the review prompt shows each question against the goal at its tier', () => {
+    const p = buildQuestionReviewPrompt({ front: 'Secure enclave', back: 'isolated', questions: [{ question: 'Name it', tier: 3, type: 'recall', acceptedAnswers: ['secure enclave'], goal: 'fact' }], goal: 'concept' })
+    expect(p).toMatch(/goal: THE GOAL \(a concept\)/)
+    expect(p).toMatch(/writer stated "fact"/)
   })
 })
 
@@ -133,5 +128,13 @@ describe('choices for an open question', () => {
     expect(parseOpenChoices({ choices: ['a', '', 'c', 'd'], answerIdx: 0 })).toBe(null)
     expect(parseOpenChoices({ choices: ['a', 'b', 'c', 'd'], answerIdx: 4 })).toBe(null)
     expect(parseOpenChoices(null)).toBe(null)
+  })
+})
+
+describe('open choices for a word answer follow the prefix rule', () => {
+  it('names the prefix the learner saw', () => {
+    const p = buildOpenChoicesPrompt({ question: 'Q', answer: 'pantalones', isLanguage: true, learnLang: 'Spanish', prefix: 'pa' })
+    expect(p).toMatch(/starts with "pa"/)
+    expect(buildOpenChoicesPrompt({ question: 'Q', answer: 'pantalones', isLanguage: true, learnLang: 'Spanish' })).not.toMatch(/starts with/)
   })
 })

@@ -45,7 +45,9 @@ describe('raid rules', () => {
   it('ignores an attempt for another day and survives damaged data', () => {
     const s = raidToday(newRaidState(), '2026-09-29', 6)
     expect(applyRaidAttempt(s, '2026-09-28', 99).state.day.damage).toBe(0)
-    expect(shapeRaid({ boss: 99, trophies: [{ motif: 'nope' }] })).toEqual({ boss: 99 % RAID_ROSTER.length, day: null, trophies: [], siege: null })
+    expect(shapeRaid({ boss: -3, trophies: [{ motif: 'nope' }] })).toEqual({ boss: raidBossIndex(RAID_ORDER[0]), day: null, trophies: [], siege: null, powers: [] })
+    // An index past the roster came from a NEWER build: kept, never wrapped onto another boss (raidNewerBoss.test.js).
+    expect(shapeRaid({ boss: 99, trophies: [{ motif: 'nope' }] })).toEqual({ boss: 99, trophies: [], powers: [] })
   })
   it("a stored retired boss (today's or tomorrow's) moves on to the next active boss, keeping today's wounds", () => {
     expect(RAID_RETIRED).toContain('glutton')

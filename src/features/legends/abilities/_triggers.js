@@ -157,6 +157,12 @@ export const TRIGGERS = {
     bound: { vars: (K) => ({ n: K.bound }) },
     snap: { vars: none },
   },
+  horseman: {
+    gallop: { vars: (K) => ({ n: K.bridge }) },
+    close: { vars: none },
+    caught: { vars: (K) => ({ n: K.lead }) },
+    cross: { vars: (K) => ({ n: K.bridge, d: K.cross }) },
+  },
 }
 
 // What the bestiary shows for one effect: its two text keys, their vars (from the live K) and whether it is a choice.

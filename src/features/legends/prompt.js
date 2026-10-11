@@ -5,6 +5,8 @@ import { sanitizeQuestions, leaksAnswer } from '../kit/grade'
 import { MOTIFS, PALETTES, AREAS, ITEMS, NODES, LESSONS, PER_LESSON, STORY, CAN_DO, cleanBossName } from './map'
 import { TIERS } from './placement'
 import { tierInstruction, CLEAR_ANSWER_RULE, QUESTION_CHECK_RULES, clampTier } from '../../utils/questionTier'
+import { cardGoal, goalLine } from '../../utils/questionGoal'
+import { distractorRule } from '../../utils/choicePool'
 import { canonKeys } from '../../utils/aiJson'
 
 // Roles pick the model tier like everywhere else: planning is `general`, questions are `study`, items that may
@@ -28,15 +30,34 @@ const subjectLine = (s) => `Subject: ${s.name}${s.description ? ` (${s.descripti
 // Texas with my uncle"): situations may draw on it, answers never come from it.
 // `phrasing`: the fight's language line (kit/fightSettings.js: full immersion, or "Ebi speaks" another language).
 const quizSubjectLine = (s) => `Subject: ${s.name}.${s.description ? ` The learner's own context, in their words (their real goal; situations may draw on it): "${s.description}"` : ''}${s.phrasing ? `\n${s.phrasing}` : ''}`
-// Study's cue: a typed language answer is pinned by a short sense cue in parentheses right at the blank (in the language
-// the instructions are written in) plus the answer's first letter in quotes; an answer written in Han characters or kana
-// is cued by the first letter of its romanization (pinyin, romaji) instead. Never the answer itself.
-const cueRule = (s) => `A typed answer asks for ONE form: right after the blank (or at the end) add a short sense cue in parentheses, written in ${s.userLang}, with the answer's first letter in quotes, for example (to rain, "l"). For an answer written in Han characters or kana, give the first letter of its romanization (pinyin, romaji) instead. The cue never contains the answer.`
+// Study's cue: a typed language answer is pinned by a short SENSE cue in parentheses right at the blank (in the language
+// the instructions are written in); the app adds the PREFIX HINT itself (utils/prefixHint.js: the answer's first
+// letters, never its length). Only an answer written in Han characters or kana gets the first letter of its
+// romanization (pinyin, romaji) in quotes from the model (no hint can show it). Never the answer itself.
+const cueRule = (s) => `A typed answer asks for ONE form: right after the blank (or at the end) add a short sense cue in parentheses, written in ${s.userLang}, for example (to rain). Never write letters of the answer: the app adds a hint of its first letters itself. Only for an answer written in Han characters or kana, add the first letter of its romanization (pinyin, romaji) in quotes. The cue never contains the answer.`
+
+// THE QUESTION GOAL (utils/questionGoal.js): what each card or item needs the learner to reproduce or understand. Every
+// card line carries its goal; this block says what each goal asks at each tier present.
+const goalOf = (subject, x) => cardGoal({ isLanguage: !!subject.isLanguage, front: x?.front, back: x?.back, kind: x?.kind })
+export function goalsBlock(subject, things = []) {
+  const seen = new Map()
+  for (const x of things || []) {
+    const g = goalOf(subject, x)
+    const t = hasTier(x) ? clampTier(x.tier) : 2
+    seen.set(`${g}:${t}`, { g, t })
+  }
+  if (!seen.size) return ''
+  const tiered = (things || []).some(hasTier)
+  return [
+    'THE QUESTION GOAL: every card/item above is marked with its GOAL (what it needs the learner to reproduce or understand). Each question must serve its goal at its tier:',
+    ...[...seen.values()].sort((a, b) => a.g.localeCompare(b.g) || a.t - b.t).map(({ g, t }) => `- GOAL ${g}${tiered ? ` at TIER ${t}` : ''}: ${goalLine(g, t)}`),
+  ].join('\n')
+}
 
 const scope = (s) => (s.isLanguage
   ? `This mode teaches ${s.learnLang} to someone who reads ${s.userLang}. ${s.rules || ''}`.trim()
   : `This mode teaches ${s.name}, in ${s.userLang}. It is never a language lesson: keep terms, names, code and formulas as they are.`)
-const itemList = (items, max = 220) => items.map((it, i) => `${i + 1}. [${it.kind}]${hasTier(it) ? ` TIER ${clampTier(it.tier)}` : ''} ${it.front} = ${String(it.back || '').replace(/\s+/g, ' ').slice(0, max)}`).join('\n')
+const itemList = (items, max = 220, subject = null) => items.map((it, i) => `${i + 1}. [${it.kind}]${hasTier(it) ? ` TIER ${clampTier(it.tier)}` : ''}${subject ? ` GOAL ${goalOf(subject, it)}` : ''} ${it.front} = ${String(it.back || '').replace(/\s+/g, ' ').slice(0, max)}`).join('\n')
 
 // ── THE QUESTION LADDER (utils/questionTier.js; the SAME ladder as Study) ──────────────────────────────────────
 // Each card or item carries a `tier` (raids: tierOf(the Anki card); Legends: tierOfItem(its codex tier, { kind })); the
@@ -58,7 +79,7 @@ export function ladderBlock(subject, things = []) {
 // Study's AMBIGUITY SELF-CHECK, the same words for every fight and quiz (App.jsx's question prompt says it this way).
 export function ambiguityRule(subject) {
   return subject.isLanguage
-    ? `AMBIGUITY SELF-CHECK (apply to EVERY typed recall or fill-in question before finalizing): mentally substitute 2 to 3 plausible alternative ${subject.learnLang} words, ESPECIALLY synonyms, into the question. If ANY of them still fits after reading the WHOLE question, it is INVALID until you embed a compact parenthetical cue in ${subject.userLang} right at the blank naming the target's precise meaning or nuance, with its first letter in quotes. A bare sentence with a generic predicate is never enough; a slightly over-specified question with a clear cue beats an elegant ambiguous one.`
+    ? `AMBIGUITY SELF-CHECK (apply to EVERY typed recall or fill-in question before finalizing): mentally substitute 2 to 3 plausible alternative ${subject.learnLang} words, ESPECIALLY synonyms, into the question. If ANY of them still fits after reading the WHOLE question, it is INVALID until you embed a compact parenthetical cue in ${subject.userLang} right at the blank naming the target's precise meaning or nuance (never letters of the answer: the app adds a hint of its first letters). A bare sentence with a generic predicate is never enough; a slightly over-specified question with a clear cue beats an elegant ambiguous one.`
     : `AMBIGUITY SELF-CHECK (apply to EVERY typed question): if another term from this subject would also fit, add a compact parenthetical cue in ${subject.userLang} naming the precise concept or context, or list every fair answer in "accepted". Never a letter of the answer and never the term itself.`
 }
 const QUESTION_SHAPE = '{"type": "choice"|"typed", "question": "...", "choices": ["..."], "answer": <index or text>, "accepted": ["..."], "open": true|false, "explanation": "...", "target": "..."}'
@@ -238,7 +259,7 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
       scope(subject),
       `Area: "${area.title}". Step: ${node.title || node.kind}. ${kindLine}`,
       level ? `Learner: ${level}.` : '',
-      `LEARNING MATERIAL THE LEARNER WAS SHOWN (the only source of questions; front = back):\n${itemList(items, 600)}`,
+      `LEARNING MATERIAL THE LEARNER WAS SHOWN (the only source of questions; front = back):\n${itemList(items, 600, subject)}`,
       'What is ASKED comes only from this material. A situation may be an everyday one or one from the learner\'s own context above; never a city, region, country or person that neither the material nor that context names.',
       reviewItems.length ? `REVIEW: the last ${reviewItems.length} items above were taught in EARLIER levels (${reviewItems.map((it) => it.front).join(' | ')}). Ask about ${Math.min(reviewItems.length, 4)} of the ${n} questions over them (spaced review); the rest over this level's new items.` : '',
       `Spread the ${n} questions over these ${items.length} items (about ${Math.max(1, Math.round(n / Math.max(1, items.length)))} each). More questions than items? Ask the same item another way (meaning, use in a sentence, recognition, its example), never about something else.`,
@@ -255,6 +276,8 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
       // The ladder: typed by default on every question, its 4 options an optional way out (Study's "Show choices").
       ladder && !boss ? 'Every question is answered TYPED by default and has its answers in "accepted"; for EVERY question ALSO add 4 "choices" (the right one plus close wrong ones, only one right) as an optional easier way to answer, but the question must make full sense without them (never "which of these", "true or false", "all of the above").' : '',
       ladderBlock(subject, items),
+      goalsBlock(subject, items),
+      boss || ladder ? distractorRule(!!subject.isLanguage, subject.learnLang) : '',
       CLEAR_ANSWER_RULE,
       ambiguityRule(subject),
       `Write ${n} questions. "explanation" in ${subject.userLang}: why the answer is right, in one sentence.`,
@@ -284,7 +307,8 @@ export function buildQuizCheckPrompt(subject, items, questions) {
       quizSubjectLine(subject),
       subject.isLanguage ? `The learner is learning ${subject.learnLang}; judge the ${subject.learnLang} as a native teacher would (a form that is correct but less casual is still CORRECT).` : '',
       'Also BAD: a question naming a city, region, country or person that neither the material below nor the learner\'s own context above names.',
-      `Learning material (front = back):\n${itemList(items, 600)}`,
+      `Learning material (front = back):\n${itemList(items, 600, subject)}`,
+      goalsBlock(subject, items),
       `Questions:\n${questions.map(row).join('\n')}`,
     ].filter(Boolean).join('\n'),
   }
@@ -473,15 +497,16 @@ export function buildRaidPrompt(subject, cards, { level = '', redo = [] } = {}) 
       level ? `Learner: ${level}.` : '',
       `Exactly ONE question per card below, in the same order, testing ONLY what that card says (never another card, never outside knowledge).`,
       tiered ? ladderBlock(subject, cards) : '',
+      goalsBlock(subject, cards),
       CLEAR_ANSWER_RULE,
       ambiguityRule(subject),
       redo.length ? `A REVIEWER REJECTED the last questions for these cards. Write NEW ones that fix the problem:\n${redo.map((r, i) => `${i + 1}. ${r.prompt ? `"${String(r.prompt).replace(/\s+/g, ' ').slice(0, 200)}"` : '(no usable question was written)'}${r.why ? ` (rejected: ${String(r.why).slice(0, 160)})` : ''}`).join('\n')}` : '',
       subject.isLanguage
         ? `Ask in ${subject.userLang} for the ${subject.learnLang} word or phrase (recall), or give a short ${subject.learnLang} sentence with a blank for it. "accepted": every correct ${subject.learnLang} answer. ${cueRule(subject)} ${subject.rules || ''}`.trim()
         : `Ask for the term, or to apply the idea to a short new case. "accepted": the correct short answers (terms stay as written). Write questions and choices in ${subject.userLang}; subject terms, acronyms, code and numbers stay as written.`,
-      '"choices": 4 options, the right one plus 3 CLOSE but clearly wrong ones (the tempting mistakes), an optional easier way to answer (a safe strike, less damage). Every question must be answerable TYPED without its options, with its answers in "accepted": never "which of these", "which of the following", "choose", "true or false" or "all of the above". The question must never contain its own answer (only a TIER 0 teaching question shows it, on purpose).',
+      `"choices": 4 options, the right one plus 3 CLOSE but clearly wrong ones (the tempting mistakes), an optional easier way to answer (a safe strike, less damage). ${distractorRule(!!subject.isLanguage, subject.learnLang)} Every question must be answerable TYPED without its options, with its answers in "accepted": never "which of these", "which of the following", "choose", "true or false" or "all of the above". The question must never contain its own answer (only a TIER 0 teaching question shows it, on purpose).`,
       'Situations are everyday or from the learner\'s own context above: never a city, region, country or person that neither the card nor that context names.',
-      `Cards:\n${cards.map((c, i) => `${i + 1}.${hasTier(c) ? ` TIER ${clampTier(c.tier)}` : ''} FRONT: ${c.front}\n   BACK: ${String(c.back || '').replace(/\n+/g, ' / ')}`).join('\n')}`,
+      `Cards:\n${cards.map((c, i) => `${i + 1}.${hasTier(c) ? ` TIER ${clampTier(c.tier)}` : ''} GOAL ${goalOf(subject, c)} FRONT: ${c.front}\n   BACK: ${String(c.back || '').replace(/\n+/g, ' / ')}`).join('\n')}`,
     ].filter(Boolean).join('\n'),
   }
 }

@@ -54,8 +54,11 @@ describe('the ladder setting (one with Study)', () => {
 describe('prompts ask each card at its tier', () => {
   it('raid prompt lists tiers, the tier texts, the clear-answer rule and the self-check', () => {
     const { user } = buildRaidPrompt(spanish, [{ front: 'lluvia', back: 'rain', tier: 0 }, { front: 'huir', back: 'to flee', tier: 4 }])
-    expect(user).toMatch(/1\. TIER 0 FRONT: lluvia/)
-    expect(user).toMatch(/2\. TIER 4 FRONT: huir/)
+    expect(user).toMatch(/1\. TIER 0 GOAL word FRONT: lluvia/)
+    expect(user).toMatch(/2\. TIER 4 GOAL word FRONT: huir/)
+    expect(user).toMatch(/THE QUESTION GOAL/)
+    expect(user).toMatch(/SAME LETTERS/)
+    expect(user).not.toMatch(/first letter in quotes/)
     expect(user).toMatch(/TIER 0 \(MEET/)
     expect(user).toMatch(/TIER 4 \(PRODUCE/)
     expect(user).not.toMatch(/TIER 2 \(RECALL/)
@@ -76,7 +79,7 @@ describe('prompts ask each card at its tier', () => {
   it('Legends quiz with the ladder: typed by default with choices, tiers per item', () => {
     const items = tieredItems([{ id: 'a', kind: 'term', front: 'hola', back: 'hello' }], 'learn', true)
     const { user } = buildQuizPrompt(spanish, { title: 'A', theme: 'B' }, { kind: 'learn' }, { choiceItems: items, ladder: true })
-    expect(user).toMatch(/\[term\] TIER 0 hola/)
+    expect(user).toMatch(/\[term\] TIER 0 GOAL word hola/)
     expect(user).toMatch(/both at its TIER/)
     expect(user).toMatch(/TYPED by default/)
     expect(user).toMatch(/TIER 0 \(MEET/)
@@ -130,11 +133,11 @@ describe('raid questions: parse, review, rewrite, resolve', () => {
     { card: 2, question: 'To flee (huir) in Spanish?', accepted: ['huir'], choices: ['huir', 'correr', 'saltar', 'nadar'], answer: 'huir' }, // leaks at tier 2
     { card: 3, question: 'El ___ ladra (animal, "p").', accepted: ['perro'], choices: ['perro', 'gato', 'pez', 'loro'], answer: 'perro' },
   ] }
-  it('keeps each card\'s tier, the letter count, and reports cards with no usable question', () => {
+  it('keeps each card\'s tier, the prefix hint (never the length), and reports cards with no usable question', () => {
     const { qs, missing } = parseRaidQuestions(reply, cards, { clean, isLanguage: true })
     expect(qs.map((q) => q._cardId)).toEqual([11, 13])
     expect(qs.map((q) => q.tier)).toEqual([0, 3])
-    expect(qs[1].prompt).toMatch(/\(p····\)/)
+    expect(qs[1].prompt).toBe('El ___ (p…) ladra (animal).')
     expect(missing).toEqual([1])
   })
   it('plans the rewrite for rejected questions and placeholders, then swaps or drops', () => {
@@ -177,7 +180,7 @@ describe('the review pass prompt', () => {
     expect(user).toMatch(/0\. \[TIER 2\] Rain\?/)
     expect(user).toMatch(/optional options: sol \| \[KEY\] lluvia/)
     expect(user).toMatch(/1\. \[TIER 4, open\] Write a sentence/)
-    expect(user).toMatch(/\[card\] TIER 2 lluvia/)
+    expect(user).toMatch(/\[card\] TIER 2 GOAL word lluvia/)
     expect(ROLE.quizCheck).toBe('qcheck')
   })
   it('reads the reasons with the verdict', () => {

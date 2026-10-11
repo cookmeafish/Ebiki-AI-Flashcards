@@ -13,7 +13,7 @@
 // run reaches them (finalQuestion), so the fight never blocks on a check.
 import { raidCardIndex } from './raid'
 import { parseQuestions, fitQuestionsToKind } from './prompt'
-import { ensureLetterCue } from '../kit/fightSettings'
+import { ensurePrefixHint } from '../kit/fightSettings'
 import { canonKeys } from '../../utils/aiJson'
 
 export const REVIEW = { waitMs: 4000 }
@@ -36,8 +36,8 @@ export function parseRaidQuestions(raw, cards, { clean = (s) => s, isLanguage = 
     const tierFor = () => (card.tier != null ? card.tier : undefined)
     const [one] = fitQuestionsToKind(parseQuestions([q], clean, { speakLang, dual: true, tierFor }), 'raid') // every fight question stands typed
     if (!one) continue
-    // Study's letter-count guarantee for a typed language answer (kit/fightSettings.js; never on an open question).
-    byCard.set(i, { ...ensureLetterCue(one, { isLanguage }), _cardId: card.cardId, target: card.front })
+    // Study's prefix hint for a typed language answer (utils/prefixHint.js; never on an open question, never the length).
+    byCard.set(i, { ...ensurePrefixHint(one, { isLanguage }), _cardId: card.cardId, target: card.front })
   }
   const qs = []
   const missing = []

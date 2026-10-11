@@ -8,6 +8,8 @@ import {
 } from './map'
 import { tierOfItem } from '../../utils/questionTier'
 import { ladderOn } from '../kit/fightSettings'
+import { withPoolChoicesAll } from '../kit/fightChoices'
+import { checkChoices } from '../kit/choiceCheck'
 import {
   buildMapPrompt, buildAreaPrompt, buildQuizPrompt, buildMapEditPrompt, buildPlacementPrompt,
   parseQuestions, fitQuestionsToKind, itemIdFor, buildBossNamePrompt, parseBossName, buildQuizCheckPrompt, parseQuizCheck, ROLE, JOB, MAX_TOKENS, QUIZ_SIZE, QUIZ_PER_ITEM_MAX,
@@ -164,8 +166,42 @@ export const legendsItemTier = (it, kind) => tierOfItem(itemTier(it), { kind })
 // The items a quiz prompt sees: each with its `tier` while the ladder is on, untouched while it is off.
 export const tieredItems = (list, kind, on) => (on ? (list || []).map((it) => ({ ...it, tier: legendsItemTier(it, kind) })) : list || [])
 
+// THE CHOICE POOL for Legends (kit/fightChoices.js, utils/choicePool.js): a question's "Show choices" options come from
+// items the learner was already TAUGHT (this area's levels up to this step, and any item on the map answered before),
+// sharing the prefix hint's first letters, so neither the hint nor "the item I know" picks the tile.
+export function legendsPool(area, node, map = null) {
+  const nodes = area?.nodes || []
+  const at = nodes.findIndex((n) => n.id === node?.id)
+  const upTo = node?.kind === 'boss' || node?.kind === 'legendary' || node?.kind === 'weak' || at < 0 ? nodes : nodes.slice(0, at + 1)
+  const ids = new Set(upTo.flatMap((n) => n.itemIds || []))
+  const here = (area?.items || []).filter((it) => ids.has(it.id) || itemTier(it) !== 'new')
+  const elsewhere = (map?.areas || []).filter((a) => a && a.id !== area?.id).flatMap((a) => (a.items || []).filter((it) => itemTier(it) !== 'new'))
+  return [...here, ...elsewhere].map((it) => ({ front: it.front, back: it.back, studied: true }))
+}
+// The options every question offers come from the pool (kit/fightChoices.js), then THE OPTION CHECK (kit/choiceCheck.js:
+// is a wrong option also right? one call, fail-soft): a flagged option is swapped for a spare; options left unusable
+// are taken away (a typed question is still asked typed; a choice question with no fair options is dropped).
 export function makeQuiz(ctx, modeId, area, node, opts = {}) {
   return once(`quiz:${modeId}:${area.id}:${node.id}`, () => makeQuizNow(ctx, modeId, area, node, opts))
+    .then(async (qs0) => {
+      const qs = withPoolChoicesAll(qs0, {
+        cardOf: (q) => { const id = itemIdFor(q, area.items || []); return (area.items || []).find((it) => it.id === id) || null },
+        pool: legendsPool(area, node, peekMap(modeId)),
+        isLanguage: !!ctx.subject?.isLanguage,
+        t: ctx.t,
+      })
+      if (!Array.isArray(qs)) return qs
+      const fixes = await checkChoices(ctx.ai, qs, { isLanguage: !!ctx.subject?.isLanguage, learnLang: ctx.subject?.learnLang || '', role: ROLE.quizCheck, job: JOB.quizCheck })
+      if (!fixes.size) return qs
+      return qs.map((q, i) => {
+        if (!fixes.has(i)) return q
+        const f = fixes.get(i)
+        if (f) return f
+        if (q.kind === 'choice') return null
+        const { alt: _alt, ...typedOnly } = q
+        return typedOnly
+      }).filter(Boolean)
+    })
 }
 async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   // A boss that beat the learner comes back with those items (area.nemesis, set by a lost fight).

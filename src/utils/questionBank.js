@@ -125,7 +125,12 @@ export function mergeGlosses(bank, setId, qi, questionText, glosses) {
 // Saved copies carry what the card state needs to ask them again, never session state (answers, grades).
 export const storableQuestion = (q) => {
   if (!q || typeof q !== 'object') return q
-  const { question, type, hint1, hint2, acceptedAnswers, glosses, pose, choices, answerIdx, pbq, tier } = q
+  const { question, type, hint1, hint2, acceptedAnswers, glosses, pose, pbq, tier } = q
+  // A MEANING form's options are meanings (a session-only plan: utils/choicePool.js): never saved as a word
+  // question's options.
+  const meaningForm = q.choiceMode === 'meaning'
+  const choices = meaningForm ? null : q.choices
+  const answerIdx = meaningForm ? null : q.answerIdx
   return { question, type, hint1, hint2, acceptedAnswers, glosses, pose, choices, answerIdx, ...(pbq ? { pbq } : {}), ...(Number.isFinite(tier) ? { tier } : {}) }
 }
 

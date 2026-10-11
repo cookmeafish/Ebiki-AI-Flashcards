@@ -14,6 +14,8 @@
 //   4 Produce    interval 21 to 89 days   (Anki's mature cards)
 //   5 Master     interval 90 days or more
 import { canonKeys } from './aiJson'
+import { GOAL_CHECK_RULES, goalLine, shapeGoal } from './questionGoal'
+import { distractorRule } from './choicePool'
 
 export const TIERS = [
   { id: 0, key: 'meet', icon: '🌱' },
@@ -59,7 +61,7 @@ export const tierIcon = (t) => TIERS[clampTier(t)].icon
 
 // THE CLEAR-ANSWER RULE, for every question at every tier, in every surface (Study, raids, Legends): the learner must
 // be able to tell exactly which ONE answer is wanted. Shared wording so every prompt says it the same way.
-export const CLEAR_ANSWER_RULE = 'ONE CLEAR ANSWER: before finalizing EVERY question, try 2 to 3 plausible alternatives (synonyms, related terms, other forms). If any of them would also be a fair answer, the question is INVALID until fixed: add a compact cue in the question (the precise sense, the register, the context, or for a typed word in a language course the first letter in quotes) that rules them out, or list every fair answer as accepted. Never a question with two defensible answers.'
+export const CLEAR_ANSWER_RULE = 'ONE CLEAR ANSWER: before finalizing EVERY question, try 2 to 3 plausible alternatives (synonyms, related terms, other forms). If any of them would also be a fair answer, the question is INVALID until fixed: add a compact cue in the question (the precise sense, the register, the context) that rules them out, or list every fair answer as accepted. Never write letters of the answer yourself: in a language course the app adds a hint of the first letters of the answer to every typed word question (only an answer written in Han characters or kana gets the first sound of its reading in quotes from you). Never a question with two defensible answers.'
 
 // THE REVIEW PASS (the second, independent look at every question before the learner sees it; Study, raids and
 // Legends all run it with these words). The reviewer sees the card(s) and the questions, never as their author.
@@ -72,12 +74,15 @@ export const QUESTION_CHECK_RULES = [
   '- Its choices hold two defensible options, or the right option is missing.',
   '- It asks about something the card does not contain, or needs knowledge the learner cannot have.',
   '- Its tier does not match what it asks (a TIER 4 question that is only a translation, a TIER 1 question with no support).',
+  GOAL_CHECK_RULES,
 ].join('\n')
 
 // What a question at this tier asks. isLanguage: a language course (learned language L, phrasing language Q).
 // Returns one instruction paragraph; callers add their own JSON shape and safety rules.
-export function tierInstruction(tier, { isLanguage = false, learnLang = 'the learned language', quizLang = 'the learner\'s language' } = {}) {
+// `goal` (utils/questionGoal.js): the card's goal, when the prompt is about ONE card: its line is added.
+export function tierInstruction(tier, { isLanguage = false, learnLang = 'the learned language', quizLang = 'the learner\'s language', goal = '' } = {}) {
   const t = clampTier(tier)
+  const g = goal ? goalLine(goal, t) : ''
   const L = learnLang, Q = quizLang
   const lang = [
     // 0 Meet
@@ -85,7 +90,7 @@ export function tierInstruction(tier, { isLanguage = false, learnLang = 'the lea
     // 1 Recognize
     `TIER 1 (RECOGNIZE: the card is still being learned). Easy, well-supported recall: give the meaning in ${Q} plus a short ${L} context sentence with the word blanked out, AND a sense cue, so a learner who has seen the word once or twice can produce it. Type "fill_blank" or "recall".`,
     // 2 Recall
-    `TIER 2 (RECALL: reviewed a few times). PRODUCE the ${L} word from its meaning: ask in ${Q} for the ${L} word for the card's meaning, pinned by a compact sense cue (and for a typed answer its first letter in quotes). Type "recall".`,
+    `TIER 2 (RECALL: reviewed a few times). PRODUCE the ${L} word from its meaning: ask in ${Q} for the ${L} word for the card's meaning, pinned by a compact sense cue (the app adds a hint of its first letters). Type "recall".`,
     // 3 Use
     `TIER 3 (USE: a young card). Test USING the word in context: a natural ${L} sentence with the word blanked (the sentence supplies tense, person and agreement so exactly one form is right, or every valid form is accepted), OR choosing it over a close synonym for a stated situation. Type "fill_blank".`,
     // 4 Produce
@@ -96,12 +101,12 @@ export function tierInstruction(tier, { isLanguage = false, learnLang = 'the lea
   const gen = [
     `TIER 0 (MEET: this card has NEVER been studied). TEACH WHILE ASKING: in 1 to 2 short sentences explain what the card's term or fact IS (from the card) with a concrete example, THEN ask for it in a way that text makes obvious, so the learner answers correctly on the FIRST try. The term may appear in the teaching part. Type "recall".`,
     `TIER 1 (RECOGNIZE: still being learned). Easy recall with support: give the definition or the key clue plus a short context, ask for the term or fact. Type "recall".`,
-    `TIER 2 (RECALL: reviewed a few times). Blind recall: a definition, scenario or usage context that forces the exact term or fact, never naming it. Type "recall".`,
-    `TIER 3 (USE: a young card). Application: a short realistic scenario; ask which term, step, value or technique from this card applies. Type "recall".`,
+    `TIER 2 (RECALL: reviewed a few times). Recall that needs understanding: a scenario, a purpose, a symptom it fixes or a usage context that forces the exact term or fact, never naming it. For a concept, never its definition restated so the name comes back: the clue must be something only someone who knows what it DOES can map. Type "recall".`,
+    `TIER 3 (USE: a young card). Application: a short realistic scenario where the learner must know what it does to choose it (which term, step, value or technique from this card applies, and the scenario must not paraphrase its definition), or what it would do there. Type "recall" (or "explanation" for what it would do).`,
     `TIER 4 (PRODUCE: a mature card). Explain or compare: why or how it works, what distinguishes it from the closest look-alike, or the order of its steps. Open answer graded on understanding. Type "explanation".`,
     `TIER 5 (MASTER: a long-known card). Edge cases and troubleshooting: what goes wrong if it is missing or misapplied, when NOT to use it, or a tricky exam-style case. Exactly one fair answer, or open and graded on understanding. Type "recall" or "explanation".`,
   ]
-  return (isLanguage ? lang : gen)[t]
+  return g ? `${(isLanguage ? lang : gen)[t]} ${g}` : (isLanguage ? lang : gen)[t]
 }
 
 // Tiers whose question may show the word in its teaching text (the leak guard must not drop them).
@@ -112,13 +117,17 @@ export const tierOpen = (tier, isLanguage) => (isLanguage ? clampTier(tier) === 
 // THE REVIEW PASS, its prompt and its reply (Study builds its call with these; raids and Legends may too). The reviewer
 // is a second, independent model call: it sees the card and the questions, applies QUESTION_CHECK_RULES, and names what
 // fails. card: { front, back }; questions: [{ question, type, tier, acceptedAnswers, choices, answerIdx }].
-export function buildQuestionReviewPrompt({ front = '', back = '', questions = [], isLanguage = false, learnLang = '', subject = '' } = {}) {
+// `goal`: the card's goal (utils/questionGoal.js), judged per question at its tier; a question's own `goal` (the
+// writer's statement) is shown beside it.
+export function buildQuestionReviewPrompt({ front = '', back = '', questions = [], isLanguage = false, learnLang = '', subject = '', goal = '' } = {}) {
   const rows = questions.map((q, i) => {
     const choices = Array.isArray(q?.choices) && q.choices.length
       ? `\n   choices: ${q.choices.map((c, ci) => `${ci === q.answerIdx ? '[correct] ' : ''}${c}`).join(' | ')}`
       : ''
     const acc = Array.isArray(q?.acceptedAnswers) && q.acceptedAnswers.length ? q.acceptedAnswers.join(' / ') : '(open: graded on understanding or correct use)'
-    return `${i}. TIER ${clampTier(q?.tier ?? 2)} (${TIERS[clampTier(q?.tier ?? 2)].key}), type ${q?.type || 'recall'}\n   question: ${String(q?.question || '')}\n   accepted: ${acc}${choices}`
+    const stated = shapeGoal(q?.goal)
+    const goalRow = goal ? `\n   goal: ${goalLine(goal, clampTier(q?.tier ?? 2))}${stated && stated !== goal ? ` (the writer stated "${stated}")` : ''}` : ''
+    return `${i}. TIER ${clampTier(q?.tier ?? 2)} (${TIERS[clampTier(q?.tier ?? 2)].key}), type ${q?.type || 'recall'}\n   question: ${String(q?.question || '')}\n   accepted: ${acc}${choices}${goalRow}`
   }).join('\n')
   return [
     `Card front: "${front}"`,
@@ -166,33 +175,8 @@ export function openTierGradingRule({ isLanguage = false, grammarOn = false } = 
     : '- TIER 4 and TIER 5 open questions (explain, compare, troubleshoot): grade on understanding. CORRECT when the answer shows the right idea in any wording, even short; WRONG only when it is factually wrong, misses the point asked, or is empty.'
 }
 
-// CHOICES FROM THE DECK, for a word-answer question that arrived without usable ones (the give-up question, a reply
-// that left them out): its answer plus 3 OTHER cards' answers as distractors (the same kind of thing: words of the
-// same deck), closest in length first so none stands out. A candidate equal to any accepted answer (case, accents and
-// punctuation aside) or to another candidate is skipped. → { choices, answerIdx } (answer first; the caller's
-// buildChoices verifies and shuffles) or null when the deck has too few others. Open questions get none.
-const choiceKey = (s) => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
-// `fill`: a second, weaker pool used only for the options `pool` could not supply (App: other cards' ANSWERS first, the
-// same kind of thing as this answer, then the deck's fronts, which may be in the learner's own language).
-export function choicesFromPool(q, pool = [], { need = 3, maxLen = 40, fill = [] } = {}) {
-  if (!q || typeof q !== 'object' || q.type === 'explanation') return null
-  const accepted = (Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : []).map((a) => String(a ?? '').trim()).filter(Boolean)
-  const answer = accepted[0]
-  if (!answer) return null
-  const taken = new Set(accepted.map(choiceKey))
-  const picks = []
-  const rank = (list) => (Array.isArray(list) ? list : []).map((c) => String(c ?? '').trim()).filter((c) => c && c.length <= maxLen)
-    .map((c, i) => ({ c, i, d: Math.abs([...c].length - [...answer].length) })).sort((a, b) => a.d - b.d || a.i - b.i)
-  for (const { c } of [...rank(pool), ...rank(fill)]) {
-    if (picks.length >= need) break
-    const k = choiceKey(c)
-    if (!k || taken.has(k)) continue
-    taken.add(k)
-    picks.push(c)
-  }
-  if (picks.length < need) return null
-  return { choices: [answer, ...picks], answerIdx: 0 }
-}
+// CHOICES FROM THE DECK live in utils/choicePool.js (planChoices): studied cards sharing the prefix hint, else the
+// meaning form, else the model's own options.
 
 // CHOICES FOR AN OPEN QUESTION (the owner: multiple choice must ALWAYS be available). A tier 4 sentence task or a general
 // "explain" question that arrived without options gets them from one small extra call: 4 short options, exactly one
@@ -201,7 +185,8 @@ export function choicesFromPool(q, pool = [], { need = 3, maxLen = 40, fill = []
 // `answer`: a WORD question (it has an accepted answer) that neither the model nor the deck's other answers could give
 // options (a long general-mode term, a small deck): the correct option is that answer, word for word, and the other
 // three are the same kind of term (the caller's buildChoices checks the right one against the accepted answers).
-export function buildOpenChoicesPrompt({ front = '', back = '', question = '', isLanguage = false, learnLang = '', quizLang = '', answer = '' } = {}) {
+// `prefix`: the hint the learner saw ("pa…"): the wrong options start the same way (utils/choicePool.js distractorRule).
+export function buildOpenChoicesPrompt({ front = '', back = '', question = '', isLanguage = false, learnLang = '', quizLang = '', answer = '', prefix = '' } = {}) {
   const word = String(answer || '').trim()
   return [
     `Card front: "${front}"`,
@@ -210,7 +195,7 @@ export function buildOpenChoicesPrompt({ front = '', back = '', question = '', i
     '',
     'Write 4 answer options for this question so the learner can pick instead of typing. EXACTLY ONE is correct; the other three are clearly WRONG (never defensible), the same kind of thing, similar length, and tempting only to someone who half-knows it.',
     word
-      ? `The correct option is exactly "${word}" (word for word). The three wrong options are other ${isLanguage ? `${learnLang || 'learned-language'} words or phrases` : 'terms from the same subject'} of the same kind (same part of speech or category), never a synonym or another form of "${word}".`
+      ? `The correct option is exactly "${word}" (word for word). The three wrong options are other ${isLanguage ? `${learnLang || 'learned-language'} words or phrases` : 'terms from the same subject'} of the same kind (same part of speech or category), never a synonym or another form of "${word}".${isLanguage && prefix ? ` Each wrong option starts with "${prefix}" like the answer (the learner sees that hint). ${distractorRule(true, learnLang || 'learned-language')}` : ''}`
       : isLanguage
       ? `If the question asks for a ${learnLang || 'learned-language'} sentence: the correct option is one short natural ${learnLang || ''} sentence that uses the card's word correctly with the card's meaning; the wrong ones misuse it (wrong meaning or impossible use) or use a different word. Options in ${learnLang || 'the learned language'}.`
       : `Options are short statements in ${quizLang || 'the learner\'s language'}: one states the right idea, three state common misconceptions.`,

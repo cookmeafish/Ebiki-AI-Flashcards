@@ -22,6 +22,7 @@ import { FONT } from '../../../config/tokens'
 import { FLOATER_OUTLINE } from '../fx/_juice'
 import { POWERS, powerVars, procVars } from '../powers'
 import { reducedMotion, useArtStill, useArtMotionAlways } from '../art'
+import { labelFontSize, labelMaxWidth, LABEL_LINE, LABEL_HALF_LEADING } from './labelFit'
 
 // The colored emoji form (a bare 🛡 or ⚔ draws as a thin outline on Windows).
 export const colorEmoji = (s = '') => (s && !s.endsWith('️') && s.length <= 2 ? `${s}️` : s)
@@ -54,6 +55,15 @@ export const POWER_ARMED = {
   steadfast: { look: 'anchorhearts', window: false },
 }
 // What a power doing its thing on an answer looks like.
+// The words (a cast's "SHIELD UP!", a proc's "DOUBLE DAMAGE!") are sized to the boss box (labelFit.js) and sit OUTSIDE the
+// layer's clip, so they always show whole: at a fixed 20 px and 16 px they were cut on the compact arena, and the long
+// Spanish ones ("¡SEGUNDO ALIENTO!", "¡CRÍTICO DE IMPULSO!") even on the normal one. The peaks are each animation's
+// largest settled scale (lgpwLabel 30%, lgpwProcLabel 25%); the outline scales with the size (2 px at the full size).
+export const CAST_FIT = { maxPx: 20, peak: 1 }
+export const PROC_FIT = { maxPx: 16, peak: 1.12 }
+// A label too long for the compact box even at the floor ("¡CRÍTICO DE IMPULSO!") wraps at its word gaps; CJK stays whole
+// (keep-all: "勢いクリティカル！" broke inside the word), a little past the room but outside the clip, never cut.
+const LABEL_STYLE = { position: 'absolute', left: '50%', width: 'max-content', whiteSpace: 'normal', wordBreak: 'keep-all', textAlign: 'center', lineHeight: LABEL_LINE, fontFamily: FONT.display, fontWeight: 900, letterSpacing: '.04em', WebkitTextStroke: `.1em ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', zIndex: 3 }
 export const POWER_PROC = {
   focus: { color: '#3dffb0', ms: 700, shape: 'snapring', label: 'lg_fxProc_focus' },
   siphon: { color: '#ff2e55', ms: 850, shape: 'draindrops', label: 'lg_fxProc_siphon' },
@@ -345,16 +355,19 @@ export function PowerFx({ t, power, fading = false }) {
   const spec = power && POWER_FX[power.id]
   if (!spec) return null
   const Shape = SHAPES[spec.shape]
+  const text = t ? t(spec.label, power.vars || powerVars(power.id)) : ''
   return (
-    <div key={`pw${power.n}`} aria-hidden="true" data-power-fx={power.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, containerType: 'size', clipPath: 'inset(-30%)', opacity: fading ? 0 : 1, transition: 'opacity 200ms ease-in' }}>
+    <div key={`pw${power.n}`} aria-hidden="true" data-power-fx={power.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, containerType: 'size', opacity: fading ? 0 : 1, transition: 'opacity 200ms ease-in' }}>
       <style>{CSS}</style>
-      <Shape {...spec} />
-      <div style={{ position: 'absolute', left: '50%', top: '50%', width: '32cqw', height: '32cqw', filter: `drop-shadow(0 0 2.5cqw ${spec.color})`, animation: an(ICON_ANIM[spec.icon], spec.ms - (spec.iconAt || 0), spec.iconAt || 0) }}>
-        <PowerIcon id={power.id} />
+      <div data-power-clip="" style={{ position: 'absolute', inset: 0, clipPath: 'inset(-30%)' }}>
+        <Shape {...spec} />
+        <div style={{ position: 'absolute', left: '50%', top: '50%', width: '32cqw', height: '32cqw', filter: `drop-shadow(0 0 2.5cqw ${spec.color})`, animation: an(ICON_ANIM[spec.icon], spec.ms - (spec.iconAt || 0), spec.iconAt || 0) }}>
+          <PowerIcon id={power.id} />
+        </div>
       </div>
-      {t && (
-        <div style={{ position: 'absolute', left: '50%', top: '6%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 20, letterSpacing: '.04em', color: spec.color, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', animation: an('lgpwLabel', spec.ms, 80), zIndex: 3 }}>
-          {t(spec.label, power.vars || powerVars(power.id))}
+      {text && (
+        <div data-power-label="" style={{ ...LABEL_STYLE, top: `calc(6% + ${LABEL_HALF_LEADING}em)`, maxWidth: labelMaxWidth(CAST_FIT, text), fontSize: labelFontSize(text, CAST_FIT), color: spec.color, animation: an('lgpwLabel', spec.ms, 80) }}>
+          {text}
         </div>
       )}
     </div>
@@ -443,12 +456,25 @@ export function wardStyle(on) {
 }
 
 // Steadfast in the hearts row: an anchor with the extra hearts still standing (they are lost first).
-export function SteadfastHearts({ n = 0, size = 16 }) {
-  if (!(n > 0)) return null
+// `total`: the gold hearts brought (the spent ones stay, greyed, so the boss's attack can land on the one it takes,
+// heartTargets.js); `hearts` (BossArena): { lost, gained, mark, gainAt } gold indices that just broke or came back.
+export function SteadfastHearts({ n = 0, total = n, size = 16, hearts = null }) {
+  const all = Math.max(n, total)
+  if (!(all > 0)) return null
   return (
-    <span data-power-armed="steadfast" aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 6px 1px 3px', borderRadius: 999, background: '#ffcf4a22', boxShadow: '0 0 0 1.5px #ffcf4a' }}>
+    <span data-power-armed="steadfast" aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 6px 1px 3px', borderRadius: 999, background: '#ffcf4a22', boxShadow: `0 0 0 1.5px ${n > 0 ? '#ffcf4a' : '#ffcf4a55'}` }}>
       <PowerIcon id="steadfast" size={size + 2} />
-      {Array.from({ length: n }, (_, i) => <svg key={i} viewBox="0 0 100 100" width={size} height={size}><path d={HEART} fill="#ffcf4a" stroke="#8a6410" strokeWidth="6" /></svg>)}
+      {Array.from({ length: all }, (_, i) => {
+        const spent = i >= n
+        const justLost = spent && !!hearts?.lost?.includes(i)
+        const justGained = !spent && !justLost && !!hearts?.gained?.includes(i)
+        return (
+          <svg key={`${i}-${justLost || justGained ? hearts.mark : 0}`} data-heart-gold={i} data-heart-state={spent ? 'lost' : 'full'} viewBox="0 0 100 100" width={size} height={size}
+            style={{ filter: spent ? 'grayscale(1) opacity(.35)' : 'none', animation: justLost ? 'lgHeartLose .5s ease-out both' : justGained ? `lgHeartGain .45s cubic-bezier(.3,1.6,.5,1) ${hearts.gainAt || 0}ms both` : undefined }}>
+            <path d={HEART} fill="#ffcf4a" stroke="#8a6410" strokeWidth="6" />
+          </svg>
+        )
+      })}
     </span>
   )
 }
@@ -513,13 +539,16 @@ export function PowerProc({ t, proc, fading = false }) {
   const spec = proc && POWER_PROC[proc.id]
   if (!spec) return null
   const Shape = PROC_SHAPES[spec.shape]
+  const text = t ? t(spec.label, proc.vars || procVars(proc.id)) : ''
   return (
-    <div key={`pp${proc.n}`} aria-hidden="true" data-power-proc={proc.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, containerType: 'size', clipPath: 'inset(-30%)', opacity: fading ? 0 : 1, transition: 'opacity 200ms ease-in' }}>
+    <div key={`pp${proc.n}`} aria-hidden="true" data-power-proc={proc.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2, containerType: 'size', opacity: fading ? 0 : 1, transition: 'opacity 200ms ease-in' }}>
       <style>{CSS}</style>
-      <Shape {...spec} />
-      {t && (
-        <div style={{ position: 'absolute', left: '50%', top: '56%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 16, letterSpacing: '.04em', color: spec.color, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', animation: an('lgpwProcLabel', spec.ms, 40), zIndex: 3 }}>
-          {t(spec.label, proc.vars || procVars(proc.id))}
+      <div data-power-clip="" style={{ position: 'absolute', inset: 0, clipPath: 'inset(-30%)' }}>
+        <Shape {...spec} />
+      </div>
+      {text && (
+        <div data-power-label="" style={{ ...LABEL_STYLE, top: `calc(56% + ${LABEL_HALF_LEADING}em)`, maxWidth: labelMaxWidth(PROC_FIT, text), fontSize: labelFontSize(text, PROC_FIT), color: spec.color, animation: an('lgpwProcLabel', spec.ms, 40) }}>
+          {text}
         </div>
       )}
     </div>

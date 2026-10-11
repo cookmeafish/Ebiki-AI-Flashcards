@@ -1,6 +1,6 @@
 // RAID POWERS (powers.js + raid.js raidStep/applyBandage, fight.js raidRating).
 import { describe, it, expect } from 'vitest'
-import { POWERS, POWER_IDS, LOADOUT_MAX, POWER_WINDOW, FURY_MULT, SHARPEN_BONUS, bossesBeaten, unlockedPowers, nextUnlock, shapeLoadout, toggleLoadout, isFightPower, powerUsable, powerAfterAnswer, fiftyFifty, powerHint, powersHelpLine } from './powers'
+import { POWERS, POWER_IDS, LOADOUT_MAX, POWER_WINDOW, FURY_MULT, SHARPEN_BONUS, bossesBeaten, unlockedPowers, nextUnlock, shapeLoadout, toggleLoadout, isFightPower, powerUsable, powerAfterAnswer, fiftyFifty, powerHint, powerClue, powersHelpLine } from './powers'
 import { raidStep, applyBandage, raidToday, raidBossIndex, RAID_ORDER, shapeRaid, raidAttemptOutcome } from './raid'
 import { newFight, raidRating } from './fight'
 
@@ -23,6 +23,12 @@ describe('unlocks: different bosses beaten, spread to the whole roster', () => {
     expect(unlockedPowers(RAID_ORDER.length)).toEqual(POWER_IDS)
     expect(nextUnlock(0)).toEqual({ id: 'shield', beaten: 1 })
     expect(nextUnlock(RAID_ORDER.length)).toBeNull()
+  })
+  it('an unlock is for good: kept unlocks (the raid state high-water mark) count whatever the thresholds say now (powerUnlocks.test.js)', () => {
+    const prog = { beaten: 1, kept: ['steadfast'] }
+    expect(unlockedPowers(prog)).toEqual(['shield', 'steadfast'])
+    expect(shapeLoadout(['steadfast'], prog)).toEqual(['steadfast'])
+    expect(nextUnlock(prog)).toEqual({ id: 'fifty', beaten: POWERS.fifty.unlock })
   })
   it('no gap between unlocks is longer than 3 bosses (something to look forward to all the way)', () => {
     const at = [0, ...POWER_IDS.map((id) => POWERS[id].unlock)]
@@ -96,10 +102,21 @@ describe('using powers: each brought one once per fight, one per question', () =
     expect(fiftyFifty({ choices: ['a'], answerIdx: 0 })).toBeNull()
   })
   it('the hint shows half of each word, more than the cue\'s first letter, never the whole word', () => {
-    expect(powerHint('buenos días')).toBe('bue··· dí··')
-    expect(powerHint('ir')).toBe('i·')
+    expect(powerHint('buenos días')).toBe('bue… dí…')
+    expect(powerHint('pantalones')).not.toMatch(/·/)
+    expect(powerHint('ir')).toBe('i…')
     expect(powerHint('a')).toBe('a')
-    expect(powerHint("l'eau")).toBe("l'e··")
+    expect(powerHint("l'eau")).toBe("l'ea…") // the prefix hint already shows l'e…
+    expect(powerHint('a veces')).toBe('… vec…') // a short word of a phrase stays hidden
+  })
+  it('general modes: the Hint is an understanding cue (the explanation, the term masked), never half the term', () => {
+    const back = 'A hardware-isolated area of a processor that keeps keys away from the main OS. Also called a secure enclave.'
+    expect(powerClue(back, ['secure enclave'])).toBe('A hardware-isolated area of a processor that keeps keys away from the main OS. Also called a ….')
+    expect(powerClue('TPM', ['tpm'])).toBe('')
+    const q = { kind: 'typed', accepted: ['secure enclave'], prompt: 'What protects them?' }
+    expect(powerUsable('hint', { q, loadout: ['hint'], isLanguage: false, clue: '' })).toBe(false)
+    expect(powerUsable('hint', { q, loadout: ['hint'], isLanguage: false, clue: 'A hardware area' })).toBe(true)
+    expect(powerUsable('hint', { q: { ...q, noHint: true }, loadout: ['hint'], isLanguage: true })).toBe(false) // its options could not keep to a hint
   })
 })
 

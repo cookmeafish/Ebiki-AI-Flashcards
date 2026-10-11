@@ -8,7 +8,7 @@ const [kind = 'raids', motif = 'vampire', animated = 'intro', phase = '1', times
 const browser = await chromium.launch({ headless: true, args: ['--mute-audio'] })
 const ctx = await browser.newContext({ viewport: { width: 700, height: 360 }, deviceScaleFactor: +dprA })
 const page = await ctx.newPage()
-await page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' })
+await page.goto('http://localhost:3001/', { waitUntil: 'domcontentloaded' })
 await page.waitForFunction(() => [...document.querySelectorAll('style')].some((s) => s.textContent.includes('--c-brand')), null, { timeout: 90000 })
 await page.evaluate(async ({ kind, motif, animated, phase }) => {
   const style = [...document.querySelectorAll('style')].map((s) => s.outerHTML).join('')

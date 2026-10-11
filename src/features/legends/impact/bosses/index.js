@@ -25,4 +25,5 @@ import sugarqueen from './sugarqueen'
 import kitsune from './kitsune'
 import ophanim from './ophanim'
 import voidBoss from './void'
-export const BOSS_DATA = { chronos, banshee, seraph, titan, vampire, gorgon, chimera, ratking, showman, reaper, leviathan, lich, cerberus, tempest, dreamer, berserker, inferno, swarmqueen, moonmaw, hydra, kaleido, puppeteer, sugarqueen, kitsune, ophanim, void: voidBoss }
+import horseman from './horseman'
+export const BOSS_DATA = { chronos, banshee, seraph, titan, vampire, gorgon, chimera, ratking, showman, reaper, leviathan, lich, cerberus, tempest, dreamer, berserker, inferno, swarmqueen, moonmaw, hydra, kaleido, puppeteer, sugarqueen, kitsune, ophanim, void: voidBoss, horseman }

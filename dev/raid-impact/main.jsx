@@ -116,7 +116,7 @@ function Sheet() {
           <div key={m} style={{ display: 'flex', gap: 18 }}>
             {[false, true].map((calm) => (
               <div key={String(calm)} data-arena={calm ? 'calm' : 'fx'} style={{ width: 460 }}>
-                <BossArena key={run} t={t} area={{ motif: m, palette: 'original' }} name={m} need={30} lives={3} state={state} phases={3} kind="raids" focus={calm} questionKey={0} />
+                <BossArena key={run} t={t} area={{ motif: m, palette: 'original' }} name={m} need={30} lives={3} state={state} phases={3} kind="raids" ability={RAID_ABILITY[m]} focus={calm} questionKey={0} />
               </div>
             ))}
           </div>

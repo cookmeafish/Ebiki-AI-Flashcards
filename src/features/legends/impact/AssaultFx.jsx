@@ -166,7 +166,7 @@ const slash = (c, { x, y, len, w, rot, delay = 0 }) => (
 
 export const IMPACT_DRAW = {
   // Three claw rakes torn across the screen through the heart.
-  claws: (c) => W0(c, [-1, 0, 1].map((i) => slash(c, { x: c.tx + i * 22 * c.k, y: c.ty - i * 14 * c.k, len: Math.max(c.W, c.H) * 0.85, w: 7 * c.k, rot: -34, delay: (i + 1) * 45 }))),
+  claws: (c) => W0(c, [-1, 0, 1].map((i) => <div key={i}>{slash(c, { x: c.tx + i * 22 * c.k, y: c.ty - i * 14 * c.k, len: Math.max(c.W, c.H) * 0.85, w: 7 * c.k, rot: -34, delay: (i + 1) * 45 })}</div>)),
   // One clean cut across the whole screen.
   cut: (c) => W0(c, <>
     {slash(c, { x: c.tx, y: c.ty, len: Math.hypot(c.W, c.H) * 1.1, w: 10 * c.k, rot: -16 })}
@@ -348,7 +348,9 @@ function HeartBreak({ c }) {
   )
 }
 
-export default function AssaultFx({ motif, geo, big = false, fading = false }) {
+// `geo.tx2/ty2`: a heavy blow's SECOND heart (heartTargets.js): its second impact and heart break land there, 200 ms after
+// the first (the row loses both hearts it takes, end one first). `aim`: which hearts, for tests ("r4 r3", "g0").
+export default function AssaultFx({ motif, geo, big = false, fading = false, aim = '' }) {
   if (!geo) return null
   const a = assaultFor(motif)
   const st = impactFor(motif)
@@ -359,14 +361,19 @@ export default function AssaultFx({ motif, geo, big = false, fading = false }) {
     color: a.tint || st.color, accent: st.accent, glyph: a.glyph || st.glyph, k: big ? ASSAULT.big : 1,
     t0: ASSAULT.travelAt, dur: ASSAULT.travelMs[a.travel] || 360, land: landAt(a.travel),
   }
+  // The second impact of a heavy blow, on the second heart (the same heart when only one was left).
+  const tx2 = Number.isFinite(geo.tx2) ? geo.tx2 : geo.tx, ty2 = Number.isFinite(geo.ty2) ? geo.ty2 : geo.ty
+  const dx2 = tx2 - geo.bx, dy2 = ty2 - geo.by, rad2 = Math.atan2(dy2, dx2)
+  const c2 = { ...c, tx: tx2, ty: ty2, dx: dx2, dy: dy2, rad: rad2, ang: (rad2 * 180) / Math.PI, len: Math.max(1, Math.hypot(dx2, dy2)), land: c.land + 200 }
   const vig = Math.round(Math.min(c.W, c.H) * 0.28)
   return (
-    <div aria-hidden="true" data-assault={`${a.travel}+${a.impact}`} style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 4, opacity: fading ? 0 : 1, transition: 'opacity 200ms ease-in' }}>
+    <div aria-hidden="true" data-assault={`${a.travel}+${a.impact}`} data-assault-aim={aim || undefined} style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 4, opacity: fading ? 0 : 1, transition: 'opacity 200ms ease-in' }}>
       <style>{ASSAULT_CSS}</style>
       {TRAVEL_DRAW[a.travel](c)}
       {IMPACT_DRAW[a.impact](c)}
-      {big && <div style={{ position: 'absolute', inset: 0 }}>{IMPACT_DRAW[a.impact]({ ...c, land: c.land + 200 })}</div>}
+      {big && <div style={{ position: 'absolute', inset: 0 }}>{IMPACT_DRAW[a.impact](c2)}</div>}
       <HeartBreak c={c} />
+      {big && (c2.tx !== c.tx || c2.ty !== c.ty) && <HeartBreak c={c2} />}
       <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: `inset 0 0 ${vig}px ${Math.round(vig * 0.35)}px rgba(255, 24, 48, ${big ? 0.85 : 0.65})`, animation: `lgaVig ${big ? 900 : 700}ms ease-out ${ms(c.land)} both` }} />
     </div>
   )

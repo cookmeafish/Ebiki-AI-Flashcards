@@ -2,8 +2,8 @@
 
 The Legends and raid pictures. Nothing here is generated at runtime: edit or replace a file and the app uses it. The
 full art direction (what bosses and banners must look like, how to animate them) is `docs/legends-art-guide.md`; read
-its "The owner's top rules, in short" before redrawing a boss, and for raid bosses its "Raid boss voices" section (a
-redesign updates the boss's lore and voice too).
+its "Rules for every boss and banner" before redrawing a boss; raid bosses: its "RAID BOSSES" section first; a redesign
+also updates lore and voice ("Raid boss voices").
 
 - `areas/<motif>.svg`: an area's banner, the boss's lair, `viewBox="0 0 400 140"` (shown wide, cropped to fit).
 - `bosses/<motif>.svg`: the area's boss, square, `viewBox="0 0 120 120"`.

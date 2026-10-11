@@ -42,14 +42,16 @@ export function Card({ children, style, onClick, title }) {
 
 // The main call to action: solid color, uppercase, with a pressable bottom edge (moves only on :active,
 // via the app-wide .btn-press rule).
-export function ChunkyButton({ children, onClick, color = C.brand, textColor = C.white, disabled, style, variant = 'solid', type = 'button' }) {
+export function ChunkyButton({ children, onClick, color = C.brand, textColor = C.white, disabled, style, variant = 'solid', type = 'button', ...rest }) {
+  // data-* attributes pass through (tests and the asset view find buttons by them); nothing else does.
+  const data = Object.fromEntries(Object.entries(rest).filter(([k]) => k.startsWith('data-')))
   const ghost = variant === 'ghost'
   // White text sits on the deep FILL of a token color (AA in both themes); other text colors keep the color itself.
   const fill = textColor === C.white ? fillFor(color) : color
   return (
     // The solid glow lives in the .ui-chunky class (color via --chunky), never inline: an inline shadow would block
     // the hover cue. The ghost variant keeps the generic hover tint.
-    <button type={type} onClick={onClick} disabled={disabled} className={ghost ? 'btn-press' : 'btn-press ui-chunky'} style={{
+    <button type={type} onClick={onClick} disabled={disabled} {...data} className={ghost ? 'btn-press' : 'btn-press ui-chunky'} style={{
       '--chunky': fill,
       fontFamily: FONT.body, fontWeight: 800, fontSize: 14, letterSpacing: '.04em', textTransform: 'uppercase',
       padding: '11px 18px', borderRadius: RADIUS.md, cursor: disabled ? 'default' : 'pointer',

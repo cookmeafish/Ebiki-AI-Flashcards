@@ -7,6 +7,11 @@ its numbers, its art, its animations and its tests. Read it before touching `src
 
 - **Unlocked for good by beating DIFFERENT raid bosses.** Beating the same boss twice counts once (`bossesBeaten`).
   Powers never run out, are never bought, and never drop at random.
+- **For good means STORED.** The raid state keeps `powers`, the ids unlocked so far (a high-water mark: shapeRaid
+  writes the stored list plus what the trophies give now, and it only grows). A new raid boss raises the last
+  thresholds (the Horseman moved Fury 23 to 24 and Steadfast 26 to 27); a player who had a power keeps it. Code takes
+  `powerProgress(state)` (`{ beaten, kept }`), never only `bossesBeaten`. **When a threshold moves, append the old
+  table to `PAST_UNLOCKS`** (powers.js): a state from an older build (no `powers`) is seeded from it.
 - **Bring up to 3** (`LOADOUT_MAX`) chosen on the raid intro (`features.legends.raidLoadout`). **Each brought power
   works once per fight** (a fight = one run; "Continue?" keeps the fight, "Fight again" starts a new one). One power
   per question.
@@ -21,15 +26,22 @@ its numbers, its art, its animations and its tests. Read it before touching `src
 - **Anki stays honest.** No power turns a wrong answer right, skips a question, reveals the whole answer or raises an
   Anki grade. A power that helps with the QUESTION itself (50:50, Hint) makes that card's review Hard (`aided`).
   Fight-only powers (damage, hearts) leave the grade alone; Focus changes the fight damage, never the verdict.
+- **The Hint follows the question's hint rules** (`powerHint` / `powerClue`, powers.js). In a language mode it shows
+  about the first HALF of each word ("bue… dí…", one engine with Study's retry hint, `longerPrefix` in
+  utils/prefixHint.js). It never shows the length, a short word of a phrase stays "…", and an elision shows the word
+  after it ("l'ea…"). It is not offered on a question that shows no prefix hint (`noHint`: its options could not
+  keep to one, so letters would pick the tile). In a general mode it follows the question goal: it gives an
+  understanding cue (the card's explanation with the term masked), never half the term, and it is offered only when
+  that cue has at least 4 words. It is usable only while the question is typed.
 - **Fights stay fair and readable** (the abilities' rules): no timers, nothing hidden, nothing that punishes a right
   answer.
 - **No em dashes** in any text. All text in all four locales.
 
 ## Progression (what makes a power "make sense")
 
-Unlocks are spread across the whole roster: 1, 3, 5, 8, 11, 13, 15, 17, 19, 21, 23, 26 different bosses. The last
+Unlocks are spread across the whole roster: 1, 3, 5, 8, 11, 13, 15, 17, 19, 21, 24, 27 different bosses. The last
 one needs every boss of the roster (`RAID_ORDER.length`). A test keeps unlocks increasing, distinct, gaps of at most
-3, and the last at the roster size.
+3, and the last at the roster size. Moving a threshold: see "For good means STORED" above.
 
 Power should grow with the unlock, because late bosses have 2 to 4 times the health of early ones:
 
@@ -37,7 +49,7 @@ Power should grow with the unlock, because late bosses have 2 to 4 times the hea
 |---|---|---|---|
 | Early | 1 to 8 | saves ONE heart or helps ONE question | Shield, 50:50, Second wind, Sharpen (+2 once) |
 | Mid | 11 to 17 | a bigger single effect, or a siege effect | Hint, Bandage, Focus, Siphon |
-| Late | 19 to 26 | a 3-question window (`POWER_WINDOW`) or a whole-fight effect | Ward, Momentum, Fury, Steadfast |
+| Late | 19 to 27 | a 3-question window (`POWER_WINDOW`) or a whole-fight effect | Ward, Momentum, Fury, Steadfast |
 
 Sanity limits (tested in `powers.test.js` "balance"):
 - Over its window, no damage power adds more than 8 damage to 3 clean answers.

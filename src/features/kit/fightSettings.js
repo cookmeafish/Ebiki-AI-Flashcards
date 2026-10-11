@@ -10,6 +10,7 @@
 // are the safety net. Any subject: a general mode phrased in another language keeps its terms untranslated and grades
 // understanding in any language.
 import { sameLanguage, tapAllowed } from '../../utils/tapTokens'
+import { prefixHint, typedPrompt, choicePromptText, hasPrefixHint, answerInitials, fold } from '../../utils/prefixHint'
 
 export const FIGHT_STYLES = ['typed', 'choices']
 
@@ -97,49 +98,32 @@ export function fightWords(subject = {}, rules = {}) {
 // The question ladder too: on, every question is written at its card's tier; off, all at today's middle question.
 export const generationKey = (rules = {}) => [rules.learnLang || '', rules.speaks || '', rules.dialect || '', rules.questionLadder === false ? 'flat' : 'ladder'].join('|')
 
-// ── The first-letter cue (Study's guarantee, for fight questions) ─────────────────────────────────────────────
-// A typed language question pins ONE answer with a sense cue AND the answer's first letter. Scripts without letters
-// to show (Han, kana) never get a skeleton: their cue is the romanization's initial, written by the model.
-const NO_SKELETON = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
-const QUOTED_LETTER = /["'“”‘’«»‹›„‚「」『』]\s*(\p{L})\s*["'“”‘’«»‹›„‚「」『』]/gu
-// A two-letter answer's skeleton has ONE dot ("(y·)", "(e· ········)" for "el sombrero"): a single middle dot counts
-// too (a single "." never does: "(p.)" is an abbreviation).
-const SKELETON = /\((\p{L})(?:[·.]{2,}|·)[^)]*\)/gu
-const initials = (accepted = []) => {
-  const set = new Set()
-  for (const a of accepted) for (const w of String(a || '').split(/[\s/'’]+/)) { const c = [...w.trim()][0]; if (c) set.add(c.toLowerCase()) }
-  return set
-}
+// ── The prefix hint (Study's guarantee, for fight questions: ONE engine, utils/prefixHint.js) ───────────────────
+// A typed language question pins ONE answer with a sense cue AND the app's prefix hint: the answer's first ~20% of
+// letters ("(so…)" for sombrero, "(b… d…)" for buenos días), never its length (the owner: the letter count gave a
+// question away once it was switched to its choices). Han and kana answers get none: their cue is the romanization's
+// initial, written by the model.
 export function hasLetterCue(prompt, accepted = []) {
-  const firsts = initials(accepted)
-  if (!firsts.size) return false
-  const found = [...String(prompt || '').matchAll(QUOTED_LETTER), ...String(prompt || '').matchAll(SKELETON)].map((m) => m[1].toLowerCase())
-  return found.some((c) => firsts.has(c))
+  if (hasPrefixHint(prompt, accepted)) return true
+  const firsts = answerInitials(accepted)
+  return [...String(prompt || '').matchAll(QUOTED_LETTER)].some((m) => firsts.has(fold(m[1])))
 }
-// "sombrero" → "(s·······)"; '' for an answer that starts with Han or kana.
-export function letterSkeleton(answer) {
-  const a = String(answer || '').trim()
-  if (!a || NO_SKELETON.test(a)) return ''
-  return `(${a.split(/(\s+)/).map((w, wi) => (/^\s+$/.test(w) ? w : [...w].map((ch, i) => (wi === 0 && i === 0 ? ch : /\p{L}/u.test(ch) ? '·' : ch)).join(''))).join('')})`
-}
-// The skeleton is there: the first letter AND how many letters (the owner: the count must always be shown, a quoted
-// first letter alone left ambiguous questions unanswerable).
-export function hasLetterSkeleton(prompt, accepted = []) {
-  const firsts = initials(accepted)
-  return [...String(prompt || '').matchAll(SKELETON)].some((m) => firsts.has(m[1].toLowerCase()))
-}
-// The prompt without its skeleton, for a question answered with its choices (the letters would pick the tile).
-export const stripLetterSkeleton = (prompt) => String(prompt || '').replace(/\s*\((\p{L})(?:[·.]{2,}|·)[^)]*\)/gu, '')
-// A typed language question without the skeleton gets it, even beside a quoted first letter (open and choice
-// questions never: a cue would leak).
-export function ensureLetterCue(q, { isLanguage = false } = {}) {
+const QUOTED_LETTER = /["'“”‘’«»‹›„‚「」『』]\s*(\p{L})\s*["'“”‘’«»‹›„‚「」『』]/gu
+// The hint for an answer, '' when none can be shown.
+export const letterHint = (answer) => prefixHint(answer)
+// The prompt as answered with its CHOICES: no hint of any kind (its letters would pick the tile).
+export const stripLetterHints = (prompt, accepted = null) => choicePromptText(prompt, accepted)
+// A typed language question shows its prefix hint (a legacy skeleton or a quoted first letter gives way to it); open
+// and choice questions never (a hint would leak).
+export function ensurePrefixHint(q, { isLanguage = false } = {}) {
   if (!isLanguage || !q || q.kind !== 'typed' || q.open) return q
   const acc = Array.isArray(q.accepted) ? q.accepted.filter(Boolean) : []
-  if (!acc.length || hasLetterSkeleton(q.prompt, acc)) return q
-  const sk = letterSkeleton(acc[0])
-  if (!sk) return q
-  const prompt = /_{2,}/.test(q.prompt) ? String(q.prompt).replace(/_{2,}/, (m) => `${m} ${sk}`) : `${q.prompt} ${sk}`
-  return { ...q, prompt }
+  if (!acc.length) return q
+  // Its choices could not keep to the hint (kit/fightChoices.js `noHint`): no hint at all, so "Show choices" gives
+  // nothing away.
+  if (q.noHint) { const bare = choicePromptText(String(q.prompt || ''), acc); return bare === q.prompt ? q : { ...q, prompt: bare } }
+  const prompt = typedPrompt(String(q.prompt || ''), acc, { isLanguage: true })
+  return prompt === q.prompt ? q : { ...q, prompt }
 }
 
 // The context a fight runs with: the same ctx, its subject speaking the fight's language, plus `fight` = { rules,
