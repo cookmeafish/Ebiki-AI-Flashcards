@@ -30,8 +30,8 @@ ${P}[data-moment="hit"] .lg-titan-armR { animation: lgrTitanMHitFist 520ms ease-
 @keyframes lgrTitanMCritHead { 0% { transform: none } 12% { transform: translate(-4px, 2px) rotate(-12deg) } 30% { transform: translate(-3px, 2px) rotate(-10deg) } 46% { transform: rotate(4deg) } 70% { transform: rotate(-1.5deg) } 100% { transform: none } }
 @keyframes lgrTitanMCritTorso { 0%, 100% { transform: none } 12% { transform: scale(1.06, .9) } 34% { transform: scale(.98, 1.03) } 56% { transform: scale(1.01, .99) } }
 @keyframes lgrTitanMCritShoulders { 0%, 100% { transform: none } 12% { transform: rotate(-6deg) translateY(2px) } 40% { transform: rotate(2deg) } }
-@keyframes lgrTitanMCritFist { 0%, 100% { transform: none } 12% { transform: rotate(-18deg) translateY(-3px) } 40% { transform: rotate(6deg) } 64% { transform: rotate(-2deg) } }
-@keyframes lgrTitanMCritPiston { 0%, 100% { transform: none } 14% { transform: rotate(-14deg) } 40% { transform: rotate(6deg) } 64% { transform: rotate(-2deg) } }
+@keyframes lgrTitanMCritFist { 0%, 100% { transform: none } 12% { transform: rotate(-14deg) translate(-4px, -4px) } 40% { transform: rotate(6deg) } 64% { transform: rotate(-2deg) } }
+@keyframes lgrTitanMCritPiston { 0%, 100% { transform: none } 14% { transform: rotate(-4deg) translate(4px, -8px) } 40% { transform: rotate(9deg) translateY(2px) } 64% { transform: rotate(-1deg) } }
 ${P}[data-moment="crit"] .lg-titan-head { animation: lgrTitanMCritHead 640ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="crit"] .lg-titan-torso { animation: lgrTitanMCritTorso 640ms ease-out both }
 ${P}[data-moment="crit"] .lg-titan-shoulders { animation: lgrTitanMCritShoulders 640ms ease-out both }
@@ -47,7 +47,7 @@ ${P}[data-moment="sharpen"] .lg-titan-armL { animation: lgrTitanMCutPiston 600ms
 /* ITS BLOW ON THE PLAYER (data-assault-on): the giant right fist draws back and up with the shoulder (anticipation),
    then is HURLED at the camera as the lunge leaves (impact/assault.js travelAt): it swells toward you, the head and
    pauldrons drive in behind it, it holds there and grinds back. */
-@keyframes lgrTitanMBlowFist { 0% { transform: none } 13% { transform: rotate(-22deg) translate(4px, -6px) scale(.88) } 22% { transform: rotate(6deg) translate(-8px, -4px) scale(1.75) } 30% { transform: rotate(4deg) translate(-7px, -3px) scale(1.68) } 54% { transform: rotate(3deg) translate(-6px, -3px) scale(1.6) } 100% { transform: none } }
+@keyframes lgrTitanMBlowFist { 0% { transform: none } 13% { transform: rotate(-22deg) translate(0, -6px) scale(.88) } 22% { transform: rotate(6deg) translate(-18px, -10px) scale(1.5) } 30% { transform: rotate(5deg) translate(-17px, -9px) scale(1.45) } 54% { transform: rotate(4deg) translate(-15px, -8px) scale(1.4) } 100% { transform: none } }
 @keyframes lgrTitanMBlowHead { 0% { transform: none } 13% { transform: translate(2px, -2px) rotate(4deg) } 22% { transform: translate(-1px, 3px) rotate(-3deg) scale(1.1) } 54% { transform: translateY(2px) scale(1.06) } 100% { transform: none } }
 @keyframes lgrTitanMBlowShoulders { 0% { transform: none } 13% { transform: rotate(5deg) } 22% { transform: rotate(-4deg) translateY(2px) scale(1.04) } 54% { transform: rotate(-2deg) } 100% { transform: none } }
 ${P}[data-assault-on] .lg-titan-armR { animation: lgrTitanMBlowFist 840ms cubic-bezier(.3,.7,.3,1) both }
@@ -60,8 +60,8 @@ ${P}[data-moment="hurt"] .lg-titan-torso { animation: lgrTitanMHeave 640ms ease-
 ${P}[data-moment="hurt"] .lg-titan-armL { animation: lgrTitanMBrace 640ms ease-in-out both }
 /* ITS HEAVY BLOW (hurtBig): the crushing hammer-fall: the fist climbs high overhead, the piston-arm rises with it, and
    both come down like a drop hammer, the head ducking into it and the boiler crushed flat under the force. */
-@keyframes lgrTitanMHeavyFist { 0% { transform: none } 22% { transform: rotate(-46deg) translate(6px, -12px) scale(1.05) } 32% { transform: rotate(10deg) translate(-6px, 4px) scale(1.65) } 42% { transform: rotate(8deg) translate(-6px, 5px) scale(1.6) } 66% { transform: rotate(5deg) translate(-4px, 3px) scale(1.4) } 100% { transform: none } }
-@keyframes lgrTitanMHeavyPiston { 0% { transform: none } 22% { transform: rotate(-30deg) translateY(-4px) } 32% { transform: rotate(12deg) translateY(3px) } 66% { transform: rotate(6deg) } 100% { transform: none } }
+@keyframes lgrTitanMHeavyFist { 0% { transform: none } 22% { transform: rotate(-36deg) translate(-10px, -14px) } 32% { transform: rotate(6deg) translate(-16px, -8px) scale(1.45) } 42% { transform: rotate(5deg) translate(-15px, -7px) scale(1.4) } 66% { transform: rotate(3deg) translate(-9px, -4px) scale(1.22) } 100% { transform: none } }
+@keyframes lgrTitanMHeavyPiston { 0% { transform: none } 22% { transform: rotate(-4deg) translate(4px, -8px) } 32% { transform: rotate(12deg) translateY(3px) } 66% { transform: rotate(6deg) } 100% { transform: none } }
 @keyframes lgrTitanMHeavyHead { 0% { transform: none } 22% { transform: translateY(-4px) rotate(-4deg) } 32% { transform: translateY(5px) scale(1.12) } 60% { transform: translateY(3px) scale(1.06) } 100% { transform: none } }
 @keyframes lgrTitanMHeavyTorso { 0%, 22%, 100% { transform: none } 32% { transform: scale(1.12, .84) } 46% { transform: scale(.97, 1.04) } 60% { transform: scale(1.02, .98) } }
 ${P}[data-moment="hurtBig"] .lg-titan-armR, ${P}[data-assault-on][data-moment="hurtBig"] .lg-titan-armR { animation: lgrTitanMHeavyFist 940ms cubic-bezier(.4,.2,.3,1) both }
@@ -71,13 +71,13 @@ ${P}[data-moment="hurtBig"] .lg-titan-torso { animation: lgrTitanMHeavyTorso 940
 ${P}[data-moment="hurtBig"] .lg-titan-shoulders { animation: lgrTitanMHitRattle 700ms linear 300ms both }
 /* BLOCKED: the punch meets a wall: the fist drives in, stops dead with a judder, and is shoved back down; the head
    jerks back from the jolt. */
-@keyframes lgrTitanMBlockFist { 0% { transform: none } 12% { transform: rotate(4deg) translate(-6px, -3px) scale(1.45) } 16% { transform: rotate(3deg) translate(-5px, -2px) scale(1.4) } 20% { transform: rotate(5deg) translate(-6px, -3px) scale(1.42) } 24% { transform: rotate(3deg) translate(-5px, -2px) scale(1.4) } 40% { transform: rotate(14deg) translate(4px, 5px) scale(.94) } 60% { transform: rotate(6deg) translate(2px, 2px) } 100% { transform: none } }
+@keyframes lgrTitanMBlockFist { 0% { transform: none } 12% { transform: rotate(5deg) translate(-15px, -7px) scale(1.4) } 16% { transform: rotate(3deg) translate(-13px, -6px) scale(1.35) } 20% { transform: rotate(5deg) translate(-14px, -7px) scale(1.37) } 24% { transform: rotate(3deg) translate(-13px, -6px) scale(1.35) } 40% { transform: rotate(14deg) translate(4px, 5px) scale(.94) } 60% { transform: rotate(6deg) translate(2px, 2px) } 100% { transform: none } }
 @keyframes lgrTitanMBlockHead { 0% { transform: none } 22% { transform: translate(2px, -3px) rotate(5deg) } 50% { transform: rotate(-2deg) } 100% { transform: none } }
 ${P}[data-moment="block"] .lg-titan-armR { animation: lgrTitanMBlockFist 680ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="block"] .lg-titan-head { animation: lgrTitanMBlockHead 680ms ease-out both }
 /* SAVED: the punch skids off the shield: the fist slews outward and grinds sideways, the whole frame twisting after it,
    the head turned away. */
-@keyframes lgrTitanMSkidFist { 0% { transform: none } 14% { transform: rotate(4deg) translate(-5px, -3px) scale(1.35) } 34% { transform: rotate(-28deg) translate(10px, -2px) scale(1.1) } 54% { transform: rotate(-20deg) translate(9px, 0) } 100% { transform: none } }
+@keyframes lgrTitanMSkidFist { 0% { transform: none } 14% { transform: rotate(4deg) translate(-12px, -5px) scale(1.3) } 34% { transform: rotate(-18deg) translate(-8px, -6px) scale(1.08) } 54% { transform: rotate(-12deg) translate(-6px, -2px) } 100% { transform: none } }
 @keyframes lgrTitanMSkidHead { 0%, 100% { transform: none } 30%, 56% { transform: translateX(3px) rotate(8deg) } }
 @keyframes lgrTitanMSkidShoulders { 0%, 100% { transform: none } 30%, 56% { transform: rotate(5deg) translateX(2px) } }
 ${P}[data-moment="shield"] .lg-titan-armR { animation: lgrTitanMSkidFist 760ms cubic-bezier(.2,.9,.3,1) both }
@@ -114,8 +114,8 @@ ${P}[data-fx="crack"] .lg-titan-head { animation: lgrTitanMCrackHead 320ms ease-
    piston-arm swings wide, the boiler bulging. */
 @keyframes lgrTitanMShatterShoulders { 0% { transform: none } 12% { transform: scale(1.16) translateY(-3px) } 30% { transform: scale(1.04) translateY(3px) } 52% { transform: translateY(2px) } 100% { transform: none } }
 @keyframes lgrTitanMShatterHead { 0% { transform: none } 12% { transform: translateY(-5px) rotate(-8deg) scale(.94) } 34% { transform: translateY(2px) rotate(4deg) } 60% { transform: rotate(-1deg) } 100% { transform: none } }
-@keyframes lgrTitanMShatterFist { 0%, 100% { transform: none } 14% { transform: rotate(-20deg) translateY(-4px) } 40% { transform: rotate(6deg) } }
-@keyframes lgrTitanMShatterPiston { 0%, 100% { transform: none } 14% { transform: rotate(-18deg) } 40% { transform: rotate(6deg) } }
+@keyframes lgrTitanMShatterFist { 0%, 100% { transform: none } 14% { transform: rotate(-14deg) translate(-4px, -5px) } 40% { transform: rotate(6deg) } }
+@keyframes lgrTitanMShatterPiston { 0%, 100% { transform: none } 14% { transform: rotate(-4deg) translate(4px, -8px) } 40% { transform: rotate(6deg) } }
 ${P}[data-fx="shatter"] .lg-titan-shoulders { animation: lgrTitanMShatterShoulders 1000ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-fx="shatter"] .lg-titan-head { animation: lgrTitanMShatterHead 1000ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-fx="shatter"] .lg-titan-armR { animation: lgrTitanMShatterFist 1000ms ease-out both }

@@ -470,7 +470,7 @@ export function SteadfastHearts({ n = 0, total = n, size = 16, hearts = null }) 
         const justGained = !spent && !justLost && !!hearts?.gained?.includes(i)
         return (
           <svg key={`${i}-${justLost || justGained ? hearts.mark : 0}`} data-heart-gold={i} data-heart-state={spent ? 'lost' : 'full'} viewBox="0 0 100 100" width={size} height={size}
-            style={{ filter: spent ? 'grayscale(1) opacity(.35)' : 'none', animation: justLost ? 'lgHeartLose .5s ease-out both' : justGained ? `lgHeartGain .45s cubic-bezier(.3,1.6,.5,1) ${hearts.gainAt || 0}ms both` : undefined }}>
+            style={{ filter: spent ? 'var(--lg-heart-gold-lost, grayscale(1) opacity(.35))' : 'none', animation: justLost ? 'lgHeartLose .5s ease-out both' : justGained ? `lgHeartGain .45s cubic-bezier(.3,1.6,.5,1) ${hearts.gainAt || 0}ms both` : undefined }}>
             <path d={HEART} fill="#ffcf4a" stroke="#8a6410" strokeWidth="6" />
           </svg>
         )

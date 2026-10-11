@@ -2,7 +2,7 @@
 // in every language (a fixed 20 px "HEAVY BLOW!" read "EAVY BLOW" on the compact arena, on every boss).
 import { describe, it, expect } from 'vitest'
 import { labelEm, labelFontSize, labelFontPx, labelMaxWidth, LABEL_ROOM, LABEL_MIN_PX } from './labelFit'
-import { MOMENT_LABEL, LABEL_FIT, STAMP_FIT } from '../StrikeFxLayer'
+import { MOMENT_LABEL, LABEL_FIT, LABEL_LINE, STAMP_FIT } from '../StrikeFxLayer'
 import { POWER_FX, POWER_PROC, CAST_FIT, PROC_FIT } from './PowerFx'
 import { powerVars, procVars, WIND_HEARTS } from '../powers'
 import { BOSS } from '../BossArena'
@@ -79,11 +79,20 @@ describe('every strike, stamp, cast and proc label fits its box', () => {
     }
     expect(tight.every((x) => x.endsWith(`@${BOSS.arenaCompact}`))).toBe(true)
   })
-  it('keeps the English look on the normal arena (the full 20 px strike labels)', () => {
+  it('keeps one size for every English strike label on the normal arena: the height cap (16cqh, 19.2 px)', () => {
     const t = makeT('en')
     for (const [moment, key] of Object.entries(MOMENT_LABEL)) {
       if (moment === 'ko') continue
-      expect(labelFontPx(t(key, { n: WIND_HEARTS }), BOSS.arena, LABEL_FIT), moment).toBe(20)
+      expect(labelFontPx(t(key, { n: WIND_HEARTS }), BOSS.arena, LABEL_FIT), moment).toBeCloseTo(BOSS.arena * 0.16, 5)
+    }
+  })
+  it('keeps every strike label inside the arena card at its peak (the headroom is 20% of the box, the card border 2 px)', () => {
+    // Its top sits 0.1 x box - (0.25 + LABEL_LINE x peak) em above the box (StrikeFxLayer): it rose 3 to 7 px past the card.
+    for (const l of labels.filter((x) => x.fit === LABEL_FIT)) {
+      for (const box of [BOSS.arenaCompact, BOSS.arena]) {
+        const px = labelFontPx(l.text, box, l.fit)
+        expect(0.3 * box - 2 - (0.25 + LABEL_LINE * LABEL_FIT.peak) * px, `${l.lang} ${l.what} @${box}`).toBeGreaterThanOrEqual(0)
+      }
     }
   })
   it('keeps the stamp at its old 12 px floor unless the box needs less, and at 13cqw on the normal arena', () => {
@@ -95,7 +104,7 @@ describe('every strike, stamp, cast and proc label fits its box', () => {
 
 describe('the CSS', () => {
   it('is a clamp in container units with the floor and the cap', () => {
-    expect(labelFontSize('HEAVY BLOW!', LABEL_FIT)).toMatch(/^clamp\(10px, [\d.]+cqw, 20px\)$/)
+    expect(labelFontSize('HEAVY BLOW!', LABEL_FIT)).toMatch(/^clamp\(10px, min\(16cqh, [\d.]+cqw\), 20px\)$/)
     expect(labelFontSize('DEFEATED!', STAMP_FIT)).toMatch(/^clamp\(max\(10px, min\(12px, calc\(.+cqw - 6px\) \/ [\d.]+\)\)\), min\(13cqw, calc\(.+\)\), 30px\)$/)
   })
   it('caps only labels that can wrap (a word gap), so an unbreakable one stays centered', () => {
@@ -104,11 +113,11 @@ describe('the CSS', () => {
     expect(labelMaxWidth(CAST_FIT, 'STEADFAST!')).toBeUndefined()
   })
   it('resolves to what labelFontPx says', () => {
-    // the plain label: K cqw at a box of B px = K * B / 100 px, clamped
+    // the plain label: min(16cqh, K cqw) at a square box of B px, clamped
     const css = labelFontSize('HEAVY BLOW!', LABEL_FIT)
-    const k = Number(/([\d.]+)cqw/.exec(css)[1])
+    const k = Number(/([\d.]+)cqw\)/.exec(css)[1])
     for (const box of [40, 68, 92, 120, 190]) {
-      expect(labelFontPx('HEAVY BLOW!', box, LABEL_FIT)).toBeCloseTo(Math.max(10, Math.min(20, (k * box) / 100)), 1)
+      expect(labelFontPx('HEAVY BLOW!', box, LABEL_FIT)).toBeCloseTo(Math.max(10, Math.min(20, (Math.min(16, k) * box) / 100)), 1)
     }
   })
 })

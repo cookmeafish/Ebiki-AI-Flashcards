@@ -178,24 +178,40 @@ moments and knockout in the asset view (light and dark) before the owner looks.
   broken lights (no glossy stripe); eye heavy-lidded; ONE pair of lavender eyed wings stands folded tall and rises into
   a pointed ARCH over her head (a judge's throne vault; the lower pair was cut); thin gold halo. Knocked out, P1's
   wings sag OUTWARD (the shared inward turn folded the arch into a hood). P2 leans hard (rotate 7) and its wings are
-  larger and fanned. 2 The Verdict: the veil crimson-black with ember edges, whipping; the mask
+  larger and fanned. Round 11: P1 sleeves rose-crimson (a value step above the deep robe), bigger hands (palm 1.5,
+  fist 1.45), the scales on a short post so both pans hang clear of the pauldron; P3 upper arms swell and narrow into a
+  marked elbow with an open bend, a slim wrist above the gauntlet, steeper than the (now flatter) wing top; every
+  palm has a real two-plate thumb. The head hook (`lg-seraph-head`) pivots at the NECK (60,100; phase 3 60,90) and
+  never translates on its own in any fight animation (check-joints 0). Round 12: P3 upper arms CRIMSON with a gold rim
+  (they vanished into the ochre feathers), forearms in pale vambraces tilted off plumb, swelling below the elbow and
+  tapering to a slim wrist (gauntlet wrists narrowed to match); the P3 robe draws in at the waist with a draped hem;
+  the P3 brow is one arch close over the eye; P2 arms thicker with an ember rim, flung higher and wider, the veil
+  whipped wider, the lean 10 degrees; P1 hands lower on the robe front, the scales on a short post. Round 13: P1 hands
+  1.72 / 1.6 (about 23% larger), the left palm held sideways below the pauldron (fully off it), the forearm angled up
+  from a low elbow; P1 veil a step darker so the mask stands apart; the P2 scales arm one diagonal (no L). 2 The Verdict: the veil crimson-black with ember edges, whipping; the mask
   charred grey, cracked red, an ember inlay; heavy brows and ONE bold V lid line biting into the glowing eye; both arms
   flung out to the sides at shoulder height: the left nearly straight, palm thrust out (eye wide, red), the right
   thrusting the scales out, tipped hard to wrath; blood-black robe and ember-rimmed crimson sleeves, an ember-orange
   stole, every hem torn and burning; ash-and-ember wings flung wide, every eye open and blinking; a red ring halo.
-  3 Final Judgment: both arms raised from the TOPS of her shoulders in an open V, elbows marked above shoulder
-  height (OCHRE sleeves, separate from the white robe by value; pale gold vambraces pointed toward the elbow); large
-  hands (round 10: about 1.4x) in clear dark space: the scales aloft on the right fist with Mercy's white and Wrath's
-  red flames in the pans, the left palm raised (eye blazing gold); the robe white and gold (a crimson stole only),
-  gold pauldrons, an ivory neck, the veil turned to GOLD cloth so the ivory mask stands out, a plain gold circlet, the
-  cracks healed in gold, the eye gold and calmly lidded; one great pair of pale-gold wings MANTLED: each wing's soft
-  pale top rises from behind the shoulder to elbow height and long feathers hang down and out to the lower corners
-  (no dark leading-edge line: it read as a staff; coverts are long narrow feathers), so no feather touches a hand or
-  a pan; a halo (radius 34) with one golden eye and two fine rings of light (never a filled disc: it read as a grey
-  plate); she floats, motes of light rising. Knocked out: the eye a closed lid in the mask's own colour, its line
+  3 Final Judgment (round 13, a NEW pose: the raised V read as candle holders): ASYMMETRIC and diagonal. The scales arm
+  drives up and out (round 15: about 50 degrees shoulder to wrist with a READABLE elbow: the crimson upper arm runs out
+  near level, bends, and a gold vambrace forearm tapers up into the cuff), the fist round the post and the burning
+  scales (Mercy's white flame, Wrath's red) standing clear in the open dark past the halo, above the lowered wing; the palm arm crosses LOW in front of her (elbow at the waist, gold
+  forearm across the robe, the wrist bent back so the open hand faces us at her belt, its eye blazing gold). The robe is
+  a slim white gown drawn in by a gold belt with an eye buckle, long folds to a wavy hem, the crimson stole under the
+  belt; gold pauldrons, an ivory neck, the veil GOLD cloth, a plain gold circlet, cracks healed in gold, the eye gold and
+  calmly lidded (no bloom round it: its edge read as an arc across the mask). ONE great pair of wings (`crescentWing(pose)`,
+  round 16: the same build both sides: a leading edge under white coverts with one gold eye, gold and cream flight
+  feathers whose tips all end on ONE designed rim curve); round 17: BOTH wings SPREAD up and out behind her
+  (`WING3.spread`), a golden arch framing her and the halo, the coverts lying along each leading edge, the primaries
+  fanning into both upper corners (P2 reaches all four corners: P3 matches its span); the raised scales (1.42x, bigger
+  than P2's) cross in front of the right wing. She is lifted 9 units (halo and wings with her) and floats, motes rising. Her wings
+  fill the frame, so the fight swings them less (`--sp-wa` .32 in phase 3, .35 in phase 2; halo swell `--sp-hs` .35).
+  The scales group holds the FIST too and turns about the wrist (fx css per phase), so block/sharpen never part them.
+  Knocked out (round 14): the END pose of the knockout is held (no hanging-arms drawing swaps in; check-ko-hold), phase
+  3's scales arm sagging and folding in. Knocked out: the eye a closed lid in the mask's own colour, its line
   drooping at the corners (a sagging curve read as a smile); phase 3's wings sink a little (12deg; the shared -16deg
-  stood them up like ears) and its halo swells only 1.05x; in phases 2 and 3 the raised arms give way to arms hanging
-  at her sides with limp hands, the scales fallen and toppled beside her right hand.
+  stood them up like ears) and its halo swells only 1.05x.
 - **Ability (verdicts)**: questions cycle Wrath, Mercy, none (tag chip): Wrath right +2; Mercy miss costs no heart (still
   returns as an attack), Mercy right +1; a phase line shifts the cycle. Art: `lg-ab-verdict-wrath|mercy` (a red
   flame lit in the right pan or a white flame in the left; phase 3: that pan's flame roars tall); every verdict moves the REAL scales
@@ -294,19 +310,25 @@ moments and knockout in the asset view (light and dark) before the owner looks.
   hand sizes follow the forearm (P3 palm about 0.75 of it); his left hangs, tapering to its elbow plate; the head tilts per phase. The cuirass has
   three lames with gold edges and rivets, engraved scrolls and a fleur, lit by his own crystal glow. His mirror fans hold
   ghosted reflections of his helm and face.
-- **Phases** (he changes, nothing else): 1 the Vigil: head bowed into the gorget, one eye narrowed, his fist grips a long mirror shard upright
-  beside his face (its light on his cheek), the fans FOLDED shut behind his shoulders (two small panes holding his
-  reflection: a compact, closed outline), the prism glinting cyan. 2 Shattered: the
-  plate turns plum-crimson and splits, crimson crystal growing out through the cuirass and crest and bursting sideways out of both pauldrons (a spiky new shoulder line), the head thrown into a tilt and the whole bust lurching into the punch, a denser, taller burst; the helm's
-  cheek guard breaks away showing more mirror face, which shatters and bares its teeth; he raises his clenched FIST (the thumb
-  folded across it) spraying splinters; the fans fling wide and break, red and cyan; the prism red hot. 3 Thousand Reflections: white
-  crystal plate with gold rims, a tall crystal crown, a cut-crystal brow, gold eyes blazing in dark sockets, a cold
-  smile; an open palm raised (jointed fingers, a two-segment thumb), his white-gold light glowing in
-  it and a star of that light rising from it (no rainbow); a mantle of long white-gold crystal blades sweeps from under his pauldrons to the bottom corners (his body's new
-  outline); a dark edge keeps the white helm and horns clear of the corona; the fans have become a white-gold corona on a gold ring that opens where his horns pass (no backdrop light).
-  Every part stays inside the box's headroom. Generator: `.scratch/raid-kitsune/kaleido/gen.mjs` (edit it, not the SVG).
-  1192 paths, 75 animations. Silhouette IoU (silhouettes.mjs, 60 px, still pose): P1-P2 0.654, P2-P3 0.759,
-  P1-P3 0.677 (kitsune 0.671 / 0.863 / 0.699).
+- **Phases** (round 13: the BODY changes, not only the aura): 1 the Vigil: head bowed into the gorget, one eye
+  narrowed, his fist grips a mirror shard upright beside his face, the fans folded into two small panes, cyan glints.
+  2 Shattered: plum-crimson plate splitting; the right horn SNAPPED off with a burning break, the dome split with crystal
+  forcing out, the left pauldron BURST into a crystal shoulder; he lunges (nearer, leaning); face shattered, teeth
+  bared; fist raised, thumb across it; the fans flung wide red and cyan. 3 Thousand Reflections: risen into his corona
+  (bust smaller, lifted), the horns become a swept crystal crown, the pauldrons grow crystal wings, white plate over a
+  dark gorget, the white face in a dark visor frame against a dark field inside the gold ring; open palm with a big
+  star of light; the white-gold corona. Generator: `.scratch/raid-kitsune/kaleido/gen.mjs` (edit it, not the SVG).
+  1023 paths, 71 animations. Silhouettes (silhouettes.mjs): full 0.662 / 0.734 / 0.662, body-only
+  (`--hide=.lg-kaleido-refl,.lg-kaleido-refr,.lg-kaleido-aura`) 0.665 / 0.611 / 0.669, both PASS.
+  Fight moments stay inside the arena clip (check-moment-clip 0): the helm punches by TILTING on its neck (it sits about
+  3 units under the top clip in P2/P3, so it never grows past 1.04), the mirror fans lean with a matching drop, and the
+  P2 helm turns the other way (its intact horn rose on a clockwise turn).
+  He ACTS in his strike and heavy blow (THROW in impact/bosses/kaleido.parts.jsx, shared with his ray attack so nothing
+  restarts): rears back, the raised arm swings across him, the shoulders twist, the chest shears, the fans focus, and
+  his own body moves (kaleidoThrow / kaleidoCleave) lunge the whole knight at the player; the heavy blow throws twice.
+  His knockout lands ON him and holds: face dark and shattered (lg-kaleido-crack, the prism too), left horn broken off,
+  crown knocked askew, fans folded away, P3 wings drooped, head bowed, arms fallen, his light dimmed. A shield save's
+  ring starts at the chest prism, not his mouth. The P3 star of light is held in front of the open palm.
 - **Ability (prism)**: each question shows a color chip (red, green, blue in shuffled blocks of three); collecting all
   three = Prism +2; a right answer on a color already held = Overcharge +1. Art: `lg-ab-prism-1/2` light the chest
   prism's facets; `lg-fx-shard` (a glint), `lg-fx-overcharge` (the prism red hot and cracking), `lg-fx-prism` (the prism
@@ -367,54 +389,46 @@ trophies work. Do not recreate it.
   cheekbones, hollow cheeks, sunken sockets with glowing eyes, two heavy V brows, blue-violet lips), long silver hair, a
   black lace mourning veil with a widow's peak, a silver tiara with a teardrop gem, a deep violet mourning gown with a
   lace V neckline, silver funeral lilies and a gem brooch, two cracked bronze bells hanging on chains from the veil pins
-  beside her face. Generator: `.scratch/raid-kitsune/banshee/gen.mjs`.
+  beside her face. Generator: `.scratch/raid-kitsune/banshee/gen.mjs` (or edit the SVG directly; the SVG is the source of truth).
 - **Her mouth is a real, expressive human mouth, never a ring**: phase 1 a keening moan (lips parted, corners
   dragged down, a sliver of teeth), phase 2 a raging shriek (upper lip curled up, fangs top and bottom, nose folds),
   phase 3 the killing note (a wide open scream, both rows of teeth, the throat lit with her light). The jaw drops 2 to
   2.6 units; the skull never changes.
-- **Phases** (the ONE silhouette tool, `node .scratch/raid-kitsune/silhouettes.mjs banshee`, frame 0, tolerance 0: banshee
-  P1-P2 0.495, P2-P3 0.816, P1-P3 0.519 against the committed kitsune's 0.671 / 0.863 / 0.699; a slim hooded bust at
-  her keys, a wide V of tall banks with the veil whipped out to the lower corners, a fan of pipes with arms flung wide
-  and down over long ghost tails): 1 THE DIRGE, teal and cyan: she plays a short spectral keyboard of light, both bony
-  hands arched on the keys, eyes half lidded and glowing; no pipes yet (the organ grows with each phase), ghost notes
-  drifting up beside her; the veil, gown and keyboard narrow and straight. 2 THE WAIL, violet and acid green: she rips
-  her right claw off the keys and flings it up beside her face on a long forearm that tapers from the elbow to a slim
-  wrist and is longer than the hand (short vase-stub forearms were rejected), the wide sleeve fallen to the elbow, green
-  sparks round the claw, shrieking; the pipe banks rise tall, swing open and shudder, the same organ pipe as phase 1
-  with its flue mouth cut into the pipe face (it tilts with its pipe), staggered, no crack lines (no rings or wisps over
-  the tops: straws in test tubes); the veil's sides whip out to the lower corners in one smooth curve each with a torn
-  lace hem (stacked wedges read as bat wings); the gown darkens to violet-black with acid-green lace, rips at the
-  shoulders and frays below the hem into short torn shreds, uneven and tapering (scallops read as a lampshade or a
-  frill), the bells swing hard. 3 REQUIEM, ice cyan on night blue, gold bells: ascended into ghost light: skin and hair
-  turned to light, eyes of light in a GLARE (dark blue brows driven down to the nose, upper lids pressed onto the
-  eyes), her ultimate WAIL, bigger than the phase 2 shriek: a wide commanding open mouth, both rows of teeth clearly
-  drawn (no fangs), cold light filling her mouth from deep inside in its own shape (a throat-glow oval read as a
-  tongue; a ring round her lips read as a ring gag); ONE commanding move: both arms flung wide and DOWN, claws spread
-  low at her sides, the wide bell sleeves hanging from the forearms with lit lace hems ("hands up beside the face"
-  read as "don't shoot"); the gown a night-blue robe with thin threads of light rising up it (curved pale streaks read
-  as fangs), slim, trailing off below the bust into long torn ghost tails, each its own tapering curl; her organ is her
-  AURA, three ice-metal organ pipes a side fanned from ONE root behind each shoulder: long conical feet, a flue mouth
-  cut into each pipe face (two lit from inside), OPEN cut tops (a dark bore inside a pale rim, no caps: capped pale
-  tubes read as glass tubes or glow sticks), spread so every mouth clears the veil and the arms; her sound is the
-  ghost notes rising out of the lit flue mouths; inside the frame with strokes and idle sway (measured -21.9..141.9,
-  top -22.0, bottom 142.7); her head tilts into the note (glassy pipes with rim rings read as test tubes; a rank on a
-  plinth read as scenery; a radial fan of thin white pipes read as syringes; no glow outline round her, no upward
-  tongues: horns; no veil wings: they hid the pipes). In phases 1 and 2 the sleeve stops at the elbow and a bony
-  forearm runs to the lace cuff (hands growing out of cuffs read as armless). The hair locks fall behind her shoulders
-  in every phase (in front they read as tusks). No scenery in any phase (no loft, nave, window, water or lightning).
-- **Fight motion keeps her together** (`fx/banshee.jsx`, check-joints 0): head and hair pivot on the same neck joint
-  (view-box units per phase) and the hair plays the head's animation in every moment; head moves are tilts and small
-  scales about that joint, never translations; in phase 3 the jaw only flexes (`lgrBansheeP3Jaw*`) so the wide mouth
-  never passes her chin. The shared white hit flash is moved down onto her chest for this boss (it hid her face for
-  ~150 ms on a critical). The Wail and Shatter screen layers are round and fade to nothing before the box edge (a
-  hard rectangle showed past the card); Wail has no juice flash and Shatter flash 1 (a hit-stop held white silhouette
-  hid her). Knockout ring solid, not dashed (a dashed ring read as a loading spinner).
+- **Phases** (round 15, 2026-10-11; the ONE silhouette tool, frame 0: full view P1-P2 0.637, P2-P3 0.716, P1-P3 0.584
+  against the kitsune's 0.671 / 0.863 / 0.699; BODY ONLY with `--hide=.lg-banshee-pipes` 0.633 / 0.574 / 0.698 against
+  her body pairs 0.626 / 0.591 / 0.700, tolerance 0.05): a hooded bust at her keys between two low pipe banks, a wide V
+  of tall banks with the veil whipped out, a diagonal conductor's gesture in front of a tall facade. 1 THE DIRGE, teal
+  and cyan: both bony hands arched on a full-width spectral keyboard, eyes half lidded and glowing; a low bank of three
+  unlit pewter pipes behind each shoulder, tallest nearest her (flat tops, dark flue mouths), ghost notes drifting up
+  from them. 2 THE WAIL, violet and acid green: she rips her right claw off the keys and flings it up beside her face on
+  a long tapering forearm, shrieking (curled lip, fangs); the banks rise tall, swing open and shudder; the veil whips out
+  to the lower corners; the gown rips at the shoulders and frays into short shreds; the bells swing hard. 3 REQUIEM,
+  night blue and ice cyan, gold bells: she CONDUCTS the killing note in one diagonal gesture: her left arm thrown FULLY
+  up, high above the hood, the hooked claw round a small sound orb, her right claw flung down at you; both arms are her
+  BONES in the lavender of phases 1 and 2 (a short cap sleeve, a bony upper arm, a real elbow knob, a tapering ridged
+  forearm, long hooked claws; white mannequin arms read as a robot, a half-raised arm read as waving), their value below
+  the face; the face is the strongest of the three: pupilless blazing eyes in dark sockets under heavy brows, a wide
+  shriek with long fangs and a faint cold light deep in the throat; a SLIM gown (sloped shoulders, narrow waist) that
+  ends in a soft torn edge and pours into one long pale TAIL of ghost light curling to a point below her (the body
+  carries the change; a row of dark points read as teeth, a wide robe as a poncho); the veil narrow behind her
+  shoulders; her organ is a dim slate FACADE: four upright pipes a side, tallest at the outside, a short foot, a flue
+  mouth CUT into each (dark slot, pale lip, a thin cold line of light), flat tops with a pale rim, low value and
+  saturation so they sit behind her in the blur (flame tops, needle feet and capsule lights read as pencils). No scenery in any phase.
+- **Fight motion keeps her together** (`fx/banshee.jsx`, check-joints 0, check-moment-clip 0): head and hair pivot on
+  the same neck joint and the hair plays the head's animation in every moment; in phase 3 the jaw only flexes
+  (`lgrBansheeP3Jaw*`) and each moment moves her arms its OWN way inside the clip (`lgrBansheeP3*`: the raised
+  forearm `lg-banshee-foreR` bends at the elbow, the low arm swings at the shoulder); the knockout folds the raised
+  forearm down across her chest, sinks both arms and shuts her mouth (`lg-banshee-shut`), held by `data-down`; in phase 2 the raised
+  claw flinches, rears and sinks inside the clip (`lgrBansheeP2*`: the keyboard-pose swings threw it past the edge).
+  The shared white hit flash lands on her chest, small, through the supported `style.flash` option (`impact/bosses/
+  banshee.js`, read by the shared flash part; tested in impact.test.js). No colour bloom or white disc is laid over her
+  in Wail or Shatter; her scream rings stop inside the arena. Knockout ring solid, not dashed.
 - **Ability (scream)**: she screams at every phase line and after each miss (one pending); the next right answer
   shatters it for +2. Art: `lg-ab-scream-1` (the scream held: the mouth opens in phase 1, frost on her cheeks, streaks
   of cold sound hang from her mouth), `lg-fx-wail` (blazing eyes, bolts of sound), `lg-fx-shatter` (eyes squeezed shut,
   lips clamped, an ice crack across her face). Effects (`fx/banshee.jsx`): Wail = a VIOLET and GREEN sound shock
   (jagged pressure fronts sweeping from her mouth corners to the edges, green/violet waveforms, the choir flung at you,
-  glowing green); Shatter = WHITE and ICE BLUE glass (a white flash, frost needles from every corner, two bars of ice
+  glowing green); Shatter = WHITE and ICE BLUE glass (frost needles from every corner, two bars of ice
   beside her mouth, a crack web in the outer ring of the arena, shards falling beside her, a flatline). Knockout: the
   song ends: her sound rings collapse back into her, her LAST NOTE slips from her lips and thins away past her veil
   (`bansheeLastNote`), her ghost light comes apart in rising motes (`bansheeMotes`) and her pipes shudder and sink
@@ -459,8 +473,16 @@ trophies work. Do not recreate it.
 - **Concept**: the Legends Sakura ascended, built from `bosses/sakura.svg`'s face: a fine white fox face, red markings,
   a bell on a red cord, a layered kimono collar. The gold standard of quality.
 - **Phases** (each a different woman, silhouette and palette): 1 Courtly: wink, closed fan at her lips, neat fan of pink
-  tails. 2 Unveiled: the mask cracks off, amber slits, fanged grin, hair and tails flung wide in violet foxfire.
-  3 Celestial Kyubi: a corona of nine white-gold tails, a shimenawa halo, eyes of light, a third eye.
+  tails. 2 Unveiled: the mask cracks off, amber slits, fanged grin, hair and tails flung wide in a radial fan of
+  crimson tails tipped in violet foxfire, and her arms come up: furisode sleeves hanging from the shoulder curve, a
+  forearm tapering out of each cuff, a clawed hand (thumb included) gripping a crimson foxfire (2026-10-11: the old
+  sleeves were flat-topped tubes with no arm in them; the owner asked for them fixed, not removed).
+  3 Celestial Kyubi: a corona of nine white-gold tails, a shimenawa halo, eyes of light, a third eye. Every tail of
+  phases 2 and 3 ends inside the headroom (2026-10-11: they were sliced flat at the frame's edge; the corona was
+  re-angled to fit).
+- **Head and knockout** (2026-10-11): her head and hair pivot on the chin seam (60 81), so every fight move tilts the
+  head on the neck (`check-joints.mjs` STRICT). The knockout has no spin: frozen on the blow, lifted and trembling in a
+  ring of foxfire, her spirit tears out above her ears as she drops, her face falls (eyes shut, a tear, a frown).
 - **Ability (rally)**: every right answer returns her star ball; the 4th in a row = Starfall +3; a miss resets. Art:
   `data-ab-rally`.
 - **Card**: `lgPetalFall`. **Owner**: "go all out" while staying beautiful.
@@ -487,18 +509,20 @@ trophies work. Do not recreate it.
   sit OUTSIDE his breathing group: "the green table should not move"). 3 The Hoard God (redrawn 2026-10-10 to the
   kitsune model; the 2026-10-09 version was rejected for yellow eyes plus tiny shades on the snout, gold lines across
   the face, a box fist, coin-wave and throne scenery and a square tile, earlier ones as "a different character"). Phase
-  1's own grey head and face at phase 1's size (narrow eyes now lit gold, phase 1's purple-black shades in a ring of
-  gold light with light leaking past them, the grill grin and cigar, gold flecks in his fur, a clean gold rim light on
-  his lit side); the gold is LIGHT, never his fur colour; a bigger crown; a bust ending on its own curved
-  gold-embroidered hem; the near arm resting phase 1's paw on the vest, the other raised with phase 1's paw holding a
-  gold coin (thumb across it) while coins erupt out of it in a stream of glowing coins (no beam); behind him a sun
-  king's halo ring with broad gold rays bursting to the edges (round 12: his own outline, not a background frame;
-  silhouette check passes with and without the corner heaps), small coin heaps in both lower corners, and four rimmed
-  coins on the rays that are the hoard states
+  1's own grey head and face at phase 1's size (phase 1's purple-black shades with a white glint,
+  eyes burning white hot from inside with no glow ring, the grill grin and cigar, gold flecks in his fur); the change is
+  ON him: a red coronation mantle edged in ermine spreads from his shoulders (his new outline), his coat and sleeves turn
+  to antique gold, and a red sash across his chest carries his four biggest coins (the hoard states); a grander crown;
+  the near arm resting phase 1's paw on the vest, the other raised with phase 1's paw holding a gold coin (thumb across
+  it) as a white-hot burst breaks from it and coins fly out (the burst and crown the brightest things); round 14: the
+  loose coin towers read as brown boxes, so his world is dim gold coin stacks behind his shoulders, gathered in a rounded hump at each side
+  at each side; every fight move stays inside the box (check-moment-clip at 0); round 15: phase 3's own attack is his
+  power (the burst flares, the paw thrusts the coin, the spray fires at the hearts and refills, the crown jolts), a crit
+  snuffs it
   (`lg-abh-hoard-*`, `lg-ab-hoard-0..2`: fewer coins as you rob him). No henchmen. Fight: the
   conjuring arm (`lg-ratking-armr`, pivot at the shoulder) strikes with a shorter hurl of the coin, `lgrRkPawStrikeP3`/`HeavyP3`, so the raised paw stays in the box, the vest-resting arm
   (`lg-ratking-arml`) only sways and slumps in the knockout; in phase 3 the head never moves on its own (every reaction moves `lg-ratking-figure`, so the head stays on the neck) and the crown lands on top of the left coin heap; afterwards every part holds its fallen pose (`data-down`,
-  all phases). Source: `.scratch/raid-kitsune/ratking/build10.mjs` (keeps phases 1 and 2 byte-identical).
+  all phases). Source: `.scratch/raid-kitsune/ratking/build12.mjs` (keeps phases 1 and 2 byte-identical).
 - **Ability (hoard, decision)**: a right answer takes a coin, a miss loses one; Cheese Bomb (3 coins) deals 3; Lucky Tail
   (2 coins) saves the next heart; at 5 coins the rats throw a bomb for you. Art: `lg-ab-hoard-0..2`.
 - **Tint**: the red velvet. **Card**: `lgCoinToss`.
@@ -526,16 +550,25 @@ trophies work. Do not recreate it.
   eyes. NO background: only his own aura, HIS RING (the ringmaster's ring behind his head, like the kitsune's gold
   ring), and his magic. Smug in every phase; the power escalates, the man never screams.
 - **Phases (one sentence each; the power is ON him; a different SHAPE each phase, checked with
-  `.scratch/raid-kitsune/silhouettes.mjs` against the kitsune; he grows in stature every phase)**: 1 the Overture (green
-  ghost fire, navy coat, compact and upright): the charming ringmaster tips his top hat at a rakish angle, Comedy floats
-  on a green flame over his raised glove, Tragedy by his shoulder, his fist on his hip holding a gold-knobbed cane over
-  his shoulder. 2 the Possession (violet, WIDE, leaning in): the demon half of his face shows, horns burst out, the hat is
-  knocked askew and smokes, his arms fling a torn violet-black cape open like wings, claw hands ablaze, and the masks are
-  whipped round him on a storm of violet fire. 3 the Grand Finale (crimson and gold, TALL): his true demon form, the hat
-  gone (slick hair, a crown of fire, great horns rising beside his head), the epaulettes burned away into fire and
-  flame wings, both arms raised conducting, each clawed glove holding a huge burning mask aloft. Arms are whole limbs
-  (one sleeve: upper arm, a bent elbow, a tapering forearm, cuff, glove). The head moves only by rotating on the neck in
-  every fight animation (check-joints clean).
+  `.scratch/raid-kitsune/silhouettes.mjs` against the kitsune; silhouette and body-only silhouette)**: 1 the Overture (green ghost fire, navy coat, compact and upright): the
+  charming ringmaster tips his top hat, floats Comedy on a green flame over his raised glove, Tragedy by his shoulder,
+  his fist on his hip holding a gold-knobbed cane over his shoulder. 2 the Possession (violet, WIDE, leaning in): the
+  demon half of his face shows, horns burst out, the hat is knocked askew, his arms spread low and wide, each clawed
+  fist pulling a big torn cape open like bat wings up to a standing collar, the masks riding thick bands of violet fire
+  that end in flame at his fists. 3 the Grand Finale (crimson and gold, TALL): his true demon form in the same navy
+  coat and epaulettes lit by the fire, the hat gone (a swept-back quiff, a crown of fire, horns rimmed in fire), two
+  great bat-like fire wings rising behind his shoulders, both arms raised high out of rounded shoulder caps, each glove
+  gripping a blazing mask by the chin with its fingers curled over it. Arms are whole
+  limbs (one sleeve: upper arm, a bent elbow, a tapering forearm, cuff, glove). Held masks ride in their arm's group
+  with phase-3-only reactions pivoting at the grip; the head only rotates on the neck (check-joints clean). Knockout:
+  a swagged valance and two folded velvet drapes sweep in and settle (`showmanCurtain`). His own body moves
+  (`showmanFlourish` strike, `showmanBow` heavy, scale 1.06 at most, `impact/bosses/showman.js`) and smaller phase-3 arm
+  arcs keep every fight moment inside the clip (`check-moment-clip.mjs showman`: 0). The fallen pose is HELD by `data-down` (fx/showman.jsx,
+  each part at its knockout's last keyframe), so the defeated drawing never pops back upright. In phase 3 the raised arms fade
+  into a drawn FALLEN pose (`lg-showman-armsfallen`: limp arms, gloves hanging, Comedy cracked and upside down slipping
+  from his fingers, Tragedy tipped off the other hand), the wings burn out and the figure is lifted (`lg-showman-stage`)
+  so face, gloves and masks sit above the DEFEATED! tag in both arena sizes; `check-ko-hold` 0. His heavy blow frames
+  him with a dashed spotlight ring instead of a starburst over his face.
 - **Ability (encore)**: right answers win applause, the 4th = Encore +3; misses shed tears, the 2nd tear is a Plot Twist
   leaving the applause one short of an Encore. Art: `lg-ab-comedy`, `lg-ab-tragedy`, `lgfa-showman-comedy`, the tear and twist effects INSIDE the masks
   (`lg-fx-tear` + `lgfa-showman-tear` in Tragedy, `lg-fx-twist` glow round both; nothing over his face); the fight
@@ -560,23 +593,35 @@ trophies work. Do not recreate it.
   shoulders behind the necks, a barrel chest tapering to a keel between two real forelegs (round elbow with a tuft, a
   tapering forearm, a narrow wrist with a dewclaw, the pastern, a paw in perspective with uneven toes, pads and claws,
   a contact pool), the page showing under the keel; a fur ruff in uneven locks under the Warden's collar. Faces: cheek
-  pads and a raised snout with its own planes, each head its own form (Brand broad snout and jowls, the Warden square
-  snout and chin, Shade narrow snout and pointed chin). The body OUTLINE changes per phase (silhouette check passes,
-  with and without the aura): 1 narrow and upright, 2 a wide asymmetric lunge, 3 risen tall. 1 the Warden on duty
-  (slate and cold teal): heads close together, mouths shut over long fangs in a snarl, the chains taut down to iron
+  pads and a raised snout with its own planes, the nose at the snout's tip and a real lower jaw and chin on every head
+  (the muzzle stretch stops at the nose), the pale face planes the brightest, highest-contrast thing in every phase
+  against a darker body and ruff; each head its own form (Brand broad snout, heavy jaw and jowls, the Warden square
+  snout and chin, Shade narrow snout and pointed chin). The OUTLINE changes per phase (silhouette check passes with
+  and without the aura, the body-only pairs at or below the kitsune's own): 1 low and held down, the heads bowed close
+  together under the chains; 2 wide, the Warden high, the side heads turned three-quarters outward on visible necks in
+  front of their shoulders; 3 risen tall and narrow, a trident: the Warden tall and crowned in the middle (his crown tops the V, his third
+  eye the brightest point), the side heads smaller, lower and splayed outward, an aura gap between every pair of heads. 1 the Warden on duty (slate and cold teal):
+  mouths shut over long fangs in a snarl, the chains taut down to iron
   rings in the floor, power held (Brand's flame mane and nostril smoke, burning eyes, Shade's smoke tears, cold soul
-  fire burning round his paws). 2 the Chains Snap (charcoal-red and hellfire): Brand thrown low left, Shade high right,
+  fire burning round his paws). 2 the Chains Snap (charcoal-red and hellfire): Brand and Shade turn outward and lunge,
   every jaw open, Brand breathes a jet of fire from between his jaws, the
   Warden roars under a crest of iron spikes, Shade howls; hackles break the shoulder line, elbows out, legs splayed,
   the chest dropped, embers in the shoulder and leg fur, red-hot collars, a singed ruff with ember-lit edges, a
-  snapped link swinging from the outer end of each side collar, hellfire roaring up beside him. 3 the Three Kings
-  (obsidian, white gold, blue soul light): heads raised in a crown, crowned (white fire, an iron crown with a soul gem,
+  snapped link swinging from the outer end of each side collar, hellfire roaring up beside him and licking round both
+  paws in separate tongues. 3 the Three Kings
+  (obsidian, white gold, blue soul light): the Warden risen tall between the splayed side heads, crowned (white fire on a studded gold band, an iron crown with a soul gem,
   black horns), big eyes of cyan light, the plate and brows lifted, every jaw open on a throat of soul light, a third eye on the Warden's plate,
   gold-trimmed collars with broken cuffs, a glowing ruff, the chest risen tall on straight legs, ONE great blaze of
-  blue soul fire around him. Knocked out, every power goes out (`lg-cerberus-power`), every head's eyes shut, the aura
-  gutters (`lg-cerberus-portal`). Each head group pivots where its neck leaves the body (per-phase origins,
-  `ROOTS` in `fx/cerberus.jsx`; the Warden's group carries the ruff, the side heads' groups their chains). About 940
-  paths and 128 animations for all three phases.
+  blue soul fire around him. Fight moves play on his whole body too (`impact/bosses/cerberus.js` `body`, from the bottom centre): a crit knocks him
+  back (scale .86, recoil past 1), a strike or heavy blow is a lunge or pounce (up to scale 1.14, rising 8%) with the
+  three heads snapping in sequence, a block a crouch (scaleY .88); the heads nod 12 to 18 degrees on their collars.
+  Knocked out, he FALLS: the body sinks and squashes, every head drops over 20 degrees and 10 units, the Warden slumps, every
+  eye shuts (from the knockout's middle on, then held), every power goes out (`lg-cerberus-power`), the aura gutters
+  (`lg-cerberus-portal`); the held pose is the knockout's last frame exactly (check-ko-hold). Each head group pivots at its neck's ROOT on the shoulders (a fixed point in
+  view-box units per phase, `ROOTS` in `fx/cerberus.jsx`; the Warden's group carries the ruff, the side heads' groups their chains), so the neck
+  never leaves the body; the head itself is `lg-cerberus-head-brand/-warden/-shade` (the Warden's also
+  `lg-cerberus-head`, followed by check-joints against `lg-cerberus-body`). The collar and key sit OUTSIDE the head wrapper, so a head nods on its collar.
+  Every fight move stays inside the arena's clip (check-moment-clip at 0). About 1040 paths and 134 animations for all three phases.
 - **Ability (shackles)**: Fire head chained by any right answer, Iron by a clean typed answer, Shadow by the first right
   answer after a miss or a blocked attack; one answer chains one head; all three = Bound +4, then they tear free; a miss
   frees the Fire head. Art: `data-ab-fire|iron|shadow` (`lg-ab-<head>-1`: a chain muzzle of red-hot, padlocked or
@@ -592,22 +637,28 @@ trophies work. Do not recreate it.
   hanging below his fist. The lantern and the soulfire are his face. Silent, patient, theatrical: the lantern does the
   grinning. A hushed campfire storyteller's voice ("Listen close, rider").
 - **Phases** (redrawn 2026-10-10, v3, after the owner rejected a rider bust: "there is no full horse ... all 3 phases
-  are basically the exact same"; round 4 after review 3). NO background. Horse and rider are ONE figure: the WHOLE horse
+  are basically the exact same"; rounds 4 to 8 after reviews 3 to 7). NO background. Horse and rider are ONE figure: the WHOLE horse
   in profile facing left (real leg segments: forearm, knee, cannon, fetlock, pastern and a hoof wider than the cannon in
   front; gaskin and a sharp hock behind; two-value cel shading), the headless rider in the saddle turned toward us (a
-  mid violet frock coat with a waist and belt, hips in the saddle, thigh and tall boot down the flank, one tier of capes,
-  a high collar round the soulfire, a lace jabot, steel gauntlets): one fist holds the reins, the other the lantern by
-  its bail. A different POSE and body every phase (silhouettes.mjs: P1-P2 0.47, P2-P3 0.44, P1-P3 0.54 against the
-  kitsune's 0.67 / 0.86 / 0.70; generator `.scratch/raid-kitsune/horseman/gen-v4.mjs`): 1 The Rider Waits (slate blue
+  frock coat in four values, broad sloped shoulders tapering straight into a belted waist, a rim light and wide
+  lapels a value lighter than the coat with a dark notch and gold piping, flapped pockets, a gold-piped hem, hips in the saddle, thigh and tall boot down the flank, one
+  short tier of capes, a LOW wide collar round the empty neck with flared points on a crimson lining and a dark opening, a
+  waistcoat and knotted cravat, riding boots with a narrow ankle, a curved instep, a toe cap (P3 heel down, spur pointing back), a curved heel and a spur on its neck, set in an arched stirrup
+  iron; a large built horse
+  head with a darker muzzle, cheek plane, lips and a scowling brow, three values on the body; arms leaving from under the
+  capes with a tapered upper arm, a bent elbow, a forearm tapering to the cuff and a gripping gauntleted hand): one hand holds the reins, the other the lantern by the top of its bail. A
+  different POSE and body every phase (silhouettes.mjs: 0.47 / 0.45 / 0.56 against the kitsune's 0.67 / 0.86 / 0.70;
+  body-only with `--hide=.lg-horseman-fire, .lg-horseman-flame, .lg-horseman-wingl, .lg-horseman-wingr` 0.45 / 0.40 /
+  0.49 against her 0.63 / 0.59 / 0.70; painted area above the round-5 drawing in every phase; generator `.scratch/raid-kitsune/horseman/gen-v4.mjs`): 1 The Rider Waits (slate blue
   and violet): the horse stands head up, the near foreleg raised pawing, a tail of loose strands; he sits upright, the
   lantern hanging at his side (a sly wink, a one-fanged smirk); a small soulfire. 2 The Horse Rears (black, crimson
   lining, green fire): the horse rears on bent hind legs, forelegs folded, jaws open with the bit in the corner of the
-  mouth, mane, tail and hooves burning; he leans back and raises the lantern high on a bent arm (carved brows, a
-  saw-toothed grin), coat and capes torn, the cloak whipping back on its crimson lining, the soulfire twice as tall. 3
+  mouth, mane, tail and hooves burning; he hauls the reins up and holds the lantern out and up at his side (carved
+  brows, a saw-toothed grin), coat and capes torn, the cloak fastened at both shoulders and streaming back on its crimson lining, the soulfire twice as tall. 3
   The Nightmare (spectral green, bone): the horse dives into a leap, a horse SKULL for a head (deep jaw, hollow socket
   with a green eye, nasal notch, teeth), bone ribs, mane, tail and hooves of fire; he leans into the charge, swaps hands
-  and thrusts the blazing lantern out AHEAD over the skull, his capes burnt to stubs with soulfire roaring off the
-  shoulders, his cloak one sheet of soulfire. Pivots are per phase (`PIV` in `fx/horseman.jsx`).
+  and raises the blazing lantern high AHEAD of him, clear above the skull, his capes burnt to stubs with soulfire roaring off the
+  shoulders, his other hand on his hip (no reins), his cloak one sheet of soulfire, hooves of fire. Pivots are per phase (`PIV` in `fx/horseman.jsx`).
 - **Ability (ride, the Midnight Ride)**: every right answer gallops one stretch of the road; the 5th crosses the bridge
   for +3 and the road starts over (`cross`). He starts 2 lengths behind (`lead`); a miss lets him gain one (`close` at
   one length), a clean typed answer wins one back (2 at most); caught = thrown back to the start of the road (`caught`),
@@ -615,9 +666,28 @@ trophies work. Do not recreate it.
   lead); a single miss never costs progress, only two misses with no clean typed answer between them, and recall is the escape. Art:
   `data-ab-ride` (`lg-ab-ride-close`: fire bursts from the lantern's shoulders and trails from the horse's eye); the
   fight moves `-horse` (holds EVERYTHING: horse, saddle and rider, so the rider stays seated and the reins on the bit),
-  inside it `-legn/-legf` (near and far foreleg), `-mane` and `lg-horseman-body` (the whole rider, nesting -cloak (P1,
-  P2) or -wingl/-wingr (P3), -leg (thigh and boot), -rider, -armr with -reins, -arml with -lantern, -shoulders, -flame);
-  pivots per phase (fx/horseman.jsx `PIV`; rider parts in the rider's own units). Knockout: the forelegs buckle, the
-  front drops, he lets go of the reins and is thrown out of the saddle (data-down holds it). Drawn by
+  inside it `-legn/-legf` (near and far foreleg), `-legh/-leghf` (hind legs), `-mane` and `lg-horseman-body` (the whole rider, nesting -cloak (P1,
+  P2) or -wingl/-wingr (P3), -leg (thigh and boot), -rider, -armr with -reins, -arml with -lantern (a second -arml group draws the lantern, the forearm running into the fist and the hand in front of the capes), -shoulders with -collar, -flame);
+  pivots per phase (fx/horseman.jsx `PIV`; rider parts in the rider's own units). Knockout (round 9: a visible fall BEFORE the DEFEATED plate: the horse rears and tips from about 8% of the
+  cinematic, the rider slumps and slides off from 18%, and he is down by about 48%, well before the plate): the forelegs fold under and the
+  horse kneels (P3's nightmare folds its forelegs flat under its chest, hind legs bent under the rump), he lets go of
+  the reins, is thrown out of the saddle and lands SITTING in front of the horse's barrel, legs out, arms limp, the
+  soulfire a wisp; the whole fallen pose sits high in the box so it stays inside the card above the DEFEATED tag (the
+  `unhorsed` body move in impact/body.js now only settles a few px instead of sinking 18 px). His lantern head slips from
+  his fist, falls ahead of him and lands at the knockout part's spot (6%, 84% of the box) at 46.2% of the drawing's
+  knockout, where `horsemanShatter` breaks it open: measured in the real arena (`handover.mjs`), the drawn lantern is
+  last seen about 16 ms (one frame) before the halves appear and never on the same frame (per phase `lgrHorseKoBody1..3` /
+  `lgrHorseKoHorse1..3` / `lgrHorseKoLegs1..3` / `lgrHorseKoHind1..3` / `lgrHorseKoLantern1..3`, `lgrHorseKoSit`,
+  `KO_END`/`KO_HORSE`/`KO_LEGS` hold the pose under data-down; the landing matrices come from
+  `.scratch/raid-kitsune/horseman/kosolve7.mjs` and the lantern's landing from `ko7lantern.mjs`). Every move stays inside the arena's inset(-20%) clip (checked frame by frame by
+  `.scratch/raid-kitsune/horseman/clipcheck.mjs` and by `dev/legends-gallery/check-moment-clip.mjs`, 0 cuts): round 7 made the drawing big again and
+  sized the MOVES instead (the `...7` keyframes: rears and tosses of a few degrees, no scaling of the horse, the soulfire
+  flaring without towering); his strike is one throw per phase (`lgrHorseThrow1..3` + `lgrHorseFly1..3`, round 9: the arm winds
+  back, then swings out and up (P1 about 35 degrees, the fist rising from the hip to the shoulder), and the lantern LEAVES the
+  fist and travels UP and OUT on its own side, clear of the hip and the skull, growing a little and fading out before the
+  clip edge (P2 has the least room: its lantern is already at the top right, so it lifts a short way and fades fast), then
+  reappears in the hand as the arm swings home);
+  the heavy blow flails low (P1), hoists it high over the shoulder (P2) or raises and smashes it (P3), the lantern
+  counter-swinging on its bail (`lgrHorseHang1..3`). Drawn by
   `.scratch/raid-kitsune/horseman/gen-v4.mjs`.
 - **Tint**: the soulfire. **Card**: `lgFogCharge`. **Family**: Sleepy Hollow (Garden, Forest).

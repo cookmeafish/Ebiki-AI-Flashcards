@@ -20,7 +20,7 @@ const PARTS_CSS = `
 @keyframes lgrQueenAtkScytheR { 0% { transform: none } 7% { transform: rotate(30deg) } 10% { transform: rotate(-46deg) } 13% { transform: rotate(-54deg) } 30% { transform: rotate(-44deg) } 55% { transform: rotate(4deg) } 100% { transform: none } }
 @keyframes lgrQueenAtkBuzzL { 0% { transform: none } 2%, 6%, 10%, 14%, 18%, 22% { transform: rotate(10deg) } 4%, 8%, 12%, 16%, 20%, 24% { transform: rotate(-4deg) } 40% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgrQueenAtkBuzzR { 0% { transform: none } 2%, 6%, 10%, 14%, 18%, 22% { transform: rotate(-10deg) } 4%, 8%, 12%, 16%, 20%, 24% { transform: rotate(4deg) } 40% { transform: rotate(-3deg) } 100% { transform: none } }
-@keyframes lgrQueenAtkStinger { 0% { transform: none } 7% { transform: translateY(-6%) scale(.9) } 10% { transform: translateY(8%) scale(1.3) } 14% { transform: translateY(6%) scale(1.24) } 34% { transform: translateY(5%) scale(1.2) } 50% { transform: none } 100% { transform: none } }
+@keyframes lgrQueenAtkStinger { 0% { transform: none } 7% { transform: translateY(-6%) scale(.9) } 10% { transform: translateY(6%) scale(1.26) } 14% { transform: translateY(5%) scale(1.22) } 34% { transform: translateY(5%) scale(1.2) } 50% { transform: none } 100% { transform: none } }
 @keyframes lgrQueenAtkMaw { 0% { transform: none } 7% { transform: scale(.85) } 10% { transform: scale(1.32) } 34% { transform: scale(1.26) } 50% { transform: scale(.95) } 70% { transform: none } }
 @keyframes lgrQueenAtkGlare { 0% { transform: none } 7% { transform: scale(.85, .6) } 10% { transform: scale(1.18) } 40% { transform: scale(1.12) } 70% { transform: none } }
 ${on(A, ['head'], 'lgrQueenAtkHead 1400ms cubic-bezier(.3,.7,.4,1) both')}
@@ -35,7 +35,7 @@ ${on(A, ['ring', 'maw'], 'lgrQueenAtkMaw 1400ms ease-out both')}
 ${on(A, ['eyesl', 'eyesr'], 'lgrQueenAtkGlare 1400ms ease-out both')}
 @keyframes lgrQueenAtk2ScytheL { 0% { transform: rotate(-22deg) } 2% { transform: rotate(36deg) } 22% { transform: rotate(30deg) } 28% { transform: rotate(-30deg) } 33% { transform: rotate(44deg) } 50% { transform: rotate(34deg) } 72% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgrQueenAtk2ScytheR { 0% { transform: rotate(22deg) } 2% { transform: rotate(-36deg) } 22% { transform: rotate(-30deg) } 28% { transform: rotate(30deg) } 33% { transform: rotate(-44deg) } 50% { transform: rotate(-34deg) } 72% { transform: rotate(4deg) } 100% { transform: none } }
-@keyframes lgrQueenAtk2Stinger { 0% { transform: translateY(-6%) scale(.9) } 3% { transform: translateY(8%) scale(1.3) } 22% { transform: translateY(5%) scale(1.2) } 28% { transform: translateY(-6%) scale(.92) } 33% { transform: translateY(10%) scale(1.38) } 52% { transform: translateY(5%) scale(1.2) } 75% { transform: none } 100% { transform: none } }
+@keyframes lgrQueenAtk2Stinger { 0% { transform: translateY(-6%) scale(.9) } 3% { transform: translateY(6%) scale(1.26) } 22% { transform: translateY(5%) scale(1.2) } 28% { transform: translateY(-6%) scale(.92) } 33% { transform: translateY(4%) scale(1.24) } 52% { transform: translateY(5%) scale(1.2) } 75% { transform: none } 100% { transform: none } }
 ${on(H, ['scythel'], 'lgrQueenAtk2ScytheL 1300ms cubic-bezier(.3,.7,.4,1) both')}
 ${on(H, ['scyther'], 'lgrQueenAtk2ScytheR 1300ms cubic-bezier(.3,.7,.4,1) both')}
 ${on(H, ['stinger'], 'lgrQueenAtk2Stinger 1300ms cubic-bezier(.3,.7,.4,1) both')}
@@ -58,7 +58,7 @@ ${on('.lgr-swarmqueen-douse', ['brow', 'puppet'], 'lgrQueenDouseDroop 340ms ease
 @keyframes lgrQueenAblazeWingR { 0% { transform: none } 12% { transform: rotate(-26deg) } 16%, 24%, 32%, 40%, 48% { transform: rotate(-20deg) } 20%, 28%, 36%, 44%, 52% { transform: rotate(-28deg) } 75% { transform: rotate(-6deg) } 100% { transform: none } }
 @keyframes lgrQueenAblazeScytheL { 0% { transform: none } 14% { transform: rotate(-32deg) } 55% { transform: rotate(-26deg) } 80% { transform: rotate(4deg) } 100% { transform: none } }
 @keyframes lgrQueenAblazeScytheR { 0% { transform: none } 14% { transform: rotate(32deg) } 55% { transform: rotate(26deg) } 80% { transform: rotate(-4deg) } 100% { transform: none } }
-@keyframes lgrQueenAblazeHead { 0% { transform: none } 14% { transform: translateY(-12%) rotate(-10deg) scale(1.06) } 55% { transform: translateY(-9%) rotate(-7deg) scale(1.05) } 80% { transform: translateY(2%) } 100% { transform: none } }
+@keyframes lgrQueenAblazeHead { 0% { transform: none } 14% { transform: translateY(1%) rotate(-11deg) } 55% { transform: translateY(1%) rotate(-8deg) } 80% { transform: translateY(2%) } 100% { transform: none } }
 @keyframes lgrQueenAblazeMandL { 0% { transform: none } 14%, 55% { transform: rotate(-28deg) } 80% { transform: none } }
 @keyframes lgrQueenAblazeMandR { 0% { transform: none } 14%, 55% { transform: rotate(28deg) } 80% { transform: none } }
 @keyframes lgrQueenAblazeSwell { 0% { transform: none } 14% { transform: scale(1.2) } 30% { transform: scale(1.12) } 46% { transform: scale(1.22) } 80% { transform: scale(.96) } 100% { transform: none } }
@@ -73,7 +73,7 @@ ${on('.lgr-swarmqueen-ablaze', ['mandr'], 'lgrQueenAblazeMandR 1150ms ease-out b
 ${on('.lgr-swarmqueen-ablaze', ['sac', 'ring', 'maw', 'eyesl', 'eyesr'], 'lgrQueenAblazeSwell 1150ms ease-out both')}
 ${on('.lgr-swarmqueen-ablaze', ['puppet'], 'lgrQueenAblazeJerk 1150ms ease-out both')}
 
-${Object.entries(FALLEN).map(([p, t]) => `${P}:not(.lg-fx-off):has([data-ko-tag]):not([data-moment]) .lg-swarmqueen-${p} { transform: ${t} }`).join('\n')}
+${Object.entries(FALLEN).map(([p, t]) => `${P}:not(.lg-fx-off)[data-down]:not([data-moment="ko"]) .lg-swarmqueen-${p} { transform: ${t} }`).join('\n')}
 `
 
 const POP = 'cubic-bezier(.34,1.56,.64,1)'

@@ -44,7 +44,8 @@ export default {
   // p.inward, close in only as far as its edge). p.n rings, staggered.
   bansheeScream: (p, ctx) => Array.from({ length: p.n || 3 }, (_, i) => {
     const c = p.color || ctx.color, edge = 1.05 + i * 0.08
-    const [s0, s1] = p.inward ? [2.4, edge] : [edge, 2.2 * ctx.scale + i * 0.2]
+    // outward rings stop at about the box's own width (1.6 x her face ring), so they never run past the arena's edge
+    const [s0, s1] = p.inward ? [1.8, edge] : [edge, Math.min(1.6, 1.3 * ctx.scale) + i * 0.1]
     return <div key={`bsc${i}`} style={{ position: 'absolute', left: '50%', top: `calc(50% + ${FACE.y}cqw)`, width: `${FACE.r * 2}cqw`, height: `${FACE.r * 2}cqw`, borderRadius: '50%',
       border: `${1.8 - i * 0.25}cqw solid ${c}`, filter: 'blur(1px)', boxShadow: `0 0 3cqw ${c}`, '--s0': s0, '--s1': s1,
       animation: `lgbansheeScream ${640 * ctx.speed}ms ${p.inward ? 'ease-in' : 'cubic-bezier(.1,.8,.3,1)'} ${i * 110}ms both` }} />

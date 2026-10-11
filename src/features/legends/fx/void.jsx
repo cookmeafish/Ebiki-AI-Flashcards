@@ -51,10 +51,10 @@ export default {
 /* THE ATTACK ON THE PLAYER (impact/assault.js orb + drain; data-assault-on, the orb leaves at 120 ms and lands near
    520 ms): it rears back, its tentacles reach out toward your heart and the maw gapes, then it GULPS the light down in
    hard swallows while the ring tilts toward you. Inner wrappers (-faceA/-ringA/-tendrilLA/-tendrilRA). */
-@keyframes lgrVoidGulp { 0% { transform: none } 7% { transform: scale(.9) } 22% { transform: translateX(3%) scale(1.14, 1.24) } 38% { transform: translateX(3%) scale(1.04, 1.06) } 48% { transform: translateX(3%) scale(1.14, 1.22) } 60% { transform: translateX(2%) scale(1.03, 1.05) } 70% { transform: translateX(2%) scale(1.12, 1.18) } 82% { transform: scale(1.02) } 100% { transform: none } }
+@keyframes lgrVoidGulp { 0% { transform: none } 7% { transform: scale(.88) } 22% { transform: translateX(3%) scale(1.08, 1.12) } 38% { transform: translateX(3%) scale(1.02, 1.03) } 48% { transform: translateX(3%) scale(1.08, 1.11) } 60% { transform: translateX(2%) scale(1.02, 1.03) } 70% { transform: translateX(2%) scale(1.07, 1.09) } 82% { transform: scale(1.02) } 100% { transform: none } }
 @keyframes lgrVoidTilt { 0% { transform: none } 7% { transform: rotate(8deg) } 24% { transform: rotate(-12deg) scale(1.1) } 70% { transform: rotate(-8deg) scale(1.05) } 100% { transform: none } }
-@keyframes lgrVoidReachR { 0% { transform: none } 7% { transform: rotate(14deg) scale(.92) } 24% { transform: rotate(-26deg) scale(1.22) } 44% { transform: rotate(-12deg) scale(1.1) } 56% { transform: rotate(-22deg) scale(1.18) } 72% { transform: rotate(-6deg) } 100% { transform: none } }
-@keyframes lgrVoidReachL { 0% { transform: none } 7% { transform: rotate(-10deg) } 26% { transform: rotate(14deg) scale(1.1) } 50% { transform: rotate(6deg) } 66% { transform: rotate(12deg) scale(1.06) } 100% { transform: none } }
+@keyframes lgrVoidReachR { 0% { transform: none } 7% { transform: rotate(14deg) scale(.9) } 24% { transform: rotate(-18deg) scale(1.08) } 44% { transform: rotate(-9deg) scale(1.03) } 56% { transform: rotate(-15deg) scale(1.06) } 72% { transform: rotate(-6deg) } 100% { transform: none } }
+@keyframes lgrVoidReachL { 0% { transform: none } 7% { transform: rotate(-10deg) scale(.92) } 26% { transform: rotate(10deg) scale(1.04) } 50% { transform: rotate(4deg) } 66% { transform: rotate(8deg) scale(1.02) } 100% { transform: none } }
 .lg-boss[data-motif="void"][data-assault-on] .lg-void-faceA { animation: lgrVoidGulp 1550ms cubic-bezier(.3,.7,.3,1) both }
 .lg-boss[data-motif="void"][data-assault-on] .lg-void-ringA { animation: lgrVoidTilt 1500ms cubic-bezier(.3,.7,.3,1) both }
 .lg-boss[data-motif="void"][data-assault-on] .lg-void-tendrilRA { animation: lgrVoidReachR 1500ms cubic-bezier(.3,.7,.3,1) both }
@@ -68,10 +68,10 @@ export default {
 @keyframes lgrVoidSagL { 0%, 100% { transform: none } 35% { transform: rotate(-16deg) } }
 @keyframes lgrVoidSagR { 0%, 100% { transform: none } 35% { transform: rotate(16deg) } }
 @keyframes lgrVoidWince { 0%, 100% { transform: none } 25% { transform: scale(.94, .82) translateY(2%) } }
-@keyframes lgrVoidImplodeBody { 0% { transform: none } 30% { transform: scale(.62) } 42% { transform: scale(1.24) } 60% { transform: scale(.94) } 80% { transform: scale(1.03) } 100% { transform: none } }
-@keyframes lgrVoidFlingL { 0% { transform: none } 30% { transform: rotate(-40deg) scale(.7) } 44% { transform: rotate(28deg) scale(1.2) } 70% { transform: rotate(-5deg) } 100% { transform: none } }
-@keyframes lgrVoidFlingR { 0% { transform: none } 30% { transform: rotate(40deg) scale(.7) } 44% { transform: rotate(-28deg) scale(1.2) } 70% { transform: rotate(5deg) } 100% { transform: none } }
-@keyframes lgrVoidShock { 0% { transform: none } 30% { transform: scale(.8) } 44% { transform: scale(1.2, 1.4) } 75% { transform: scale(1.06, 1.12) } 100% { transform: none } }
+@keyframes lgrVoidImplodeBody { 0% { transform: none } 30% { transform: scale(.6) } 42% { transform: scale(1.16) } 60% { transform: scale(.94) } 80% { transform: scale(1.03) } 100% { transform: none } }
+@keyframes lgrVoidFlingL { 0% { transform: none } 30% { transform: rotate(-40deg) scale(.7) } 44% { transform: rotate(22deg) scale(1.1) } 70% { transform: rotate(-5deg) } 100% { transform: none } }
+@keyframes lgrVoidFlingR { 0% { transform: none } 30% { transform: rotate(40deg) scale(.7) } 44% { transform: rotate(-22deg) scale(1.1) } 70% { transform: rotate(5deg) } 100% { transform: none } }
+@keyframes lgrVoidShock { 0% { transform: none } 30% { transform: scale(.78) } 44% { transform: scale(1.12, 1.24) } 75% { transform: scale(1.04, 1.08) } 100% { transform: none } }
 .lg-boss[data-motif="void"][data-fx="absorb"] .lg-void-ring { animation: lgrVoidTakeIn 340ms ease-out both }
 .lg-boss[data-motif="void"][data-fx="absorb"] .lg-void-face { animation: lgrVoidGreed 340ms ease-out both }
 .lg-boss[data-motif="void"][data-fx="spill"] .lg-void-ring { animation: lgrVoidBuckle 560ms ease-out both }
@@ -82,5 +82,13 @@ export default {
 .lg-boss[data-motif="void"][data-fx="collapse"] .lg-void-tendrilL { animation: lgrVoidFlingL 1100ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="void"][data-fx="collapse"] .lg-void-tendrilR { animation: lgrVoidFlingR 1100ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="void"][data-fx="collapse"] .lg-void-face { animation: lgrVoidShock 1100ms cubic-bezier(.4,0,.2,1) both }
+
+/* THE FALLEN POSE: the void stays collapsed into its singularity once the knockout moment ends (the last frame of
+   impact/bosses/void.parts.jsx's knockout; pivots are the file's own). */
+.lg-boss[data-motif="void"][data-down]:not([data-moment="ko"]) .lg-void-body, .lg-boss[data-motif="void"][data-down]:not([data-moment="ko"]) .lg-void-spikes { transform: scale(.55) rotate(-70deg) }
+.lg-boss[data-motif="void"][data-down]:not([data-moment="ko"]) .lg-void-face { transform: scale(.48) rotate(170deg) }
+.lg-boss[data-motif="void"][data-down]:not([data-moment="ko"]) .lg-void-ring { transform: scale(.3, .14) rotate(-24deg) }
+.lg-boss[data-motif="void"][data-down]:not([data-moment="ko"]) .lg-void-tendrilL { transform: rotate(-96deg) scale(.42) }
+.lg-boss[data-motif="void"][data-down]:not([data-moment="ko"]) .lg-void-tendrilR { transform: rotate(96deg) scale(.42) }
 `,
 }

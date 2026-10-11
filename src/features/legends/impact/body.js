@@ -108,20 +108,21 @@ export const KO_FRAMES = {
     [64, 'translate(0, 3px) rotate(-3deg) scale(.96)', 1, { b: 1.3, sp: 0.4, g: 0.3 }, FALL],
     [100, 'translate(-1px, 5px) rotate(-5deg) scale(.94)', 1, DOWN],
   ]],
-  // The Banshee: one last scream that shakes it, cut off dead (silence), then it drifts up like a ghost.
+  // The Banshee: one last scream that shakes it, cut off dead (silence), then it drifts up like a ghost. Brightness
+  // never past 1.2 (`hot` tames the blow): she is pale, and a brighter frame turned her into a white silhouette.
   silence: ['translateY(-4px) scale(1.12)', [
-    [16, 'translate(-3px, -4px) scale(1.16)', 1, { b: 1.6, s: 1.6 }],
-    [20, 'translate(3px, -4px) scale(1.17)', 1, { b: 1.6, s: 1.6 }],
-    [24, 'translate(-3px, -4px) scale(1.16)', 1, { b: 1.7, s: 1.6 }],
-    [28, 'translate(3px, -4px) scale(1.18)', 1, { b: 1.7, s: 1.6 }],
-    [32, 'translate(-2px, -4px) scale(1.17)', 1, { b: 1.8, s: 1.6 }],
-    [36, 'translate(2px, -4px) scale(1.19)', 1, { b: 1.8, s: 1.6 }, 'steps(1, end)'],
+    [16, 'translate(-3px, -4px) scale(1.16)', 1, { b: 1.15, s: 1.4 }],
+    [20, 'translate(3px, -4px) scale(1.17)', 1, { b: 1.15, s: 1.4 }],
+    [24, 'translate(-3px, -4px) scale(1.16)', 1, { b: 1.18, s: 1.4 }],
+    [28, 'translate(3px, -4px) scale(1.18)', 1, { b: 1.18, s: 1.4 }],
+    [32, 'translate(-2px, -4px) scale(1.17)', 1, { b: 1.2, s: 1.4 }],
+    [36, 'translate(2px, -4px) scale(1.19)', 1, { b: 1.2, s: 1.4 }, 'steps(1, end)'],
     [40, 'translate(0, 0) scale(1)', 1, { b: 0.8, s: 0.4 }],
     [52, 'translate(0, -2px) scale(1)', 1, { b: 0.9, s: 0.3, g: 0.4 }],
-    [55, 'translateY(-8px) scale(1.05)', 0.85, { b: 1.8, bl: 1, g: 0.4 }],
-    [80, 'translateY(-22px) skewX(-6deg) scale(1.04)', 0.7, { b: 1.3, bl: 1.2, g: 0.6 }],
+    [55, 'translateY(-8px) scale(1.05)', 0.85, { b: 1.2, bl: 1, g: 0.4 }],
+    [80, 'translateY(-22px) skewX(-6deg) scale(1.04)', 0.7, { b: 1.1, bl: 1.2, g: 0.6 }],
     [100, 'translateY(-14px) skewX(-3deg) scale(.96)', 0.85, DOWN],
-  ]],
+  ], { hot: 0.12 }],
   // The Seraph: lifted into its own light, its wings catch fire, and it falls from grace.
   fallFromGrace: ['translateY(-8px) scale(1.06)', [
     [18, 'translateY(-12px) scale(1.05)', 1, { b: 1.8 }],
@@ -198,7 +199,8 @@ export const KO_FRAMES = {
     [71, 'translate(10px, 18px) rotate(28deg) scale(1.02, .9)', 1, { g: 0.3 }],
     [100, 'translate(10px, 18px) rotate(27deg) scale(1, .9)', 1, DOWN],
   ]],
-  // The Showman: it staggers, draws itself up for the audience, takes the deep final bow, and collapses into it.
+  // The Showman: it staggers, draws itself up for the audience, takes the deep final bow, and slumps into it, his face
+  // still to the house (the result screen keeps him recognisable: not too low, not too small).
   curtainCall: ['translate(6px, -4px) rotate(6deg)', [
     [18, 'translate(2px, 0) rotate(2deg)', 1, { b: 1.3 }],
     [26, 'translate(-3px, 2px) rotate(-4deg) scale(.98)', 1, {}],
@@ -206,8 +208,8 @@ export const KO_FRAMES = {
     [42, 'translateY(-4px) scale(1.05)', 1, { b: 1.2, s: 1.3 }],
     [52, 'translateY(10px) rotate(18deg) scale(1, .93)', 1, { b: 1 }],
     [60, 'translateY(10px) rotate(17deg) scale(1, .93)', 1, { b: 1 }, FALL],
-    [66, 'translate(6px, 22px) rotate(26deg) scale(.9)', 1, { b: 1.6 }],
-    [100, 'translate(6px, 22px) rotate(24deg) scale(.9)', 1, DOWN],
+    [66, 'translate(1px, 1px) rotate(5deg) scale(.95)', 1, { b: 1.6 }],
+    [100, 'translate(1px, 0) rotate(4deg) scale(.95)', 1, DOWN],
   ]],
   // The Reaper: it shivers, its scythe snaps (a flash), and its cloak empties and folds to the ground.
   reaped: ['translateX(-10px) skewX(8deg)', [
@@ -349,13 +351,13 @@ export const KO_FRAMES = {
     [72, 'translate(4px, 18px) rotate(8deg) scale(.96)', 1, {}],
     [100, 'translate(4px, 22px) rotate(10deg) scale(.94)', 1, DOWN],
   ]],
-  // The Kaleidoscope: it twists back and forth through every color, then shatters at full white.
+  // The Kaleidoscope: it twists back and forth through every color, then shatters (brightness capped at 1.3: a 2.8 flash here was a second near-white stretch after the ko flash).
   refract: ['rotate(12deg) scale(.94)', [
     [18, 'rotate(4deg) scale(1)', 1, { b: 1.3, h: 40 }],
     [30, 'rotate(-14deg) scale(1.03)', 1, { b: 1.3, h: 120 }],
     [42, 'rotate(16deg) scale(1.03)', 1, { b: 1.4, h: 220 }],
-    [50, 'rotate(-6deg) scale(1.05)', 1, { b: 1.6, h: 300 }],
-    [55, 'rotate(0deg) scale(1.1)', 1, { b: 2.8, h: 360 }],
+    [50, 'rotate(-6deg) scale(1.05)', 1, { b: 1.3, h: 300 }],
+    [55, 'rotate(0deg) scale(1.1)', 1, { b: 1.3, h: 360 }],
     [60, 'rotate(6deg) scale(.9)', 1, { b: 1.2, s: 0.6, h: 360 }],
     [100, 'translateY(8px) rotate(8deg) scale(.88)', 1, DOWN],
   ]],
@@ -382,19 +384,27 @@ export const KO_FRAMES = {
     [78, 'translateY(24px) scale(1.28, .66)', 1, { b: 1, s: 1.2 }],
     [100, 'translateY(26px) scale(1.3, .64)', 1, DOWN],
   ]],
-  // The Kitsune (no spin, the owner: "it weirdly spins"): struck back and frozen, then lifted on her own surging fox-fire,
-  // trembling brighter and brighter; at the climax she blazes white as her spirit tears away, then drops, slumped and dimmed.
+  // The Kitsune (no spin, the owner: "it weirdly spins"): struck back and frozen, then LIFTED on her own surging
+  // fox-fire, shaking harder and glowing; at the climax her spirit tears out and she DROPS and shrinks away under it
+  // (the gap between them is the tearing apart, and makes room for the spirit inside the clip), slumped and dimmed.
+  // Brightness never past 1.18 and saturation 1.06 (`hot` tames the blow): her phase 3 is pale white-gold, and at 2.7 the
+  // climax turned her into a flat white cut-out with a neon kimono (round 3 review), like the Banshee before her.
   foxfire: ['translate(4px, -3px) rotate(3deg) scale(1.03)', [
-    [24, 'translate(2px, -5px) rotate(1deg) scale(1.04)', 1, { b: 1.3, s: 1.2 }],
-    [32, 'translate(-1px, -6px) scale(1.05)', 1, { b: 1.45, s: 1.3 }],
-    [38, 'translate(1px, -6px) scale(1.05)', 1, { b: 1.6, s: 1.4 }],
-    [44, 'translate(-1px, -7px) scale(1.06)', 1, { b: 1.8, s: 1.5 }],
-    [50, 'translate(1px, -8px) scale(1.07)', 1, { b: 2.1, s: 1.5 }],
-    [56, 'translate(0, -8px) scale(1.08)', 1, { b: 2.6, s: 1.2 }, FALL],
-    [70, 'translate(-2px, 10px) rotate(-3deg) scale(.93)', 1, { b: 0.9, g: 0.5 }],
-    [78, 'translate(-2px, 8px) rotate(-2.5deg) scale(.94)', 1, { b: 0.95, g: 0.6 }],
-    [100, 'translate(-2px, 10px) rotate(-3deg) scale(.93)', 1, DOWN],
-  ], { hot: 0.6 }],
+    [16, 'translate(1px, -5px) rotate(1deg) scale(1.03)', 1, { b: 1.02, s: 1.01 }],
+    [20, 'translate(-2px, -6px) scale(1.04)', 1, { b: 1.03, s: 1.01 }],
+    [24, 'translate(2px, -7px) scale(1.04)', 1, { b: 1.04, s: 1.02 }],
+    [28, 'translate(-3px, -8px) scale(1.05)', 1, { b: 1.05, s: 1.02 }],
+    [32, 'translate(3px, -9px) scale(1.05)', 1, { b: 1.06, s: 1.03 }],
+    [36, 'translate(-3px, -10px) scale(1.06)', 1, { b: 1.08, s: 1.03 }],
+    [40, 'translate(3px, -11px) scale(1.06)', 1, { b: 1.09, s: 1.04 }],
+    [44, 'translate(-4px, -12px) scale(1.07)', 1, { b: 1.11, s: 1.04 }],
+    [48, 'translate(4px, -12px) scale(1.07)', 1, { b: 1.13, s: 1.05 }],
+    [52, 'translate(-3px, -13px) scale(1.08)', 1, { b: 1.15, s: 1.05 }],
+    [56, 'translate(0, -14px) scale(1.09)', 1, { b: 1.18, s: 1.06 }, FALL],
+    [66, 'translate(-2px, 18px) rotate(-3deg) scale(.86)', 1, { b: 0.9, g: 0.5 }],
+    [74, 'translate(-2px, 15px) rotate(-2.5deg) scale(.87)', 1, { b: 0.95, g: 0.6 }],
+    [100, 'translate(-2px, 18px) rotate(-3deg) scale(.86)', 1, DOWN],
+  ], { hot: 0.15 }],
   // The Ophanim: its wheels slow, its light folds in on itself in one last flare, and it dims and tilts.
   eyeShut: ['rotate(-4deg) scale(1.08)', [
     [18, 'rotate(-2deg) scale(1.04)', 1, { b: 1.8 }],
@@ -415,14 +425,15 @@ export const KO_FRAMES = {
     [100, 'translateY(6px) rotate(-6deg) scale(.92)', 1, DOWN],
   ]],
   // The Headless Horseman: rocked back in the saddle, the horse rears one last time and screams, holds there as the
-  // soulfire leaves him, then the whole of them pitches forward and down, sliding into the fog on its side.
+  // soulfire leaves him, then the whole of them pitches forward a little and settles (the drawing itself kneels the
+  // horse and sits him down: a bigger sink here took them below the card under the DEFEATED tag).
   unhorsed: ['translate(-6px, -4px) rotate(-7deg)', [
     [24, 'translate(-4px, -10px) rotate(-12deg) scale(1.04)', 1, { b: 1.2 }],
     [42, 'translate(-6px, -12px) rotate(-14deg) scale(1.05)', 1, { b: 1.4, s: 1.2 }, FALL],
-    [56, 'translate(6px, 10px) rotate(9deg) scale(.97)', 1, { b: 1.7, s: 1.3 }],
-    [62, 'translate(10px, 18px) rotate(14deg) scale(.95)', 1, { b: 1.1 }],
-    [70, 'translate(9px, 16px) rotate(12deg) scale(.95)', 1, { g: 0.4, o: 0.8 }],
-    [100, 'translate(10px, 18px) rotate(13deg) scale(.95)', 1, DOWN],
+    [56, 'translate(3px, 5px) rotate(4deg) scale(.98)', 1, { b: 1.7, s: 1.3 }],
+    [62, 'translate(4px, 6px) rotate(5deg) scale(.97)', 1, { b: 1.1 }],
+    [70, 'translate(3px, 4px) rotate(3deg) scale(.97)', 1, { g: 0.4, o: 0.8 }],
+    [100, 'translate(3px, 4px) rotate(3deg) scale(.97)', 1, DOWN],
   ]],
   // A boss with no style of its own (a newer build's boss): a plain heavy fall.
   fall: ['translateX(-8px) rotate(-6deg)', [

@@ -9,8 +9,9 @@ describe('the prefix hint (the owner: about 20% of the word, never the length)',
     expect(prefixHint('murciélago')).toBe('(mu…)')
     expect(prefixHint('electrodomésticos')).toBe('(ele…)')
     expect(prefixHint('sol')).toBe('(s…)')
-    expect(prefixHint('yo')).toBe('(y…)')
-    for (let n = 2; n <= 40; n++) {
+    expect(prefixHint('yo')).toBe('') // two letters: one would be half of it
+    expect(prefixLen(2)).toBe(0)
+    for (let n = 3; n <= 40; n++) {
       const k = prefixLen(n)
       expect(k).toBeGreaterThanOrEqual(1)
       if (n >= 3) expect(n - k).toBeGreaterThanOrEqual(2)
@@ -29,7 +30,7 @@ describe('the prefix hint (the owner: about 20% of the word, never the length)',
     expect(prefixHint('y')).toBe('')
     expect(prefixHint('')).toBe('')
     expect(prefixHint('...')).toBe('')
-    expect(prefixHint('학교')).toBe('(학…)') // Hangul is letters
+    expect(prefixHint('학교')).toBe('') // two syllables: one would be half of it
     expect(prefixHint('собака')).toBe('(с…)')
   })
   it('keeps accents and inner marks as written', () => {
@@ -157,5 +158,24 @@ describe('short words and elisions', () => {
     expect(hasPrefixHint(once, ['a veces'])).toBe(true)
     expect(choicePromptText(once, ['a veces'])).toBe('¿Cómo se dice "sometimes"?')
     expect(choicePromptText('Y entonces (…) llegó.')).toBe('Y entonces (…) llegó.') // a bare "(…)" is the text's own
+  })
+})
+
+describe('review fixes: numbers, two-letter words, Hangul, Arabic punctuation', () => {
+  it('a leading number is hidden like a short word', () => {
+    expect(prefixHint('3 años')).toBe('(… a…)')
+    expect(hintTokens(prefixHint('3 años'))).toEqual(['', 'a'])
+  })
+  it('a two-letter word gets no hint (one letter would be half of it)', () => {
+    expect(prefixHint('yo')).toBe('')
+    expect(prefixHint('sol')).toBe('(s…)')
+  })
+  it('a short Hangul word gets no hint; a long one its first syllable', () => {
+    expect(prefixHint('사과')).toBe('')
+    expect(prefixHint('바나나')).toBe('')
+    expect(prefixHint('컴퓨터실')).toBe('(컴…)')
+  })
+  it('the Arabic question mark closes a question like "?"', () => {
+    expect(insertHint('كيف تقول "book"؟', '(ك…)')).toBe('كيف تقول "book" (ك…)؟')
   })
 })

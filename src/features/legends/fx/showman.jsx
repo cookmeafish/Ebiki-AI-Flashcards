@@ -80,7 +80,7 @@ export default {
 .lg-boss[data-fx="tear"] [class*="lg-ab-tragedy-"] { transform-box: fill-box; transform-origin: center; animation: lgrShowmanTragedyPop 320ms cubic-bezier(.22,1,.36,1) both }
 /* THE DRAWING ACTS IT OUT, MAGIC INCLUDED: his own SVG parts (raids/showman.svg, all three phases; lg-showman-arml = the
    arm on the left of the picture: the levitating glove under Comedy in phase 1, the claw hand flung wide in phase 2, the
-   raised clawed glove holding Comedy aloft in phase 3; -armr = the other arm (the fist on his hip with the cane in phase 1, the other claw
+   raised arm gripping burning Comedy by the chin in phase 3 (mask and grip ride in the arm group); -armr = the other arm (the fist on his hip with the cane in phase 1, the other claw
    hand flung wide in phase 2; each arm group in phase 2 also carries its half of the torn cape); -head = hat, hair, face and
    horns; -comedy and -tragedy = the two living masks; -fan = HIS RING (the gold marquee ring, the violet storm the masks ride,
    the flame wings); -shadow = his horns (ghost-fire horns, horns, great horns); -fire = the ghost flame over his
@@ -96,12 +96,12 @@ export default {
 .lg-showman-shadow, .lg-showman-fire { transform-box: fill-box; transform-origin: 50% 100% }
 /* the magic acts too: his demon shadow lunges with every blow and recoils when he is hit; the fire roars when he strikes,
    gutters when he is hurt, dies when he falls, and the shadow shrinks away at the knockout */
-@keyframes lgrSmShadowLunge { 0% { transform: none } 14% { transform: scale(.94) rotate(-3deg) } 30% { transform: scale(1.16) rotate(4deg) translateY(-3px) } 60% { transform: scale(1.06) } 100% { transform: none } }
+@keyframes lgrSmShadowLunge { 0% { transform: none } 14% { transform: scale(.94) rotate(-3deg) } 30% { transform: scale(1.05) rotate(4deg) } 60% { transform: scale(1.02) } 100% { transform: none } }
 @keyframes lgrSmShadowRecoil { 0% { transform: none } 14% { transform: scale(.86) rotate(6deg) } 40% { transform: scale(1.04) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgrSmShadowKo { 0% { transform: none } 30% { transform: scale(1.1) rotate(-4deg) } 70% { transform: scale(.4) rotate(14deg) translateY(10px) } 100% { transform: scale(.3) rotate(16deg) translateY(12px) } }
-@keyframes lgrSmFireRoar { 0% { transform: none } 16% { transform: scale(1, .8) } 32% { transform: scale(1.04, 1.16) } 60% { transform: scale(1.02, 1.06) } 100% { transform: none } }
+@keyframes lgrSmFireRoar { 0% { transform: none } 16% { transform: scale(1, .8) } 32% { transform: scale(1.02, 1.07) } 60% { transform: scale(1.01, 1.03) } 100% { transform: none } }
 @keyframes lgrSmFireGutter { 0% { transform: none } 14% { transform: scale(1, .45) } 44% { transform: scale(1, 1.1) } 100% { transform: none } }
-@keyframes lgrSmFireDie { 0% { transform: none } 30% { transform: scale(1, 1.3) } 70% { transform: scale(1, .2) } 100% { transform: scale(1, .1) } }
+@keyframes lgrSmFireDie { 0% { transform: none; opacity: 1 } 30% { transform: scale(1, 1.06); opacity: 1 } 70% { transform: scale(1, .2); opacity: .4 } 100% { transform: scale(1, .1); opacity: 0 } }
 .lg-boss[data-motif="showman"]:is([data-assault-on], [data-moment="hurt"], [data-moment="hurtBig"]) .lg-showman-shadow { animation: lgrSmShadowLunge 1000ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="showman"]:is([data-assault-on], [data-moment="hurt"], [data-moment="hurtBig"], [data-fx="encore"]) .lg-showman-fire { animation: lgrSmFireRoar 1000ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="showman"]:is([data-moment="hit"], [data-moment="crit"], [data-moment="sharpen"], [data-moment="block"], [data-moment="shield"]) .lg-showman-shadow { animation: lgrSmShadowRecoil 800ms cubic-bezier(.2,.8,.3,1) both }
@@ -125,21 +125,22 @@ export default {
 /* the arms whip OUTWARD on a strike (a negative k), so a flung mask never crosses his face */
 :is(.lg-showman-arml, .lg-showman-armr) { --sm-k: -.5 }
 .lg-p3 :is(.lg-showman-arml, .lg-showman-armr) { --sm-k: -.35 }
+.lg-boss[data-moment="hurtBig"] .lg-p3 :is(.lg-showman-arml, .lg-showman-armr) { --sm-k: -.18 }
 
 /* HIS STRIKE (data-assault-on from the first frame, then data-moment="hurt"): a magician's flourish turned deadly. He
    draws back (100 ms), then FLINGS: the Comedy arm whips through and the Comedy mask spins off it at the camera like a
    thrown blade and snaps back, the other hand flicks out and his ring flares, his chin juts with a grin. */
 @keyframes lgrSmArmStrikeL { 0% { transform: none } 11% { transform: rotate(calc(-14deg * var(--sm-k, 1))) } 17% { transform: rotate(calc(-16deg * var(--sm-k, 1))) }
-  26% { transform: rotate(calc(22deg * var(--sm-k, 1))) scale(1.1) } 34% { transform: rotate(calc(17deg * var(--sm-k, 1))) scale(1.07) } 60% { transform: rotate(calc(8deg * var(--sm-k, 1))) scale(1.03) } 100% { transform: none } }
+  26% { transform: rotate(calc(22deg * var(--sm-k, 1))) scale(1.04) } 34% { transform: rotate(calc(17deg * var(--sm-k, 1))) scale(1.03) } 60% { transform: rotate(calc(8deg * var(--sm-k, 1))) scale(1.03) } 100% { transform: none } }
 @keyframes lgrSmArmStrikeR { 0% { transform: none } 11% { transform: rotate(calc(10deg * var(--sm-k, 1))) } 17% { transform: rotate(calc(12deg * var(--sm-k, 1))) }
-  26% { transform: rotate(calc(-18deg * var(--sm-k, 1))) scale(1.08) } 34% { transform: rotate(calc(-14deg * var(--sm-k, 1))) scale(1.06) } 60% { transform: rotate(calc(-6deg * var(--sm-k, 1))) } 100% { transform: none } }
+  26% { transform: rotate(calc(-18deg * var(--sm-k, 1))) scale(1.04) } 34% { transform: rotate(calc(-14deg * var(--sm-k, 1))) scale(1.03) } 60% { transform: rotate(calc(-6deg * var(--sm-k, 1))) } 100% { transform: none } }
 @keyframes lgrSmMaskThrow { 0% { transform: none } 11% { transform: rotate(-20deg) scale(.95) } 17% { transform: rotate(-24deg) scale(.95) }
   30% { transform: translate(6px, 30px) rotate(330deg) scale(1.15) } 44% { transform: translate(4px, 22px) rotate(540deg) scale(1.1) }
   66% { transform: translate(4px, 2px) rotate(700deg) scale(1.1) } 78% { transform: rotate(735deg) } 88% { transform: rotate(712deg) } 100% { transform: rotate(720deg) } }
 @keyframes lgrSmMaskFlick { 0% { transform: none } 11% { transform: rotate(10deg) } 26% { transform: rotate(-24deg) scale(1.16) } 45% { transform: rotate(8deg) } 64% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgrSmHeadStrike { 0% { transform: none } 11% { transform: rotate(-7deg) } 17% { transform: rotate(-8deg) }
-  27% { transform: rotate(6deg) scale(1.06) } 48% { transform: rotate(3deg) scale(1.03) } 100% { transform: none } }
-@keyframes lgrSmFanStrike { 0% { transform: none } 11% { transform: scale(.94) } 26% { transform: scale(1.16) rotate(4deg) } 40% { transform: scale(1.08) rotate(-2deg) } 100% { transform: none } }
+  27% { transform: rotate(6deg) scale(1.02) } 48% { transform: rotate(3deg) scale(1.01) } 100% { transform: none } }
+@keyframes lgrSmFanStrike { 0% { transform: none } 11% { transform: scale(.94) } 26% { transform: scale(1.05) rotate(3deg) } 40% { transform: scale(1.03) rotate(-2deg) } 100% { transform: none } }
 .lg-boss[data-motif="showman"][data-assault-on] .lg-showman-arml, .lg-boss[data-motif="showman"][data-moment="hurt"] .lg-showman-arml { animation: lgrSmArmStrikeL 900ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="showman"][data-assault-on] .lg-showman-armr, .lg-boss[data-motif="showman"][data-moment="hurt"] .lg-showman-armr { animation: lgrSmArmStrikeR 900ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="showman"][data-assault-on] .lg-showman-comedy, .lg-boss[data-motif="showman"][data-moment="hurt"] .lg-showman-comedy { animation: lgrSmMaskThrow 900ms cubic-bezier(.3,0,.3,1) both }
@@ -150,23 +151,23 @@ export default {
 /* HIS HEAVY BLOW (data-moment="hurtBig", 100 ms in, from the drawn-back pose): BOTH masks are hurled at you at once
    (Comedy spins in from the left, Tragedy from the right), both arms follow through, the card fan bursts wide. */
 @keyframes lgrSmArmHeavyL { 0% { transform: rotate(calc(-14deg * var(--sm-k, 1))) } 16% { transform: rotate(calc(-24deg * var(--sm-k, 1))) } 20% { transform: rotate(calc(-25deg * var(--sm-k, 1))) }
-  30% { transform: rotate(calc(30deg * var(--sm-k, 1))) scale(1.16) } 38% { transform: rotate(calc(24deg * var(--sm-k, 1))) scale(1.12) } 70% { transform: rotate(calc(10deg * var(--sm-k, 1))) scale(1.04) } 100% { transform: none } }
+  30% { transform: rotate(calc(30deg * var(--sm-k, 1))) scale(1.05) } 38% { transform: rotate(calc(24deg * var(--sm-k, 1))) scale(1.01) } 70% { transform: rotate(calc(10deg * var(--sm-k, 1))) scale(1.01) } 100% { transform: none } }
 @keyframes lgrSmArmHeavyR { 0% { transform: rotate(calc(10deg * var(--sm-k, 1))) } 16% { transform: rotate(calc(22deg * var(--sm-k, 1))) } 20% { transform: rotate(calc(23deg * var(--sm-k, 1))) }
-  30% { transform: rotate(calc(-28deg * var(--sm-k, 1))) scale(1.16) } 38% { transform: rotate(calc(-22deg * var(--sm-k, 1))) scale(1.12) } 70% { transform: rotate(calc(-9deg * var(--sm-k, 1))) scale(1.04) } 100% { transform: none } }
+  30% { transform: rotate(calc(-28deg * var(--sm-k, 1))) scale(1.05) } 38% { transform: rotate(calc(-22deg * var(--sm-k, 1))) scale(1.01) } 70% { transform: rotate(calc(-9deg * var(--sm-k, 1))) scale(1.01) } 100% { transform: none } }
 @keyframes lgrSmComedyHeavy { 0% { transform: rotate(-20deg) scale(.95) } 18% { transform: rotate(-40deg) scale(.9) } 32% { transform: translate(6px, 36px) rotate(380deg) scale(1.18) }
   46% { transform: translate(4px, 26px) rotate(560deg) scale(1.12) } 70% { transform: translate(2px, 4px) rotate(700deg) scale(1.05) } 82% { transform: rotate(732deg) } 100% { transform: rotate(720deg) } }
 @keyframes lgrSmTragedyHeavy { 0% { transform: rotate(10deg) } 18% { transform: rotate(30deg) scale(.9) } 34% { transform: translate(-6px, 36px) rotate(-380deg) scale(1.18) }
   48% { transform: translate(-4px, 26px) rotate(-560deg) scale(1.12) } 72% { transform: translate(-2px, 4px) rotate(-700deg) scale(1.05) } 84% { transform: rotate(-732deg) } 100% { transform: rotate(-720deg) } }
-@keyframes lgrSmHeadHeavy { 0% { transform: rotate(-7deg) } 18% { transform: rotate(-10deg) } 30% { transform: rotate(8deg) scale(1.12) }
-  40% { transform: rotate(5deg) scale(1.08) } 70% { transform: rotate(2deg) scale(1.03) } 100% { transform: none } }
-@keyframes lgrSmFanHeavy { 0% { transform: scale(.94) } 18% { transform: scale(.88) } 30% { transform: scale(1.32) } 38% { transform: scale(1.2) rotate(-3deg) } 50% { transform: scale(1.26) rotate(2deg) } 100% { transform: none } }
+@keyframes lgrSmHeadHeavy { 0% { transform: rotate(-7deg) } 18% { transform: rotate(-10deg) } 30% { transform: rotate(8deg) scale(1.04) }
+  40% { transform: rotate(5deg) scale(1.03) } 70% { transform: rotate(2deg) scale(1.01) } 100% { transform: none } }
+@keyframes lgrSmFanHeavy { 0% { transform: scale(.94) } 18% { transform: scale(.88) } 30% { transform: scale(1.06) } 38% { transform: scale(1.04) rotate(-2deg) } 50% { transform: scale(1.05) rotate(2deg) } 100% { transform: none } }
 .lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-showman-arml { animation: lgrSmArmHeavyL 1150ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-showman-armr { animation: lgrSmArmHeavyR 1150ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-showman-comedy { animation: lgrSmComedyHeavy 1150ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-showman-tragedy { animation: lgrSmTragedyHeavy 1150ms cubic-bezier(.3,0,.3,1) both }
 /* phase 2 holds the masks beside his face on a tilt: they are hurled OUT and away from it, never across it */
-@keyframes lgrSmComedyHeavyP2 { 0% { transform: rotate(-20deg) scale(.95) } 18% { transform: rotate(-40deg) scale(.9) } 32% { transform: translate(-10px, 26px) rotate(380deg) scale(1.15) }
-  46% { transform: translate(-7px, 18px) rotate(560deg) scale(1.1) } 70% { transform: translate(-2px, 4px) rotate(700deg) scale(1.04) } 82% { transform: rotate(732deg) } 100% { transform: rotate(720deg) } }
+@keyframes lgrSmComedyHeavyP2 { 0% { transform: rotate(-20deg) scale(.95) } 18% { transform: rotate(-40deg) scale(.9) } 32% { transform: translate(-3px, 28px) rotate(380deg) scale(1.07) }
+  46% { transform: translate(-2px, 20px) rotate(560deg) scale(1.05) } 70% { transform: translate(-2px, 4px) rotate(700deg) scale(1.04) } 82% { transform: rotate(732deg) } 100% { transform: rotate(720deg) } }
 @keyframes lgrSmTragedyHeavyP2 { 0% { transform: none } 16% { transform: rotate(14deg) scale(.92) } 34% { transform: rotate(-22deg) scale(1.14) }
   52% { transform: rotate(12deg) scale(1.06) } 72% { transform: rotate(-5deg) } 100% { transform: none } }
 .lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-p2 .lg-showman-comedy { animation-name: lgrSmComedyHeavyP2 }
@@ -240,7 +241,7 @@ export default {
    tumble down out of the light, the arms drop, the head hangs, his ring collapses, the fire dies, his horns
    shrink away and the brand burns out. */
 @keyframes lgrSmHeadKo { 0% { transform: none } 12% { transform: rotate(-6deg) } 34% { transform: rotate(4deg) scale(.97) } 46% { transform: rotate(2deg) }
-  66% { transform: rotate(12deg) scale(.95) } 100% { transform: rotate(14deg) scale(.95) } }
+  66% { transform: rotate(11deg) scale(.95) } 100% { transform: rotate(12deg) scale(.95) } }
 @keyframes lgrSmComedyKo { 0% { transform: none } 40% { transform: rotate(-10deg) } 58% { transform: translate(-6px, 30px) rotate(-160deg) } 72% { transform: translate(-8px, 56px) rotate(-250deg) }
   80% { transform: translate(-8px, 52px) rotate(-240deg) } 100% { transform: translate(-8px, 56px) rotate(-246deg) } }
 @keyframes lgrSmTragedyKo { 0% { transform: none } 44% { transform: rotate(10deg) } 62% { transform: translate(6px, 30px) rotate(150deg) } 76% { transform: translate(8px, 56px) rotate(230deg) }
@@ -287,5 +288,64 @@ export default {
 /* tear: the drop wells out of Tragedy's eye and runs down the mask (the lg-fx-tear layer, shown by the arena) */
 @keyframes lgrSmTearRun { 0% { transform: translateY(-2px) scale(.3); opacity: 0 } 25% { transform: none; opacity: 1 } 100% { transform: translateY(7px) scale(.9, 1.15); opacity: .2 } }
 .lg-boss[data-motif="showman"][data-fx="tear"] .lgfa-showman-tear { transform-box: fill-box; transform-origin: 50% 0; animation: lgrSmTearRun 340ms ease-in both }
+/* THE HELD MASKS (phase 3): each mask, its blaze and the hand gripping its chin are one group inside the arm, pivoting
+   at the grip (its bottom centre), so every reaction moves mask and fingers together and the hand never lets go. These
+   come after the free-mask rules above and win on the same specificity. */
+.lg-p3 :is(.lg-showman-comedy, .lg-showman-tragedy) { transform-origin: 50% 94% }
+@keyframes lgrSmHeldJolt { 0% { transform: none } 22% { transform: rotate(-9deg) scale(1.03) } 50% { transform: rotate(6deg) } 76% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lgrSmHeldHeavy { 0% { transform: none } 16% { transform: rotate(8deg) scale(.95) } 34% { transform: rotate(-10deg) scale(1.05) } 52% { transform: rotate(6deg) scale(1.02) } 72% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lgrSmHeldSob { 0% { transform: none } 25% { transform: rotate(6deg) scale(1.04, .94) } 45% { transform: rotate(2deg) scale(.98, 1.03) } 65% { transform: rotate(6deg) scale(1.04, .94) } 100% { transform: none } }
+@keyframes lgrSmHeldTwist { 0% { transform: none } 18% { transform: scaleX(.35) rotate(-6deg) } 36% { transform: scaleX(.9) rotate(10deg) } 54% { transform: scaleX(.35) rotate(-4deg) } 72% { transform: scaleX(1.05) rotate(4deg) } 100% { transform: none } }
+@keyframes lgrSmHeldSulk { 0% { transform: none } 30% { transform: rotate(16deg) scale(.94) } 75% { transform: rotate(14deg) scale(.95) } 100% { transform: none } }
+@keyframes lgrSmHeldDrop { 0% { transform: none } 40% { transform: rotate(8deg) } 100% { transform: rotate(-34deg) scale(.92) } }
+@keyframes lgrSmHeldDropR { 0% { transform: none } 40% { transform: rotate(-8deg) } 100% { transform: rotate(30deg) scale(.92) } }
+@keyframes lgrSmHeldCackle { 0% { transform: none } 20% { transform: rotate(-10deg) scale(1.08) } 45% { transform: rotate(8deg) scale(1.08) } 70% { transform: rotate(-4deg) } 100% { transform: none } }
+.lg-boss[data-motif="showman"]:is([data-assault-on], [data-moment="hit"], [data-moment="hurt"], [data-moment="crit"], [data-moment="sharpen"], [data-moment="block"], [data-moment="shield"]) .lg-p3 :is(.lg-showman-comedy, .lg-showman-tragedy) { animation: lgrSmHeldJolt 760ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-p3 :is(.lg-showman-comedy, .lg-showman-tragedy) { animation: lgrSmHeldHeavy 1150ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="showman"][data-moment="wind"] .lg-p3 :is(.lg-showman-comedy, .lg-showman-tragedy) { animation: lgrSmHeldSulk 900ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p3 .lg-showman-comedy { animation: lgrSmHeldDrop 2400ms ease-in both }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p3 .lg-showman-tragedy { animation: lgrSmHeldDropR 2400ms ease-in both }
+.lg-boss[data-motif="showman"][data-fx="laugh"] .lg-p3 .lg-showman-comedy { animation: lgrSmHeldCackle 340ms ease-out both }
+.lg-boss[data-motif="showman"][data-fx="tear"] .lg-p3 .lg-showman-tragedy { animation: lgrSmHeldSob 340ms ease-in-out both }
+.lg-boss[data-motif="showman"][data-fx="twist"] .lg-p3 :is(.lg-showman-comedy, .lg-showman-tragedy) { animation: lgrSmHeldTwist 780ms cubic-bezier(.22,1,.36,1) both }
+/* phase 3's arms are RAISED, so the shared swings would fling the held masks out of frame: smaller arcs here, the parry
+   a short check toward his face, the knockout a slump of both arms down and OUT, the masks tipping away from his face */
+@keyframes lgrSmArmBlockP3 { 0% { transform: none } 14% { transform: rotate(8deg) } 32% { transform: rotate(-8deg) scale(.97) } 56% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgrSmArmKoP3L { 0% { transform: none; opacity: 1 } 12% { transform: rotate(5deg); opacity: 1 } 40% { transform: rotate(2deg); opacity: 1 } 66% { transform: rotate(-9deg) translateY(9px); opacity: .2 } 100% { transform: rotate(-8deg) translateY(10px); opacity: 0 } }
+@keyframes lgrSmArmKoP3R { 0% { transform: none; opacity: 1 } 12% { transform: rotate(-5deg); opacity: 1 } 40% { transform: rotate(-2deg); opacity: 1 } 66% { transform: rotate(9deg) translateY(9px); opacity: .2 } 100% { transform: rotate(8deg) translateY(10px); opacity: 0 } }
+.lg-boss[data-motif="showman"][data-moment="block"] .lg-p3 .lg-showman-arml { animation-name: lgrSmArmBlockP3 }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p3 .lg-showman-arml { animation-name: lgrSmArmKoP3L }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p3 .lg-showman-armr { animation-name: lgrSmArmKoP3R }
+/* KNOCKED OUT: the cinematic ends in this pose and data-down HOLDS it (each value = the last keyframe of its knockout
+   animation above), so the defeated drawing never pops back upright when the cinematic's moment ends */
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-arml { transform: rotate(-32deg) translateY(12px) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-armr { transform: rotate(32deg) translateY(12px) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p3 .lg-showman-arml { transform: rotate(-8deg) translateY(10px); opacity: 0 }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p3 .lg-showman-armr { transform: rotate(8deg) translateY(10px); opacity: 0 }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-head { transform: rotate(12deg) scale(.95) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-comedy { transform: translate(-8px, 56px) rotate(-246deg) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-tragedy { transform: translate(8px, 56px) rotate(226deg) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p3 .lg-showman-comedy { transform: rotate(-34deg) scale(.92) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p3 .lg-showman-tragedy { transform: rotate(30deg) scale(.92) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-fan { transform: scale(.66, .46) translateY(34px) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-shadow { transform: scale(.3) rotate(16deg) translateY(12px) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-fire { transform: scale(1, .1); opacity: 0 }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-sigil { transform: scale(.25) rotate(120deg) }
+/* THE FALLEN ARMS (phase 3): as the curtain closes the raised arms fade out and the limp ones fade in (forearms
+   hanging, gloves open, Comedy slipping from his fingers upside down and cracked, Tragedy tipped off the other hand),
+   while the whole figure is lifted a little (lg-showman-stage) so face, gloves and masks sit clear above the DEFEATED!
+   tag. The held pose below ends exactly where the cinematic does (check-ko-hold). */
+.lg-showman-stage { transform-box: view-box; transform-origin: 60px 0px }
+.lg-boss[data-motif="showman"][data-down] .lg-showman-armsfallen { display: inline !important }
+@keyframes lgrSmArmsFallenIn { 0% { opacity: 0 } 48% { opacity: 0 } 70% { opacity: .85 } 100% { opacity: 1 } }
+@keyframes lgrSmStageDrop { 0% { transform: none } 45% { transform: none } 70% { transform: translate(0px, -30px) scale(.88) } 100% { transform: translate(0px, -30px) scale(.88) } }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-showman-armsfallen { animation: lgrSmArmsFallenIn 2400ms ease-in-out both }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-showman-stage { animation: lgrSmStageDrop 2400ms ease-in-out both }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-armsfallen { opacity: 1 }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-stage { transform: translate(0px, -30px) scale(.88) }
+/* phase 3's fire wings burn out with him (folded wings left spikes poking up behind the fallen shoulders) */
+@keyframes lgrSmFanKoP3 { 0% { transform: none; opacity: 1 } 50% { transform: none; opacity: 1 } 72% { transform: scale(.7, .5) translateY(30px); opacity: .2 } 100% { transform: scale(.66, .46) translateY(34px); opacity: 0 } }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p3 .lg-showman-fan { animation-name: lgrSmFanKoP3 }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p3 .lg-showman-fan { opacity: 0 }
 `,
 }

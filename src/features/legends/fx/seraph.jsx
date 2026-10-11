@@ -51,21 +51,30 @@ const ph = (n) => `${P}[data-phase="${n}"]`
 const PARTS_CSS = `
 ${P} .lgs-wing, ${P} .lgs-eye, ${P} .lgs-halo, ${P} .lgs-beam, ${P} .lgs-panL, ${P} .lgs-panR { transform-box: view-box; transform-origin: 0 0 }
 ${P} .lg-seraph-head { transform-box: view-box }
-${P} .lg-seraph-head { transform-origin: 60px 80px }
-${P} .lg-seraph-armL, ${P} .lg-seraph-armR, ${P} .lg-seraph-handL, ${P} .lg-seraph-handR, ${P} .lg-seraph-scales { transform-box: view-box }
+/* the head pivots at the NECK (where it meets the collar), so a tilt never parts it from the body (check-joints) */
+${P} .lg-seraph-head { transform-origin: 60px 100px }
+${ph(3)} .lg-seraph-head { transform-origin: 60px 90px }
+${ph(2)} .lg-seraph-head { transform-origin: 62.5px 92px }
+${P} .lg-seraph-armL, ${P} .lg-seraph-armR, ${P} .lg-seraph-handL, ${P} .lg-seraph-handR { transform-box: view-box }
+/* the fist rides INSIDE the scales group, whose own origin is the grip: it turns about the fist's WRIST (local, the
+   grip's offset x the fist's scale), so fist and scales move as one and the wrist stays on the forearm */
+${P} .lg-seraph-scales { transform-box: view-box; transform-origin: 0 0 }
+${ph(1)} .lg-seraph-scales { transform-origin: 6.5px 10px } ${ph(2)} .lg-seraph-scales { transform-origin: .78px 8.32px } ${ph(3)} .lg-seraph-scales { transform-origin: .9px 9.6px }
+/* the wings fill the frame from phase 2 on: their fight swings are scaled down there so no feather leaves the 20% headroom */
+${ph(2)} .lgs-wing { --sp-wa: .35 } ${ph(3)} .lgs-wing { --sp-wa: .32 } ${ph(3)} .lgs-halo { --sp-hs: .35 }
 /* pivots (scene units): each arm at its shoulder, each hand at its wrist, the scales at the fist (P1 held up before her heart, P2 thrust out at her shoulder, P3 aloft) */
-${ph(1)} .lg-seraph-armR { transform-origin: 97px 95px; --sp-drop: 10deg } ${ph(1)} .lg-seraph-handR { transform-origin: 80px 108px } ${ph(1)} .lg-seraph-scales { transform-origin: 79.25px 100px } ${ph(1)} .lg-seraph-armL { transform-origin: 23px 95px; --sp-drop: -10deg } ${ph(1)} .lg-seraph-handL { transform-origin: 41px 109px }
-${ph(2)} .lg-seraph-armR { transform-origin: 97px 95px; --sp-drop: 24deg } ${ph(2)} .lg-seraph-handR { transform-origin: 118px 85px } ${ph(2)} .lg-seraph-scales { transform-origin: 117.28px 77.32px } ${ph(2)} .lg-seraph-armL { transform-origin: 23px 95px; --sp-drop: -28deg } ${ph(2)} .lg-seraph-handL { transform-origin: -5px 87px }
-${ph(3)} .lg-seraph-armR { transform-origin: 98px 92px; --sp-drop: 28deg } ${ph(3)} .lg-seraph-handR { transform-origin: 119px 45px } ${ph(3)} .lg-seraph-scales { transform-origin: 118.13px 35.72px } ${ph(3)} .lg-seraph-armL { transform-origin: 22px 92px; --sp-drop: -28deg } ${ph(3)} .lg-seraph-handL { transform-origin: 3px 46px }
+${ph(1)} .lg-seraph-armR { transform-origin: 97px 95px; --sp-drop: 10deg } ${ph(1)} .lg-seraph-handR { transform-origin: 87px 122px} ${ph(1)} .lg-seraph-armL { transform-origin: 23px 95px; --sp-drop: -10deg } ${ph(1)} .lg-seraph-handL { transform-origin: 31px 118px}
+${ph(2)} .lg-seraph-armR { transform-origin: 97px 95px; --sp-drop: 12deg } ${ph(2)} .lg-seraph-handR { transform-origin: 113px 70px} ${ph(2)} .lg-seraph-armL { transform-origin: 23px 95px; --sp-drop: -28deg } ${ph(2)} .lg-seraph-handL { transform-origin: -11px 66px}
+${ph(3)} .lg-seraph-armR { transform-origin: 98px 92px; --sp-drop: 42deg; --sp-dsc: .7 } ${ph(3)} .lg-seraph-handR { transform-origin: 117.5px 68px} ${ph(3)} .lg-seraph-armL { transform-origin: 22px 92px; --sp-drop: -28deg } ${ph(3)} .lg-seraph-handL { transform-origin: 46px 124px}
 /* how far each pan rides when the beam tips: in the scales' own units (half span 14 x sin of the tip) */
 ${P} { --sp-tip: 14deg; --sp-dy: 3.39px }
 
 /* HIT: the Judge is rocked: the cowl jerks back, the eye pinches, the wings flinch in, the scales jolt. */
-@keyframes lgrSeraphMHitHead { 0% { transform: none } 12% { transform: translateY(-2px) rotate(-6deg) } 36% { transform: rotate(3deg) } 62% { transform: rotate(-1deg) } 100% { transform: none } }
-@keyframes lgrSeraphMHitWing { 0%, 100% { rotate: 0deg } 12% { rotate: -9deg } 40% { rotate: 3deg } 64% { rotate: -1deg } }
+@keyframes lgrSeraphMHitHead { 0% { transform: none } 12% { transform: rotate(-6deg) } 36% { transform: rotate(3deg) } 62% { transform: rotate(-1deg) } 100% { transform: none } }
+@keyframes lgrSeraphMHitWing { 0%, 100% { rotate: 0deg } 12% { rotate: calc(-9deg * var(--sp-wa, 1)) } 40% { rotate: calc(3deg * var(--sp-wa, 1)) } 64% { rotate: calc(-1deg * var(--sp-wa, 1)) } }
 @keyframes lgrSeraphMHitEye { 0%, 100% { scale: 1 } 12%, 40% { scale: 1.15 .3 } }
 @keyframes lgrSeraphMHitBeam { 0%, 100% { rotate: 0deg } 14% { rotate: -9deg } 40% { rotate: 5deg } 66% { rotate: -2deg } }
-@keyframes lgrSeraphMHitHalo { 0%, 100% { rotate: 0deg; scale: 1 } 14% { rotate: -10deg; scale: .93 } 44% { rotate: 4deg; scale: 1.03 } }
+@keyframes lgrSeraphMHitHalo { 0%, 100% { rotate: 0deg; scale: 1 } 14% { rotate: -10deg; scale: .93 } 44% { rotate: 4deg; scale: calc(1 + 0.03 * var(--sp-hs, 1)) } }
 ${P}[data-moment="hit"] .lg-seraph-head { animation: lgrSeraphMHitHead 520ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="hit"] .lgs-wing { animation: lgrSeraphMHitWing 560ms ease-out both }
 ${P}[data-moment="hit"] .lgs-eye { animation: lgrSeraphMHitEye 520ms ease-out both }
@@ -73,10 +82,10 @@ ${P}[data-moment="hit"] .lgs-beam { animation: lgrSeraphMHitBeam 600ms ease-out 
 ${P}[data-moment="hit"] .lgs-halo { animation: lgrSeraphMHitHalo 520ms ease-out both }
 /* CRITICAL: the wings are blasted wide and shudder, the cowl whips aside, the halo is knocked spinning, the eye
    flares then squeezes, the scales are flung about. */
-@keyframes lgrSeraphMCritWing { 0% { rotate: 0deg } 12% { rotate: 20deg } 22% { rotate: 14deg } 30% { rotate: 18deg } 40% { rotate: 12deg } 60% { rotate: 4deg } 100% { rotate: 0deg } }
-@keyframes lgrSeraphMCritHead { 0% { transform: none } 12% { transform: translateX(3px) rotate(14deg) scale(.94) } 34% { transform: translateX(-1px) rotate(-7deg) } 58% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgrSeraphMCritWing { 0% { rotate: 0deg } 12% { rotate: calc(20deg * var(--sp-wa, 1)) } 22% { rotate: calc(14deg * var(--sp-wa, 1)) } 30% { rotate: calc(18deg * var(--sp-wa, 1)) } 40% { rotate: calc(12deg * var(--sp-wa, 1)) } 60% { rotate: calc(4deg * var(--sp-wa, 1)) } 100% { rotate: 0deg } }
+@keyframes lgrSeraphMCritHead { 0% { transform: none } 12% { transform: rotate(14deg) scale(.94) } 34% { transform: rotate(-7deg) } 58% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgrSeraphMCritEye { 0%, 100% { scale: 1 } 10% { scale: 1.4 1.5 } 30%, 50% { scale: 1.2 .25 } }
-@keyframes lgrSeraphMCritHalo { 0% { rotate: 0deg; scale: 1 } 14% { rotate: 50deg; scale: .9; filter: brightness(1.5) } 44% { rotate: -14deg; scale: 1.06 } 72% { rotate: 4deg } 100% { rotate: 0deg; scale: 1; filter: none } }
+@keyframes lgrSeraphMCritHalo { 0% { rotate: 0deg; scale: 1 } 14% { rotate: 50deg; scale: .9; filter: brightness(1.5) } 44% { rotate: -14deg; scale: calc(1 + 0.06 * var(--sp-hs, 1)) } 72% { rotate: 4deg } 100% { rotate: 0deg; scale: 1; filter: none } }
 @keyframes lgrSeraphMCritBeam { 0%, 100% { rotate: 0deg } 12% { rotate: 22deg } 30% { rotate: -16deg } 52% { rotate: 8deg } 76% { rotate: -3deg } }
 ${P}[data-moment="crit"] .lgs-wing { animation: lgrSeraphMCritWing 680ms ease-out both }
 ${P}[data-moment="crit"] .lg-seraph-head { animation: lgrSeraphMCritHead 640ms cubic-bezier(.2,.9,.3,1) both }
@@ -84,20 +93,20 @@ ${P}[data-moment="crit"] .lgs-eye { animation: lgrSeraphMCritEye 640ms ease-out 
 ${P}[data-moment="crit"] .lgs-halo { animation: lgrSeraphMCritHalo 680ms ease-out both }
 ${P}[data-moment="crit"] .lgs-beam { animation: lgrSeraphMCritBeam 700ms ease-out both }
 /* SHARPENED: the blade shears the cowl along its line, clips the wings on one side and knocks the scales askew. */
-@keyframes lgrSeraphMCutHead { 0% { transform: none } 10% { transform: skewX(-12deg) translateX(2px) } 26% { transform: skewX(8deg) } 46% { transform: skewX(-3deg) } 100% { transform: none } }
-@keyframes lgrSeraphMCutWing { 0%, 100% { rotate: 0deg } 10% { rotate: -16deg } 34% { rotate: 4deg } 60% { rotate: -2deg } }
-@keyframes lgrSeraphMCutScales { 0%, 100% { transform: none } 12% { transform: rotate(-16deg) translateY(2px) } 46% { transform: rotate(-5deg) } }
+@keyframes lgrSeraphMCutHead { 0% { transform: none } 10% { transform: skewX(-12deg) } 26% { transform: skewX(8deg) } 46% { transform: skewX(-3deg) } 100% { transform: none } }
+@keyframes lgrSeraphMCutWing { 0%, 100% { rotate: 0deg } 10% { rotate: calc(-16deg * var(--sp-wa, 1)) } 34% { rotate: calc(4deg * var(--sp-wa, 1)) } 60% { rotate: calc(-2deg * var(--sp-wa, 1)) } }
+@keyframes lgrSeraphMCutScales { 0%, 100% { transform: none } 12% { transform: rotate(-14deg) } 46% { transform: rotate(-4deg) } }
 ${P}[data-moment="sharpen"] .lg-seraph-head { animation: lgrSeraphMCutHead 600ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="sharpen"] .lgs-wing { animation: lgrSeraphMCutWing 600ms ease-out both }
 ${P}[data-moment="sharpen"] .lg-seraph-scales { animation: lgrSeraphMCutScales 600ms ease-out both }
 /* ITS JUDGMENT ON THE PLAYER (data-assault-on): the Judge mantles (wings rear, the arms draw back, the eye narrows),
    then as the lance of light leaves it (impact/assault.js travelAt) it pronounces: the arms drive forward, the great
    eye blazes open, the wings snap in toward the camera, the halo flares and the scales slam down. */
-@keyframes lgrSeraphMBlowWing { 0% { rotate: 0deg } 13% { rotate: 14deg } 24% { rotate: -14deg } 48% { rotate: -10deg } 100% { rotate: 0deg } }
+@keyframes lgrSeraphMBlowWing { 0% { rotate: 0deg } 13% { rotate: calc(14deg * var(--sp-wa, 1)) } 24% { rotate: calc(-14deg * var(--sp-wa, 1)) } 48% { rotate: calc(-10deg * var(--sp-wa, 1)) } 100% { rotate: 0deg } }
 @keyframes lgrSeraphMBlowEye { 0% { scale: 1 } 13% { scale: 1.1 .35 } 24% { scale: 1.5 1.7; filter: brightness(1.6) drop-shadow(0 0 2px #ffb300) } 52% { scale: 1.3 1.45; filter: brightness(1.3) } 100% { scale: 1; filter: none } }
-@keyframes lgrSeraphMBlowArm { 0% { transform: none } 13% { transform: rotate(var(--sp-back, -10deg)) translateY(-2px) } 24% { transform: rotate(var(--sp-fwd, 8deg)) translateY(2px) scale(1.1) } 52% { transform: rotate(var(--sp-fwd, 8deg)) scale(1.06) } 100% { transform: none } }
-@keyframes lgrSeraphMBlowHead { 0% { transform: none } 13% { transform: translateY(-2px) scale(.96) } 24% { transform: translateY(2px) scale(1.12) } 52% { transform: translateY(1px) scale(1.08) } 100% { transform: none } }
-@keyframes lgrSeraphMBlowHalo { 0% { scale: 1 } 13% { scale: .9 } 24% { scale: 1.22; filter: brightness(1.7) drop-shadow(0 0 3px #ffb300) } 55% { scale: 1.12; filter: brightness(1.3) } 100% { scale: 1; filter: none } }
+@keyframes lgrSeraphMBlowArm { 0% { transform: none } 13% { transform: rotate(var(--sp-back, -10deg)) translateY(-2px) } 24% { transform: rotate(var(--sp-fwd, 8deg)) translateY(2px) scale(var(--sp-sc, 1.1)) } 52% { transform: rotate(var(--sp-fwd, 8deg)) scale(1.06) } 100% { transform: none } }
+@keyframes lgrSeraphMBlowHead { 0% { transform: none } 13% { transform: scale(.96) } 24% { transform: scale(1.12) } 52% { transform: scale(1.08) } 100% { transform: none } }
+@keyframes lgrSeraphMBlowHalo { 0% { scale: 1 } 13% { scale: .9 } 24% { scale: calc(1 + 0.22 * var(--sp-hs, 1)); filter: brightness(1.7) drop-shadow(0 0 3px #ffb300) } 55% { scale: calc(1 + 0.12 * var(--sp-hs, 1)); filter: brightness(1.3) } 100% { scale: 1; filter: none } }
 @keyframes lgrSeraphMBlowBeam { 0% { rotate: 0deg } 13% { rotate: -8deg } 26% { rotate: var(--sp-tip) } 60% { rotate: var(--sp-tip) } 100% { rotate: 0deg } }
 @keyframes lgrSeraphMBlowPanR { 0% { translate: 0 0 } 13% { translate: 0 calc(var(--sp-dy) * -.6) } 26%, 60% { translate: 0 var(--sp-dy) } 100% { translate: 0 0 } }
 @keyframes lgrSeraphMBlowPanL { 0% { translate: 0 0 } 13% { translate: 0 calc(var(--sp-dy) * .6) } 26%, 60% { translate: 0 calc(var(--sp-dy) * -1) } 100% { translate: 0 0 } }
@@ -113,17 +122,19 @@ ${P}[data-assault-on] .lgs-panL { animation: lgrSeraphMBlowPanL 820ms cubic-bezi
 /* ITS STRIKE (hurt, with the judgment above): the cowl bows into the sentence, the hand that holds the scales drives
    down. */
 @keyframes lgrSeraphMStrikeHand { 0%, 100% { transform: none } 18%, 55% { transform: rotate(-10deg) translateY(3px) } }
-@keyframes lgrSeraphMStrikeHead { 0%, 100% { transform: none } 20%, 55% { transform: translateY(3px) rotate(-4deg) scale(1.05) } }
+@keyframes lgrSeraphMStrikeHead { 0%, 100% { transform: none } 20%, 55% { transform: rotate(-4deg) scale(1.05) } }
 ${P}[data-moment="hurt"] .lg-seraph-handR { animation: lgrSeraphMStrikeHand 720ms ease-in-out both }
 ${P}[data-moment="hurt"] .lg-seraph-head { animation: lgrSeraphMStrikeHead 720ms ease-in-out both }
 /* ITS HEAVY BLOW (hurtBig): a full sentence: the arms rise and come down, the wings open to their widest and slam
    forward, the cowl rears and bows, the halo spins half round ablaze. */
-@keyframes lgrSeraphMHeavyArm { 0% { transform: none } 18% { transform: rotate(var(--sp-up, -16deg)) translateY(-3px) } 34% { transform: rotate(var(--sp-dn, 8deg)) translateY(3px) scale(1.12) } 62% { transform: rotate(var(--sp-dn, 8deg)) translateY(2px) scale(1.06) } 100% { transform: none } }
-@keyframes lgrSeraphMHeavyWing { 0% { rotate: 0deg } 18% { rotate: 22deg } 32% { rotate: -18deg } 60% { rotate: -12deg } 100% { rotate: 0deg } }
-@keyframes lgrSeraphMHeavyHead { 0% { transform: none } 18% { transform: translateY(-4px) rotate(-5deg) } 32% { transform: translateY(3px) scale(1.14) } 60% { transform: translateY(2px) scale(1.08) } 100% { transform: none } }
-@keyframes lgrSeraphMHeavyHalo { 0% { rotate: 0deg; scale: 1 } 18% { rotate: -30deg; scale: .9 } 34% { rotate: 150deg; scale: 1.28; filter: brightness(1.8) drop-shadow(0 0 4px #ff7a1a) } 62% { rotate: 170deg; scale: 1.14; filter: brightness(1.3) } 100% { rotate: 180deg; scale: 1; filter: none } }
+@keyframes lgrSeraphMHeavyArm { 0% { transform: none } 18% { transform: rotate(var(--sp-up, -16deg)) translateY(-3px) } 34% { transform: rotate(var(--sp-dn, 8deg)) translateY(3px) scale(var(--sp-sc, 1.12)) } 62% { transform: rotate(var(--sp-dn, 8deg)) translateY(2px) scale(1.06) } 100% { transform: none } }
+@keyframes lgrSeraphMHeavyWing { 0% { rotate: 0deg } 18% { rotate: calc(22deg * var(--sp-wa, 1)) } 32% { rotate: calc(-18deg * var(--sp-wa, 1)) } 60% { rotate: calc(-12deg * var(--sp-wa, 1)) } 100% { rotate: 0deg } }
+@keyframes lgrSeraphMHeavyHead { 0% { transform: none } 18% { transform: rotate(-5deg) } 32% { transform: scale(1.14) } 60% { transform: scale(1.08) } 100% { transform: none } }
+@keyframes lgrSeraphMHeavyHalo { 0% { rotate: 0deg; scale: 1 } 18% { rotate: -30deg; scale: .9 } 34% { rotate: 150deg; scale: calc(1 + 0.28 * var(--sp-hs, 1)); filter: brightness(1.8) drop-shadow(0 0 4px #ff7a1a) } 62% { rotate: 170deg; scale: calc(1 + 0.14 * var(--sp-hs, 1)); filter: brightness(1.3) } 100% { rotate: 180deg; scale: 1; filter: none } }
 ${P}[data-moment="hurtBig"] .lg-seraph-armR, ${P}[data-assault-on][data-moment="hurtBig"] .lg-seraph-armR { --sp-up: -16deg; --sp-dn: 8deg; animation: lgrSeraphMHeavyArm 900ms cubic-bezier(.3,.7,.3,1) both }
 ${P}[data-moment="hurtBig"] .lg-seraph-armL, ${P}[data-assault-on][data-moment="hurtBig"] .lg-seraph-armL { --sp-up: 14deg; --sp-dn: -8deg; animation: lgrSeraphMHeavyArm 900ms cubic-bezier(.3,.7,.3,1) both }
+/* phase 3: the scales arm reaches to the frame's corner, so its blows swing less and do not swell (the clip) */
+${ph(3)}[data-assault-on] .lg-seraph-armR, ${ph(3)}[data-moment="hurtBig"] .lg-seraph-armR, ${ph(3)}[data-assault-on][data-moment="hurtBig"] .lg-seraph-armR { --sp-fwd: 2deg; --sp-dn: 2deg; --sp-sc: 1 }
 ${P}[data-moment="hurtBig"] .lgs-wing, ${P}[data-assault-on][data-moment="hurtBig"] .lgs-wing { animation: lgrSeraphMHeavyWing 900ms cubic-bezier(.3,.7,.3,1) both }
 ${P}[data-moment="hurtBig"] .lg-seraph-head, ${P}[data-assault-on][data-moment="hurtBig"] .lg-seraph-head { animation: lgrSeraphMHeavyHead 900ms cubic-bezier(.3,.7,.3,1) both }
 ${P}[data-moment="hurtBig"] .lgs-halo, ${P}[data-assault-on][data-moment="hurtBig"] .lgs-halo { animation: lgrSeraphMHeavyHalo 900ms cubic-bezier(.3,.7,.3,1) both }
@@ -131,25 +142,25 @@ ${P}[data-moment="hurtBig"] .lgs-beam { animation: lgrSeraphMBlowBeam 900ms cubi
 ${P}[data-moment="hurtBig"] .lgs-panR { animation: lgrSeraphMBlowPanR 900ms cubic-bezier(.3,.7,.3,1) both }
 ${P}[data-moment="hurtBig"] .lgs-panL { animation: lgrSeraphMBlowPanL 900ms cubic-bezier(.3,.7,.3,1) both }
 /* BLOCKED: its sentence is turned aside: the scales are knocked up and away, the cowl jerks back, the wings flare. */
-@keyframes lgrSeraphMBlockScales { 0% { transform: none } 12% { transform: translateY(2px) scale(1.06) } 30% { transform: rotate(-22deg) translateY(-4px) } 54% { transform: rotate(-10deg) } 100% { transform: none } }
-@keyframes lgrSeraphMBlockHead { 0% { transform: none } 12% { transform: scale(1.06) } 30% { transform: translateY(-3px) rotate(-6deg) scale(.95) } 56% { transform: rotate(2deg) } 100% { transform: none } }
-@keyframes lgrSeraphMBlockWing { 0%, 100% { rotate: 0deg } 30% { rotate: 12deg } 56% { rotate: -3deg } }
+@keyframes lgrSeraphMBlockScales { 0% { transform: none } 12% { transform: scale(1.06) } 30% { transform: rotate(-18deg) } 54% { transform: rotate(-8deg) } 100% { transform: none } }
+@keyframes lgrSeraphMBlockHead { 0% { transform: none } 12% { transform: scale(1.06) } 30% { transform: rotate(-6deg) scale(.95) } 56% { transform: rotate(2deg) } 100% { transform: none } }
+@keyframes lgrSeraphMBlockWing { 0%, 100% { rotate: 0deg } 30% { rotate: calc(12deg * var(--sp-wa, 1)) } 56% { rotate: calc(-3deg * var(--sp-wa, 1)) } }
 ${P}[data-moment="block"] .lg-seraph-scales { animation: lgrSeraphMBlockScales 640ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="block"] .lg-seraph-head { animation: lgrSeraphMBlockHead 640ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="block"] .lgs-wing { animation: lgrSeraphMBlockWing 640ms ease-out both }
 /* SAVED: its judgment rebounds off the shield: the wings wrap in to shelter it, the eye squeezes shut, the cowl turns
    away. */
-@keyframes lgrSeraphMShieldWing { 0%, 100% { rotate: 0deg } 18%, 60% { rotate: -18deg } }
+@keyframes lgrSeraphMShieldWing { 0%, 100% { rotate: 0deg } 18%, 60% { rotate: calc(-18deg * var(--sp-wa, 1)) } }
 @keyframes lgrSeraphMShieldEye { 0%, 100% { scale: 1 } 16%, 60% { scale: 1.1 .08 } }
-@keyframes lgrSeraphMShieldHead { 0%, 100% { transform: none } 18%, 60% { transform: rotate(10deg) translateX(2px) scale(.95) } }
+@keyframes lgrSeraphMShieldHead { 0%, 100% { transform: none } 18%, 60% { transform: rotate(10deg) scale(.95) } }
 @keyframes lgrSeraphMShieldHalo { 0%, 100% { scale: 1; rotate: 0deg } 18%, 60% { scale: .86; rotate: -20deg } }
 ${P}[data-moment="shield"] .lgs-wing { animation: lgrSeraphMShieldWing 760ms ease-in-out both }
 ${P}[data-moment="shield"] .lgs-eye { animation: lgrSeraphMShieldEye 760ms ease-in-out both }
 ${P}[data-moment="shield"] .lg-seraph-head { animation: lgrSeraphMShieldHead 760ms ease-in-out both }
 ${P}[data-moment="shield"] .lgs-halo { animation: lgrSeraphMShieldHalo 760ms ease-in-out both }
 /* SECOND WIND: the Judge falters: the wings sag, the cowl bows, the arms hang slack, the halo dims and slows. */
-@keyframes lgrSeraphMWindWing { 0%, 100% { rotate: 0deg } 35%, 70% { rotate: -11deg } }
-@keyframes lgrSeraphMWindHead { 0%, 100% { transform: none } 35%, 70% { transform: translateY(3px) rotate(6deg) scale(.96) } }
+@keyframes lgrSeraphMWindWing { 0%, 100% { rotate: 0deg } 35%, 70% { rotate: calc(-11deg * var(--sp-wa, 1)) } }
+@keyframes lgrSeraphMWindHead { 0%, 100% { transform: none } 35%, 70% { transform: rotate(6deg) scale(.96) } }
 @keyframes lgrSeraphMWindArm { 0%, 100% { transform: none } 35%, 70% { transform: rotate(var(--sp-sag, 8deg)) translateY(2px) } }
 @keyframes lgrSeraphMWindHalo { 0%, 100% { scale: 1; filter: none } 35%, 70% { scale: .94; filter: brightness(.7) saturate(.6) } }
 ${P}[data-moment="wind"] .lgs-wing { animation: lgrSeraphMWindWing 1000ms ease-in-out both }
@@ -160,11 +171,11 @@ ${P}[data-moment="wind"] .lgs-halo { animation: lgrSeraphMWindHalo 1000ms ease-i
 /* KNOCKOUT (fall from grace): the wings flare wide in a last blaze and the eye opens to the sky, then the halo sinks
    and dims, the wings collapse inward, the cowl bows to its chest, the arms drop, the scales crash down on wrath.
    The fallen pose is HELD by data-down below. */
-@keyframes lgrSeraphMKoWing { 0% { rotate: 0deg } 18% { rotate: 22deg } 40% { rotate: 18deg } 62% { rotate: -24deg } 100% { rotate: -16deg } }
+@keyframes lgrSeraphMKoWing { 0% { rotate: 0deg } 18% { rotate: calc(22deg * var(--sp-wa, 1)) } 40% { rotate: calc(18deg * var(--sp-wa, 1)) } 62% { rotate: calc(-24deg * var(--sp-wa, 1)) } 100% { rotate: calc(-16deg * var(--sp-wa, 1)) } }
 @keyframes lgrSeraphMKoEye { 0% { scale: 1 } 18%, 40% { scale: 1.4 1.6 } 62% { scale: 1.1 .06 } 100% { scale: 1 .06 } }
-@keyframes lgrSeraphMKoHead { 0%, 40% { transform: none } 18% { transform: translateY(-3px) rotate(-6deg) } 62% { transform: translateY(6px) rotate(11deg) scale(.95) } 100% { transform: translateY(5px) rotate(9deg) scale(.96) } }
-@keyframes lgrSeraphMKoArm { 0%, 40% { transform: none } 64% { transform: rotate(var(--sp-drop, 14deg)) translateY(6px) } 100% { transform: rotate(var(--sp-drop, 14deg)) translateY(5px) } }
-@keyframes lgrSeraphMKoHalo { 0% { scale: 1; translate: 0 0 } 20% { scale: 1.2; filter: brightness(1.8) } 55% { scale: .9; translate: 0 4px; filter: brightness(.6) saturate(.4) } 100% { scale: .92; translate: 0 5px; filter: brightness(.55) saturate(.3) } }
+@keyframes lgrSeraphMKoHead { 0%, 40% { transform: none } 18% { transform: rotate(-6deg) } 62% { transform: rotate(11deg) scale(.95) } 100% { transform: rotate(9deg) scale(.96) } }
+@keyframes lgrSeraphMKoArm { 0%, 40% { transform: none } 64% { transform: rotate(var(--sp-drop, 14deg)) scale(var(--sp-dsc, 1)) translateY(6px) } 100% { transform: rotate(var(--sp-drop, 14deg)) scale(var(--sp-dsc, 1)) translateY(5px) } }
+@keyframes lgrSeraphMKoHalo { 0% { scale: 1; translate: 0 0 } 20% { scale: calc(1 + 0.20 * var(--sp-hs, 1)); filter: brightness(1.8) } 55% { scale: .9; translate: 0 4px; filter: brightness(.6) saturate(.4) } 100% { scale: .92; translate: 0 5px; filter: brightness(.55) saturate(.3) } }
 @keyframes lgrSeraphMKoBeam { 0%, 40% { rotate: 0deg } 70% { rotate: calc(var(--sp-tip) * 1.6) } 82% { rotate: calc(var(--sp-tip) * 1.2) } 100% { rotate: calc(var(--sp-tip) * 1.3) } }
 ${P}[data-moment="ko"] .lgs-wing { animation: lgrSeraphMKoWing 2300ms ease-in-out both }
 ${P}[data-moment="ko"] .lgs-eye { animation: lgrSeraphMKoEye 2300ms ease-in-out both }
@@ -175,8 +186,8 @@ ${P}[data-moment="ko"] .lgs-halo { animation: lgrSeraphMKoHalo 2300ms ease-in-ou
 ${P}[data-moment="ko"] .lgs-beam { animation: lgrSeraphMKoBeam 2300ms ease-in-out both }
 /* phase 3: the great wings are MANTLED, so the fall lowers them a little further (a positive turn; the shared -16deg stood them up like ears),
    and the halo, already the largest, swells less so it stays inside the box headroom */
-@keyframes lgrSeraphMKoWing3 { 0% { rotate: 0deg } 18% { rotate: -8deg } 40% { rotate: -6deg } 62% { rotate: 16deg } 100% { rotate: 12deg } }
-@keyframes lgrSeraphMKoHalo3 { 0% { scale: 1; translate: 0 0 } 20% { scale: 1.05; filter: brightness(1.8) } 55% { scale: .9; translate: 0 4px; filter: brightness(.6) saturate(.4) } 100% { scale: .92; translate: 0 5px; filter: brightness(.55) saturate(.3) } }
+@keyframes lgrSeraphMKoWing3 { 0% { rotate: 0deg } 18% { rotate: calc(-8deg * var(--sp-wa, 1)) } 40% { rotate: calc(-6deg * var(--sp-wa, 1)) } 62% { rotate: calc(16deg * var(--sp-wa, 1)) } 100% { rotate: calc(12deg * var(--sp-wa, 1)) } }
+@keyframes lgrSeraphMKoHalo3 { 0% { scale: 1; translate: 0 0 } 20% { scale: calc(1 + 0.05 * var(--sp-hs, 1)); filter: brightness(1.8) } 55% { scale: .9; translate: 0 4px; filter: brightness(.6) saturate(.4) } 100% { scale: .92; translate: 0 5px; filter: brightness(.55) saturate(.3) } }
 ${ph(3)}[data-moment="ko"] .lgs-wing { animation-name: lgrSeraphMKoWing3 }
 ${ph(3)}[data-moment="ko"] .lgs-halo { animation-name: lgrSeraphMKoHalo3 }
 `
@@ -186,24 +197,26 @@ ${ph(3)}[data-moment="ko"] .lgs-halo { animation-name: lgrSeraphMKoHalo3 }
 const DOWN_CSS = `
 ${P}[data-down] .lgfa-seraph-live { display: none }
 ${P}[data-down] .lgfa-seraph-down { display: inline !important }
-${P}[data-down] .lg-seraph-head { transform: translateY(5px) rotate(9deg) scale(.96) }
-${P}[data-down] .lgs-wing { rotate: -16deg }
-${ph(3)}[data-down] .lgs-wing { rotate: 12deg }
+${P}[data-down] .lg-seraph-head { transform: rotate(9deg) scale(.96) }
+${P}[data-down] .lgs-wing { rotate: calc(-16deg * var(--sp-wa, 1)) }
+${ph(3)}[data-down] .lgs-wing { rotate: calc(12deg * var(--sp-wa, 1)) }
 /* phase 1: the wings stand in an arch over her head; the shared inward turn folded them into a hood, so they sag OUTWARD */
-@keyframes lgrSeraphMKoWing1 { 0% { rotate: 0deg } 18% { rotate: -6deg } 40% { rotate: -4deg } 62% { rotate: 18deg } 100% { rotate: 14deg } }
+@keyframes lgrSeraphMKoWing1 { 0% { rotate: 0deg } 18% { rotate: calc(-6deg * var(--sp-wa, 1)) } 40% { rotate: calc(-4deg * var(--sp-wa, 1)) } 62% { rotate: calc(18deg * var(--sp-wa, 1)) } 100% { rotate: calc(14deg * var(--sp-wa, 1)) } }
 ${ph(1)}[data-moment="ko"] .lgs-wing { animation-name: lgrSeraphMKoWing1 }
 ${ph(1)}[data-down] .lgs-wing { rotate: 14deg }
 ${P}[data-down] .lgs-halo { scale: .92; translate: 0 5px; filter: brightness(.55) saturate(.3) }
 ${P}[data-down] .lgs-beam { rotate: calc(var(--sp-tip) * 1.3) }
-${P}[data-down] .lg-seraph-armR, ${P}[data-down] .lg-seraph-armL { transform: rotate(var(--sp-drop)) translateY(5px) }
-/* phases 2 and 3: once the knockout has played, the raised arms give way to arms hanging at her sides */
-${P}[data-down]:not([data-moment="ko"]) .lg-seraph-armsUp { display: none }
-${P}[data-down]:not([data-moment="ko"]) .lg-seraph-armsDown { display: inline !important }
+${P}[data-down] .lg-seraph-armR, ${P}[data-down] .lg-seraph-armL { transform: rotate(var(--sp-drop)) scale(var(--sp-dsc, 1)) translateY(5px) }
+/* round 14: the fallen pose is the knockout's own END pose, held (the arms dropped about the shoulder, above): no
+   second drawing swaps in when the moment ends, so nothing pops back (check-ko-hold) */
 /* phase 3: both verdict flames gutter out in the pans */
 ${P} .lg-seraph-flame { transform-box: fill-box; transform-origin: 50% 100% }
 ${P}[data-down] .lg-seraph-flame { scale: .2; opacity: .25 }
 ${P}[data-moment="ko"] .lg-seraph-flame { animation: lgrSeraphFlameOut 2300ms ease-in both }
 @keyframes lgrSeraphFlameOut { 0%, 30% { scale: 1; opacity: 1 } 45% { scale: 1.5 1.7; opacity: 1 } 75% { scale: .3; opacity: .4 } 100% { scale: .2; opacity: .25 } }
+/* phase 3: the scales are raised to the frame's corner while the arm sags, so the last flare stays small (the clip) */
+@keyframes lgrSeraphFlameOut3 { 0%, 30% { scale: 1; opacity: 1 } 40% { scale: 1.12 1.3; opacity: 1 } 70% { scale: .3; opacity: .4 } 100% { scale: .2; opacity: .25 } }
+${ph(3)}[data-moment="ko"] .lg-seraph-flame { animation-name: lgrSeraphFlameOut3 }
 `
 
 export default {
@@ -293,14 +306,14 @@ export default {
 
 /* THE REAL PARTS under each verdict. Played only while data-fx is set, which the arena never does in focus mode,
    with Still bosses or under reduced motion. The red eyes turn GOLD under grace (sepia + saturate: a hue turn made them green). */
-@keyframes lgrSeraphWingSpread { 0% { rotate: 0deg; filter: none } 30% { rotate: 13deg; filter: sepia(.45) saturate(1.5) brightness(1.18) drop-shadow(0 0 1.5px #ffd23f) } 65% { rotate: 10deg; filter: sepia(.45) saturate(1.5) brightness(1.14) drop-shadow(0 0 1.5px #ffd23f) } 100% { rotate: 0deg; filter: none } }
-@keyframes lgrSeraphWingSnap { 0% { rotate: 0deg; filter: none } 18% { rotate: 17deg; filter: brightness(1.35) drop-shadow(0 0 1.5px #ff7a1a) } 45% { rotate: 11deg; filter: brightness(1.2) drop-shadow(0 0 1px #ff7a1a) } 100% { rotate: 0deg; filter: none } }
-@keyframes lgrSeraphWingFold { 0% { rotate: 0deg; filter: none } 35% { rotate: -13deg; filter: brightness(1.25) drop-shadow(0 0 1.5px #ffffff) } 70% { rotate: -11deg; filter: brightness(1.2) drop-shadow(0 0 1.5px #ffffff) } 100% { rotate: 0deg; filter: none } }
+@keyframes lgrSeraphWingSpread { 0% { rotate: 0deg; filter: none } 30% { rotate: calc(13deg * var(--sp-wa, 1)); filter: sepia(.45) saturate(1.5) brightness(1.18) drop-shadow(0 0 1.5px #ffd23f) } 65% { rotate: calc(10deg * var(--sp-wa, 1)); filter: sepia(.45) saturate(1.5) brightness(1.14) drop-shadow(0 0 1.5px #ffd23f) } 100% { rotate: 0deg; filter: none } }
+@keyframes lgrSeraphWingSnap { 0% { rotate: 0deg; filter: none } 18% { rotate: calc(17deg * var(--sp-wa, 1)); filter: brightness(1.35) drop-shadow(0 0 1.5px #ff7a1a) } 45% { rotate: calc(11deg * var(--sp-wa, 1)); filter: brightness(1.2) drop-shadow(0 0 1px #ff7a1a) } 100% { rotate: 0deg; filter: none } }
+@keyframes lgrSeraphWingFold { 0% { rotate: 0deg; filter: none } 35% { rotate: calc(-13deg * var(--sp-wa, 1)); filter: brightness(1.25) drop-shadow(0 0 1.5px #ffffff) } 70% { rotate: calc(-11deg * var(--sp-wa, 1)); filter: brightness(1.2) drop-shadow(0 0 1.5px #ffffff) } 100% { rotate: 0deg; filter: none } }
 @keyframes lgrSeraphEyeGold { 0% { scale: 1; filter: none } 28% { scale: 1.12 1.32; filter: sepia(1) saturate(3) brightness(1.35) drop-shadow(0 0 2px #ffd23f) } 65% { scale: 1.08 1.22; filter: sepia(1) saturate(2.6) brightness(1.25) drop-shadow(0 0 1.5px #ffd23f) } 100% { scale: 1; filter: none } }
 @keyframes lgrSeraphEyeWide { 0% { scale: 1 } 20% { scale: 1.2 1.45 } 70% { scale: 1.12 1.3 } 100% { scale: 1 } }
-@keyframes lgrSeraphHaloGrace { 0% { scale: 1; filter: none } 25% { scale: 1.12; filter: brightness(1.5) drop-shadow(0 0 2px #ffd23f) } 60% { scale: 1.09; filter: brightness(1.5) drop-shadow(0 0 2px #ffd23f) } 100% { scale: 1; filter: none } }
-@keyframes lgrSeraphHaloWrath { 0% { scale: 1; rotate: 0deg; filter: none } 25% { scale: 1.16; rotate: 30deg; filter: brightness(1.7) saturate(1.6) drop-shadow(0 0 3px #ff7a1a) } 60% { scale: 1.12; rotate: 40deg; filter: brightness(1.7) saturate(1.6) drop-shadow(0 0 3px #ff7a1a) } 100% { scale: 1; rotate: 45deg; filter: none } }
-@keyframes lgrSeraphHaloMercy { 0% { scale: 1; filter: none } 25% { scale: 1.06; filter: brightness(1.4) drop-shadow(0 0 2px #ffffff) } 60% { scale: 1.05; filter: brightness(1.4) drop-shadow(0 0 2px #ffffff) } 100% { scale: 1; filter: none } }
+@keyframes lgrSeraphHaloGrace { 0% { scale: 1; filter: none } 25% { scale: calc(1 + 0.12 * var(--sp-hs, 1)); filter: brightness(1.5) drop-shadow(0 0 2px #ffd23f) } 60% { scale: calc(1 + 0.09 * var(--sp-hs, 1)); filter: brightness(1.5) drop-shadow(0 0 2px #ffd23f) } 100% { scale: 1; filter: none } }
+@keyframes lgrSeraphHaloWrath { 0% { scale: 1; rotate: 0deg; filter: none } 25% { scale: calc(1 + 0.16 * var(--sp-hs, 1)); rotate: 30deg; filter: brightness(1.7) saturate(1.6) drop-shadow(0 0 3px #ff7a1a) } 60% { scale: calc(1 + 0.12 * var(--sp-hs, 1)); rotate: 40deg; filter: brightness(1.7) saturate(1.6) drop-shadow(0 0 3px #ff7a1a) } 100% { scale: 1; rotate: 45deg; filter: none } }
+@keyframes lgrSeraphHaloMercy { 0% { scale: 1; filter: none } 25% { scale: calc(1 + 0.06 * var(--sp-hs, 1)); filter: brightness(1.4) drop-shadow(0 0 2px #ffffff) } 60% { scale: calc(1 + 0.05 * var(--sp-hs, 1)); filter: brightness(1.4) drop-shadow(0 0 2px #ffffff) } 100% { scale: 1; filter: none } }
 /* the scales: wrath slams them onto the flame, grace tips them onto the feather, mercy swings them level */
 @keyframes lgrSeraphBeamWrath { 0% { rotate: 0deg } 14% { rotate: calc(var(--sp-tip) * -.4) } 32% { rotate: calc(var(--sp-tip) * 1.25) } 46% { rotate: calc(var(--sp-tip) * .9) } 80% { rotate: var(--sp-tip) } 100% { rotate: 0deg } }
 @keyframes lgrSeraphBeamGrace { 0% { rotate: 0deg } 30% { rotate: calc(var(--sp-tip) * -1) } 80% { rotate: calc(var(--sp-tip) * -1) } 100% { rotate: 0deg } }
@@ -329,8 +342,8 @@ export default {
 @keyframes lgrSeraphArmWrath { 0%, 100% { transform: none } 16% { transform: rotate(var(--a-up)) translateY(-3px) } 32% { transform: rotate(var(--a-dn)) translateY(3px) } 70% { transform: rotate(var(--a-dn)) translateY(2px) } }
 @keyframes lgrSeraphArmMercy { 0%, 100% { transform: none } 35%, 75% { transform: rotate(var(--a-dn)) translateY(2px) } }
 @keyframes lgrSeraphArmGrace { 0%, 100% { transform: none } 30%, 70% { transform: rotate(var(--a-up)) translateY(-3px) } }
-@keyframes lgrSeraphHeadMercy { 0%, 100% { transform: none } 35%, 75% { transform: translateY(2px) rotate(-5deg) } }
-@keyframes lgrSeraphHeadGrace { 0%, 100% { transform: none } 30%, 70% { transform: translateY(-3px) rotate(-3deg) scale(1.04) } }
+@keyframes lgrSeraphHeadMercy { 0%, 100% { transform: none } 35%, 75% { transform: rotate(-5deg) } }
+@keyframes lgrSeraphHeadGrace { 0%, 100% { transform: none } 30%, 70% { transform: rotate(-3deg) scale(1.04) } }
 .lg-boss[data-motif="seraph"] .lg-seraph-armR { --a-up: -12deg; --a-dn: 8deg }
 .lg-boss[data-motif="seraph"] .lg-seraph-armL { --a-up: 10deg; --a-dn: -8deg }
 .lg-boss[data-fx="wrath"] .lg-seraph-armR, .lg-boss[data-fx="wrath"] .lg-seraph-armL { animation: lgrSeraphArmWrath 900ms cubic-bezier(.3,.7,.3,1) both }

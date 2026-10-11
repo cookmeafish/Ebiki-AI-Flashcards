@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
+import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import Tesseract from 'tesseract.js'
 import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_ENRICH_PROMPT, LANGUAGE_CARD_PROMPT, buildGenericCardPrompt, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { shapeModeType, shapeTagCategories, shapeChatSuggestions, shapeDiscoverKinds } from './config/modeSpec'
@@ -62,7 +62,7 @@ import ModeDeckSwitch from './components/ModeDeckSwitch'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { retryHints, answerShowsPrefix } from './utils/studyHints'
-import { planChoices, poolEntry, poolEntries, wordOnBack, cardWord, cardMeaning, posOf, distractorRule } from './utils/choicePool'
+import { planChoices, poolEntry, poolEntries, wordOnBack, cardWord, cardMeaning, posOf, distractorRule, meaningLabel } from './utils/choicePool'
 import { buildDistractorCheckPrompt, parseDistractorCheck, swapFlagged } from './utils/distractorCheck'
 import { cardGoal, goalLine, goalField, shapeGoal } from './utils/questionGoal'
 import { prefixHint, hintAnswer, hintTokens, longerPrefix } from './utils/prefixHint'
@@ -111,6 +111,10 @@ const DECK_FIRST_ROWS = 100
 // A saved scroll past this needs every row at once (the restore would clamp to the shorter list).
 const DECK_FIRST_ROWS_SCROLL = 2000
 const KNOWLEDGE_CAP = 60000
+// How long a card's question planning waits for the learner context's studied sample (the choice pool), at most.
+const CHOICE_POOL_WAIT_MS = 2500
+// How long the options of a question wait for THE OPTION CHECK before they can be picked anyway.
+const OPTION_CHECK_HOLD_MS = 3500
 
 // Visually hidden but read by screen readers (a usage chip's CSS tooltip is invisible to them).
 const SR_ONLY = { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }
@@ -1364,6 +1368,8 @@ export default function App() {
   const [studyDeleteConfirm, setStudyDeleteConfirm] = useState(null) // cardIdx being confirmed for deletion
   const [studyFeedbackChat, setStudyFeedbackChat] = useState({}) // { [cardIdx]: { messages, input, loading } }
   const [studyCurrentHint, setStudyCurrentHint] = useState(null) // hint text for current question
+  // THE OPTION CHECK holds a question's options until its verdict (see optionCheckedRef): `${cardId}:${qi}` → true.
+  const [optionHold, setOptionHold] = useState({})
   const [studyHintLevel, setStudyHintLevel] = useState(0) // 0=none, 1=hint1 shown, 2=hint2 shown
   const [studyMeaningHint, setStudyMeaningHint] = useState(null)
   const [studyMeaningHintLoading, setStudyMeaningHintLoading] = useState(false)
@@ -8357,8 +8363,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const anyGloss = Object.keys(glossMap).length > 0
     const answerSet = new Set(guard.map((a) => a.toLowerCase()))
     const ctxSentence = sentence || str
-    return splitCueParts(str).map(({ text: part, cue }, pi) => {
-      if (!tap) return <span key={pi} style={cue ? cueStyle : undefined}>{part}</span>
+    // Punctuation right after a part ("(the snowfall)" + ".") stays on the line of that part's last word: the words
+    // are inline blocks, so the "." alone wrapped onto a line of its own at phone width.
+    const parts = splitCueParts(str)
+    const glue = parts.map((p, i) => { const m = i > 0 && /^[.,;:!?…。、，！？؟»”"')\]]+/u.exec(parts[i].text); return m ? m[0] : '' })
+    const rendered = parts.map(({ text: part0, cue }, pi) => {
+      const part = glue[pi] ? part0.slice(glue[pi].length) : part0
+      if (!tap) return [<span key={pi} style={cue ? cueStyle : undefined}>{part}</span>]
       return splitTapTokens(part).map((tok, ti) => {
         const k = `${pi}-${ti}`
         if (/^\s+$/.test(tok) || tok === '') return <span key={k} style={cue ? cueStyle : undefined}>{tok}</span>
@@ -8379,6 +8390,15 @@ Output ONLY raw JSON. No markdown, no backticks.`
         )
       })
     })
+    for (let i = 1; i < rendered.length; i++) {
+      if (!glue[i]) continue
+      const prev = rendered[i - 1]
+      const punct = <span key={`g${i}`} style={parts[i].cue ? cueStyle : undefined}>{glue[i]}</span>
+      if (!prev.length) { rendered[i] = [punct, ...rendered[i]]; continue }
+      const last = prev[prev.length - 1]
+      prev[prev.length - 1] = <span key={`n${i}`} style={{ whiteSpace: 'nowrap' }}>{last}{punct}</span>
+    }
+    return rendered.map((r, i) => <Fragment key={i}>{r}</Fragment>)
   }
 
   // Markdown-light + tap-to-lookup. Memory hooks and the Learn-it panel promise only **bold** +
@@ -9170,15 +9190,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
       ? (async () => {
           if (perCard > 1) {
             const first = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices, { part: 'first' })
+            await waitForChoicePool()
             handOver(first)
             const rest = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices, { part: 'rest', firstQuestion: first?.[0]?.question })
             return reviewed([...(first || []), ...(rest || [])])
           }
           const qs = await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices)
+          await waitForChoicePool()
           handOver(qs)
           return reviewed(qs)
         })()
       : (async () => reviewed(await generateQuestionsFresh(card, rules, studyLang, knowledgeContext, wantChoices)))()))
+    await waitForChoicePool()
     // Every set the ladder hands out (fresh, repaired, give-up, or saved before the ladder: it matches tier 2) leaves
     // with its tier, its choices and its prefix hint.
     // Without the ladder: the prefix hint on every typed word question (saved sets too: a legacy count skeleton goes), and
@@ -9191,6 +9214,23 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const withChoices = questionHasChoices(q) ? planStudyChoices(q, card, isLanguage, { opensOnChoices: !!wantChoices }) : q
       return withLetterCount(withChoices, { isLanguage })
     }) : out)
+  }
+  // The session's first cards were planned before the learner context's studied sample arrived (the review: they got
+  // no hint and never-studied options for good). Planning waits for the sample, at most CHOICE_POOL_WAIT_MS, then goes
+  // on with what it has (no Anki, a failed read: the session's own cards).
+  // Waits once per session: a session whose sample never comes (no deck read) pays the cap once, not per card.
+  const choicePoolWaitRef = useRef({ session: null, done: false })
+  const waitForChoicePool = async () => {
+    const sid = studySessionRef.current
+    if (choicePoolWaitRef.current.session === sid && choicePoolWaitRef.current.done) return
+    choicePoolWaitRef.current = { session: sid, done: false }
+    const started = Date.now()
+    const ready = () => {
+      const snap = learnerSnapsRef.current.get(String(activeModeIdRef.current ?? '')) || null
+      return !!snap && !!snap.deck && (snap.deck.ok === false || Array.isArray(snap.deck.sampleStudied))
+    }
+    while (!ready() && Date.now() - started < CHOICE_POOL_WAIT_MS) await new Promise((r) => setTimeout(r, 100))
+    choicePoolWaitRef.current = { session: sid, done: true }
   }
   // THE CHOICE POOL (utils/choicePool.js): cards of THIS deck the learner has already STUDIED (never a new card: "not in
   // my deck" for the learner), from the session's own cards and the learner context's studied sample of the same deck.
@@ -9226,12 +9266,14 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const front = card?.fields ? getCardFront(card) : String(card?.front || ''), back = card?.fields ? getCardBack(card) : String(card?.back || '')
     const swap = isLanguage && wordOnBack({ front, back }, accepted)
     const pool = studyChoicePool(card)
-    const entries = isLanguage ? poolEntries(pool, { card: { front, back }, swap }) : pool.map((c) => poolEntry(c)).filter(Boolean)
+    // The meaning line of THIS mode's back template ("Traducción: {translation}"), never the first line (the IPA).
+    const label = meaningLabel(activeMode.backTemplate)
+    const entries = isLanguage ? poolEntries(pool, { card: { front, back }, swap, label }) : pool.map((c) => poolEntry({ ...c, label })).filter(Boolean)
     const head = cardWord(swap ? String(back).split('\n')[0] : front)
     const ai = questionHasChoices(q) ? { choices: q.choices, answerIdx: q.answerIdx } : null
     const shownPrefix = longer && isLanguage ? hintTokens(longerPrefix(answer)) : null
     const hinted = isLanguage && !!prefixHint(answer) && !q.noHint && !opensOnChoices
-    const base = { answer, accepted, isLanguage, entries, head, meaning: cardMeaning(swap ? front : back), pos: posOf(front, back), ai, hintSeen: hinted, typedSeen: !opensOnChoices, shownPrefix }
+    const base = { answer, accepted, isLanguage, entries, head, meaning: cardMeaning(swap ? front : back, { head, label }), pos: posOf(front, back), ai, hintSeen: hinted, typedSeen: !opensOnChoices, shownPrefix }
     let plan = planChoices(base)
     let noHint = !!q.noHint
     const misses = (p) => !p || p.loose
@@ -10506,11 +10548,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const letter = typeof e.key === 'string' && e.key.length === 1 ? 'abcdef'.indexOf(e.key.toLowerCase()) : -1
       // Digits by e.code too: AZERTY's top row types "&é\"'" without Shift.
       const num = letter >= 0 ? letter + 1 : ((choiceIndex(e, 9) + 1) || parseInt(e.key, 10))
-      if (num >= 1 && num <= questionObj.choices.length) { e.preventDefault(); submitStudyChoice(num - 1) }
+      if (num >= 1 && num <= questionObj.choices.length) {
+        e.preventDefault()
+        // Not while THE OPTION CHECK still looks at these options (optionHold).
+        const live = studyCardStateRef.current[currentQuestion.cardIdx]
+        if (live && optionHold[optionHoldKey(studySessionRef.current, live.cardId, currentQuestion.questionIdx, questionObj.choices)]) return
+        submitStudyChoice(num - 1)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [studyPhase, currentQuestion, studyChoiceFlash, studyCardState, studyLearnMoment, studyTypedFlash, studyPbqReview, activeTab, appConfirm, settingsOpen, studyDeleteConfirm])
+  }, [studyPhase, currentQuestion, studyChoiceFlash, studyCardState, studyLearnMoment, studyTypedFlash, studyPbqReview, activeTab, appConfirm, settingsOpen, studyDeleteConfirm, optionHold])
 
   // PBQ submit — deterministic grading (engine.gradePbq), then the graded exercise stays on
   // screen (`studyPbqReview`) until the user clicks Continue; the session advances underneath.
@@ -10603,12 +10651,15 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
   // Answer-option grid, used both live (onPick set) and frozen in the post-answer flash
   // (picked/answerIdx set → correct option green, a wrong pick red, the rest dimmed).
-  const renderChoiceButtons = (choices, { picked = null, answerIdx = null, onPick = null } = {}) => {
+  const renderChoiceButtons = (choices, { picked = null, answerIdx = null, onPick = null, held = false } = {}) => {
     const letters = ['A', 'B', 'C', 'D', 'E', 'F']
-    const oneColumn = choices.some(c => String(c).length > 42)
+    // One column for long options, and at phone width for any option past a short word (two columns broke
+    // "pasaporte" into "pasa / porte").
+    const longest = Math.max(0, ...choices.map((c) => String(c).length))
+    const oneColumn = longest > 42 || (isPhoneWidth(viewportW) && longest > 8)
     const reveal = picked !== null
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: oneColumn ? '1fr' : '1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: oneColumn ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))', gap: 8 }}>{/* minmax(0): a tile never pushes its column past the card (at phone width "pantalones" did) */}
         {choices.map((c, i) => {
           const isCorrect = reveal && i === answerIdx
           const isWrongPick = reveal && i === picked && i !== answerIdx
@@ -10622,13 +10673,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 background: isCorrect ? 'rgba(24,169,87,.12)' : isWrongPick ? 'rgba(229,57,46,.10)' : 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
                 color: 'var(--c-ink)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
                 cursor: onPick ? 'pointer' : 'default',
-                opacity: reveal && !isCorrect && !isWrongPick ? 0.55 : 1,
+                opacity: held ? 0.5 : reveal && !isCorrect && !isWrongPick ? 0.55 : 1,
               }}>
               <span style={{
                 fontSize: 10, fontWeight: 800, flexShrink: 0, borderRadius: 6, padding: '2px 7px',
                 color: accent || 'var(--c-brand)', border: `1px solid ${accent || 'rgba(223,37,64,.35)'}`,
               }}>{isCorrect ? '✓' : isWrongPick ? '✗' : letters[i]}</span>
-              <span style={{ minWidth: 0 }}>{c}</span>
+              <span style={{ minWidth: 0, overflowWrap: 'break-word' }}>{c}</span>
             </button>
           )
         })}
@@ -12518,6 +12569,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // the options go (the background options call above may bring fair ones). Lands only on the same session, card,
   // question text and options, while unanswered.
   const optionCheckedRef = useRef(new Set())
+  // The options wait for the check before they can be picked (`optionHold`, optionHoldKey), at most
+  // OPTION_CHECK_HOLD_MS: a pick made before the verdict could have marked a right answer wrong.
+  // Keyed by session, card, question AND the options shown: an older check's timer or verdict (options planned again
+  // meanwhile: Show choices after a retry hint, the background options call) can never release a newer hold.
+  const optionHoldKey = (sid, cardId, qi, choices) => `${sid}:${cardId}:${qi}:${(choices || []).join('|')}`
+  const releaseOptionHold = (keys) => setOptionHold((prev) => { const next = { ...prev }; let changed = false; for (const k of keys) if (next[k]) { delete next[k]; changed = true } return changed ? next : prev })
   useEffect(() => {
     if (!studyActive || studyMode !== 'flashcards' || !apiKey) return
     const sid = studySessionRef.current
@@ -12535,12 +12592,17 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     }
     if (!batch.length) return
     const items = batch.map((b) => ({ question: b.q.choiceMode === 'meaning' && b.q.choicePrompt ? b.q.choicePrompt : choiceQuestionText(b.q), answer: b.q.choices[b.q.answerIdx], options: b.q.choices }))
+    const holdKeys = batch.map((b) => optionHoldKey(sid, b.cardId, b.qi, b.choices))
+    setOptionHold((prev) => ({ ...prev, ...Object.fromEntries(holdKeys.map((k) => [k, true])) }))
+    setTimeout(() => releaseOptionHold(holdKeys), OPTION_CHECK_HOLD_MS)
     ;(async () => {
       let verdict = null
       try {
         const { system, user } = buildDistractorCheckPrompt(items, { isLanguage, learnLang: isLanguage ? learnLangName() : '' })
         verdict = parseDistractorCheck(parseAiJson(await aiCall(apiKey, system, user, resolveJobModel('study.review'), { silent: true, maxTokens: 500 })), items)
       } catch (err) { console.warn('[Study] option check failed (options stand):', err.message) }
+      // Swapped (below) in the same render as the release, so no unchecked tile can be picked in between.
+      releaseOptionHold(holdKeys)
       if (!verdict || sid !== studySessionRef.current) return
       setStudyCardState((prev) => prev.map((c) => {
         const hits = batch.filter((b) => c && b.cardId === c.cardId)
@@ -18005,7 +18067,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {questionObj?.type === 'pbq' && questionObj.pbq ? (
                         <PbqQuestion key={`pbq-${cq?.cardIdx}`} pbq={questionObj.pbq} t={t} onSubmit={submitPbqAnswer} />
                       ) : showChoicesNow ? (
-                        renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
+                        optionHold[optionHoldKey(studySessionRef.current, cs.cardId, cq.questionIdx, questionObj.choices)] ? (<>
+                          {renderChoiceButtons(questionObj.choices, { held: true })}
+                          <div role="status" style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginTop: 6, textAlign: 'center' }}>{t('study_checkingOptions')}</div>
+                        </>) : renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
                       ) : (<>
                       {/* Accent drill: correct answer, wrong/missing accents — type the accented form once */}
                       {studyAccentRetype && (
@@ -18323,9 +18388,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       <div className={cs.rating === 'deleted' ? undefined : 'card-head'} onClick={() => { if (cs.rating !== 'deleted') setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
                         style={{
                         padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: cs.rating === 'deleted' ? 'default' : 'pointer',
+                        display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: cs.rating === 'deleted' ? 'default' : 'pointer',
                       }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {/* The card's name keeps room (flex basis): at phone width the buttons beside it squeezed it to nothing; they wrap below instead. */}
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: '1 1 110px', display: 'flex', alignItems: 'center', gap: 6 }}>
                           {cs.rating !== 'deleted' && (
                             <button type="button" className="chev-btn" aria-expanded={view === 'feedback'} aria-label={cs.front}
                               onClick={(e) => { e.stopPropagation(); setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}

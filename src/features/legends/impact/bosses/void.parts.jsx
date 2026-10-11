@@ -38,14 +38,14 @@ export const css = `
 @keyframes lgvoidShear { 0% { transform: none } 8% { transform: skewY(-14deg) translateY(3%) } 40% { transform: skewY(-8deg) translateY(2%) } 75% { transform: skewY(2deg) } 100% { transform: none } }
 @keyframes lgvoidAskew { 0% { transform: none } 8% { transform: rotate(-26deg) scale(1.06) } 45% { transform: rotate(-16deg) } 80% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgvoidRecoilR { 0% { transform: none } 10% { transform: rotate(28deg) } 40% { transform: rotate(16deg) } 100% { transform: none } }
-@keyframes lgvoidYawn { 0% { transform: none } 22% { transform: scale(.94) } 42% { transform: scale(1.18, 1.34) } 58% { transform: scale(1.06, 1.12) } 72% { transform: scale(1.14, 1.26) } 100% { transform: none } }
-@keyframes lgvoidLashL { 0% { transform: none } 22% { transform: rotate(-16deg) } 42% { transform: rotate(22deg) scale(1.16) } 70% { transform: rotate(5deg) scale(1.04) } 100% { transform: none } }
-@keyframes lgvoidLashR { 0% { transform: none } 22% { transform: rotate(16deg) } 42% { transform: rotate(-22deg) scale(1.16) } 70% { transform: rotate(-5deg) scale(1.04) } 100% { transform: none } }
-@keyframes lgvoidErupt { 0% { transform: none } 30% { transform: scale(.78) } 44% { transform: scale(1.3) } 60% { transform: scale(.95) } 76% { transform: scale(1.04) } 100% { transform: none } }
-@keyframes lgvoidCurlWhipL { 0% { transform: none } 30% { transform: rotate(-38deg) scale(.8) } 44% { transform: rotate(30deg) scale(1.22) } 64% { transform: rotate(-6deg) } 100% { transform: none } }
-@keyframes lgvoidCurlWhipR { 0% { transform: none } 30% { transform: rotate(38deg) scale(.8) } 44% { transform: rotate(-30deg) scale(1.22) } 64% { transform: rotate(6deg) } 100% { transform: none } }
+@keyframes lgvoidYawn { 0% { transform: none } 22% { transform: scale(.92) } 42% { transform: scale(1.12, 1.2) } 58% { transform: scale(1.04, 1.07) } 72% { transform: scale(1.1, 1.16) } 100% { transform: none } }
+@keyframes lgvoidLashL { 0% { transform: none } 22% { transform: rotate(-16deg) } 42% { transform: rotate(16deg) scale(1.05) } 70% { transform: rotate(4deg) scale(1.01) } 100% { transform: none } }
+@keyframes lgvoidLashR { 0% { transform: none } 22% { transform: rotate(16deg) } 42% { transform: rotate(-16deg) scale(1.05) } 70% { transform: rotate(-4deg) scale(1.01) } 100% { transform: none } }
+@keyframes lgvoidErupt { 0% { transform: none } 30% { transform: scale(.74) } 44% { transform: scale(1.18) } 60% { transform: scale(.95) } 76% { transform: scale(1.04) } 100% { transform: none } }
+@keyframes lgvoidCurlWhipL { 0% { transform: none } 30% { transform: rotate(-38deg) scale(.8) } 44% { transform: rotate(24deg) scale(1.1) } 64% { transform: rotate(-6deg) } 100% { transform: none } }
+@keyframes lgvoidCurlWhipR { 0% { transform: none } 30% { transform: rotate(38deg) scale(.8) } 44% { transform: rotate(-24deg) scale(1.1) } 64% { transform: rotate(6deg) } 100% { transform: none } }
 @keyframes lgvoidSwell { 0% { transform: none } 30% { transform: scale(.7) rotate(6deg) } 44% { transform: scale(1.35) rotate(-8deg) } 66% { transform: scale(1.06) } 100% { transform: none } }
-@keyframes lgvoidRoar { 0% { transform: none } 30% { transform: scale(.85) } 44% { transform: scale(1.22, 1.45) } 66% { transform: scale(1.08, 1.16) } 100% { transform: none } }
+@keyframes lgvoidRoar { 0% { transform: none } 30% { transform: scale(.82) } 44% { transform: scale(1.1, 1.17) } 66% { transform: scale(1.04, 1.07) } 100% { transform: none } }
 @keyframes lgvoidCringe { 0% { transform: none } 16% { transform: scale(.86) } 56% { transform: scale(.9) } 100% { transform: none } }
 @keyframes lgvoidCoverL { 0% { transform: none } 16% { transform: rotate(-42deg) scale(.9) } 58% { transform: rotate(-36deg) scale(.92) } 100% { transform: none } }
 @keyframes lgvoidCoverR { 0% { transform: none } 16% { transform: rotate(42deg) scale(.9) } 58% { transform: rotate(36deg) scale(.92) } 100% { transform: none } }

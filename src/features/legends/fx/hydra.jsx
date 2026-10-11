@@ -134,7 +134,9 @@ function pivotCss() {
     out.push(`${p} .lg-hydra-root { transform-origin: ${HYDRA_BODY_BASE[ph][0]}px ${HYDRA_BODY_BASE[ph][1]}px }`)
     for (const k of SLOTS) out.push(`${p} .lg-hydra-n${k} { transform-origin: ${roots[k][0]}px ${roots[k][1]}px; --hy-dir: ${DIR[k]} }`)
   }
-  out.push('.lg-hydra-n3 { --hy-lag: 60ms } .lg-hydra-n4 { --hy-lag: 150ms } .lg-hydra-n5 { --hy-lag: 110ms } .lg-hydra-n6 { --hy-lag: 190ms }')
+  out.push('.lg-hydra-n3 { --hy-lag: 60ms } .lg-hydra-n4 { --hy-lag: 150ms } .lg-hydra-n5 { --hy-lag: 110ms } .lg-hydra-n6 { --hy-lag: 190ms }',
+    // the outer pair sits nearest the frame's sides: its lunge at the camera grows a little less (never cut flat)
+    '.lg-hydra-n5, .lg-hydra-n6 { --hy-amp: .65 }')
   return out.join('\n')
 }
 
@@ -196,7 +198,7 @@ ${pivotCss()}
    then they STRIKE at you one after another, the King first, jaws coming at the camera (the fangs and the venom fly
    from them), and snap back; the body heaves under them. */
 @keyframes lgrHyRear { 0% { transform: none } 11% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 0) * -10deg)) scale(.92) } 17% { transform: translateY(-5px) rotate(calc(var(--hy-dir, 0) * -12deg)) scale(.9) }
-  25% { transform: translateY(16px) rotate(calc(var(--hy-dir, 0) * 9deg)) scale(1.22) } 31% { transform: translateY(14px) rotate(calc(var(--hy-dir, 0) * 6deg)) scale(1.17) } 38% { transform: translateY(15px) rotate(calc(var(--hy-dir, 0) * 8deg)) scale(1.2) }
+  25% { transform: translateY(19px) rotate(calc(var(--hy-dir, 0) * -2deg)) scale(calc(1 + 0.18 * var(--hy-amp, 1))) } 31% { transform: translateY(16px) rotate(calc(var(--hy-dir, 0) * -1deg)) scale(calc(1 + 0.14 * var(--hy-amp, 1))) } 38% { transform: translateY(18px) rotate(calc(var(--hy-dir, 0) * -2deg)) scale(calc(1 + 0.17 * var(--hy-amp, 1))) }
   64% { transform: translateY(4px) scale(1.05) } 100% { transform: none } }
 @keyframes lgrHyHeave { 0% { transform: none } 14% { transform: translateY(2px) scale(1.04, .94) } 28% { transform: translateY(-3px) scale(.97, 1.06) } 46% { transform: translateY(1px) } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-assault-on] :is(.lg-hydra-king, .lg-hydra-neck), .lg-boss[data-motif="hydra"][data-moment="hurt"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyRear 900ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
@@ -205,8 +207,8 @@ ${pivotCss()}
 /* ITS HEAVY BLOW (data-moment="hurtBig", 100 ms in, from the reared pose): a frenzy: every head strikes TWICE, the
    second bite deeper, the whole body surging up out of the water behind them. */
 @keyframes lgrHyFrenzy { 0% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 0) * -10deg)) scale(.92) } 12% { transform: translateY(-6px) rotate(calc(var(--hy-dir, 0) * -14deg)) scale(.88) }
-  22% { transform: translateY(16px) rotate(calc(var(--hy-dir, 0) * 10deg)) scale(1.22) } 30% { transform: translateY(-3px) rotate(calc(var(--hy-dir, 0) * -6deg)) scale(1) }
-  40% { transform: translateY(24px) rotate(calc(var(--hy-dir, 0) * 12deg)) scale(1.34) } 46% { transform: translateY(21px) rotate(calc(var(--hy-dir, 0) * 9deg)) scale(1.28) } 52% { transform: translateY(23px) rotate(calc(var(--hy-dir, 0) * 11deg)) scale(1.31) }
+  22% { transform: translateY(19px) rotate(calc(var(--hy-dir, 0) * -2deg)) scale(calc(1 + 0.18 * var(--hy-amp, 1))) } 30% { transform: translateY(-1px) rotate(calc(var(--hy-dir, 0) * -6deg)) scale(1) }
+  40% { transform: translateY(26px) rotate(calc(var(--hy-dir, 0) * -3deg)) scale(calc(1 + 0.24 * var(--hy-amp, 1))) } 46% { transform: translateY(23px) rotate(calc(var(--hy-dir, 0) * -2deg)) scale(calc(1 + 0.2 * var(--hy-amp, 1))) } 52% { transform: translateY(25px) rotate(calc(var(--hy-dir, 0) * -3deg)) scale(calc(1 + 0.22 * var(--hy-amp, 1))) }
   78% { transform: translateY(6px) scale(1.07) } 100% { transform: none } }
 @keyframes lgrHySurge { 0% { transform: none } 20% { transform: translateY(-5px) scale(1.04, 1.08) } 40% { transform: translateY(-7px) scale(1.06, 1.1) } 60% { transform: translateY(2px) scale(1.04, .94) } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-moment="hurtBig"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyFrenzy 1150ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
@@ -220,8 +222,8 @@ ${pivotCss()}
 
 /* CRIT: the King's head is knocked right round on its neck and lolls back up; the other heads whip wildly, the body
    lurches. */
-@keyframes lgrHyKingCrit { 0% { transform: none } 10% { transform: translate(-3px, -4px) rotate(-26deg) scale(.9) } 26% { transform: rotate(14deg) scale(1.02) } 42% { transform: rotate(-8deg) } 60% { transform: rotate(4deg) } 78% { transform: rotate(-1deg) } 100% { transform: none } }
-@keyframes lgrHyWhip { 0% { transform: none } 10% { transform: rotate(calc(var(--hy-dir, 0) * 22deg)) } 24% { transform: rotate(calc(var(--hy-dir, 0) * -16deg)) } 40% { transform: rotate(calc(var(--hy-dir, 0) * 10deg)) } 58% { transform: rotate(calc(var(--hy-dir, 0) * -5deg)) } 100% { transform: none } }
+@keyframes lgrHyKingCrit { 0% { transform: none } 10% { transform: translate(-3px, -4px) rotate(-26deg) scale(.9) } 26% { transform: translateY(2px) rotate(12deg) scale(.98) } 42% { transform: rotate(-8deg) } 60% { transform: rotate(4deg) } 78% { transform: rotate(-1deg) } 100% { transform: none } }
+@keyframes lgrHyWhip { 0% { transform: none } 10% { transform: rotate(calc(var(--hy-dir, 0) * 14deg)) } 24% { transform: rotate(calc(var(--hy-dir, 0) * -16deg)) } 40% { transform: rotate(calc(var(--hy-dir, 0) * 10deg)) } 58% { transform: rotate(calc(var(--hy-dir, 0) * -5deg)) } 100% { transform: none } }
 @keyframes lgrHyLurch { 0% { transform: none } 12% { transform: translateX(-4px) skewX(5deg) } 30% { transform: translateX(3px) skewX(-3deg) } 50% { transform: none } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-moment="crit"] .lg-hydra-king { animation: lgrHyKingCrit 1000ms cubic-bezier(.2,.8,.3,1) both }
 .lg-boss[data-motif="hydra"][data-moment="crit"] .lg-hydra-neck { animation: lgrHyWhip 1000ms ease-out both }
@@ -232,48 +234,50 @@ ${pivotCss()}
 .lg-boss[data-motif="hydra"][data-moment="sharpen"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyCut 760ms cubic-bezier(.2,.8,.3,1) var(--hy-lag, 0ms) both }
 
 /* BLOCK: the heads strike and you parry: they snap in and are batted back high, jaws reeling. */
-@keyframes lgrHyParried { 0% { transform: none } 14% { transform: translateY(15px) rotate(calc(var(--hy-dir, 0) * 8deg)) scale(1.2) } 22% { transform: translateY(15px) rotate(calc(var(--hy-dir, 0) * 8deg)) scale(1.21) }
-  32% { transform: translateY(-6px) rotate(calc(var(--hy-dir, 0) * -16deg)) scale(.9) } 50% { transform: translateY(-2px) rotate(calc(var(--hy-dir, 0) * -6deg)) } 70% { transform: rotate(calc(var(--hy-dir, 0) * 3deg)) } 100% { transform: none } }
+@keyframes lgrHyParried { 0% { transform: none } 14% { transform: translateY(19px) rotate(calc(var(--hy-dir, 0) * -2deg)) scale(calc(1 + 0.17 * var(--hy-amp, 1))) } 22% { transform: translateY(19px) rotate(calc(var(--hy-dir, 0) * -2deg)) scale(calc(1 + 0.18 * var(--hy-amp, 1))) }
+  32% { transform: translateY(-6px) rotate(calc(var(--hy-dir, 0) * -16deg)) scale(.9) } 50% { transform: rotate(calc(var(--hy-dir, 0) * -6deg)) scale(.98) } 70% { transform: rotate(calc(var(--hy-dir, 0) * 3deg)) } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-moment="block"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyParried 800ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
 
 /* SHIELD: the bites glance off the dome: each head strikes and skids past to the side, the body sways after them. */
-@keyframes lgrHyGlance { 0% { transform: none } 14% { transform: translateY(-3px) scale(.94) } 26% { transform: translateY(13px) scale(1.16) } 38% { transform: translate(calc(var(--hy-dir, 1) * 6px), 10px) rotate(calc(var(--hy-dir, 1) * 20deg)) scale(1.08) } 62% { transform: rotate(calc(var(--hy-dir, 1) * 6deg)) } 100% { transform: none } }
+@keyframes lgrHyGlance { 0% { transform: none } 14% { transform: translateY(-3px) scale(.94) } 26% { transform: translateY(17px) scale(1.15) } 38% { transform: translate(calc(var(--hy-dir, 1) * 3px), 9px) rotate(calc(var(--hy-dir, 1) * 14deg)) scale(.92) } 62% { transform: rotate(calc(var(--hy-dir, 1) * 6deg)) } 100% { transform: none } }
 @keyframes lgrHySway { 0% { transform: none } 38% { transform: skewX(-4deg) translateX(2px) } 64% { transform: skewX(2deg) } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-moment="shield"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyGlance 820ms cubic-bezier(.3,0,.3,1) var(--hy-lag, 0ms) both }
 .lg-boss[data-motif="hydra"][data-moment="shield"] :is(.lg-hydra-coils, .lg-hydra-root) { animation: lgrHySway 820ms ease-out both }
 
-/* SECOND WIND: you got back up: the heads rise tall and hiss, swaying like cobras, the King looming over them. */
+/* SECOND WIND: you got back up: the heads rise tall and hiss, swaying like cobras, the King looming over them (its hood flares wide and it leans in: it sits at the top of the frame, so it never stretches up). */
 @keyframes lgrHyHiss { 0% { transform: none } 18% { transform: translateY(-4px) scale(1.06, 1.1) } 34% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 1) * 6deg)) scale(1.06, 1.1) } 52% { transform: translateY(-4px) rotate(calc(var(--hy-dir, 1) * -6deg)) scale(1.06, 1.1) } 70% { transform: translateY(-3px) rotate(calc(var(--hy-dir, 1) * 3deg)) scale(1.04, 1.06) } 100% { transform: none } }
-.lg-boss[data-motif="hydra"][data-moment="wind"] :is(.lg-hydra-king, .lg-hydra-neck) { animation: lgrHyHiss 900ms ease-in-out var(--hy-lag, 0ms) both }
+@keyframes lgrHyKingLoom { 0% { transform: none } 18% { transform: translateY(6px) scale(1.12, 1.03) } 34% { transform: translateY(7px) rotate(5deg) scale(1.12, 1.03) } 52% { transform: translateY(7px) rotate(-5deg) scale(1.12, 1.03) } 70% { transform: translateY(4px) rotate(3deg) scale(1.06, 1.02) } 100% { transform: none } }
+.lg-boss[data-motif="hydra"][data-moment="wind"] .lg-hydra-neck { animation: lgrHyHiss 900ms ease-in-out var(--hy-lag, 0ms) both }
+.lg-boss[data-motif="hydra"][data-moment="wind"] .lg-hydra-king { animation: lgrHyKingLoom 900ms ease-in-out both }
 
 /* KNOCKOUT, SEVERED: the heads give out one after another, each neck sagging out to its side and down into the water,
    the King last: it sways, topples forward and sinks; the body settles under the waves. data-down HOLDS that fallen
    pose after the moment (the same values as the last keyframes). */
-@keyframes lgrHyDroop { 0% { transform: none } 14% { transform: rotate(calc(var(--hy-dir, 1) * -6deg)) } 34% { transform: rotate(calc(var(--hy-dir, 1) * 30deg)) translateY(6px) scale(.96) }
-  44% { transform: rotate(calc(var(--hy-dir, 1) * 26deg)) translateY(5px) scale(.96) } 64% { transform: rotate(calc(var(--hy-dir, 1) * 46deg)) translateY(14px) scale(.9) } 100% { transform: rotate(calc(var(--hy-dir, 1) * 48deg)) translateY(15px) scale(.9) } }
-@keyframes lgrHyKingKo { 0% { transform: none } 12% { transform: rotate(-8deg) translateY(-3px) } 30% { transform: rotate(6deg) } 44% { transform: rotate(-4deg) } 58% { transform: rotate(10deg) translateY(4px) }
+@keyframes lgrHyDroop { 0% { transform: none } 14% { transform: rotate(calc(var(--hy-dir, 1) * -6deg)) } 34% { transform: rotate(calc(var(--hy-dir, 1) * 25deg)) translateY(6px) scale(.94) }
+  44% { transform: rotate(calc(var(--hy-dir, 1) * 22deg)) translateY(5px) scale(.94) } 64% { transform: rotate(calc(var(--hy-dir, 1) * 46deg)) translateY(12px) scale(.9) } 100% { transform: rotate(calc(var(--hy-dir, 1) * 48deg)) translateY(13px) scale(.9) } }
+@keyframes lgrHyKingKo { 0% { transform: none } 12% { transform: rotate(-8deg) translateY(2px) } 30% { transform: rotate(6deg) translateY(2px) } 44% { transform: rotate(-4deg) } 58% { transform: rotate(10deg) translateY(4px) }
   70% { transform: rotate(22deg) translateY(16px) scale(.92) } 78% { transform: rotate(19deg) translateY(14px) scale(.92) } 100% { transform: rotate(21deg) translateY(17px) scale(.92) } }
 @keyframes lgrHySink { 0% { transform: none } 55% { transform: none } 75% { transform: translateY(5px) scale(1, .9) } 100% { transform: translateY(6px) scale(1, .88) } }
 .lg-boss[data-motif="hydra"][data-moment="ko"] .lg-hydra-neck { animation: lgrHyDroop 2100ms cubic-bezier(.4,0,.6,1) calc(var(--hy-lag, 0ms) * 2) both }
 .lg-boss[data-motif="hydra"][data-moment="ko"] .lg-hydra-king { animation: lgrHyKingKo 2450ms cubic-bezier(.4,0,.6,1) both }
 .lg-boss[data-motif="hydra"][data-moment="ko"] :is(.lg-hydra-coils, .lg-hydra-root) { animation: lgrHySink 2450ms ease-in both }
-.lg-boss[data-motif="hydra"][data-down]:not([data-moment="ko"]) .lg-hydra-neck { transform: rotate(calc(var(--hy-dir, 1) * 48deg)) translateY(15px) scale(.9) }
+.lg-boss[data-motif="hydra"][data-down]:not([data-moment="ko"]) .lg-hydra-neck { transform: rotate(calc(var(--hy-dir, 1) * 48deg)) translateY(13px) scale(.9) }
 .lg-boss[data-motif="hydra"][data-down]:not([data-moment="ko"]) .lg-hydra-king { transform: rotate(21deg) translateY(17px) scale(.92) }
 .lg-boss[data-motif="hydra"][data-down]:not([data-moment="ko"]) :is(.lg-hydra-coils, .lg-hydra-root) { transform: translateY(6px) scale(1, .88) }
 
 /* THE ABILITIES: the slot heads and stumps are the head rules' (above); the King and the body react around them. */
-/* sever: a head is cut off: the King rears back screaming, the body recoils. */
-@keyframes lgrHyKingScream { 0% { transform: none } 16% { transform: translateY(-5px) rotate(-8deg) scale(1.06) } 40% { transform: translateY(-4px) rotate(-6deg) scale(1.05) } 64% { transform: rotate(3deg) } 100% { transform: none } }
+/* sever: a head is cut off: the King rears back (away from you, smaller) screaming, the body recoils. */
+@keyframes lgrHyKingScream { 0% { transform: none } 16% { transform: translateY(-3px) rotate(-10deg) scale(.93) } 40% { transform: translateY(-2px) rotate(-7deg) scale(.95) } 64% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgrHyRecoil { 0% { transform: none } 16% { transform: translateY(3px) scale(1.04, .94) } 44% { transform: translateY(-1px) } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-fx="sever"] .lg-hydra-king { animation: lgrHyKingScream 800ms cubic-bezier(.2,.8,.3,1) both }
 .lg-boss[data-motif="hydra"][data-fx="sever"] :is(.lg-hydra-coils, .lg-hydra-root) { animation: lgrHyRecoil 800ms ease-out both }
-/* grow: new heads burst out: the King rises up tall and roars in triumph, the body swells. */
-@keyframes lgrHyKingRoar { 0% { transform: none } 22% { transform: translateY(-6px) scale(1.1, 1.14) } 36% { transform: translateY(-5px) rotate(4deg) scale(1.1, 1.14) } 50% { transform: translateY(-5px) rotate(-4deg) scale(1.1, 1.14) } 72% { transform: translateY(-2px) scale(1.04) } 100% { transform: none } }
+/* grow: new heads burst out: the King lunges down at you and roars in triumph (it sits at the top of the frame: it never grows UP), the body swells. */
+@keyframes lgrHyKingRoar { 0% { transform: none } 22% { transform: translateY(13px) scale(1.14, 1.12) } 36% { transform: translateY(15px) rotate(4deg) scale(1.14, 1.12) } 50% { transform: translateY(15px) rotate(-4deg) scale(1.14, 1.12) } 72% { transform: translateY(5px) scale(1.04) } 100% { transform: none } }
 @keyframes lgrHySwell { 0% { transform: none } 26% { transform: scale(1.06, 1.1) } 56% { transform: scale(1.03, 1.05) } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-fx="grow"] .lg-hydra-king { animation: lgrHyKingRoar 800ms cubic-bezier(.22,1,.36,1) both }
 .lg-boss[data-motif="hydra"][data-fx="grow"] :is(.lg-hydra-coils, .lg-hydra-root) { animation: lgrHySwell 800ms cubic-bezier(.22,1,.36,1) both }
 /* cauterize: the stumps are seared shut: the King writhes in agony, the body thrashes in the water. */
-@keyframes lgrHyKingWrithe { 0% { transform: none } 12% { transform: rotate(-12deg) translateY(-3px) } 26% { transform: rotate(10deg) } 40% { transform: rotate(-9deg) translateY(-2px) } 54% { transform: rotate(6deg) } 70% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lgrHyKingWrithe { 0% { transform: none } 12% { transform: rotate(-12deg) translateY(4px) } 26% { transform: rotate(10deg) translateY(3px) } 40% { transform: rotate(-9deg) translateY(3px) } 54% { transform: rotate(6deg) } 70% { transform: rotate(-3deg) } 100% { transform: none } }
 @keyframes lgrHyThrash { 0% { transform: none } 14% { transform: translateX(-4px) skewX(6deg) } 28% { transform: translateX(4px) skewX(-6deg) } 42% { transform: translateX(-3px) skewX(4deg) } 58% { transform: translateX(2px) skewX(-2deg) } 100% { transform: none } }
 .lg-boss[data-motif="hydra"][data-fx="cauterize"] .lg-hydra-king { animation: lgrHyKingWrithe 1150ms ease-out both }
 .lg-boss[data-motif="hydra"][data-fx="cauterize"] :is(.lg-hydra-coils, .lg-hydra-root) { animation: lgrHyThrash 1150ms ease-out both }

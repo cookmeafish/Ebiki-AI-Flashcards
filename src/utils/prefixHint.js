@@ -16,13 +16,14 @@ const NO_HINT_SCRIPT = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/
 export const fold = (s) => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[’‘`]/g, "'").toLowerCase()
 const lettersIn = (w) => [...String(w || '')].filter(isLetter).length
 const firstLetter = (w) => [...String(w || '')].find(isLetter) || ''
-const wordsOf = (a) => String(a || '').normalize('NFC').trim().split(/\s+/).filter((w) => lettersIn(w) > 0)
+const wordsOf = (a) => String(a || '').normalize('NFC').trim().split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w))
 
 export const HINT_SHARE = 0.2
 // How many letters of a one-word answer the hint shows.
+// A word of 1 or 2 letters gets none ("yo" as "(y…)" was half of it).
 export function prefixLen(letters, share = HINT_SHARE) {
   const n = Number(letters) || 0
-  if (n < 2) return 0
+  if (n < 3) return 0
   return Math.max(1, Math.min(Math.max(1, Math.round(n * share)), n - 2))
 }
 // The word's first `k` letters (from its first letter on; marks and inner punctuation kept as written).
@@ -53,13 +54,20 @@ export const SHORT_WORD = 2
 function phraseToken(w) {
   const [lead, rest] = splitElision(w)
   if (lead) return `${lead}${firstLetter(rest)}${HINT_MARK}`
-  return lettersIn(w) <= SHORT_WORD ? HINT_MARK : `${firstLetter(w)}${HINT_MARK}`
+  // A short word, a number ("3 años": the number would be half the answer) or a syllable-script word too short for
+  // a share: only "…".
+  return lettersIn(w) <= SHORT_WORD || tooShortSyllabic(w) ? HINT_MARK : `${firstLetter(w)}${HINT_MARK}`
 }
+// Hangul writes a SYLLABLE per character: a two- or three-syllable word's first character is a third to half of it.
+const SYLLABIC = /^\p{Script=Hangul}/u
+const SYLLABIC_MIN = 4
+const tooShortSyllabic = (w) => SYLLABIC.test(firstLetter(w)) && lettersIn(w) < SYLLABIC_MIN
 // "(pa…)" / "(b… d…)" / "(… v…)" / "(l'e…)" / '' (see the header).
 export function prefixHint(answer) {
   const words = wordsOf(answer)
   if (!words.length || words.some((w) => NO_HINT_SCRIPT.test(firstLetter(w)))) return ''
   if (words.length === 1) {
+    if (tooShortSyllabic(words[0])) return ''
     const [lead, rest] = splitElision(words[0])
     const k = prefixLen(lettersIn(rest))
     if (lead) return lettersIn(rest) ? `(${lead}${k ? prefixOf(rest, k) : ''}${HINT_MARK})` : ''
@@ -149,7 +157,7 @@ export function insertHint(text, hint) {
   if (!hint) return s
   if (/_{2,}/.test(s)) return s.replace(/_{2,}/, (m) => `${m} ${hint}`)
   const t = s.trimEnd()
-  const m = t.match(/([?？!！.。]+)$/u)
+  const m = t.match(/([?？!！.。؟।]+)$/u)
   return m ? `${t.slice(0, t.length - m[1].length).trimEnd()} ${hint}${m[1]}` : `${t} ${hint}`
 }
 
@@ -177,6 +185,8 @@ export function choicePromptText(text, answers = null) {
 export function longerPrefix(answer, share = 0.4) {
   const words = wordsOf(answer)
   if (!words.length || words.some((w) => NO_HINT_SCRIPT.test(firstLetter(w)))) return ''
+  // A word too short for a hint stays too short for a longer one ("yo", a two-syllable Hangul word).
+  if (words.length === 1 && !splitElision(words[0])[0] && (lettersIn(words[0]) < 3 || tooShortSyllabic(words[0]))) return ''
   let more = false
   const out = words.map((w0) => {
     const [lead, w] = splitElision(w0)

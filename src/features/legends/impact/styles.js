@@ -14,6 +14,9 @@
 //   ko               its knockout: a staged CINEMATIC (each part's `at`, ms), that boss's own death told in parts
 //   koMs / koPeak    how long the knockout plays and when its climax lands (the shockwave, then the DEFEATED stamp)
 //   body             one move per moment (impact/body.js BODY_KEYFRAMES; BossArena plays the strike moment's own)
+//   flash            optional { y, size }: where the shared white hit flash lands (% of the box) and its size (cqw)
+//   shieldRingTop    optional number: where the shared shield (SAVED!) ring is centred (% of the box height, default 50),
+//                    so a boss can keep it off its face
 // EVERY MOMENT LOOKS DIFFERENT (the owner: "every impact needs to be different"): within a boss no two of the 9
 // moments share a part list or a body move, and across bosses no two share a moment's part list (impact.test.js).
 // A part is [name, params]; parts.jsx knows every name (PARTS).

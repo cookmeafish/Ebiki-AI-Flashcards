@@ -19,6 +19,7 @@ import { EVENTS } from '../events'
 import { featureCfg, useActivityBusy } from '../registry'
 import { useHelpEntry } from '../kit/useHelp'
 import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
+import { meaningLabel } from '../../utils/choicePool'
 import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText, fightCtx, generationKey, withPoolChoicesAll, checkChoices } from '../kit'
 import FightSettings from './FightSettings'
 import { PowerCastBadge } from './impact/PowerFx'
@@ -249,7 +250,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }
   const poolChoices = (qs, cards) => {
     const byId = new Map((cards || []).map((x) => [x.cardId, x]))
-    return withPoolChoicesAll(qs, { cardOf: (q) => byId.get(q._cardId) || null, pool: raidPool(), isLanguage: !!ctxRef.current.subject?.isLanguage, t })
+    return withPoolChoicesAll(qs, { cardOf: (q) => byId.get(q._cardId) || null, pool: raidPool(), isLanguage: !!ctxRef.current.subject?.isLanguage, t, meaningLabel: meaningLabel(ctxRef.current.activeMode?.backTemplate) })
   }
   // `tier`: the question ladder's tier from Anki's schedule (utils/questionTier.js tierOf: type, queue, interval, reps,
   // all in the cardsInfo rows read here); the prompt uses it only while the ladder is on.

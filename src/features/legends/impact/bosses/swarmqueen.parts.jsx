@@ -56,7 +56,7 @@ ${rule('hit', ['ring'], 'lgswarmqueenSnap 460ms ease-out both')}
 // A CRITICAL: her head is knocked sideways, both wings crumple, the scythes splay out of control; the hive face's whole
 // brow caves in and the eye clusters squeeze shut.
 const crit = `
-@keyframes lgswarmqueenCritHead { 0% { transform: translate(10%, -4%) rotate(20deg) scale(.92) } 25% { transform: translate(12%, -3%) rotate(23deg) scale(.92) } 55% { transform: translate(-4%, 1%) rotate(-7deg) } 80% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgswarmqueenCritHead { 0% { transform: translate(3%, 2%) rotate(17deg) scale(.9) } 25% { transform: translate(4%, 2%) rotate(19deg) scale(.9) } 55% { transform: translate(-4%, 1%) rotate(-7deg) } 80% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgswarmqueenCrumpleL { 0% { transform: rotate(-24deg) scale(.82) } 40% { transform: rotate(-18deg) scale(.88) } 70% { transform: rotate(6deg) } 100% { transform: none } }
 @keyframes lgswarmqueenCrumpleR { 0% { transform: rotate(24deg) scale(.82) } 40% { transform: rotate(18deg) scale(.88) } 70% { transform: rotate(-6deg) } 100% { transform: none } }
 @keyframes lgswarmqueenSplayL { 0% { transform: rotate(-26deg) } 35% { transform: rotate(-20deg) } 65% { transform: rotate(8deg) } 100% { transform: none } }
@@ -155,7 +155,7 @@ const wind = `
 @keyframes lgswarmqueenChatterL { 0%, 100% { transform: none } 10%, 30%, 50%, 70% { transform: rotate(-18deg) } 20%, 40%, 60%, 80% { transform: rotate(6deg) } }
 @keyframes lgswarmqueenChatterR { 0%, 100% { transform: none } 10%, 30%, 50%, 70% { transform: rotate(18deg) } 20%, 40%, 60%, 80% { transform: rotate(-6deg) } }
 @keyframes lgswarmqueenTremble { 0%, 100% { transform: none } 10%, 30%, 50%, 70% { transform: rotate(3deg) } 20%, 40%, 60%, 80% { transform: rotate(-3deg) } }
-@keyframes lgswarmqueenCock { 0%, 100% { transform: none } 30%, 70% { transform: rotate(-14deg) } }
+@keyframes lgswarmqueenCock { 0%, 100% { transform: none } 30%, 70% { transform: translateY(1%) rotate(-13deg) } }
 @keyframes lgswarmqueenBlinkL { 0%, 100% { transform: none } 15%, 25% { transform: scaleY(.15) } 35% { transform: none } }
 @keyframes lgswarmqueenBlinkR { 0%, 100% { transform: none } 45%, 55% { transform: scaleY(.15) } 65% { transform: none } }
 @keyframes lgswarmqueenMawChatter { 0%, 100% { transform: none } 10%, 30%, 50%, 70% { transform: scale(.85) } 20%, 40%, 60%, 80% { transform: scale(1.05) } }
@@ -175,7 +175,7 @@ const ko = `
 @keyframes lgswarmqueenKoCurlR { 0% { transform: none } 18% { transform: rotate(20deg) } 45% { transform: rotate(12deg) } 70% { transform: rotate(-38deg) } 82% { transform: rotate(-34deg) } 100% { transform: rotate(-36deg) } }
 @keyframes lgswarmqueenKoWingL { 0% { transform: none } 18% { transform: rotate(18deg) } 50% { transform: rotate(4deg) } 75% { transform: rotate(-32deg) scale(.9) } 100% { transform: rotate(-30deg) scale(.9) } }
 @keyframes lgswarmqueenKoWingR { 0% { transform: none } 18% { transform: rotate(-18deg) } 50% { transform: rotate(-4deg) } 75% { transform: rotate(32deg) scale(.9) } 100% { transform: rotate(30deg) scale(.9) } }
-@keyframes lgswarmqueenKoHead { 0% { transform: none } 18% { transform: translateY(-8%) rotate(-8deg) scale(1.06) } 45% { transform: translateY(-6%) rotate(-6deg) scale(1.05) } 72% { transform: translateY(16%) rotate(14deg) scale(.92) } 86% { transform: translateY(13%) rotate(12deg) scale(.92) } 100% { transform: translateY(15%) rotate(13deg) scale(.92) } }
+@keyframes lgswarmqueenKoHead { 0% { transform: none } 18% { transform: translateY(-1%) rotate(-10deg) scale(1.02) } 45% { transform: translateY(0) rotate(-8deg) scale(1.01) } 72% { transform: translateY(16%) rotate(14deg) scale(.92) } 86% { transform: translateY(13%) rotate(12deg) scale(.92) } 100% { transform: translateY(15%) rotate(13deg) scale(.92) } }
 @keyframes lgswarmqueenKoMandL { 0% { transform: none } 18% { transform: rotate(-24deg) } 50% { transform: rotate(-20deg) } 80%, 100% { transform: rotate(10deg) } }
 @keyframes lgswarmqueenKoMandR { 0% { transform: none } 18% { transform: rotate(24deg) } 50% { transform: rotate(20deg) } 80%, 100% { transform: rotate(-10deg) } }
 @keyframes lgswarmqueenKoSink { 0%, 45% { transform: none } 80%, 100% { transform: translateY(10%) scale(.94, .8) } }

@@ -76,3 +76,43 @@ describe('fight choices: no hint the options give away, the guard, choice-only q
     expect(out.choices.filter((c) => c !== 'pantalones').every((c) => ['paraguas', 'pasaporte', 'pañuelo', 'zapato', 'camisa'].includes(c))).toBe(true)
   })
 })
+
+describe('fight choices: never a lone answer', () => {
+  it('deck words fill a no-hint set; too few fair options keep the MODEL options (a fight never loses its choices), with no hint', () => {
+    const p = [{ front: 'bien dicho', back: 'well said' }, { front: 'bajo dos', back: 'under two' }, { front: 'buen día', back: 'good day' }]
+    const q = typed(['buenos días'], { choices: ['buenos días', 'camiseta', 'gorra', 'bufanda'], answerIdx: 0 })
+    const out = withPoolChoices(q, { card: { front: 'buenos días', back: 'good morning' }, pool: p, isLanguage: true, t, rnd: fixed })
+    expect([...out.alt.choices].sort()).toEqual(['bajo dos', 'bien dicho', 'buenos días'])
+    const none = withPoolChoices(q, { card: { front: 'buenos días', back: 'good morning' }, pool: [], isLanguage: true, t, rnd: fixed })
+    expect([...none.alt.choices].sort()).toEqual(['buenos días', 'bufanda', 'camiseta', 'gorra'])
+    expect(none.alt.choices[none.alt.answerIdx]).toBe('buenos días')
+    expect(none.noHint).toBe(true)
+  })
+  it('"el perro": the word-count filter leaves no fair option, the model options stay, no hint shown', () => {
+    const q = { ...typed(['el perro'], { choices: ['el perro', 'gato', 'casa', 'mesa'], answerIdx: 0 }), prompt: 'How do you say "the dog" (… p…)?' }
+    const out = withPoolChoices(q, { card: { front: 'el perro', back: 'the dog' }, pool: [], isLanguage: true, t, rnd: fixed })
+    expect([...out.alt.choices].sort()).toEqual(['casa', 'el perro', 'gato', 'mesa'])
+    expect(out.alt.choices[out.alt.answerIdx]).toBe('el perro')
+    expect(out.noHint).toBe(true)
+    expect(out.prompt).toBe('How do you say "the dog"?')
+  })
+  it('the fallback keeps ONLY the fair model options: "perro" (also right) never offered as wrong for "el perro"', () => {
+    const q = { ...typed(['el perro'], { choices: ['el perro', 'perro', 'gato', 'casa'], answerIdx: 0 }), prompt: 'How do you say "the dog" (… p…)?' }
+    const out = withPoolChoices(q, { card: { front: 'el perro', back: 'the dog' }, pool: [], isLanguage: true, t, rnd: fixed })
+    expect([...out.alt.choices].sort()).toEqual(['casa', 'el perro', 'gato'])
+    expect(out.alt.choices[out.alt.answerIdx]).toBe('el perro')
+    expect(out.noHint).toBe(true)
+  })
+  it('two options are still a choice; no fair wrong option at all leaves the question typed', () => {
+    const two = withPoolChoices(typed(['el perro'], { choices: ['el perro', 'perro', 'los perros', 'gato'], answerIdx: 0 }), { card: { front: 'el perro', back: 'the dog' }, pool: [], isLanguage: true, t, rnd: fixed })
+    expect([...two.alt.choices].sort()).toEqual(['el perro', 'gato'])
+    const none = withPoolChoices(typed(['el perro'], { choices: ['el perro', 'perro', 'El Perro', 'los perros'], answerIdx: 0 }), { card: { front: 'el perro', back: 'the dog' }, pool: [], isLanguage: true, t, rnd: fixed })
+    expect(none.alt).toBeUndefined()
+    expect(none.kind).toBe('typed')
+  })
+  it('a general mode with too few fair model options keeps only the fair ones', () => {
+    const q = { kind: 'typed', prompt: 'Which port does SSH use?', accepted: ['22'], open: false, alt: { choices: ['22', '22.', '22 ', '23'], answerIdx: 0 } }
+    const out = withPoolChoices(q, { card: { front: 'SSH port', back: '22' }, pool: [], isLanguage: false, t, rnd: fixed })
+    expect([...out.alt.choices].sort()).toEqual(['22', '23'])
+  })
+})

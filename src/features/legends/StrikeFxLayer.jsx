@@ -14,7 +14,7 @@ import { PARTS, PARTS_CSS, withDelay, drawWithin } from './impact/parts'
 import { labelFontSize } from './impact/labelFit'
 
 const LABEL_CSS = `
-@keyframes lgsLabel { 0% { transform: translateX(-50%) scale(2.4) rotate(-6deg); opacity: 0 } 16% { transform: translateX(-50%) scale(.9) rotate(2deg); opacity: 1 } 26% { transform: translateX(-50%) scale(1.08) rotate(-1deg) } 36% { transform: translateX(-50%) scale(1) rotate(0) } 78% { opacity: 1 } 100% { transform: translateX(-50%) translateY(-8px); opacity: 0 } }
+@keyframes lgsLabel { 0% { transform: translateX(-50%) scale(2.4) rotate(-6deg); opacity: 0 } 16% { transform: translateX(-50%) scale(.9) rotate(2deg); opacity: 1 } 26% { transform: translateX(-50%) scale(1.08) rotate(-1deg) } 36% { transform: translateX(-50%) scale(1) rotate(0) } 78% { opacity: 1 } 100% { transform: translateX(-50%) translateY(calc(-1 * min(8px, 6cqh))); opacity: 0 } }
 @keyframes lgsStamp { 0% { transform: translate(-50%, -50%) scale(3.2) rotate(-16deg); opacity: 0 } 9% { transform: translate(-50%, -50%) scale(.9) rotate(-5deg); opacity: 1 } 14% { transform: translate(-50%, -50%) scale(1.07) rotate(-7deg) } 20% { transform: translate(-50%, -50%) scale(1) rotate(-6deg) } 74% { transform: translate(-50%, -50%) scale(1) rotate(-6deg); opacity: 1 } 100% { transform: translate(-50%, 40%) scale(.62) rotate(-4deg); opacity: 0 } }
 `
 // The defeated tag (under a beaten raid boss): the stamp's small, still form. It is ALL that shows when effects are off
@@ -64,7 +64,12 @@ export const MOMENT_LABEL = { crit: 'lg_fxCrit', sharpen: 'lg_fxSharpen', block:
 // The largest SETTLED scale of each word's animation (after its slam-in): what the label fit sizes for (labelFit.js).
 export const LABEL_PEAK = 1.08 // lgsLabel 26%
 export const STAMP_PEAK = 1.07 // lgsStamp 14%
-export const LABEL_FIT = { maxPx: 20, peak: LABEL_PEAK }
+// Its height: the label sits in the boss's headroom (20% of the box) plus the top 10% of the box, and must stay inside
+// the arena card with its peak scale and its fading rise (at most 6cqh): at a tighter line (LABEL_LINE, the glyphs kept
+// where Baloo's own 1.6 em line had them) its top is 0.1H - 1.44 em above the box, so 16cqh leaves the card's 2 px border
+// clear at the peak (at a fixed 20 px and 1.6 em its top rose 3 to 7 px above the card on every boss).
+export const LABEL_LINE = 1.1
+export const LABEL_FIT = { maxPx: 20, peak: LABEL_PEAK, capH: 16 }
 // The knockout stamp's plate: 4cqw padding and a 3 px border on each side, under a 13cqw cap (its look on a normal arena).
 export const STAMP_FIT = { maxPx: 30, floorPx: 12, peak: STAMP_PEAK, spacing: 0.06, pad: { cqw: 8, px: 6 }, cap: 13 }
 const LABEL_FILL = { crit: '#ffd23a', sharpen: '#ffd23a', block: '#8fe3ff', shield: '#6fc3ff', hurtBig: '#ff3b3b', wind: '#ff6b9a', ko: '#ffffff' }
@@ -73,16 +78,17 @@ const LABEL_FILL = { crit: '#ffd23a', sharpen: '#ffd23a', block: '#8fe3ff', shie
 export function momentParts(moment, style) {
   switch (moment) {
     // Each moment plays the boss's OWN spec for it (impact/styles.js), never another moment's parts with a new label.
-    case 'hit': return { scale: 1, parts: [['flash', {}], ...style.hit] }
-    case 'crit': return { scale: 1.1, parts: [['flash', { big: true }], ...style.crit] }
+    // style.flash (optional { y, size }) moves the shared white hit flash, e.g. off a face that sits where it lands
+    case 'hit': return { scale: 1, parts: [['flash', { ...style.flash }], ...style.hit] }
+    case 'crit': return { scale: 1.1, parts: [['flash', { big: true, ...style.flash }], ...style.crit] }
     case 'sharpen': return { scale: 1.1, parts: style.sharpen || style.crit }
     case 'hurt': return { scale: 1, parts: style.strike }
     case 'hurtBig': return { scale: 1.2, parts: style.heavy || [...style.strike, ['quake', {}]] }
     case 'block': return { scale: 0.85, parts: [...(style.block || []), ['parry', { color: style.color }]] }
     // A save and Second wind carry the boss's OWN colors and glyphs on top of their shared sign (the dome, the heart):
     // its blow sparks off the dome in its color; its glyphs scatter away while the heart comes back.
-    case 'shield': return { scale: 0.85, parts: [...(style.shield || [['bubble', {}]]), ['ring', { color: style.color, scale: 1.35, width: 6, delay: 200 }], ['sparks', { n: 12, color: style.color, reach: 1.25 }]] }
-    case 'wind': return { scale: 1, parts: [...(style.wind || [['heart', {}]]), ['burst', { n: 9, size: 0.85, reach: 1.25, spin: 160 }]] }
+    case 'shield': return { scale: 0.85, parts: [...(style.shield || [['bubble', {}]]), ['ring', { color: style.color, scale: 1.35, width: 6, delay: 200, ...(style.shieldRingTop != null ? { top: style.shieldRingTop } : {}) }], ['sparks', { n: 12, color: style.color, reach: 1.25 }]] }
+    case 'wind': return { scale: 1, parts: [...(style.wind || [['heart', {}]]), ['burst', { n: 9, size: 0.85, reach: 0.6, spin: 160, y: 36 }]] } // the flourish under the face, round the heart
     case 'ko': return { scale: 1, parts: style.ko }
     default: return { scale: 1, parts: [] }
   }
@@ -139,7 +145,7 @@ export default function StrikeFxLayer({ t, moment, motif, n, fading = false, las
         // Over the boss's head, never across its face (at 20% down the box "HEAVY BLOW!" covered every boss's eyes): the
         // label's bottom edge just inside the box top, the text in the headroom above. Its size fits the box; the outline
         // scales with it (2 px at the full 20 px).
-        <div data-strike-label="" style={{ position: 'absolute', left: '50%', bottom: '90%', transformOrigin: 'center bottom', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900,
+        <div data-strike-label="" style={{ position: 'absolute', left: '50%', bottom: `calc(90% + ${Math.round(((1.6 - LABEL_LINE) / 2) * 100) / 100}em)`, lineHeight: LABEL_LINE, transformOrigin: 'center bottom', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900,
           fontSize: labelFontSize(text, LABEL_FIT), letterSpacing: '.04em', color: LABEL_FILL[moment], WebkitTextStroke: `.1em ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill',
           animation: `lgsLabel 950ms cubic-bezier(.22,1,.36,1) 60ms both`, zIndex: 2 }}>
           {text}

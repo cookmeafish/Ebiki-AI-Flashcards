@@ -179,31 +179,53 @@ export function legendsPool(area, node, map = null) {
   return [...here, ...elsewhere].map((it) => ({ front: it.front, back: it.back, studied: true }))
 }
 // The options every question offers come from the pool (kit/fightChoices.js), then THE OPTION CHECK (kit/choiceCheck.js:
-// is a wrong option also right? one call, fail-soft): a flagged option is swapped for a spare; options left unusable
-// are taken away (a typed question is still asked typed; a choice question with no fair options is dropped).
+// is a wrong option also right? one call, fail-soft): a flagged option is swapped for a spare or dropped, a question
+// keeping at least ONE fair wrong option (two options are still a choice). Only when every wrong option is flagged: a
+// typed question stays, typed only (its alt goes); a choice-only question leaves the quiz, and the set is TOPPED UP once
+// with new questions (pooled and checked the same way), so a boss or Legendary still asks its full count.
 export function makeQuiz(ctx, modeId, area, node, opts = {}) {
-  return once(`quiz:${modeId}:${area.id}:${node.id}`, () => makeQuizNow(ctx, modeId, area, node, opts))
+  const isLanguage = !!ctx.subject?.isLanguage
+  const pooled = (qs0) => withPoolChoicesAll(qs0, {
+    cardOf: (q) => { const id = itemIdFor(q, area.items || []); return (area.items || []).find((it) => it.id === id) || null },
+    pool: legendsPool(area, node, peekMap(modeId)),
+    isLanguage,
+    t: ctx.t,
+  })
+  const checked = async (qs) => applyOptionCheck(qs, await checkChoices(ctx.ai, qs, { isLanguage, learnLang: ctx.subject?.learnLang || '', role: ROLE.quizCheck, job: JOB.quizCheck }))
+  // The pool, the check and the refill run ONCE per quiz too (two callers at once, StrictMode's double mount, made
+  // two option checks and two fresh-options calls, each answer landing on a different screen).
+  return once(`quizopts:${modeId}:${area.id}:${node.id}`, () => once(`quiz:${modeId}:${area.id}:${node.id}`, () => makeQuizNow(ctx, modeId, area, node, opts))
     .then(async (qs0) => {
-      const qs = withPoolChoicesAll(qs0, {
-        cardOf: (q) => { const id = itemIdFor(q, area.items || []); return (area.items || []).find((it) => it.id === id) || null },
-        pool: legendsPool(area, node, peekMap(modeId)),
-        isLanguage: !!ctx.subject?.isLanguage,
-        t: ctx.t,
-      })
+      const qs = pooled(qs0)
       if (!Array.isArray(qs)) return qs
-      const fixes = await checkChoices(ctx.ai, qs, { isLanguage: !!ctx.subject?.isLanguage, learnLang: ctx.subject?.learnLang || '', role: ROLE.quizCheck, job: JOB.quizCheck })
-      if (!fixes.size) return qs
-      return qs.map((q, i) => {
-        if (!fixes.has(i)) return q
-        const f = fixes.get(i)
-        if (f) return f
-        if (q.kind === 'choice') return null
-        const { alt: _alt, ...typedOnly } = q
-        return typedOnly
-      }).filter(Boolean)
-    })
+      const { kept, dropped } = await checked(qs)
+      if (!dropped) return kept
+      // Refill the places the check emptied (never a repeat of what the set asks).
+      const more = await makeQuizNow(ctx, modeId, area, node, { ...opts, refill: { count: dropped, have: kept.map((q) => q.prompt) } }).catch(() => [])
+      const extra = Array.isArray(more) && more.length ? (await checked(pooled(more))).kept : []
+      const seen = new Set(kept.map((q) => normQ(q.prompt)))
+      return [...kept, ...extra.filter((q) => { const k = normQ(q.prompt); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, dropped)]
+    }))
 }
-async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
+// The option check's verdict on a set (pure, tested): → { kept, dropped } (how many choice-only questions left).
+export function applyOptionCheck(qs, fixes) {
+  if (!Array.isArray(qs)) return { kept: qs, dropped: 0 }
+  if (!fixes || !fixes.size) return { kept: qs, dropped: 0 }
+  const kept = []
+  let dropped = 0
+  qs.forEach((q, i) => {
+    if (!fixes.has(i)) { kept.push(q); return }
+    const fixed = fixes.get(i)
+    // Still waiting for fresh options (a caller that did not ask, kit/choiceCheck.js): typed only, or out.
+    if (fixed && fixed.needChoices) { if (fixed.kind !== 'choice') { const { needChoices: _n, ...typed } = fixed; kept.push({ ...typed, typedOnly: true }) } else dropped++; return }
+    if (fixed) { kept.push(fixed); return }
+    // Every wrong option was flagged: a typed question is still a good question, typed only.
+    if (q && q.kind !== 'choice' && q.alt) { const { alt: _gone, ...typed } = q; kept.push(typed); return }
+    dropped++
+  })
+  return { kept, dropped }
+}
+async function makeQuizNow(ctx, modeId, area, node, { misses = [], refill = null } = {}) {
   // A boss that beat the learner comes back with those items (area.nemesis, set by a lost fight).
   const nemesis = node.kind === 'boss' ? (area.nemesis?.itemIds || []).map((id) => area.items.find((it) => it.id === id)?.front).filter(Boolean) : []
   const { subject, ai, t } = ctx
@@ -243,7 +265,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   // A set saved before the review existed (it asked "the most natural answer in Texas" on a step that never
   // taught Texas) is reviewed once: what survives is kept, and the gaps are refilled below like a new set's.
   let kept = null
-  if (!fresh && saved.value?.questions?.length && (saved.value.ladder || '') === ladderSig) {
+  if (!refill && !fresh && saved.value?.questions?.length && (saved.value.ladder || '') === ladderSig) {
     const clean = saved.value.questions
     if (saved.value.checked === QUIZ_CHECK_VERSION && enough(clean.length)) return reshuffleQuiz(clean)
     kept = await review(clean)
@@ -270,6 +292,11 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
     const checked = await review(qs)
     if (!checked) reviewed = false
     return checked || qs
+  }
+  // A REFILL (makeQuiz: the option check emptied some places): only new questions for those places, nothing saved.
+  if (refill) {
+    for (const p of refill.have || []) seen.add(normQ(p))
+    return ask(false, { count: refill.count, avoid: [...avoid, ...(refill.have || [])].slice(-QUIZ_AVOID_MAX) })
   }
   for (const q of kept || []) seen.add(normQ(q.prompt))
   let qs = kept || await ask(false)

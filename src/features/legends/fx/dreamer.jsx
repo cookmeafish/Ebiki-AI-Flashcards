@@ -23,32 +23,32 @@ const DRAWING = `
 @keyframes lgrDrSqueeze { 0%, 100% { transform: none } 12% { transform: scale(1.1, .6) } 40% { transform: scale(1.05, .8) } }
 @keyframes lgrDrRock { 0% { transform: none } 10% { transform: translate(-4px, -4px) rotate(-10deg) scale(.94) } 32% { transform: rotate(6deg) } 56% { transform: rotate(-3deg) } 80% { transform: rotate(1deg) } 100% { transform: none } }
 @keyframes lgrDrFlail { 0%, 100% { transform: none } 10% { transform: scale(1.22, .85) } 24% { transform: scale(.9, 1.12) rotate(4deg) } 40% { transform: scale(1.08, .96) rotate(-3deg) } 60% { transform: none } }
-@keyframes lgrDrPop { 0% { transform: none; opacity: 1 } 12% { transform: scale(1.4); opacity: 0 } 60% { transform: scale(.4); opacity: 0 } 100% { transform: none; opacity: 1 } }
-@keyframes lgrDrSpreadL { 0%, 100% { transform: none } 12% { transform: rotate(-12deg) translateX(-3px) } 40% { transform: rotate(-5deg) } }
-@keyframes lgrDrSpreadR { 0%, 100% { transform: none } 12% { transform: rotate(12deg) translateX(3px) } 40% { transform: rotate(5deg) } }
+@keyframes lgrDrPop { 0% { transform: none; opacity: 1 } 6% { transform: scale(1.06); opacity: .3 } 10% { transform: scale(1.1); opacity: 0 } 60% { transform: scale(.4); opacity: 0 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrDrSpreadL { 0%, 100% { transform: none } 12% { transform: rotate(-4deg) } 40% { transform: rotate(-2deg) } }
+@keyframes lgrDrSpreadR { 0%, 100% { transform: none } 12% { transform: rotate(4deg) } 40% { transform: rotate(2deg) } }
 @keyframes lgrDrVoidBlink { 0%, 100% { transform: none } 12% { transform: scale(1.2, .2) } 40% { transform: scale(1.1, .5) } 60% { transform: none } }
 @keyframes lgrDrSever { 0%, 100% { transform: none } 8% { transform: translateY(-6px) scaleY(.7) skewX(-8deg) } 22% { transform: translateY(-2px) scaleY(.9) skewX(5deg) } 40% { transform: skewX(-2deg) } 60% { transform: none } }
-@keyframes lgrDrClawTwitch { 0%, 100% { transform: none } 10% { transform: translateY(-4px) scale(1.06, .94) } 26% { transform: translateY(1px) } 44% { transform: translateY(-2px) } 60% { transform: none } }
+@keyframes lgrDrClawTwitch { 0%, 100% { transform: none } 10% { transform: translateY(-4px) scale(1, .92) } 26% { transform: translateY(1px) } 44% { transform: translateY(-2px) } 60% { transform: none } }
 @keyframes lgrDrLash { 0% { transform: none } 18% { transform: translateY(-6px) scale(.9, .75) } 34% { transform: translateY(9px) scale(1.3, 1.5) } 56% { transform: translateY(6px) scale(1.18, 1.32) } 100% { transform: none } }
 @keyframes lgrDrWhip { 0% { transform: none } 18% { transform: scale(.8, .9) } 34% { transform: scale(1.32, 1.22) rotate(5deg) } 50% { transform: scale(1.22, 1.14) rotate(-5deg) } 100% { transform: none } }
 @keyframes lgrDrLurch { 0% { transform: none } 20% { transform: translateY(-5px) scale(.95) } 36% { transform: translateY(6px) scale(1.15) } 66% { transform: translateY(4px) scale(1.08) } 100% { transform: none } }
 @keyframes lgrDrJawL { 0% { transform: none } 18% { transform: rotate(-10deg) } 34% { transform: rotate(14deg) translateX(4px) } 60% { transform: rotate(10deg) translateX(3px) } 100% { transform: none } }
 @keyframes lgrDrJawR { 0% { transform: none } 18% { transform: rotate(10deg) } 34% { transform: rotate(-14deg) translateX(-4px) } 60% { transform: rotate(-10deg) translateX(-3px) } 100% { transform: none } }
-@keyframes lgrDrReach { 0% { transform: none } 16% { transform: translateY(5px) scale(.92) } 32% { transform: translateY(-18px) scale(1.45) } 60% { transform: translateY(-14px) scale(1.35) } 100% { transform: none } }
+@keyframes lgrDrReach { 0% { transform: none } 16% { transform: translateY(5px) scale(.94) } 32% { transform: translateY(-14px) scale(1, 1.22) } 60% { transform: translateY(-11px) scale(1, 1.16) } 100% { transform: none } }
 @keyframes lgrDrSlit { 0%, 100% { transform: none } 20% { transform: scale(1.15, .35) } 40% { transform: scale(1.25, 1.2) } 70% { transform: scale(1.1, 1.05) } }
 @keyframes lgrDrLeanIn { 0% { transform: none } 22% { transform: translateY(3px) scale(1.06) } 60% { transform: translateY(2px) scale(1.04) } 100% { transform: none } }
-@keyframes lgrDrVoidStare { 0%, 100% { transform: none } 20% { transform: scale(.7) } 36% { transform: scale(1.45) } 64% { transform: scale(1.2) } }
-@keyframes lgrDrWingSweepL { 0% { transform: none } 18% { transform: rotate(-14deg) } 34% { transform: rotate(16deg) } 60% { transform: rotate(10deg) } 100% { transform: none } }
-@keyframes lgrDrWingSweepR { 0% { transform: none } 18% { transform: rotate(14deg) } 34% { transform: rotate(-16deg) } 60% { transform: rotate(-10deg) } 100% { transform: none } }
+@keyframes lgrDrVoidStare { 0%, 100% { transform: none } 20% { transform: scale(.7) } 36% { transform: scale(1.25) } 64% { transform: scale(1.12) } }
+@keyframes lgrDrWingSweepL { 0% { transform: none } 18% { transform: rotate(-4deg) } 34% { transform: rotate(26deg) } 60% { transform: rotate(16deg) } 100% { transform: none } }
+@keyframes lgrDrWingSweepR { 0% { transform: none } 18% { transform: rotate(4deg) } 34% { transform: rotate(-26deg) } 60% { transform: rotate(-16deg) } 100% { transform: none } }
 @keyframes lgrDrLoom { 0% { transform: none } 22% { transform: translateY(-5px) scale(.96) } 40% { transform: translateY(7px) scale(1.18) } 70% { transform: translateY(4px) scale(1.1) } 100% { transform: none } }
 @keyframes lgrDrEyesFlare { 0%, 100% { transform: none } 30% { transform: scale(1.35) } 60% { transform: scale(1.2) } }
 @keyframes lgrDrStorm { 0% { transform: none } 16% { transform: scale(.85, 1.1) } 30% { transform: scale(1.35, 1.2) rotate(4deg) } 44% { transform: scale(1.2, 1.1) rotate(-4deg) } 58% { transform: scale(1.3, 1.15) rotate(3deg) } 100% { transform: none } }
-@keyframes lgrDrClawSlam { 0% { transform: none } 22% { transform: translateY(-12px) scale(1.12) } 38% { transform: translateY(3px) scale(1.25, .85) } 56% { transform: translateY(1px) scale(1.1, .95) } 100% { transform: none } }
-@keyframes lgrDrGapeL { 0% { transform: none } 20% { transform: rotate(-22deg) translateX(-5px) } 38% { transform: rotate(16deg) translateX(5px) } 60% { transform: rotate(10deg) translateX(3px) } 100% { transform: none } }
-@keyframes lgrDrGapeR { 0% { transform: none } 20% { transform: rotate(22deg) translateX(5px) } 38% { transform: rotate(-16deg) translateX(-5px) } 60% { transform: rotate(-10deg) translateX(-3px) } 100% { transform: none } }
+@keyframes lgrDrClawSlam { 0% { transform: none } 22% { transform: translateY(-12px) scale(.98, 1.1) } 38% { transform: translateY(3px) scale(1, .8) } 56% { transform: translateY(1px) scale(1, .92) } 100% { transform: none } }
+@keyframes lgrDrGapeL { 0% { transform: none } 20% { transform: rotate(-6deg) } 38% { transform: rotate(16deg) translateX(5px) } 60% { transform: rotate(10deg) translateX(3px) } 100% { transform: none } }
+@keyframes lgrDrGapeR { 0% { transform: none } 20% { transform: rotate(6deg) } 38% { transform: rotate(-16deg) translateX(-5px) } 60% { transform: rotate(-10deg) translateX(-3px) } 100% { transform: none } }
 @keyframes lgrDrRecoilUp { 0% { transform: none } 14% { transform: translateY(-5px) scaleY(.6) } 45% { transform: translateY(-3px) scaleY(.75) } 100% { transform: none } }
 @keyframes lgrDrPullBack { 0% { transform: none } 14% { transform: translateY(-3px) scale(.92) } 45% { transform: translateY(-2px) scale(.95) } 100% { transform: none } }
-@keyframes lgrDrClawsUp { 0% { transform: none } 14% { transform: translateY(-9px) rotate(-6deg) } 50% { transform: translateY(-7px) rotate(-4deg) } 100% { transform: none } }
+@keyframes lgrDrClawsUp { 0% { transform: none } 14% { transform: translateY(-9px) rotate(-2deg) } 50% { transform: translateY(-7px) rotate(-1deg) } 100% { transform: none } }
 @keyframes lgrDrFuss { 0%, 100% { transform: none } 12% { transform: rotate(-5deg) } 26% { transform: rotate(5deg) } 40% { transform: rotate(-4deg) } 54% { transform: rotate(3deg) } 70% { transform: none } }
 @keyframes lgrDrWobble { 0%, 100% { transform: none } 15% { transform: scale(1.2, .85) } 30% { transform: scale(.88, 1.12) } 48% { transform: scale(1.06, .96) } 65% { transform: none } }
 @keyframes lgrDrNodOff { 0% { transform: none } 40% { transform: translateY(7px) rotate(6deg) scale(.95) } 75% { transform: translateY(6px) rotate(5deg) scale(.96) } 100% { transform: none } }
@@ -59,13 +59,13 @@ const DRAWING = `
 @keyframes lgrDrKoHead { 0% { transform: none } 18% { transform: rotate(4deg) } 30% { transform: rotate(-4deg) } 46% { transform: translateY(-5px) scale(1.06) } 54% { transform: translateY(-7px) scale(1.1) } 74% { transform: translateY(14px) rotate(6deg) scale(.96) } 86% { transform: translateY(11px) rotate(4deg) scale(.96) } 100% { transform: translateY(12px) rotate(5deg) scale(.96) } }
 @keyframes lgrDrKoTent { 0% { transform: none } 40% { transform: scale(1.1, .9) } 54% { transform: scale(1.25, 1.1) } 74% { transform: scaleY(1.3) translateY(6px) skewX(6deg) } 100% { transform: scaleY(1.25) translateY(5px) skewX(5deg) } }
 @keyframes lgrDrKoEyes { 0%, 50% { transform: none } 56% { transform: scale(1.3) } 70%, 100% { transform: scale(1.1, .08) } }
-@keyframes lgrDrKoBubbles { 0%, 30% { transform: none; opacity: 1 } 40% { transform: scale(1.5); opacity: 0 } 100% { transform: scale(1.5); opacity: 0 } }
-@keyframes lgrDrKoClaws { 0%, 56% { transform: none } 76% { transform: translateY(10px) scale(1.06, .9) } 100% { transform: translateY(9px) scale(1.06, .9) } }
-@keyframes lgrDrKoHalfL { 0%, 40% { transform: none } 54% { transform: rotate(8deg) } 76% { transform: rotate(-32deg) translate(-10px, 12px) } 100% { transform: rotate(-28deg) translate(-9px, 11px) } }
-@keyframes lgrDrKoHalfR { 0%, 40% { transform: none } 54% { transform: rotate(-8deg) } 76% { transform: rotate(32deg) translate(10px, 12px) } 100% { transform: rotate(28deg) translate(9px, 11px) } }
-@keyframes lgrDrKoVoid { 0% { transform: none; opacity: 1 } 50% { transform: scale(1.3); opacity: 1 } 62% { transform: scale(1.6); opacity: 1 } 78%, 100% { transform: scale(0); opacity: 0 } }
-@keyframes lgrDrKoWingL { 0%, 54% { transform: none } 78%, 100% { transform: rotate(-30deg) translateY(10px) } }
-@keyframes lgrDrKoWingR { 0%, 54% { transform: none } 78%, 100% { transform: rotate(30deg) translateY(10px) } }
+@keyframes lgrDrKoBubbles { 0%, 30% { transform: none; opacity: 1 } 34% { transform: scale(1.06); opacity: .3 } 38% { transform: scale(1.1); opacity: 0 } 100% { transform: scale(1.1); opacity: 0 } }
+@keyframes lgrDrKoClaws { 0%, 56% { transform: none } 76% { transform: translateY(10px) scale(1, .88) } 100% { transform: translateY(9px) scale(1, .88) } }
+@keyframes lgrDrKoHalfL { 0%, 40% { transform: none } 54% { transform: rotate(8deg) } 76% { transform: translate(6px, 17px) rotate(-16deg) } 100% { transform: translate(6px, 16px) rotate(-14deg) } }
+@keyframes lgrDrKoHalfR { 0%, 40% { transform: none } 54% { transform: rotate(-8deg) } 76% { transform: translate(-6px, 17px) rotate(16deg) } 100% { transform: translate(-6px, 16px) rotate(14deg) } }
+@keyframes lgrDrKoVoid { 0% { transform: none; opacity: 1 } 50% { transform: scale(1.18); opacity: 1 } 62% { transform: scale(1.36); opacity: 1 } 78%, 100% { transform: scale(0); opacity: 0 } }
+@keyframes lgrDrKoWingL { 0%, 54% { transform: none } 78%, 100% { transform: rotate(-8deg) translateY(12px) scale(.9) } }
+@keyframes lgrDrKoWingR { 0%, 54% { transform: none } 78%, 100% { transform: rotate(8deg) translateY(12px) scale(.9) } }
 ${on('[data-moment="hit"]', { head: 'lgrDrTwitch 520ms ease-out', tentin: 'lgrDrCurl 520ms ease-out', eyes: 'lgrDrSqueeze 520ms ease-out', void: 'lgrDrVoidBlink 520ms ease-out', halfl: 'lgrDrSpreadL 520ms ease-out', halfr: 'lgrDrSpreadR 520ms ease-out' })}
 ${on('[data-moment="crit"]', { head: 'lgrDrRock 820ms cubic-bezier(.2,.9,.3,1)', tentout: 'lgrDrFlail 820ms ease-out', tentin: 'lgrDrFlail 820ms ease-out 60ms', bubbles: 'lgrDrPop 900ms ease-out', halfl: 'lgrDrGapeL 820ms ease-out', halfr: 'lgrDrGapeR 820ms ease-out', void: 'lgrDrVoidBlink 820ms ease-out', wingl: 'lgrDrSpreadL 820ms ease-out', wingr: 'lgrDrSpreadR 820ms ease-out' })}
 ${on('[data-moment="sharpen"]', { tentin: 'lgrDrSever 760ms ease-out', tentout: 'lgrDrSever 760ms ease-out 50ms', eyes: 'lgrDrSqueeze 760ms ease-out', claws: 'lgrDrClawTwitch 760ms linear', halfl: 'lgrDrSpreadL 700ms ease-out', void: 'lgrDrVoidBlink 700ms ease-out' })}
@@ -79,20 +79,22 @@ ${on('[data-moment="ko"]', { head: 'lgrDrKoHead 2100ms ease-in-out both', tentin
 ${B}[data-down] .lg-dreamer-head { transform: translateY(12px) rotate(5deg) scale(.96) }
 ${B}[data-down] .lg-dreamer-tentin, ${B}[data-down] .lg-dreamer-tentout { transform: scaleY(1.25) translateY(5px) skewX(5deg) }
 ${B}[data-down] .lg-dreamer-eyes { transform: scale(1.1, .08) }
-${B}[data-down] .lg-dreamer-bubbles, ${B}[data-down] .lg-dreamer-void { opacity: 0 }
-${B}[data-down] .lg-dreamer-claws { transform: translateY(9px) scale(1.06, .9) }
-${B}[data-down] .lg-dreamer-halfl { transform: rotate(-28deg) translate(-9px, 11px) }
-${B}[data-down] .lg-dreamer-halfr { transform: rotate(28deg) translate(9px, 11px) }
-${B}[data-down] .lg-dreamer-wingl { transform: rotate(-30deg) translateY(10px) }
-${B}[data-down] .lg-dreamer-wingr { transform: rotate(30deg) translateY(10px) }
+${B}[data-down] .lg-dreamer-bubbles { transform: scale(1.1); opacity: 0 }
+${B}[data-down] .lg-dreamer-void { transform: scale(0); opacity: 0 }
+${B}[data-moment="ko"] .lg-dreamer-void, ${B}[data-down] .lg-dreamer-void { transform-origin: 50% 65% }
+${B}[data-down] .lg-dreamer-claws { transform: translateY(9px) scale(1, .88) }
+${B}[data-down] .lg-dreamer-halfl { transform: translate(6px, 16px) rotate(-14deg) }
+${B}[data-down] .lg-dreamer-halfr { transform: translate(-6px, 16px) rotate(14deg) }
+${B}[data-down] .lg-dreamer-wingl { transform: rotate(-8deg) translateY(12px) scale(.9) }
+${B}[data-down] .lg-dreamer-wingr { transform: rotate(8deg) translateY(12px) scale(.9) }
 /* Deep Sleep: deeper sinks the head and lifts the bubbles; its hum sways the beard; the NIGHTMARE makes every
    tentacle writhe while the claws clench and the split skull gapes; waking snaps the eyes wide and flares the beard;
    the lullaby curls everything in and lowers the head */
 @keyframes lgrDrSinkHead { 0%, 100% { transform: none } 45% { transform: translateY(4px) scale(.98) } }
-@keyframes lgrDrRise { 0%, 100% { transform: none } 50% { transform: translateY(-6px) scale(1.1) } }
+@keyframes lgrDrRise { 0%, 100% { transform: none } 50% { transform: translateY(-5px) scale(1.08) } }
 @keyframes lgrDrSway { 0%, 100% { transform: none } 30% { transform: skewX(6deg) } 70% { transform: skewX(-5deg) } }
 @keyframes lgrDrWrithe { 0%, 100% { transform: none } 12% { transform: skewX(12deg) scaleY(1.1) } 26% { transform: skewX(-12deg) scaleY(.9) } 40% { transform: skewX(10deg) scaleY(1.12) } 54% { transform: skewX(-9deg) scaleY(.92) } 70% { transform: skewX(5deg) } 85% { transform: none } }
-@keyframes lgrDrClench { 0%, 100% { transform: none } 15% { transform: translateY(-6px) scale(1.12, .9) } 50% { transform: translateY(-4px) scale(1.1, .92) } }
+@keyframes lgrDrClench { 0%, 100% { transform: none } 15% { transform: translateY(-6px) scale(.96, .86) } 50% { transform: translateY(-4px) scale(.97, .89) } }
 @keyframes lgrDrWide { 0%, 100% { transform: none } 15% { transform: scale(1.4) } 45% { transform: scale(1.2) } }
 @keyframes lgrDrStartleHead { 0% { transform: none } 14% { transform: translateY(-6px) scale(1.06) } 45% { transform: translateY(-2px) } 100% { transform: none } }
 @keyframes lgrDrFlare { 0%, 100% { transform: none } 14% { transform: scale(1.25, .85) } 40% { transform: scale(1.1, .95) } }

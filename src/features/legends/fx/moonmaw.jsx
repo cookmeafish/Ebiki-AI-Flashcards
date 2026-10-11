@@ -18,41 +18,52 @@ const A = `${P}[data-assault-on]`
 const H = `${P}[data-assault-on][data-moment="hurtBig"]`
 const on = (sel, parts, anim) => `${parts.map((p) => `${sel} .lg-moonmaw-${p}`).join(', ')} { animation: ${anim} }`
 const PARTS_CSS = `
-@keyframes lgrMoonmawSwoopHead { 0% { transform: none } 7% { transform: translateY(-9%) scale(.92) } 10% { transform: translateY(8%) scale(1.22) } 14% { transform: translateY(7%) scale(1.25) } 32% { transform: translateY(6%) scale(1.2) } 36% { transform: translateY(8%) scale(1.24) } 55% { transform: translateY(-1%) } 100% { transform: none } }
-@keyframes lgrMoonmawSwoopWingL { 0% { transform: none } 7% { transform: rotate(30deg) } 11% { transform: rotate(-22deg) } 16% { transform: rotate(-26deg) } 40% { transform: rotate(-16deg) } 70% { transform: rotate(3deg) } 100% { transform: none } }
-@keyframes lgrMoonmawSwoopWingR { 0% { transform: none } 7% { transform: rotate(-30deg) } 11% { transform: rotate(22deg) } 16% { transform: rotate(26deg) } 40% { transform: rotate(16deg) } 70% { transform: rotate(-3deg) } 100% { transform: none } }
-@keyframes lgrMoonmawSwoopTalon { 0% { transform: none } 7% { transform: translateY(-16%) scale(.9) } 11% { transform: translateY(14%) scale(1.35) } 30% { transform: translateY(12%) scale(1.3) } 34% { transform: translateY(14%) scale(1.22, 1.1) } 50% { transform: translateY(4%) } 100% { transform: none } }
+@keyframes lgrMoonmawSwoopHead { 0% { transform: none } 7% { transform: translateY(-5%) scale(.93) } 10% { transform: translateY(10%) scale(1.1) } 14% { transform: translateY(10%) scale(1.11) } 32% { transform: translateY(8%) scale(1.08) } 36% { transform: translateY(10%) scale(1.11) } 55% { transform: translateY(-1%) } 100% { transform: none } }
+@keyframes lgrMoonmawSwoopWingL { 0% { transform: none } 7% { transform: rotate(6deg) } 11% { transform: rotate(-12deg) } 16% { transform: rotate(-14deg) } 40% { transform: rotate(-9deg) } 70% { transform: rotate(2deg) } 100% { transform: none } }
+@keyframes lgrMoonmawSwoopWingR { 0% { transform: none } 7% { transform: rotate(-6deg) } 11% { transform: rotate(12deg) } 16% { transform: rotate(14deg) } 40% { transform: rotate(9deg) } 70% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrMoonmawSwoopTalon { 0% { transform: none } 7% { transform: translateY(-10%) scale(.9) } 11% { transform: translateY(1%) scale(1.13) } 30% { transform: translateY(1%) scale(1.11) } 34% { transform: translateY(1%) scale(1.12, 1.03) } 50% { transform: translateY(1%) } 100% { transform: none } }
 @keyframes lgrMoonmawSwoopBeak { 0% { transform: none } 7% { transform: scaleY(1.3) } 10%, 28% { transform: scaleY(1.9) } 33% { transform: scaleY(.7) } 45% { transform: scaleY(1.05) } 60% { transform: none } }
 @keyframes lgrMoonmawSwoopEyes { 0% { transform: none } 7% { transform: scaleY(.55) } 10% { transform: scale(1.18) } 40% { transform: scale(1.12) } 70% { transform: none } }
-@keyframes lgrMoonmawSwoopTufts { 0% { transform: none } 7% { transform: scale(.85) } 10% { transform: scale(1.25) } 40% { transform: scale(1.15) } 70% { transform: none } }
+@keyframes lgrMoonmawSwoopTufts { 0% { transform: none } 7% { transform: scale(.85) } 10% { transform: scale(1.03) } 40% { transform: scale(1.01) } 70% { transform: none } }
 ${on(A, ['head'], 'lgrMoonmawSwoopHead 1400ms cubic-bezier(.3,.7,.4,1) both')}
 ${on(A, ['wingl'], 'lgrMoonmawSwoopWingL 1400ms cubic-bezier(.3,.7,.4,1) both')}
 ${on(A, ['wingr'], 'lgrMoonmawSwoopWingR 1400ms cubic-bezier(.3,.7,.4,1) both')}
+@keyframes lgrMoonmawSwoopWingL1 { 0% { transform: none } 7% { transform: rotate(3deg) } 11% { transform: rotate(-12deg) } 16% { transform: rotate(-14deg) } 40% { transform: rotate(-9deg) } 70% { transform: rotate(1deg) } 100% { transform: none } }
+@keyframes lgrMoonmawSwoopWingR1 { 0% { transform: none } 7% { transform: rotate(-3deg) } 11% { transform: rotate(12deg) } 16% { transform: rotate(14deg) } 40% { transform: rotate(9deg) } 70% { transform: rotate(-1deg) } 100% { transform: none } }
+${A} .lg-p1 .lg-moonmaw-wingl, ${A} .lg-p2 .lg-moonmaw-wingl { animation-name: lgrMoonmawSwoopWingL1 }
+${A} .lg-p1 .lg-moonmaw-wingr, ${A} .lg-p2 .lg-moonmaw-wingr { animation-name: lgrMoonmawSwoopWingR1 }
 ${on(A, ['talonl', 'talonr'], 'lgrMoonmawSwoopTalon 1400ms cubic-bezier(.3,.7,.4,1) both')}
+${A} .lg-moonmaw-talonl, ${A} .lg-moonmaw-talonr { transform-origin: 50% 45% }
 ${on(A, ['beak'], 'lgrMoonmawSwoopBeak 1400ms ease-out both')}
 ${on(A, ['eyes'], 'lgrMoonmawSwoopEyes 1400ms ease-out both')}
 ${on(A, ['tuftl', 'tuftr'], 'lgrMoonmawSwoopTufts 1400ms ease-out both')}
-@keyframes lgrMoonmawSwoop2Head { 0% { transform: translateY(-9%) scale(.92) } 3% { transform: translateY(10%) scale(1.28) } 22% { transform: translateY(8%) scale(1.22) } 26% { transform: translateY(-2%) scale(1.1) } 34% { transform: translateY(12%) scale(1.32) } 55% { transform: translateY(6%) scale(1.18) } 78% { transform: none } 100% { transform: none } }
+@keyframes lgrMoonmawSwoop2Head { 0% { transform: translateY(-5%) scale(.93) } 3% { transform: translateY(10%) scale(1.11) } 22% { transform: translateY(9%) scale(1.09) } 26% { transform: translateY(-1%) scale(1.01) } 34% { transform: translateY(11%) scale(1.12) } 55% { transform: translateY(6%) scale(1.08) } 78% { transform: none } 100% { transform: none } }
 @keyframes lgrMoonmawSwoop2Beak { 0% { transform: scaleY(1.3) } 3%, 20% { transform: scaleY(2) } 24% { transform: scaleY(.6) } 30%, 50% { transform: scaleY(2) } 56% { transform: scaleY(.65) } 75% { transform: none } 100% { transform: none } }
 ${on(H, ['head'], 'lgrMoonmawSwoop2Head 1300ms cubic-bezier(.3,.7,.4,1) both')}
 ${on(H, ['beak'], 'lgrMoonmawSwoop2Beak 1300ms linear both')}
 
 @keyframes lgrMoonmawChargeEyes { 0%, 100% { transform: none } 40% { transform: translateY(-12%) scale(1.12) } }
-@keyframes lgrMoonmawChargeTufts { 0%, 100% { transform: none } 40% { transform: scale(1.18) translateY(-6%) } }
+@keyframes lgrMoonmawChargeTuftL { 0%, 100% { transform: none } 40% { transform: rotate(-14deg) scale(1.03) } }
+@keyframes lgrMoonmawChargeTuftR { 0%, 100% { transform: none } 40% { transform: rotate(14deg) scale(1.03) } }
 ${on('.lgr-moonmaw-charge', ['eyes'], 'lgrMoonmawChargeEyes 320ms ease-out both')}
-${on('.lgr-moonmaw-charge', ['tuftl', 'tuftr'], 'lgrMoonmawChargeTufts 320ms ease-out both')}
-@keyframes lgrMoonmawFlingL { 0% { transform: none } 20% { transform: rotate(-12deg) } 38% { transform: rotate(34deg) } 60% { transform: rotate(26deg) } 100% { transform: none } }
-@keyframes lgrMoonmawFlingR { 0% { transform: none } 20% { transform: rotate(12deg) } 38% { transform: rotate(-34deg) } 60% { transform: rotate(-26deg) } 100% { transform: none } }
+${on('.lgr-moonmaw-charge', ['tuftl'], 'lgrMoonmawChargeTuftL 320ms ease-out both')}
+${on('.lgr-moonmaw-charge', ['tuftr'], 'lgrMoonmawChargeTuftR 320ms ease-out both')}
+@keyframes lgrMoonmawFlingL { 0% { transform: none } 20% { transform: rotate(2deg) } 38% { transform: rotate(-18deg) } 60% { transform: rotate(-12deg) } 100% { transform: none } }
+@keyframes lgrMoonmawFlingR { 0% { transform: none } 20% { transform: rotate(-2deg) } 38% { transform: rotate(18deg) } 60% { transform: rotate(12deg) } 100% { transform: none } }
 @keyframes lgrMoonmawWatch { 0% { transform: none } 35% { transform: translate(-10%, -18%) scale(1.1) } 75% { transform: translate(-12%, -20%) scale(1.08) } 100% { transform: none } }
 @keyframes lgrMoonmawHoot { 0% { transform: none } 30% { transform: scaleY(1.6) } 55% { transform: scaleY(1.3) } 100% { transform: none } }
 ${on('.lgr-moonmaw-launch', ['wingl'], 'lgrMoonmawFlingL 760ms ease-out both')}
 ${on('.lgr-moonmaw-launch', ['wingr'], 'lgrMoonmawFlingR 760ms ease-out both')}
 ${on('.lgr-moonmaw-launch', ['eyes'], 'lgrMoonmawWatch 760ms ease-out both')}
 ${on('.lgr-moonmaw-launch', ['beak'], 'lgrMoonmawHoot 760ms ease-out both')}
+@keyframes lgrMoonmawTossHead { 0% { transform: none } 20% { transform: translateY(6%) scale(.95) } 38% { transform: translateY(3%) rotate(-9deg) } 62% { transform: translateY(3%) rotate(-7deg) } 100% { transform: none } }
+@keyframes lgrMoonmawKickOff { 0% { transform: none } 20% { transform: translateY(-4%) scale(1.12, .8) } 38% { transform: translateY(-14%) scale(.92, 1.1) } 62% { transform: translateY(-8%) } 100% { transform: none } }
+${on('.lgr-moonmaw-launch', ['head'], 'lgrMoonmawTossHead 760ms cubic-bezier(.3,.7,.4,1) both')}
+${on('.lgr-moonmaw-launch', ['talonl', 'talonr'], 'lgrMoonmawKickOff 760ms cubic-bezier(.3,.7,.4,1) both')}
 @keyframes lgrMoonmawCrashHead { 0%, 28% { transform: none } 34% { transform: translate(6%, 14%) rotate(14deg) scale(.9) } 52% { transform: translate(3%, 8%) rotate(8deg) scale(.94) } 75% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgrMoonmawCrashEyes { 0%, 28% { transform: none } 32% { transform: scaleY(.1) } 60% { transform: scaleY(.15) } 75% { transform: none } 100% { transform: none } }
-@keyframes lgrMoonmawCrashWingL { 0%, 28% { transform: none } 34% { transform: rotate(36deg) } 50% { transform: rotate(-10deg) } 66% { transform: rotate(12deg) } 100% { transform: none } }
-@keyframes lgrMoonmawCrashWingR { 0%, 28% { transform: none } 34% { transform: rotate(-36deg) } 50% { transform: rotate(10deg) } 66% { transform: rotate(-12deg) } 100% { transform: none } }
+@keyframes lgrMoonmawCrashWingL { 0%, 28% { transform: none } 34% { transform: rotate(-17deg) } 50% { transform: rotate(2deg) } 66% { transform: rotate(-7deg) } 100% { transform: none } }
+@keyframes lgrMoonmawCrashWingR { 0%, 28% { transform: none } 34% { transform: rotate(17deg) } 50% { transform: rotate(-2deg) } 66% { transform: rotate(7deg) } 100% { transform: none } }
 @keyframes lgrMoonmawCrashTalon { 0%, 28% { transform: none } 34% { transform: translateY(-14%) scale(1.15, .7) } 60% { transform: translateY(-6%) scale(1.05, .85) } 100% { transform: none } }
 @keyframes lgrMoonmawCrashTufts { 0%, 28% { transform: none } 34% { transform: scale(.6) rotate(-20deg) } 70% { transform: scale(.85) } 100% { transform: none } }
 ${on('.lgr-moonmaw-impact', ['head'], 'lgrMoonmawCrashHead 1100ms ease-out both')}
@@ -62,7 +73,7 @@ ${on('.lgr-moonmaw-impact', ['wingr'], 'lgrMoonmawCrashWingR 1100ms ease-out bot
 ${on('.lgr-moonmaw-impact', ['talonl', 'talonr'], 'lgrMoonmawCrashTalon 1100ms ease-out both')}
 ${on('.lgr-moonmaw-impact', ['tuftl', 'tuftr'], 'lgrMoonmawCrashTufts 1100ms ease-out both')}
 
-${Object.entries(FALLEN).map(([p, t]) => `${P}:not(.lg-fx-off):has([data-ko-tag]):not([data-moment]) .lg-moonmaw-${p} { transform: ${t} }`).join('\n')}
+${Object.entries(FALLEN).map(([p, t]) => `${P}[data-down]:not([data-moment="ko"]):not(.lg-fx-off) .lg-moonmaw-${p}, ${P}:not(.lg-fx-off):has([data-ko-tag]):not([data-moment]) .lg-moonmaw-${p} { transform: ${t} }`).join('\n')}
 `
 
 // Fixed bright moonlight colors (never theme tokens over the art).
@@ -138,7 +149,7 @@ export default {
 /* THE REAL PARTS: the state layer this ability draws on the boss (its lg-ab-* group in raids/moonmaw.svg) moves with
    the moment, not only the whole figure. Played only while data-fx is set (never in focus mode, with Still bosses or
    under reduced motion). */
-@keyframes lgrMoonmawOrbitPop { 0% { transform: none } 35% { transform: scale(1.25) } 65% { transform: scale(.94) } 100% { transform: none } }
+@keyframes lgrMoonmawOrbitPop { 0% { transform: none } 35% { transform: scale(1.06) } 65% { transform: scale(.94) } 100% { transform: none } }
 .lg-boss[data-fx="charge"] [class*="lg-ab-orbit-"], .lg-boss[data-fx="launch"] [class*="lg-ab-orbit-"] { transform-box: fill-box; transform-origin: center; animation: lgrMoonmawOrbitPop 320ms cubic-bezier(.22,1,.36,1) both }
 ` + pivots + PARTS_CSS,
 }

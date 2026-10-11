@@ -4,6 +4,7 @@
 //   starfall  (big)    the ball bursts into a meteor shower of pink and cyan stars with cherry petals.
 //   caught    (medium) the ball bounces away from you and her nine tails flick.
 import { center, anim, around, ring } from './_kit'
+import { fold, foldT } from '../impact/bosses/kitsune.parts'
 
 // Fixed bright fox-fire colors (never theme tokens over the art).
 const F = { white: '#ffffff', cyan: '#6ff3ff', ice: '#c8fbff', pink: '#ff7ac8', petal: '#ffc1dc', violet: '#b98cff', gold: '#ffd76b', ink: '#1d2230' }
@@ -52,7 +53,7 @@ export default {
 .lgr-kitsune-volley { animation: lgrKitsuneSway 320ms ease-out both; transform-origin: 50% 90% }
 @keyframes lgrKitsuneSway { 0%, 100% { transform: none } 40% { transform: rotate(-6deg) translateX(-3px) } 75% { transform: rotate(2deg) } }
 .lgr-kitsune-starfall { animation: lgrKitsuneTwirl 900ms cubic-bezier(.22,1,.36,1) both }
-@keyframes lgrKitsuneTwirl { 0% { transform: perspective(500px) rotateY(0) } 60% { transform: perspective(500px) rotateY(330deg) scale(1.03) } 82% { transform: perspective(500px) rotateY(372deg) } 100% { transform: perspective(500px) rotateY(360deg) } }
+@keyframes lgrKitsuneTwirl { 0% { transform: none } 12% { transform: translate(-7px, -2px) rotate(-6.5deg) } 26% { transform: translate(4px, 0) rotate(3.5deg) } 44% { transform: translate(-2px, 0) rotate(-1.5deg) } 70% { transform: rotate(.5deg) } 100% { transform: none } }
 .lgr-kitsune-caught { animation: lgrKitsuneHop 600ms cubic-bezier(.34,1.56,.64,1) both; transform-origin: 50% 100% }
 @keyframes lgrKitsuneHop { 0% { transform: none } 35% { transform: translateY(-10px) scale(.98, 1.03) } 62% { transform: translateY(0) scale(1.05, .93) } 80% { transform: scale(.99, 1.01) } 100% { transform: none } }
 /* THE REAL PARTS: the state layer this ability draws on the boss (its lg-ab-* group in raids/kitsune.svg) moves with
@@ -64,24 +65,24 @@ export default {
    520 ms): she draws her fox-fire ring in tight, then FLINGS it open as the orb leaves for your heart, her face turning
    after it with a smile and the tails flaring behind her. Inner wrappers (-headA/-hairA/-tailsA/-firesA). Her head only TILTS and scales on its neck joint (the wrappers pivot at
    view-box 60 70): a translate parts it from the neck (dev/legends-gallery/check-joints.mjs). */
-@keyframes lgrKitsuneGather { 0% { transform: none } 7% { transform: scale(.72) rotate(-70deg) } 15% { transform: scale(1.4) rotate(30deg) } 32% { transform: scale(1.12) rotate(120deg) } 100% { transform: rotate(360deg) } }
-@keyframes lgrKitsuneSend { 0% { transform: none } 7% { transform: rotate(-7deg) } 16% { transform: rotate(10deg) scale(1.04) } 45% { transform: rotate(7deg) scale(1.02) } 100% { transform: none } }
-@keyframes lgrKitsuneFlare { 0% { transform: none } 7% { transform: scale(.93) } 16% { transform: scale(1.13) rotate(5deg) } 50% { transform: scale(1.04) rotate(2deg) } 100% { transform: none } }
+@keyframes lgrKitsuneGather { 0% { transform: none } 7% { transform: scale(.72) rotate(-70deg) } 15% { transform: scale(1.1) rotate(30deg) } 32% { transform: scale(1.04) rotate(120deg) } 100% { transform: rotate(360deg) } }
+@keyframes lgrKitsuneSend { 0% { transform: none } 7% { transform: rotate(-7deg) } 16% { transform: rotate(10deg) scale(.97) } 45% { transform: rotate(7deg) scale(.98) } 100% { transform: none } }
+@keyframes lgrKitsuneFlare { 0% { transform: none } 7% { transform: scale(.86) } 16% { transform: none; filter: brightness(1.5) } 50% { transform: scale(.97); filter: none } 100% { transform: none } }
 .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-firesA { animation: lgrKitsuneGather 1600ms cubic-bezier(.3,.7,.3,1) both }
 .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-headA, .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-hairA { animation: lgrKitsuneSend 1500ms cubic-bezier(.3,.7,.3,1) both }
 .lg-boss[data-motif="kitsune"][data-assault-on] .lg-kitsune-tailsA { animation: lgrKitsuneFlare 1500ms cubic-bezier(.3,.7,.3,1) both }
 /* THE ABILITY ON THE REAL PARTS: volley = her right tails swat the ball back and her head flicks after it; starfall =
    the ball bursts in her face (head knocked back, tails blown wide, the fox-fires flare); caught = she plucks it out of
    the air: a crisp double lash of every tail and a smug tilt. */
-@keyframes lgrKitsuneSwatR { 0% { transform: none } 30% { transform: rotate(16deg) } 60% { transform: rotate(-4deg) } 100% { transform: none } }
+${fold('lgrKitsuneSwatR', 'R', [['0%', 0], ['30%', 18], ['60%', 3], ['100%', 0]])}
 @keyframes lgrKitsuneFlickHead { 0%, 100% { transform: none } 35% { transform: rotate(8deg) } }
 @keyframes lgrKitsuneBlownBack { 0% { transform: none } 14% { transform: rotate(-14deg) scale(.94) } 50% { transform: rotate(-5deg) scale(.99) } 100% { transform: none } }
-@keyframes lgrKitsuneBlownL { 0% { transform: none } 14% { transform: rotate(-18deg) } 50% { transform: rotate(-6deg) } 100% { transform: none } }
-@keyframes lgrKitsuneBlownR { 0% { transform: none } 14% { transform: rotate(18deg) } 50% { transform: rotate(6deg) } 100% { transform: none } }
-@keyframes lgrKitsuneFlareUp { 0% { transform: none; opacity: 1 } 14% { transform: scale(1.45); opacity: 1 } 50% { transform: scale(1.1) } 100% { transform: none } }
-@keyframes lgrKitsuneLashL { 0%, 100% { transform: none } 18% { transform: rotate(-12deg) } 36% { transform: rotate(6deg) } 54% { transform: rotate(-8deg) } 72% { transform: rotate(2deg) } }
-@keyframes lgrKitsuneLashR { 0%, 100% { transform: none } 18% { transform: rotate(12deg) } 36% { transform: rotate(-6deg) } 54% { transform: rotate(8deg) } 72% { transform: rotate(-2deg) } }
-@keyframes lgrKitsuneSmug { 0%, 100% { transform: none } 40% { transform: rotate(-8deg) scale(1.03) } }
+${fold('lgrKitsuneBlownL', 'L', [['0%', 0], ['14%', 14, 0.84], ['50%', 5, 0.95], ['100%', 0]])}
+${fold('lgrKitsuneBlownR', 'R', [['0%', 0], ['14%', 14, 0.84], ['50%', 5, 0.95], ['100%', 0]])}
+@keyframes lgrKitsuneFlareUp { 0% { transform: none; opacity: 1 } 14% { transform: scale(1.12); opacity: 1; filter: brightness(1.8) } 50% { transform: scale(1.04); filter: none } 100% { transform: none } }
+${fold('lgrKitsuneLashL', 'L', [['0%, 100%', 0], ['18%', 14], ['36%', 2, 0.96], ['54%', 10], ['72%', 1]])}
+${fold('lgrKitsuneLashR', 'R', [['0%, 100%', 0], ['18%', 14], ['36%', 2, 0.96], ['54%', 10], ['72%', 1]])}
+@keyframes lgrKitsuneSmug { 0%, 100% { transform: none } 40% { transform: rotate(-8deg) scale(.98) } }
 .lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-tailR { animation: lgrKitsuneSwatR 340ms cubic-bezier(.2,.9,.3,1) both }
 .lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="volley"] .lg-kitsune-hair { animation: lgrKitsuneFlickHead 340ms ease-out both }
 .lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="starfall"] .lg-kitsune-hair { animation: lgrKitsuneBlownBack 900ms cubic-bezier(.2,.9,.3,1) both }
@@ -92,13 +93,15 @@ export default {
 .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-tailR { animation: lgrKitsuneLashR 620ms ease-out both }
 .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-fx="caught"] .lg-kitsune-hair { animation: lgrKitsuneSmug 620ms ease-out both }
 /* KNOCKED OUT: her knockout cinematic (impact/bosses/kitsune.parts.jsx) ends in this pose and data-down holds it: the
-   fires out, the tails wilted, the head bowed on its neck, the bust sunk, the mask gone. */
+   fires out, the tails folded in and wilted, the defeated face (eyes shut, a tear), the head bowed on its chin, the bust sunk, the mask gone. */
 .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-fires { transform: scale(.3) rotate(90deg); opacity: 0 }
-.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailL { transform: rotate(36deg) scaleY(.74) }
-.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailR { transform: rotate(-36deg) scaleY(.74) }
-.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailC { transform: scaleY(.62) }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailL { transform: ${foldT('L', 42, 1, 'scaleY(.72)')} }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailR { transform: ${foldT('R', 42, 1, 'scaleY(.72)')} }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-tailC { transform: scaleY(.58) }
 .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-head, .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-hair { transform: rotate(14deg) scale(.97) }
 .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-bust { transform: translateY(5px) scale(1.02, .95) }
 .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-mask, .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-maskL, .lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-maskR { opacity: 0 }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-up { opacity: 0 }
+.lg-boss[data-motif="kitsune"][data-down]:not([data-moment="ko"]) .lg-kitsune-down { display: inline !important }
 `,
 }

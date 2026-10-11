@@ -69,7 +69,7 @@ const P = '.lg-boss[data-motif="banshee"]'
 // Pivots, measured on each phase's drawing (fill-box percentages of the hook's own box): the head at the top of her
 // neck, the jaw at its hinge, each eye at its centre, the hair at its roots, each bell at its chain's hook, each arm at
 // its shoulder (P1 both hands on her keys, P2 her right claw flung up beside her face, the left still on the keys, P3
-// both claws flung up beside her face as she wails, inside her fan of ice-metal pipes).
+// she conducts: her left claw thrown up to the sky (armR, viewer right), her right claw flung down at you (armL)).
 const PARTS_CSS = `
 ${P} :is(.lg-banshee-head, .lg-banshee-jaw, .lg-banshee-eye, .lg-banshee-hair, .lg-banshee-bell, .lg-banshee-armL, .lg-banshee-armR, .lg-banshee-pipes) { transform-box: fill-box }
 ${P} .lg-banshee-pipes { transform-origin: 50% 100% }
@@ -81,8 +81,6 @@ ${P} .lg-banshee-bell { transform-origin: 50% 0% }
 ${P} .lg-banshee-armL { transform-origin: 25% 0% }
 ${P} .lg-banshee-armR { transform-origin: 75% 0% }
 ${P}[data-phase="2"] .lg-banshee-armL { transform-origin: 73% 90% }
-${P}[data-phase="3"] .lg-banshee-armL { transform-origin: 73% 90% }
-${P}[data-phase="3"] .lg-banshee-armR { transform-origin: 27% 90% }
 /* HIT: the scream is cut off: her head snaps back and the jaw clamps shut, the eyes pinch, the bells jangle. */
 @keyframes lgrBansheeHitHead { 0% { transform: none} 12% { transform: rotate(-6deg) scale(.95)} 34% { transform: rotate(3deg)} 60% { transform: rotate(-1deg)} 100% { transform: none} }
 @keyframes lgrBansheeHitJaw { 0% { transform: none } 10%, 34% { transform: scaleY(.5) } 52% { transform: scaleY(1.08) } 100% { transform: none } }
@@ -222,22 +220,72 @@ ${P}[data-fx="shatter"] .lg-banshee-head { animation: lgrBansheeShatterHead 1000
 ${P}[data-fx="shatter"] .lg-banshee-armL { animation: lgrBansheeShatterArmL 1000ms ease-in-out both }
 ${P}[data-fx="shatter"] .lg-banshee-armR { animation: lgrBansheeShatterArmR 1000ms ease-in-out both }
 ${P}[data-fx="shatter"] .lg-banshee-bell { animation: lgrBansheeJolt 1000ms ease-out both }
-/* PHASE 3: both claws are flung up beside her face, so every moment keeps them up: they JOLT at the elbow (a clench and
-   a flinch, a few degrees), never the keyboard-pose swings above; the knockout lets them sink. Last, so it wins. */
-@keyframes lgrBansheeP3PressL { 0%, 100% { transform: none } 22% { transform: rotate(4deg) scale(.97) } 48% { transform: rotate(-2deg) } 72% { transform: rotate(1deg) } }
-@keyframes lgrBansheeP3PressR { 0%, 100% { transform: none } 22% { transform: rotate(-4deg) scale(.97) } 48% { transform: rotate(2deg) } 72% { transform: rotate(-1deg) } }
-@keyframes lgrBansheeP3SinkL { 0% { transform: none } 30% { transform: rotate(4deg) scale(.97) } 100% { transform: rotate(-3deg) translateY(2px) } }
-@keyframes lgrBansheeP3SinkR { 0% { transform: none } 30% { transform: rotate(-4deg) scale(.97) } 100% { transform: rotate(3deg) translateY(2px) } }
-${P}[data-phase="3"]:is([data-moment], [data-assault-on], [data-fx]) .lg-banshee-armL { animation: lgrBansheeP3PressL 700ms ease-in-out both }
-${P}[data-phase="3"]:is([data-moment], [data-assault-on], [data-fx]) .lg-banshee-armR { animation: lgrBansheeP3PressR 700ms ease-in-out both }
-${P}[data-phase="3"][data-moment="ko"] .lg-banshee-armL { animation: lgrBansheeP3SinkL 2000ms ease-in-out both }
-${P}[data-phase="3"][data-moment="ko"] .lg-banshee-armR { animation: lgrBansheeP3SinkR 2000ms ease-in-out both }
-${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-armL { transform: rotate(-3deg) translateY(2px) }
-${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-armR { transform: rotate(3deg) translateY(2px) }
-/* The shared white hit flash (impact/parts.jsx 'flash', a star at 46% of the box) landed square on her face and hid
-   it for ~150 ms on every critical: for the banshee it lands lower, on her chest, and smaller, so the face stays
-   readable through the hit. Matched by its own inline style (top 46% + the lgiSpin animation) inside the strike layer. */
-${P} [data-strike-fx] div[style*="top: 46%"][style*="lgiSpin"] { top: 80% !important; width: 26cqw !important; height: 26cqw !important }
+/* PHASE 3: she conducts her killing note, the left claw thrown up to the sky (armR, its forearm and hand the hook
+   foreR, folding at the elbow) and the right claw flung down at you (armL). Each moment moves them its OWN way, small
+   enough to stay inside the clip; the knockout folds the raised forearm down across her at the elbow, sinks both arms and shuts
+   her mouth (the open shriek gives way to lg-banshee-shut), held by data-down. Last, so it wins. */
+${P}[data-phase="3"] .lg-banshee-armL { transform-origin: 90.5% 9.6% }
+${P}[data-phase="3"] .lg-banshee-armR { transform-origin: 10.5% 95.4% }
+${P} .lg-banshee-foreR { transform-box: fill-box; transform-origin: 19.7% 96.5% }
+@keyframes lgrBansheeP3HitFore { 0%, 100% { transform: none } 18% { transform: rotate(-12deg) } 46% { transform: rotate(3deg) } }
+@keyframes lgrBansheeP3CritR { 0%, 100% { transform: none } 16% { transform: rotate(-9deg) } 50% { transform: rotate(3deg) } }
+@keyframes lgrBansheeP3CritFore { 0%, 100% { transform: none } 16% { transform: rotate(-14deg) } 50% { transform: rotate(-4deg) } }
+@keyframes lgrBansheeP3CutL { 0%, 100% { transform: none } 14% { transform: rotate(-16deg) } 50% { transform: rotate(-5deg) } }
+@keyframes lgrBansheeP3BlowL { 0% { transform: none } 14% { transform: rotate(-8deg) scale(.95) } 28%, 50% { transform: rotate(3deg) scale(1.05) } 100% { transform: none } }
+@keyframes lgrBansheeP3BlowFore { 0% { transform: none } 14% { transform: rotate(-4deg) } 28%, 50% { transform: rotate(-16deg) } 100% { transform: none } }
+@keyframes lgrBansheeP3HeavyR { 0% { transform: none } 18% { transform: rotate(-10deg) } 34%, 56% { transform: rotate(-6deg) } 100% { transform: none } }
+@keyframes lgrBansheeP3HeavyL { 0% { transform: none } 18% { transform: rotate(-10deg) } 34%, 56% { transform: rotate(-6deg) scale(1.04) } 100% { transform: none } }
+@keyframes lgrBansheeP3BlockFore { 0%, 100% { transform: none } 22%, 50% { transform: rotate(-38deg) } }
+@keyframes lgrBansheeP3ShieldL { 0%, 100% { transform: none } 18%, 60% { transform: rotate(2deg) } }
+@keyframes lgrBansheeP3ShieldFore { 0%, 100% { transform: none } 18%, 60% { transform: rotate(-28deg) } }
+@keyframes lgrBansheeP3WindR { 0%, 100% { transform: none } 35%, 70% { transform: rotate(5deg) } }
+@keyframes lgrBansheeP3WindFore { 0%, 100% { transform: none } 35%, 70% { transform: rotate(-24deg) } }
+@keyframes lgrBansheeP3WindL { 0%, 100% { transform: none } 35%, 70% { transform: rotate(-12deg) } }
+@keyframes lgrBansheeP3WailR { 0%, 100% { transform: none } 18%, 66% { transform: rotate(-6deg) } }
+@keyframes lgrBansheeP3WailFore { 0%, 100% { transform: none } 18% { transform: rotate(-14deg) } 34% { transform: rotate(-6deg) } 50% { transform: rotate(-14deg) } 66% { transform: rotate(-6deg) } }
+@keyframes lgrBansheeP3WailL { 0%, 100% { transform: none } 18%, 66% { transform: rotate(4deg) } }
+@keyframes lgrBansheeP3ShatterFore { 0%, 100% { transform: none } 14%, 64% { transform: rotate(-55deg) } }
+@keyframes lgrBansheeP3ShatterL { 0%, 100% { transform: none } 14%, 64% { transform: rotate(3deg) } }
+@keyframes lgrBansheeP3KoR { 0% { transform: none } 12%, 30% { transform: rotate(-6deg) } 64% { transform: rotate(10deg) } 100% { transform: rotate(8deg) } }
+@keyframes lgrBansheeP3KoFore { 0%, 30% { transform: none } 64% { transform: rotate(-150deg) } 100% { transform: rotate(-145deg) } }
+@keyframes lgrBansheeP3KoL { 0% { transform: none } 12%, 30% { transform: rotate(2deg) } 64% { transform: rotate(-12deg) } 100% { transform: rotate(-10deg) } }
+${P}[data-phase="3"]:is([data-moment], [data-assault-on], [data-fx]) :is(.lg-banshee-armL, .lg-banshee-armR) { animation: none }
+${P}[data-phase="3"][data-moment="hit"] .lg-banshee-foreR { animation: lgrBansheeP3HitFore 520ms ease-out both }
+${P}[data-phase="3"][data-moment="crit"] .lg-banshee-armR { animation: lgrBansheeP3CritR 640ms ease-out both }
+${P}[data-phase="3"][data-moment="crit"] .lg-banshee-foreR { animation: lgrBansheeP3CritFore 640ms ease-out both }
+${P}[data-phase="3"][data-moment="sharpen"] .lg-banshee-armL { animation: lgrBansheeP3CutL 600ms ease-out both }
+${P}[data-phase="3"][data-assault-on] .lg-banshee-armL { animation: lgrBansheeP3BlowL 820ms cubic-bezier(.3,.7,.3,1) both }
+${P}[data-phase="3"][data-assault-on] .lg-banshee-foreR { animation: lgrBansheeP3BlowFore 820ms cubic-bezier(.3,.7,.3,1) both }
+${P}[data-phase="3"]:is([data-moment="hurtBig"], [data-assault-on][data-moment="hurtBig"]) .lg-banshee-armR { animation: lgrBansheeP3HeavyR 900ms cubic-bezier(.3,.7,.3,1) both }
+${P}[data-phase="3"]:is([data-moment="hurtBig"], [data-assault-on][data-moment="hurtBig"]) .lg-banshee-armL { animation: lgrBansheeP3HeavyL 900ms cubic-bezier(.3,.7,.3,1) both }
+${P}[data-phase="3"][data-moment="block"] .lg-banshee-foreR { animation: lgrBansheeP3BlockFore 640ms ease-in-out both }
+${P}[data-phase="3"][data-moment="shield"] .lg-banshee-armL { animation: lgrBansheeP3ShieldL 760ms ease-in-out both }
+${P}[data-phase="3"][data-moment="shield"] .lg-banshee-foreR { animation: lgrBansheeP3ShieldFore 760ms ease-in-out both }
+${P}[data-phase="3"][data-moment="wind"] .lg-banshee-armR { animation: lgrBansheeP3WindR 1000ms ease-in-out both }
+${P}[data-phase="3"][data-moment="wind"] .lg-banshee-foreR { animation: lgrBansheeP3WindFore 1000ms ease-in-out both }
+${P}[data-phase="3"][data-moment="wind"] .lg-banshee-armL { animation: lgrBansheeP3WindL 1000ms ease-in-out both }
+${P}[data-phase="3"][data-fx="wail"] .lg-banshee-armR { animation: lgrBansheeP3WailR 800ms ease-in-out both }
+${P}[data-phase="3"][data-fx="wail"] .lg-banshee-foreR { animation: lgrBansheeP3WailFore 800ms ease-in-out both }
+${P}[data-phase="3"][data-fx="wail"] .lg-banshee-armL { animation: lgrBansheeP3WailL 800ms ease-in-out both }
+${P}[data-phase="3"][data-fx="shatter"] .lg-banshee-foreR { animation: lgrBansheeP3ShatterFore 1000ms ease-in-out both }
+${P}[data-phase="3"][data-fx="shatter"] .lg-banshee-armL { animation: lgrBansheeP3ShatterL 1000ms ease-in-out both }
+${P}[data-phase="3"][data-moment="ko"] .lg-banshee-armR { animation: lgrBansheeP3KoR 2000ms ease-in-out both }
+${P}[data-phase="3"][data-moment="ko"] .lg-banshee-foreR { animation: lgrBansheeP3KoFore 2000ms ease-in-out both }
+${P}[data-phase="3"][data-moment="ko"] .lg-banshee-armL { animation: lgrBansheeP3KoL 2000ms ease-in-out both }
+${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-armR { transform: rotate(8deg) }
+${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-foreR { transform: rotate(-145deg) }
+${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-armL { transform: rotate(-10deg) }
+/* PHASE 2: her right claw is already up beside her face, so the big keyboard-pose swings would throw it past the
+   arena's clip (check-moment-clip.mjs): in phase 2 it flinches, rears and sinks within the frame. */
+@keyframes lgrBansheeP2CutArmL { 0%, 100% { transform: none } 14% { transform: rotate(-8deg) translateY(2px) } 50% { transform: rotate(-3deg) } }
+@keyframes lgrBansheeP2HeavyArmL { 0% { transform: none } 18% { transform: rotate(10deg) } 32% { transform: rotate(4deg) scale(1.06) } 58% { transform: rotate(3deg) scale(1.04) } 100% { transform: none } }
+@keyframes lgrBansheeP2KoArmL { 0% { transform: none } 12%, 32% { transform: rotate(8deg) } 62% { transform: rotate(-7deg) translateY(5px) } 100% { transform: rotate(-5deg) translateY(4px) } }
+@keyframes lgrBansheeP2KoPipes { 0% { transform: none } 10% { transform: scale(1.02, 1.01) } 16% { transform: scale(1.01, 1.01) translateX(-1px) } 22% { transform: scale(1.02, 1.01) translateX(1px) } 30% { transform: scale(1.01, 1.01) } 70%, 100% { transform: scale(.94, .86) translateY(3px) } }
+${P}[data-phase="2"][data-moment="sharpen"] .lg-banshee-armL { animation-name: lgrBansheeP2CutArmL }
+${P}[data-phase="2"]:is([data-moment="hurtBig"], [data-assault-on][data-moment="hurtBig"]) .lg-banshee-armL { animation-name: lgrBansheeP2HeavyArmL }
+${P}[data-phase="2"][data-moment="ko"] .lg-banshee-armL { animation-name: lgrBansheeP2KoArmL }
+${P}[data-phase="2"][data-moment="ko"] .lg-banshee-pipes { animation-name: lgrBansheeP2KoPipes }
+${P}[data-phase="2"][data-down]:not([data-moment="ko"]) .lg-banshee-armL { transform: rotate(-5deg) translateY(4px) }
 /* HEAD ON THE NECK (check-joints.mjs): head and hair pivot on the same neck joint, in view-box units per phase, and the
    hair plays the head's own animation in every moment, so neither ever parts from her neck. */
 ${P} :is(.lg-banshee-head, .lg-banshee-hair) { transform-box: view-box; transform-origin: 59.3px 68.5px }
@@ -257,30 +305,32 @@ ${P}[data-moment="hurtBig"] .lg-banshee-hair, ${P}[data-assault-on][data-moment=
 /* PHASE 3's wail is already open wide: the jaw only flexes a little, so it never stretches past her chin. */
 @keyframes lgrBansheeP3JawOpen { 0%, 100% { transform: none } 20%, 55% { transform: scaleY(1.1) } }
 @keyframes lgrBansheeP3JawShut { 0%, 100% { transform: none } 15%, 45% { transform: scaleY(.62) } }
-@keyframes lgrBansheeP3KoJaw { 0% { transform: none } 10%, 30% { transform: scaleY(1.1) } 64% { transform: scaleY(.6) } 100% { transform: scaleY(.62) } }
+@keyframes lgrBansheeP3KoJaw { 0% { transform: none; opacity: 1 } 10%, 30% { transform: scaleY(1.1); opacity: 1 } 56% { transform: scaleY(.7); opacity: 1 } 64%, 100% { transform: scaleY(.7); opacity: 0 } }
+@keyframes lgrBansheeP3KoShut { 0%, 56% { opacity: 0 } 64%, 100% { opacity: 1 } }
 ${P}[data-phase="3"]:is([data-moment="hit"], [data-moment="block"], [data-moment="shield"]) .lg-banshee-jaw { animation: lgrBansheeP3JawShut 600ms ease-out both }
 ${P}[data-phase="3"]:is([data-moment="crit"], [data-moment="hurtBig"], [data-moment="wind"]) .lg-banshee-jaw { animation: lgrBansheeP3JawOpen 800ms ease-out both }
 ${P}[data-phase="3"][data-assault-on] .lg-banshee-jaw { animation: lgrBansheeP3JawOpen 820ms ease-out both }
 ${P}[data-phase="3"][data-moment="ko"] .lg-banshee-jaw { animation: lgrBansheeP3KoJaw 2000ms ease-in-out both }
-${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-jaw { transform: scaleY(.62) }
+${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-jaw { opacity: 0 }
+${P}[data-phase="3"][data-moment="ko"] .lg-banshee-shut { display: inline !important; animation: lgrBansheeP3KoShut 2000ms ease-in-out both }
+${P}[data-phase="3"][data-down]:not([data-moment="ko"]) .lg-banshee-shut { display: inline !important }
 `
 
 export default {
   effects: {
     // Wail (medium): a VIOLET and GREEN sound shock: jagged pressure fronts sweep out from her mouth to both edges, the
-    // waveforms thrash out of her mouth's corners and the drowned choir is flung out at you, glowing sick green.
+    // waveforms thrash out of her mouth's corners and the drowned choir is flung out at you, glowing sick green. Nothing
+    // is laid over her figure (a soft colour bloom over her face was cut: her face stays readable through the call).
     wail: () => <>
-      <div className="lgx lgx-full" style={{ borderRadius: '50%', background: `radial-gradient(ellipse farthest-corner at 50% ${MOUTH_Y}, transparent 24%, rgba(125,255,154,.18) 42%, rgba(150,90,255,.32) 54%, transparent 66%)`, animation: anim('lgxFade', 900) }} />
       {[0, 1, 2].map((i) => shockFront(-1, i))}{[0, 1, 2].map((i) => shockFront(1, i))}
       {waveHalf(-1, 0, 30, SHOCK, 2.6, 1)}{waveHalf(1, 0, 30, SHOCK, 2.6, 2)}
       {waveHalf(-1, 110, 44, GREEN, 1.8, 3)}{waveHalf(1, 110, 44, GREEN, 1.8, 4)}
       {waveHalf(-1, 220, 22, VIOLET, 1.4, 5)}{waveHalf(1, 220, 22, VIOLET, 1.4, 6)}
       {around(6, (i) => chorister(i))}
     </>,
-    // Shatter (big): WHITE and ICE BLUE glass: a white flash, frost grows in from every corner, her note freezes into
+    // Shatter (big): WHITE and ICE BLUE glass (no white bloom over her: it hid her face), frost grows in from every corner, her note freezes into
     // bars of ice at her mouth, a crack web runs across the arena, the shards tumble down and a flatline is left.
     shatter: () => <>
-      <div className="lgx lgx-full" style={{ borderRadius: '50%', background: 'radial-gradient(ellipse farthest-corner at 50% 41%, transparent 30%, rgba(255,255,255,.45) 46%, rgba(255,255,255,.7) 56%, transparent 66%)', mixBlendMode: 'screen', animation: anim('lgxFlash', 450) }} />
       {['tl', 'tr', 'bl', 'br'].map(frost)}
       <svg className="lgx" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ left: '-8%', width: '116%', top: `calc(${MOUTH_Y} - 9%)`, height: '18%', overflow: 'visible', animation: anim('lgrBansheeIce', 1100, 0, 'linear') }}>
         <path d={ICE_BAR} fill={ICE} stroke="#ffffff" strokeWidth="1" vectorEffect="non-scaling-stroke" style={{ filter: `drop-shadow(0 0 4px ${CYAN})` }} />

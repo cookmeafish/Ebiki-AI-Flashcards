@@ -61,7 +61,7 @@ export default {
 .lgr-ophanim-blink { animation: lgrOphanimSway 320ms ease-out both }
 @keyframes lgrOphanimSway { 0%, 100% { transform: none } 45% { transform: translateY(4px) rotate(-2deg) scale(.98) } }
 .lgr-ophanim-beam, .lgr-ophanim-grace { animation: lgrOphanimTilt 1100ms cubic-bezier(.22,1,.36,1) both }
-@keyframes lgrOphanimTilt { 0% { transform: perspective(600px) } 30% { transform: perspective(600px) rotateX(18deg) rotateY(-14deg) } 55% { transform: perspective(600px) rotateX(-8deg) rotateY(7deg) } 78% { transform: perspective(600px) rotateX(3deg) rotateY(-2deg) } 100% { transform: perspective(600px) } }
+@keyframes lgrOphanimTilt { 0% { transform: perspective(600px) } 30% { transform: perspective(600px) rotateX(18deg) rotateY(-14deg) } 55% { transform: perspective(600px) rotateX(5deg) rotateY(-4deg) } 78% { transform: perspective(600px) rotateX(1.5deg) rotateY(-1deg) } 100% { transform: perspective(600px) } }
 /* THE REAL PARTS (hooks in raids/ophanim.svg): the great eye's almond masks (.lgo-alm) and lids (.lgo-lids) scale about
    the eye's center, so the lids truly open, blink and flare; the wheels (.lgo-wa / .lgo-wb) spin; the wings (.lgo-wing)
    spread. Every move ends on the phase's own resting eye (phase 1 half-closed, 2 open, 3 widest). Played only while
@@ -82,7 +82,7 @@ export default {
 @keyframes lgrOphanimSpinB { 0% { transform: none } 100% { transform: rotate(-360deg) } }
 @keyframes lgrOphanimTurnA { 0%, 100% { transform: none } 50% { transform: rotate(35deg) } }
 @keyframes lgrOphanimTurnB { 0%, 100% { transform: none } 50% { transform: rotate(-35deg) } }
-@keyframes lgrOphanimWingSpread { 0%, 100% { transform: none; filter: none } 35% { transform: scale(1.14, 1.06); filter: brightness(1.35) drop-shadow(0 0 2px #ffd257) } 70% { transform: scale(1.08, 1.03); filter: brightness(1.15) } }
+@keyframes lgrOphanimWingSpread { 0%, 100% { transform: none; filter: none } 35% { transform: scale(1.03, 1.02); filter: brightness(1.35) drop-shadow(0 0 2px #ffd257) } 70% { transform: scale(1.01); filter: brightness(1.15) } }
 .lg-boss[data-fx="open"] .lgo-alm, .lg-boss[data-fx="open"] .lgo-lids { animation: lgrOphanimLidsOpen 620ms cubic-bezier(.22,1,.36,1) both }
 .lg-boss[data-phase="3"][data-fx="open"] .lgo-alm, .lg-boss[data-phase="3"][data-fx="open"] .lgo-lids { animation-name: lgrOphanimLidsOpenP3 }
 .lg-boss[data-fx="open"] [class^="lg-ab-lit-"] { animation: lgrOphanimLitPulse 620ms ease-out both }
@@ -102,8 +102,8 @@ export default {
 .lg-boss .lg-ophanim-wheelA { transform-box: view-box; transform-origin: 60px 57px }
 .lg-boss .lg-ophanim-wingA { transform-box: view-box; transform-origin: 60px 54px }
 .lg-boss .lg-ophanim-eyeA { transform-box: view-box; transform-origin: 60px 55px }
-@keyframes lgrOphanimWhirl { 0% { transform: none } 7% { transform: rotate(-26deg) scale(.94) } 26% { transform: rotate(210deg) scale(1.1) } 50% { transform: rotate(320deg) scale(1.03) } 100% { transform: rotate(360deg) } }
-@keyframes lgrOphanimLash { 0% { transform: none } 7% { transform: scale(.88, .94) } 22% { transform: scale(1.2, 1.1) } 50% { transform: scale(1.06, 1.03) } 100% { transform: none } }
+@keyframes lgrOphanimWhirl { 0% { transform: none } 7% { transform: rotate(-26deg) scale(.9) } 26% { transform: rotate(210deg) scale(.95) } 50% { transform: rotate(320deg) scale(.95) } 70% { transform: rotate(348deg) scale(.98) } 100% { transform: rotate(360deg) } }
+@keyframes lgrOphanimLash { 0% { transform: none } 7% { transform: scale(.8, .88) } 22% { transform: scale(1.02, .99) } 50% { transform: scale(.99) } 100% { transform: none } }
 @keyframes lgrOphanimLean { 0% { transform: none } 7% { transform: scale(.92) } 24% { transform: translateX(4%) scale(1.14) } 60% { transform: translateX(2%) scale(1.05) } 100% { transform: none } }
 .lg-boss[data-motif="ophanim"][data-assault-on] .lg-ophanim-wheelA { animation: lgrOphanimWhirl 1500ms cubic-bezier(.3,.7,.3,1) both }
 .lg-boss[data-motif="ophanim"][data-assault-on] .lg-ophanim-wingA { animation: lgrOphanimLash 1300ms cubic-bezier(.3,.7,.3,1) both }
@@ -111,12 +111,12 @@ export default {
 /* More of the drawing in each ability (the eye alone was too small to read at arena size): open = the wings lift and
    the wheels part to unveil the eye; blink = the wings flick and the eye shivers; beam = the spear of light shoves the
    wings back. */
-@keyframes lgrOphanimUnveil { 0% { transform: none } 35% { transform: scale(1.1, 1.08) translateY(-3%) } 100% { transform: none } }
-@keyframes lgrOphanimPartA { 0% { transform: none } 35% { transform: rotate(24deg) scale(1.06) } 100% { transform: none } }
-@keyframes lgrOphanimPartB { 0% { transform: none } 35% { transform: rotate(-24deg) scale(1.06) } 100% { transform: none } }
+@keyframes lgrOphanimUnveil { 0% { transform: none } 35% { transform: scale(1.03, .99) } 100% { transform: none } }
+@keyframes lgrOphanimPartA { 0% { transform: none } 35% { transform: rotate(22deg) scale(.96) } 100% { transform: none } }
+@keyframes lgrOphanimPartB { 0% { transform: none } 35% { transform: rotate(-22deg) scale(.96) } 100% { transform: none } }
 @keyframes lgrOphanimWingFlick { 0%, 100% { transform: none } 45% { transform: scale(1.04, .9) } }
 @keyframes lgrOphanimShiver { 0%, 100% { transform: none } 25% { transform: translateX(-2%) } 50% { transform: translateX(2%) } 75% { transform: translateX(-1%) } }
-@keyframes lgrOphanimShoved { 0% { transform: none } 18% { transform: scale(.82, .9) translateY(-2%) } 55% { transform: scale(.94, .96) } 100% { transform: none } }
+@keyframes lgrOphanimShoved { 0% { transform: none } 18% { transform: scale(.82, .9) translateY(1%) } 55% { transform: scale(.94, .96) } 100% { transform: none } }
 .lg-boss[data-motif="ophanim"][data-fx="open"] .lgo-wing { animation: lgrOphanimUnveil 640ms cubic-bezier(.22,1,.36,1) both }
 .lg-boss[data-motif="ophanim"][data-fx="open"] .lgo-wa { animation: lgrOphanimPartA 640ms cubic-bezier(.22,1,.36,1) both }
 .lg-boss[data-motif="ophanim"][data-fx="open"] .lgo-wb { animation: lgrOphanimPartB 640ms cubic-bezier(.22,1,.36,1) both }

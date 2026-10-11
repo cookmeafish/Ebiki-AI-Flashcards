@@ -18,8 +18,15 @@ export default {
       block: [['sigil', { sides: 12, rot: 15, turn: -45 }], ['burst', { n: 6, glyph: 'crescent', size: 0.6 }]],
       shield: [['bubble', {}], ['deflect', { n: 5, glyph: 'crescent' }]],
       wind: [['heart', {}], ['gust', { n: 3, color: '#f2edff', turn: 90 }]],
-      body: { hit: 'reel', crit: 'whiplash', sharpen: 'gash', strike: 'swipe', heavy: 'overreach', block: 'recoil', shield: 'glance', wind: 'dim', ko: 'totality' },
+      body: { hit: 'reel', crit: 'whiplash', sharpen: 'gash', strike: 'swipe', heavy: 'moonmawWingbeat', block: 'recoil', shield: 'glance', wind: 'dim', ko: 'totality' },
   },
   assault: { travel: 'lunge', impact: 'bite' }, // the maw lunges at the camera and snaps shut
-  body: {},
+  // Its heavy blow on the whole figure: two wingbeats: it heaves up on the upstroke and slams down at you on each
+  // downstroke (the wings themselves beat down and in, impact/bosses/moonmaw.parts.jsx).
+  body: {
+    heavy: {
+      // it rears back, then LUNGES at the camera on each downstroke (bigger, dropping at you) and snaps back hard
+      moonmawWingbeat: '0% { transform: none } 17% { transform: translateY(-2%) scale(.95) } 37% { transform: translateY(4%) scale(1.15) } 45% { transform: translateY(3.5%) scale(1.13) } 57% { transform: translateY(-1.5%) scale(.97) } 77% { transform: translateY(3.5%) scale(1.13) } 85% { transform: translateY(3%) scale(1.11) } 93% { transform: translateY(-1%) scale(.98) } 100% { transform: none }',
+    },
+  },
 }

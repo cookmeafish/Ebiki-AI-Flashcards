@@ -28,6 +28,8 @@ const wordCount = (s) => str(s).split(' ').filter((w) => /\p{L}|\p{N}/u.test(w))
 const RULE_FRONT = /\b(rule|grammar|when (?:do|does|to) (?:you )?use|cu[aá]ndo (?:se )?usa|quand (?:on )?utilise|regla|gram[aá]tica|r[eè]gle|grammaire|regel|grammatik|regola)\b|文法|语法|規則|规则/iu
 const STEPS = /(^|\n)\s*(?:\d+[.)]|[-*•]|step\s*\d+|paso\s*\d+|étape\s*\d+|schritt\s*\d+)\s+\S/giu
 const FORMULA = /[=≈≤≥∑√∫^×÷]|\b(?:formula|fórmula|formule|formel)\b/iu
+// Articles and particles that lead a single word on a card (data, any language).
+const LEAD_PARTICLES = new Set(('el la los las un una unos unas le les une des der die das ein eine il gli uno os as um uma the an to se sich het een ett').split(' '))
 const NUMERIC = /^[\p{N}\s.,:/%°$€£¥+\-–]+[\p{L}%°]{0,6}$/u
 
 // What the card asks the learner to reach. input: { isLanguage, front, back, kind (a Legends item's kind: term, rule,
@@ -39,8 +41,11 @@ export function questionGoal({ isLanguage = false, front = '', back = '', kind =
   const b = String(back ?? '')
   if (isLanguage) {
     if (kind === 'rule' || (RULE_FRONT.test(f) && wordCount(f) >= 3)) return 'rule'
-    // A word with its article ("el perro") or a reflexive particle is still one word; 3+ words is an expression.
-    return wordCount(f.replace(/\s*\([^)]*\)\s*$/, '')) >= 3 ? 'phrase' : 'word'
+    // A word with its article ("el perro") or a particle ("to run", "se lavar") is still one word; any other 2+ words
+    // ("buenos días") is an expression.
+    const ws = str(f.replace(/\s*\([^)]*\)\s*$/, '')).split(' ').filter((w) => /\p{L}|\p{N}/u.test(w))
+    const content = ws.filter((w, i) => !(i === 0 && LEAD_PARTICLES.has(w.toLowerCase())))
+    return content.length >= 2 ? 'phrase' : 'word'
   }
   if (kind === 'skill') return 'procedure'
   const steps = (b.match(STEPS) || []).length

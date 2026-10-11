@@ -252,3 +252,23 @@ describe('raid impact styles', () => {
     }
   })
 })
+
+describe('the shared hit flash position (style.flash)', () => {
+  const flashOf = (moment, style) => momentParts(moment, style).parts.find(([p]) => p === 'flash')[1]
+  const topOf = (params) => renderToStaticMarkup(createElement('div', null, PARTS.flash(params, { scale: 1, speed: 1 }))).match(/top:([^;"]+)/)[1]
+  it('a boss without the option keeps the default flash at 46% of the box', () => {
+    for (const m of RAID_ORDER.filter((x) => !RAID_IMPACT[x].flash)) {
+      expect(flashOf('hit', RAID_IMPACT[m]), m).toEqual({})
+      expect(flashOf('crit', RAID_IMPACT[m]), m).toEqual({ big: true })
+    }
+    expect(topOf({})).toBe('46%')
+  })
+  it('the banshee flash lands on her chest, small, on a hit, a critical and the knockout', () => {
+    const st = RAID_IMPACT.banshee
+    expect(flashOf('hit', st)).toMatchObject({ y: 80, size: 26 })
+    expect(flashOf('crit', st)).toMatchObject({ big: true, y: 80, size: 26 })
+    expect(st.ko.find(([p]) => p === 'flash')[1]).toMatchObject({ y: 80, size: 26 })
+    expect(topOf(flashOf('crit', st))).toBe('80%')
+    expect(renderToStaticMarkup(createElement('div', null, PARTS.flash(flashOf('crit', st), { scale: 1, speed: 1 })))).toContain('width:26cqw')
+  })
+})

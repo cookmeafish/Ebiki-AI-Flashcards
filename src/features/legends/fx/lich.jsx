@@ -10,7 +10,7 @@ const BONE = '#f4f1e4'
 // data-moment / data-assault-on and the .lgr-lich-<fx> class. Phases 1-2: head, eyes, crown, book, staff, phylactery
 // (gem); phase 3: head, gem, the spirit face (spirit), the hood and the two soulfire hands (flamel, flamer). It lives
 // here, not in lich.parts.jsx, because this CSS is in the arena all fight long (the parts CSS only while a strike
-// moment plays, and his attack also lands on ability blows). Transforms and opacity only; never while effects are off
+// moment plays, and his attack also lands on ability blows). Transforms and opacity only (plus one brightness filter: the dropped staff dims in the fallen pose); never while effects are off
 // (the arena sets none of these attributes then). Fallen: the dead pose holds while the arena greys him out.
 const B = '.lg-boss[data-motif="lich"]'
 const on = (state, parts) => Object.entries(parts).map(([p, a]) => `${B}${state} .lg-lich-${p} { animation: ${a} }`).join('\n')
@@ -27,20 +27,20 @@ const DRAWING = `
 @keyframes lgrLichWince { 0%, 100% { transform: none } 10% { transform: scale(1.2, .2) } 45% { transform: scale(1.15, .3) } 60% { transform: none } }
 @keyframes lgrLichSnuff { 0% { transform: none; opacity: 1 } 12% { transform: scale(.25, .15); opacity: .2 } 50% { transform: scale(.3, .2); opacity: .3 } 80% { transform: scale(1.15); opacity: 1 } 100% { transform: none; opacity: 1 } }
 @keyframes lgrLichHoodRip { 0%, 100% { transform: none } 10% { transform: skewX(-6deg) scaleX(1.04) } 22% { transform: skewX(5deg) } 36% { transform: skewX(-3deg) } 52% { transform: none } }
-@keyframes lgrLichCackle { 0% { transform: none } 16% { transform: translateY(2px) rotate(4deg) scale(1.05) } 26% { transform: translateY(-1px) rotate(4deg) scale(1.05) } 36% { transform: translateY(2px) rotate(3deg) scale(1.05) } 46% { transform: translateY(-1px) rotate(3deg) scale(1.04) } 56% { transform: translateY(2px) rotate(2deg) scale(1.03) } 100% { transform: none } }
+@keyframes lgrLichCackle { 0% { transform: none } 16% { transform: translateY(2px) rotate(4deg) scale(1.05) } 26% { transform: translateY(.5px) rotate(4deg) scale(1.05) } 36% { transform: translateY(2px) rotate(3deg) scale(1.05) } 46% { transform: translateY(.5px) rotate(3deg) scale(1.04) } 56% { transform: translateY(2px) rotate(2deg) scale(1.03) } 100% { transform: none } }
 @keyframes lgrLichFlare { 0%, 100% { transform: none; opacity: 1 } 15% { transform: scale(1.45); opacity: .6 } 22% { transform: scale(1.3); opacity: 1 } 40% { transform: scale(1.25) } 70% { transform: scale(1.05) } }
 @keyframes lgrLichBookLift { 0% { transform: none } 20% { transform: translate(-2px, -6px) rotate(-14deg) } 60% { transform: translate(-2px, -5px) rotate(-12deg) } 100% { transform: none } }
 @keyframes lgrLichSpiritBite { 0% { transform: none } 18% { transform: translateY(-3px) scale(.94) } 34% { transform: translateY(6px) scale(1.22) } 58% { transform: translateY(4px) scale(1.14) } 100% { transform: none } }
-@keyframes lgrLichCastStaff { 0% { transform: none } 15% { transform: translate(-3px, 1px) rotate(-30deg) } 30% { transform: translate(9px, -3px) rotate(40deg) } 58% { transform: translate(7px, -2px) rotate(34deg) } 100% { transform: none } }
+@keyframes lgrLichCastStaff { 0% { transform: none } 15% { transform: translateY(-2px) rotate(12deg) } 30% { transform: translate(-4px, 4px) rotate(-40deg) } 58% { transform: translate(-3px, 3px) rotate(-34deg) } 100% { transform: none } }
 @keyframes lgrLichCastGem { 0%, 100% { transform: none } 12% { transform: scale(.85) } 28% { transform: scale(1.4) } 46% { transform: scale(1.12) } }
 @keyframes lgrLichHurl { 0% { transform: none; opacity: 1 } 15% { transform: translate(-3px, 2px) scale(1.3) } 30% { transform: translate(14px, -5px) scale(2) ; opacity: .4 } 42% { transform: scale(.2); opacity: 0 } 70% { transform: scale(.5); opacity: .6 } 100% { transform: none; opacity: 1 } }
 @keyframes lgrLichCharge { 0%, 100% { transform: none } 20% { transform: scale(1.5) } 40% { transform: scale(1.25) } }
-@keyframes lgrLichRoar { 0% { transform: none } 22% { transform: translateY(-5px) rotate(-5deg) scale(1.05) } 38% { transform: translateY(3px) rotate(2deg) scale(1.2) } 66% { transform: translateY(2px) scale(1.1) } 100% { transform: none } }
+@keyframes lgrLichRoar { 0% { transform: none } 22% { transform: translateY(1px) rotate(-8deg) } 38% { transform: translateY(4.5px) rotate(3deg) scale(1.08) } 66% { transform: translateY(4px) scale(1.06) } 100% { transform: none } }
 @keyframes lgrLichBookRaise { 0% { transform: none } 22% { transform: translate(-4px, -16px) rotate(-38deg) } 40% { transform: translate(6px, -3px) rotate(12deg) } 70% { transform: translate(3px, -1px) rotate(6deg) } 100% { transform: none } }
-@keyframes lgrLichStaffSlam { 0% { transform: none } 24% { transform: translateY(-6px) rotate(-62deg) } 40% { transform: translate(11px, 4px) rotate(48deg) } 52% { transform: translate(9px, 3px) rotate(42deg) } 74% { transform: translate(6px, 2px) rotate(30deg) } 100% { transform: none } }
+@keyframes lgrLichStaffSlam { 0% { transform: none } 20% { transform: translateY(-4px) rotate(12deg) } 36% { transform: translate(-5px, 7px) rotate(-48deg) } 46% { transform: translate(-4px, 6px) rotate(-42deg) } 72% { transform: translate(-2px, 3px) rotate(-20deg) } 100% { transform: none } }
 @keyframes lgrLichCrownBlaze { 0%, 100% { transform: none } 25% { transform: translateY(-4px) scale(1.18) } 45% { transform: translateY(-2px) scale(1.1) } }
 @keyframes lgrLichSurge { 0%, 100% { transform: none } 20% { transform: scale(.8) } 38% { transform: scale(1.65) } 56% { transform: scale(1.3) } 78% { transform: scale(1.08) } }
-@keyframes lgrLichHoodFlare { 0%, 100% { transform: none } 22% { transform: scale(.97, 1.02) } 40% { transform: scale(1.1, 1.05) } 70% { transform: scale(1.04) } }
+@keyframes lgrLichHoodFlare { 0%, 100% { transform: none } 22% { transform: scale(.97, .99) } 40% { transform: scale(1.12, 1) } 70% { transform: scale(1.05, 1) } }
 @keyframes lgrLichSpiritMaw { 0% { transform: none } 22% { transform: translateY(-6px) scale(.9) } 40% { transform: translateY(10px) scale(1.38) } 68% { transform: translateY(6px) scale(1.2) } 100% { transform: none } }
 @keyframes lgrLichGuard { 0% { transform: none } 14% { transform: translate(-6px, -4px) rotate(-82deg) } 28% { transform: translate(-3px, -2px) rotate(-68deg) } 40% { transform: translate(-5px, -3px) rotate(-78deg) } 70% { transform: translate(-5px, -3px) rotate(-76deg) } 100% { transform: none } }
 @keyframes lgrLichFlinch { 0% { transform: none } 16% { transform: translateX(-3px) rotate(-6deg) } 40% { transform: translateX(-2px) rotate(-4deg) } 100% { transform: none } }
@@ -60,10 +60,10 @@ const DRAWING = `
 /* the knockout (2.3 s, climax at 1.35 s): the phylactery shudders, flares and shatters; his head jerks up in a last
    scream and drops, the crown topples, the staff and book fall, the eyes go out; phase 3's spirit is torn away */
 @keyframes lgrLichKoGem { 0% { transform: none; opacity: 1 } 10% { transform: translateX(-1px) } 20% { transform: translateX(1.5px) scale(1.05) } 30% { transform: translateX(-2px) scale(1.08) } 40% { transform: translateX(2.5px) scale(1.12) } 50% { transform: translateX(-3px) scale(1.2) } 56% { transform: scale(1.7); opacity: 1 } 62% { transform: scale(2.1); opacity: 0 } 100% { transform: scale(.7); opacity: .25 } }
-@keyframes lgrLichKoHead { 0% { transform: none } 10% { transform: rotate(-3deg) } 20% { transform: rotate(3deg) } 30% { transform: rotate(-4deg) } 40% { transform: rotate(4deg) } 50% { transform: translateY(-3px) rotate(-5deg) } 58% { transform: translateY(-6px) rotate(-12deg) scale(1.08) } 74% { transform: translateY(7px) rotate(14deg) } 86% { transform: translateY(3px) rotate(7deg) } 100% { transform: translateY(4px) rotate(9deg) } }
+@keyframes lgrLichKoHead { 0% { transform: none } 10% { transform: rotate(-3deg) } 20% { transform: rotate(3deg) } 30% { transform: rotate(-4deg) } 40% { transform: rotate(4deg) } 50% { transform: rotate(-6deg) } 58% { transform: translateY(1px) rotate(-15deg) scale(1.02) } 74% { transform: translateY(7px) rotate(14deg) } 86% { transform: translateY(3px) rotate(7deg) } 100% { transform: translateY(4px) rotate(9deg) } }
 @keyframes lgrLichKoCrown { 0%, 56% { transform: none; opacity: 1 } 64% { transform: translate(5px, -10px) rotate(35deg) } 80% { transform: translate(16px, 26px) rotate(110deg); opacity: 1 } 90% { transform: translate(18px, 34px) rotate(125deg); opacity: 0 } 100% { transform: translate(18px, 34px) rotate(125deg); opacity: 0 } }
 @keyframes lgrLichKoEyes { 0%, 56% { opacity: 1 } 60% { opacity: 1; transform: scale(1.4) } 66% { opacity: .1; transform: none } 72% { opacity: .5 } 78%, 100% { opacity: .08 } }
-@keyframes lgrLichKoStaff { 0%, 58% { transform: none } 76% { transform: translate(6px, 8px) rotate(62deg) } 84% { transform: translate(6px, 7px) rotate(54deg) } 100% { transform: translate(6px, 8px) rotate(58deg) } }
+@keyframes lgrLichKoStaff { 0%, 58% { transform: none; filter: none } 68% { transform: translate(-2px, 5px) rotate(-26deg) } 80% { transform: translate(-6px, 15px) rotate(-56deg); filter: brightness(.8) } 88% { transform: translate(-6px, 13px) rotate(-48deg) } 100% { transform: translate(-6px, 14px) rotate(-50deg); filter: brightness(.5) saturate(.5) } }
 @keyframes lgrLichKoBook { 0%, 58% { transform: none } 76% { transform: translate(-2px, 12px) rotate(40deg) } 86% { transform: translate(-2px, 10px) rotate(34deg) } 100% { transform: translate(-2px, 11px) rotate(36deg) } }
 @keyframes lgrLichKoSpirit { 0% { transform: none; opacity: 1 } 50% { transform: translateY(-2px) scale(1.04); opacity: 1 } 58% { transform: translateY(-4px) scale(1.25); opacity: 1 } 80% { transform: translateY(-20px) scale(1.5); opacity: 0 } 100% { transform: translateY(-20px) scale(1.5); opacity: 0 } }
 @keyframes lgrLichKoFlame { 0%, 56% { transform: none; opacity: 1 } 62% { transform: scale(1.5); opacity: 1 } 74%, 100% { transform: scale(.1); opacity: 0 } }
@@ -79,10 +79,12 @@ ${on('[data-moment="shield"]', { head: 'lgrLichDeny 760ms ease-out', eyes: 'lgrL
 ${on('[data-moment="wind"]', { head: 'lgrLichSag 1100ms ease-in-out', eyes: 'lgrLichFade 1100ms ease-in-out', gem: 'lgrLichGemWane 1100ms ease-in-out', book: 'lgrLichBookSag 1100ms ease-in-out', flamel: 'lgrLichGutter 1100ms ease-in-out', flamer: 'lgrLichGutter 1100ms ease-in-out', hood: 'lgrLichHoodSag 1100ms ease-in-out', spirit: 'lgrLichFade 1100ms ease-in-out' })}
 ${on('[data-moment="ko"]', { gem: 'lgrLichKoGem 2300ms linear both', head: 'lgrLichKoHead 2300ms ease-in-out both', crown: 'lgrLichKoCrown 2300ms ease-in both', eyes: 'lgrLichKoEyes 2300ms linear both', staff: 'lgrLichKoStaff 2300ms ease-in both', book: 'lgrLichKoBook 2300ms ease-in both', spirit: 'lgrLichKoSpirit 2300ms ease-in both', flamel: 'lgrLichKoFlame 2300ms ease-in both', flamer: 'lgrLichKoFlame 2300ms ease-in both', hood: 'lgrLichKoHood 2300ms ease-in both' })}
 ${B}[data-down] .lg-lich-head { transform: translateY(4px) rotate(9deg) }
-${B}[data-down] .lg-lich-crown, ${B}[data-down] .lg-lich-spirit, ${B}[data-down] .lg-lich-flamel, ${B}[data-down] .lg-lich-flamer { opacity: 0 }
+${B}[data-down] .lg-lich-crown { transform: translate(18px, 34px) rotate(125deg); opacity: 0 }
+${B}[data-down] .lg-lich-spirit { transform: translateY(-20px) scale(1.5); opacity: 0 }
+${B}[data-down] .lg-lich-flamel, ${B}[data-down] .lg-lich-flamer { transform: scale(.1); opacity: 0 }
 ${B}[data-down] .lg-lich-eyes { opacity: .08 }
 ${B}[data-down] .lg-lich-gem { transform: scale(.7); opacity: .25 }
-${B}[data-down] .lg-lich-staff { transform: translate(6px, 8px) rotate(58deg) }
+${B}[data-down] .lg-lich-staff { transform: translate(-6px, 14px) rotate(-50deg); filter: brightness(.5) saturate(.5) }
 ${B}[data-down] .lg-lich-book { transform: translate(-2px, 11px) rotate(36deg) }
 ${B}[data-down] .lg-lich-hood { transform: scaleY(.9) }
 /* the abilities: Raise Dead lifts staff and book together and his eyes blaze; Bone Burst (his minion smashed) jolts
@@ -92,7 +94,7 @@ ${B}[data-down] .lg-lich-hood { transform: scaleY(.9) }
 @keyframes lgrLichRaiseFlame { 0%, 100% { transform: none } 25% { transform: translateY(-6px) scale(1.4, 1.7) } 70% { transform: translateY(-5px) scale(1.3, 1.5) } }
 @keyframes lgrLichJolt { 0%, 100% { transform: none } 10% { transform: translate(-4px, -6px) rotate(-22deg) } 30% { transform: translate(2px, -2px) rotate(10deg) } 50% { transform: rotate(-4deg) } 70% { transform: none } }
 @keyframes lgrLichSwallow { 0%, 100% { transform: none } 60% { transform: scale(.9) } 75% { transform: scale(1.5) } 88% { transform: scale(1.2) } }
-@keyframes lgrLichGloat { 0%, 100% { transform: none } 55% { transform: translateY(-2px) rotate(-8deg) } 75% { transform: translateY(-3px) rotate(-12deg) scale(1.05) } 90% { transform: rotate(-4deg) } }
+@keyframes lgrLichGloat { 0%, 100% { transform: none } 55% { transform: translateY(1px) rotate(-9deg) } 75% { transform: translateY(1.5px) rotate(-13deg) scale(1.02) } 90% { transform: rotate(-4deg) } }
 ${B} .lgr-lich-raise .lg-lich-staff { animation: lgrLichRaiseArm 800ms cubic-bezier(.3,1.3,.5,1) }
 ${B} .lgr-lich-raise .lg-lich-book { animation: lgrLichRaiseBook 800ms cubic-bezier(.3,1.3,.5,1) }
 ${B} .lgr-lich-raise .lg-lich-eyes { animation: lgrLichGlare 800ms ease-out }

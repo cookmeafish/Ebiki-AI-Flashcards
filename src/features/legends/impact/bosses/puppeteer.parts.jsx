@@ -16,7 +16,8 @@
 // block    the marionette is yanked back behind its crossed swords, the hands splay out, the mask jolts back
 // shield   both hands jab at you, glance off and bounce away; the marionette skids sideways
 // wind     the mask tilts in disbelief, the hands go limp, the marionette sags on slack strings
-// ko       it dances in jerks, the strings are cut: the hands fling up and away, the mask cracks and falls, the marionette
+// ko       it dances in jerks, the strings are cut: the hands are flung up into the corners, the control bars drop
+//          with the cut strings gone slack, the mask cracks and falls, the marionette
 //          crumples into a heap of wood
 const SEL = (moment, part) => `.lg-boss[data-motif="puppeteer"][data-moment="${moment}"] .lg-puppeteer-${part}`
 // Written as longhands (name, duration, easing, delay): the part rules live in the global impact CSS.
@@ -29,6 +30,11 @@ const longhand = (a) => {
 const rule = (moment, part, anim) => `${SEL(moment, part)} { ${longhand(anim)} }`
 
 export const css = `
+.lg-boss[data-motif="puppeteer"][data-moment="ko"] .lg-puppeteer-handL, .lg-boss[data-motif="puppeteer"][data-moment="ko"] .lg-puppeteer-handR { transform-origin: 50% 50% }
+.lg-boss[data-motif="puppeteer"] .lg-puppeteer-barL, .lg-boss[data-motif="puppeteer"] .lg-puppeteer-barR { transform-box: fill-box; transform-origin: 50% 20% }
+.lg-boss[data-motif="puppeteer"] .lg-puppeteer-stringsL, .lg-boss[data-motif="puppeteer"] .lg-puppeteer-stringsR { transform-box: fill-box; transform-origin: 50% 0% }
+.lg-boss[data-motif="puppeteer"][data-moment="crit"] .lg-puppeteer-doll { transform-origin: 50% 50% }
+.lg-boss[data-motif="puppeteer"][data-moment="hurtBig"] .lg-puppeteer-doll { transform-origin: 50% 0% }
 @keyframes lgpuppeteerSlack { 0% { transform: none } 12% { transform: translateY(6%) rotate(-9deg) } 34% { transform: translateY(3%) rotate(8deg) } 54% { transform: translateY(1%) rotate(-5deg) } 74% { transform: rotate(2.5deg) } 100% { transform: none } }
 @keyframes lgpuppeteerWince { 0% { transform: none } 14% { transform: translateY(-3%) rotate(7deg) scale(.96) } 46% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgpuppeteerSpinDoll { 0% { transform: none } 12% { transform: rotate(-24deg) scale(.94) } 58% { transform: rotate(385deg) scale(1.04) } 76% { transform: rotate(352deg) } 90% { transform: rotate(363deg) } 100% { transform: rotate(360deg) } }
@@ -38,12 +44,12 @@ export const css = `
 @keyframes lgpuppeteerCutL { 0% { transform: none } 9% { transform: translateY(-16%) rotate(-28deg) } 30% { transform: translateY(-11%) rotate(-20deg) } 60% { transform: translateY(-3%) rotate(-6deg) } 100% { transform: none } }
 @keyframes lgpuppeteerLurch { 0% { transform: none } 12% { transform: translateY(5%) rotate(17deg) } 36% { transform: translateY(3%) rotate(11deg) } 62% { transform: rotate(-4deg) } 82% { transform: rotate(2deg) } 100% { transform: none } }
 @keyframes lgpuppeteerSnarl { 0%, 100% { transform: none } 12% { transform: translateX(-3%) rotate(-4deg) } 24% { transform: translateX(3%) rotate(4deg) } 36% { transform: translateX(-2%) rotate(-2deg) } 50% { transform: none } }
-@keyframes lgpuppeteerLungeMask { 0% { transform: none } 18% { transform: translateY(-5%) scale(.95) } 40% { transform: translateY(12%) scale(1.26) } 62% { transform: translateY(5%) scale(1.1) } 100% { transform: none } }
+@keyframes lgpuppeteerLungeMask { 0% { transform: none } 18% { transform: translateY(-2%) scale(.94) } 40% { transform: translateY(12%) scale(1.26) } 62% { transform: translateY(5%) scale(1.1) } 100% { transform: none } }
 @keyframes lgpuppeteerStab { 0% { transform: none } 22% { transform: translateY(-7%) scale(.96) } 42% { transform: translateY(7%) scale(1.16) } 64% { transform: translateY(2%) scale(1.04) } 100% { transform: none } }
-@keyframes lgpuppeteerSlamL { 0% { transform: none } 30% { transform: translate(-5%, -20%) rotate(-22deg) } 44% { transform: translate(1%, 16%) rotate(12deg) } 54% { transform: translate(0, 10%) rotate(7deg) } 100% { transform: none } }
-@keyframes lgpuppeteerSlamR { 0% { transform: none } 30% { transform: translate(5%, -20%) rotate(22deg) } 44% { transform: translate(-1%, 16%) rotate(-12deg) } 54% { transform: translate(0, 10%) rotate(-7deg) } 100% { transform: none } }
+@keyframes lgpuppeteerSlamL { 0% { transform: none } 30% { transform: translate(-5%, -15%) rotate(-19deg) } 44% { transform: translate(1%, 16%) rotate(12deg) } 54% { transform: translate(0, 10%) rotate(7deg) } 100% { transform: none } }
+@keyframes lgpuppeteerSlamR { 0% { transform: none } 30% { transform: translate(5%, -15%) rotate(19deg) } 44% { transform: translate(-1%, 16%) rotate(-12deg) } 54% { transform: translate(0, 10%) rotate(-7deg) } 100% { transform: none } }
 @keyframes lgpuppeteerSmash { 0% { transform: none } 30% { transform: translateY(-15%) scale(.95, 1.06) } 44% { transform: translateY(11%) scale(1.18, .78) } 56% { transform: translateY(6%) scale(.96, 1.06) } 70% { transform: translateY(2%) scale(1.02, .98) } 100% { transform: none } }
-@keyframes lgpuppeteerRear { 0% { transform: none } 30% { transform: translateY(-7%) rotate(-5deg) } 44% { transform: translateY(9%) scale(1.14) } 100% { transform: none } }
+@keyframes lgpuppeteerRear { 0% { transform: none } 30% { transform: translateY(-3%) rotate(-5deg) } 44% { transform: translateY(9%) scale(1.14) } 100% { transform: none } }
 @keyframes lgpuppeteerYankBack { 0% { transform: none } 14% { transform: translateY(-8%) scale(.9) } 38% { transform: translateY(-4%) scale(.95) rotate(-3deg) } 60% { transform: rotate(2deg) } 100% { transform: none } }
 @keyframes lgpuppeteerSplayL { 0% { transform: none } 16% { transform: translate(-5%, 2%) rotate(-13deg) } 50% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgpuppeteerSplayR { 0% { transform: none } 16% { transform: translate(5%, 2%) rotate(13deg) } 50% { transform: rotate(4deg) } 100% { transform: none } }
@@ -51,18 +57,28 @@ export const css = `
 @keyframes lgpuppeteerJabL { 0% { transform: none } 24% { transform: translate(9%, 7%) rotate(11deg) scale(1.06) } 38% { transform: translate(-6%, -5%) rotate(-12deg) } 60% { transform: translate(-2%, -1%) rotate(-3deg) } 100% { transform: none } }
 @keyframes lgpuppeteerJabR { 0% { transform: none } 24% { transform: translate(-9%, 7%) rotate(-11deg) scale(1.06) } 38% { transform: translate(6%, -5%) rotate(12deg) } 60% { transform: translate(2%, -1%) rotate(3deg) } 100% { transform: none } }
 @keyframes lgpuppeteerSkid { 0% { transform: none } 30% { transform: none } 42% { transform: translateX(9%) rotate(8deg) } 64% { transform: translateX(4%) rotate(-3deg) } 100% { transform: none } }
-@keyframes lgpuppeteerDisbelief { 0% { transform: none } 30% { transform: rotate(-11deg) translateY(3%) } 70% { transform: rotate(-9deg) translateY(2%) } 100% { transform: none } }
+@keyframes lgpuppeteerDisbelief { 0% { transform: none } 30% { transform: translateY(4%) rotate(-11deg) } 70% { transform: translateY(3%) rotate(-9deg) } 100% { transform: none } }
 @keyframes lgpuppeteerLimpL { 0% { transform: none } 30% { transform: translateY(6%) rotate(16deg) } 72% { transform: translateY(5%) rotate(13deg) } 100% { transform: none } }
 @keyframes lgpuppeteerLimpR { 0% { transform: none } 30% { transform: translateY(6%) rotate(-16deg) } 72% { transform: translateY(5%) rotate(-13deg) } 100% { transform: none } }
 @keyframes lgpuppeteerSag { 0% { transform: none } 34% { transform: translateY(9%) scale(1, .94) rotate(3deg) } 72% { transform: translateY(7%) scale(1, .95) rotate(-2deg) } 100% { transform: none } }
-@keyframes lgpuppeteerKoHandL { 0% { transform: none } 10% { transform: translate(-3%, -8%) rotate(-12deg) } 20% { transform: translate(2%, 4%) rotate(6deg) } 30% { transform: translate(-3%, -6%) rotate(-10deg) } 46% { transform: translate(0, 2%) rotate(3deg) } 50% { transform: translate(-6%, -12%) rotate(-24deg) } 100% { transform: translate(-34%, -58%) rotate(-70deg) } }
-@keyframes lgpuppeteerKoHandR { 0% { transform: none } 10% { transform: translate(3%, -8%) rotate(12deg) } 20% { transform: translate(-2%, 4%) rotate(-6deg) } 30% { transform: translate(3%, -6%) rotate(10deg) } 46% { transform: translate(0, 2%) rotate(-3deg) } 50% { transform: translate(6%, -12%) rotate(24deg) } 100% { transform: translate(34%, -58%) rotate(70deg) } }
+@keyframes lgpuppeteerKoHandL { 0% { transform: none } 10% { transform: translate(-3%, -5%) rotate(-10deg) } 20% { transform: translate(2%, 4%) rotate(6deg) } 30% { transform: translate(-3%, -4%) rotate(-8deg) } 46% { transform: translate(0, 2%) rotate(3deg) } 50% { transform: translate(-4%, -4%) rotate(-16deg) } 58% { transform: translate(-10%, -12%) rotate(-34deg) scale(.85) } 66% { transform: translate(-8%, -9%) rotate(-24deg) scale(.85) } 76% { transform: translate(-9%, -10%) rotate(-28deg) scale(.85) } 100% { transform: translate(-9%, -10%) rotate(-27deg) scale(.85) } }
+@keyframes lgpuppeteerKoHandR { 0% { transform: none } 10% { transform: translate(3%, -5%) rotate(10deg) } 20% { transform: translate(-2%, 4%) rotate(-6deg) } 30% { transform: translate(3%, -4%) rotate(8deg) } 46% { transform: translate(0, 2%) rotate(-3deg) } 50% { transform: translate(4%, -4%) rotate(16deg) } 58% { transform: translate(10%, -12%) rotate(34deg) scale(.85) } 66% { transform: translate(8%, -9%) rotate(24deg) scale(.85) } 76% { transform: translate(9%, -10%) rotate(28deg) scale(.85) } 100% { transform: translate(9%, -10%) rotate(27deg) scale(.85) } }
+@keyframes lgpuppeteerKoBar { 0%, 50% { transform: none } 56% { transform: translateY(6%) rotate(10deg) } 68% { transform: translateY(56%) rotate(34deg) } 76% { transform: translateY(74%) rotate(44deg) } 82% { transform: translateY(67%) rotate(40deg) } 100% { transform: translateY(70%) rotate(42deg) } }
+@keyframes lgpuppeteerKoStrings { 0%, 50% { transform: none } 54% { transform: scale(1, 1.06) } 62% { transform: scale(.92, .55) rotate(6deg) } 72% { transform: scale(.88, .4) rotate(-4deg) } 100% { transform: scale(.88, .38) rotate(-2deg) } }
+@keyframes lgpuppeteerKoStringsHang { 0%, 50% { transform: none } 60% { transform: rotate(14deg) } 70% { transform: rotate(-8deg) } 80% { transform: rotate(4deg) } 100% { transform: rotate(2deg) } }
+@keyframes lgpuppeteerKoHandL2 { 0% { transform: none } 10% { transform: translate(-2%, -3%) rotate(-10deg) } 20% { transform: translate(1%, 2%) rotate(6deg) } 30% { transform: translate(-2%, -2%) rotate(-8deg) } 46% { transform: translate(0, 1%) rotate(3deg) } 50% { transform: translate(-2%, -2%) rotate(-14deg) } 58% { transform: translate(-4%, -7%) rotate(-26deg) scale(.85) } 66% { transform: translate(-3%, -5%) rotate(-18deg) scale(.85) } 76% { transform: translate(-3%, -6%) rotate(-21deg) scale(.85) } 100% { transform: translate(-3%, -6%) rotate(-20deg) scale(.85) } }
 @keyframes lgpuppeteerKoDoll { 0% { transform: none } 8% { transform: rotate(-12deg) translateY(-3%) } 16% { transform: rotate(10deg) } 24% { transform: rotate(-8deg) translateY(-4%) } 34% { transform: rotate(9deg) } 44% { transform: rotate(-4deg) translateY(-2%) } 49% { transform: translateY(-5%) } 58% { transform: translateY(30%) scale(1.08, .55) rotate(14deg); animation-timing-function: ease-out } 66% { transform: translateY(24%) scale(.95, .66) rotate(19deg) } 74% { transform: translateY(30%) scale(1.04, .58) rotate(17deg) } 100% { transform: translateY(30%) scale(1.04, .58) rotate(18deg) } }
 @keyframes lgpuppeteerKoMask { 0% { transform: none } 10% { transform: translateX(-2%) rotate(-3deg) } 20% { transform: translateX(2%) rotate(3deg) } 30% { transform: translateX(-2%) rotate(-3deg) } 46% { transform: scale(1.08) } 58% { transform: translateY(6%) rotate(10deg) scale(1.02) } 64% { transform: translateY(4%) rotate(7deg) } 100% { transform: translateY(16%) rotate(17deg) scale(.96) } }
 @keyframes lgpuppeteerKoCloak { 0% { transform: none } 55% { transform: none } 100% { transform: translateY(10%) scale(1, .82) } }
-@keyframes lgpuppeteerKoSpider { 0% { transform: none } 12% { transform: rotate(-6deg) } 24% { transform: rotate(6deg) } 36% { transform: rotate(-4deg) } 50% { transform: translateY(-4%) } 60% { transform: translateY(26%) scale(1.12, .55) } 70% { transform: translateY(20%) scale(.96, .66) } 100% { transform: translateY(26%) scale(1.06, .58) } }
-@keyframes lgpuppeteerSpiderHit { 0% { transform: none } 14% { transform: translateY(5%) scale(1.08, .9) } 40% { transform: translateY(-2%) scale(.96, 1.05) } 100% { transform: none } }
-@keyframes lgpuppeteerSpiderPounce { 0% { transform: none } 26% { transform: translateY(-10%) scale(.92, 1.1) } 44% { transform: translateY(10%) scale(1.22, .82) } 66% { transform: translateY(2%) scale(1.04) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderHit { 0% { transform: none } 14% { transform: translateY(5%) scale(1, .86) } 40% { transform: translateY(-2%) scale(.97, 1.05) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderSquash { 0% { transform: none } 12% { transform: translateY(6%) scale(1.01, .74) } 30% { transform: translateY(-3%) scale(.94, 1.08) } 50% { transform: scale(1, .96) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderLurch { 0% { transform: none } 12% { transform: translateY(5%) rotate(3deg) scale(.96, .88) } 36% { transform: translateY(3%) rotate(2deg) scale(.98, .93) } 62% { transform: rotate(-1.5deg) } 82% { transform: rotate(.8deg) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderPounce { 0% { transform: none } 26% { transform: translateY(-9%) scale(.9, 1.1) } 44% { transform: translateY(9%) scale(1.02, .76) } 66% { transform: translateY(2%) scale(1, 1.02) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderSmash { 0% { transform: none } 30% { transform: translateY(-13%) scale(.92, 1.08) } 44% { transform: translateY(10%) scale(1.02, .7) } 56% { transform: translateY(5%) scale(.96, 1.06) } 70% { transform: translateY(2%) scale(1, .97) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderYank { 0% { transform: none } 14% { transform: translateY(-8%) scale(.9) } 38% { transform: translateY(-4%) scale(.95) rotate(-1.5deg) } 60% { transform: rotate(1deg) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderSkid { 0% { transform: none } 30% { transform: none } 42% { transform: translateX(3%) rotate(2deg) scale(.93) } 64% { transform: translateX(1%) rotate(-1deg) scale(.98) } 100% { transform: none } }
+@keyframes lgpuppeteerSpiderSag { 0% { transform: none } 34% { transform: translateY(9%) scale(.98, .9) rotate(1deg) } 72% { transform: translateY(7%) scale(.98, .92) rotate(-.8deg) } 100% { transform: none } }
+@keyframes lgpuppeteerKoSpider { 0% { transform: none } 12% { transform: rotate(-2.5deg) scale(.97) } 24% { transform: rotate(2.5deg) scale(.97) } 36% { transform: rotate(-1.5deg) scale(.98) } 50% { transform: translateY(-4%) } 60% { transform: translateY(26%) scale(1.02, .55) } 70% { transform: translateY(20%) scale(.96, .66) } 100% { transform: translateY(26%) scale(1, .58) } }
 @keyframes lgpuppeteerHookFall { 0% { transform: translate(-50%, -140%) rotate(-30deg); opacity: 0 } 22% { opacity: 1 } 46% { transform: translate(-50%, -8%) rotate(8deg) scale(1.15); opacity: 1 } 54% { transform: translate(-50%, -14%) rotate(-4deg) scale(1.3) } 66% { transform: translate(-50%, 6%) rotate(0) scale(1.9); opacity: 1 } 100% { transform: translate(-50%, 30%) scale(2.4); opacity: 0 } }
 @keyframes lgpuppeteerHookLine { 0% { transform: scaleY(0); opacity: 0 } 20% { opacity: 1 } 46% { transform: scaleY(1) } 100% { transform: scaleY(1.2); opacity: 0 } }
 @keyframes lgpuppeteerBar { 0% { transform: translate(-50%, -260%) rotate(-14deg); opacity: 0 } 30% { transform: translate(-50%, -200%) rotate(-18deg); opacity: 1 } 44% { transform: translate(-50%, -30%) rotate(4deg) scale(1.15, .9) } 52% { transform: translate(-50%, -44%) rotate(-2deg) } 62% { transform: translate(-50%, -36%) rotate(0) } 86% { opacity: 1 } 100% { transform: translate(-50%, -30%); opacity: 0 } }
@@ -73,11 +89,11 @@ ${rule('crit', 'doll', 'lgpuppeteerSpinDoll 760ms cubic-bezier(.3,.9,.3,1) both'
 ${rule('crit', 'handL', 'lgpuppeteerThrowL 640ms cubic-bezier(.2,.9,.3,1) both')}
 ${rule('crit', 'handR', 'lgpuppeteerThrowR 640ms cubic-bezier(.2,.9,.3,1) both')}
 ${rule('crit', 'mask', 'lgpuppeteerSquash 620ms ease-out both')}
-${rule('crit', 'spider', 'lgpuppeteerSquash 620ms ease-out both')}
+${rule('crit', 'spider', 'lgpuppeteerSpiderSquash 620ms ease-out both')}
 ${rule('sharpen', 'handL', 'lgpuppeteerCutL 720ms cubic-bezier(.15,.9,.3,1) both')}
 ${rule('sharpen', 'doll', 'lgpuppeteerLurch 760ms cubic-bezier(.2,.8,.3,1) both')}
 ${rule('sharpen', 'mask', 'lgpuppeteerSnarl 560ms linear both')}
-${rule('sharpen', 'spider', 'lgpuppeteerLurch 760ms cubic-bezier(.2,.8,.3,1) both')}
+${rule('sharpen', 'spider', 'lgpuppeteerSpiderLurch 760ms cubic-bezier(.2,.8,.3,1) both')}
 ${rule('hurt', 'mask', 'lgpuppeteerLungeMask 640ms cubic-bezier(.3,.7,.3,1) 220ms both')}
 ${rule('hurt', 'doll', 'lgpuppeteerStab 600ms cubic-bezier(.3,.7,.3,1) 160ms both')}
 ${rule('hurt', 'spider', 'lgpuppeteerSpiderPounce 620ms cubic-bezier(.3,.7,.3,1) 160ms both')}
@@ -85,23 +101,30 @@ ${rule('hurtBig', 'handL', 'lgpuppeteerSlamL 820ms cubic-bezier(.4,0,.2,1) both'
 ${rule('hurtBig', 'handR', 'lgpuppeteerSlamR 820ms cubic-bezier(.4,0,.2,1) both')}
 ${rule('hurtBig', 'doll', 'lgpuppeteerSmash 820ms cubic-bezier(.4,0,.2,1) both')}
 ${rule('hurtBig', 'mask', 'lgpuppeteerRear 820ms cubic-bezier(.4,0,.2,1) both')}
-${rule('hurtBig', 'spider', 'lgpuppeteerSmash 820ms cubic-bezier(.4,0,.2,1) both')}
+${rule('hurtBig', 'spider', 'lgpuppeteerSpiderSmash 820ms cubic-bezier(.4,0,.2,1) both')}
 ${rule('block', 'doll', 'lgpuppeteerYankBack 640ms cubic-bezier(.2,.9,.3,1) both')}
 ${rule('block', 'handL', 'lgpuppeteerSplayL 600ms ease-out both')}
 ${rule('block', 'handR', 'lgpuppeteerSplayR 600ms ease-out both')}
 ${rule('block', 'mask', 'lgpuppeteerJolt 560ms ease-out both')}
-${rule('block', 'spider', 'lgpuppeteerYankBack 640ms cubic-bezier(.2,.9,.3,1) both')}
+${rule('block', 'spider', 'lgpuppeteerSpiderYank 640ms cubic-bezier(.2,.9,.3,1) both')}
 ${rule('shield', 'handL', 'lgpuppeteerJabL 700ms cubic-bezier(.3,.8,.3,1) both')}
 ${rule('shield', 'handR', 'lgpuppeteerJabR 700ms cubic-bezier(.3,.8,.3,1) both')}
 ${rule('shield', 'doll', 'lgpuppeteerSkid 700ms ease-out both')}
-${rule('shield', 'spider', 'lgpuppeteerSkid 700ms ease-out both')}
+${rule('shield', 'spider', 'lgpuppeteerSpiderSkid 700ms ease-out both')}
 ${rule('wind', 'mask', 'lgpuppeteerDisbelief 1000ms ease-in-out both')}
 ${rule('wind', 'handL', 'lgpuppeteerLimpL 1000ms ease-in-out both')}
 ${rule('wind', 'handR', 'lgpuppeteerLimpR 1000ms ease-in-out both')}
 ${rule('wind', 'doll', 'lgpuppeteerSag 1000ms ease-in-out both')}
-${rule('wind', 'spider', 'lgpuppeteerSag 1000ms ease-in-out both')}
+${rule('wind', 'spider', 'lgpuppeteerSpiderSag 1000ms ease-in-out both')}
 ${rule('ko', 'handL', 'lgpuppeteerKoHandL 2200ms cubic-bezier(.4,0,.6,1) both')}
 ${rule('ko', 'handR', 'lgpuppeteerKoHandR 2200ms cubic-bezier(.4,0,.6,1) both')}
+${rule('ko', 'barL', 'lgpuppeteerKoBar 2200ms cubic-bezier(.45,0,.7,1) both')}
+${rule('ko', 'barR', 'lgpuppeteerKoBar 2200ms cubic-bezier(.45,0,.7,1) both')}
+${rule('ko', 'stringsL', 'lgpuppeteerKoStrings 2200ms ease-out both')}
+${rule('ko', 'stringsR', 'lgpuppeteerKoStrings 2200ms ease-out both')}
+/* phase 2: the marionette's broken-off head hangs from the left strings, so they swing loose instead of curling up */
+.lg-boss[data-motif="puppeteer"][data-phase="2"][data-moment="ko"] .lg-puppeteer-stringsL { animation-name: lgpuppeteerKoStringsHang }
+.lg-boss[data-motif="puppeteer"][data-phase="2"][data-moment="ko"] .lg-puppeteer-handL { animation-name: lgpuppeteerKoHandL2 }
 ${rule('ko', 'doll', 'lgpuppeteerKoDoll 2200ms linear both')}
 ${rule('ko', 'mask', 'lgpuppeteerKoMask 2200ms ease-in both')}
 ${rule('ko', 'cloak', 'lgpuppeteerKoCloak 2200ms ease-in both')}

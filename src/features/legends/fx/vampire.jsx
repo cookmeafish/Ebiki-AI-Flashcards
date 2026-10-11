@@ -27,6 +27,11 @@ ${P} .lg-vampire-head { transform-box: fill-box; transform-origin: 50% 92% }
 ${P} .lg-vampire-jaw { transform-box: fill-box; transform-origin: 50% 0% }
 ${P} .lg-vampire-eyes { transform-box: fill-box; transform-origin: 50% 50% }
 ${P} .lg-vampire-wings { transform-box: fill-box; transform-origin: 50% 70% }
+/* How far the wings may flare per phase (the clip edge: the bats ride the phase 1-2 wings near the top, the phase 2-3
+   spans are already nearly as wide as the clip): --vwx scales the sideways flare, --vwy the rearing up. */
+${P}[data-phase="1"] .lg-vampire-wings { --vwx: 1; --vwy: .1 }
+${P}[data-phase="2"] .lg-vampire-wings { --vwx: .55; --vwy: .1 }
+${P}[data-phase="3"] .lg-vampire-wings { --vwx: .3; --vwy: .6 }
 ${P} .lg-vampire-chalice { transform-box: fill-box; transform-origin: 50% 100% }
 ${P} .lg-vampire-claw { transform-box: fill-box; transform-origin: 20% 100% }
 ${P}[data-phase="2"] .lg-vampire-claw { transform-origin: 50% 100% }
@@ -43,7 +48,7 @@ ${P}[data-moment="hit"] .lg-vampire-chalice { animation: lgrVampireMSlosh 600ms 
    clenches. */
 @keyframes lgrVampireMCritHead { 0% { transform: none } 12% { transform: translate(3px, -1px) rotate(15deg) scale(.95) } 34% { transform: rotate(-7deg) } 58% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgrVampireMCritJaw { 0%, 100% { transform: none } 10%, 46% { transform: scaleY(1.55) } }
-@keyframes lgrVampireMCritWings { 0%, 100% { transform: none } 12% { transform: scale(1.16, 1.1) } 40% { transform: scale(.98) } 62% { transform: scale(1.02) } }
+@keyframes lgrVampireMCritWings { 0%, 100% { transform: none } 12% { transform: scale(calc(1 + .16 * var(--vwx, 1)), calc(1 + .1 * var(--vwy, 1))) } 40% { transform: scale(.98) } 62% { transform: scale(1.02) } }
 @keyframes lgrVampireMCritChalice { 0%, 100% { transform: none } 14% { transform: rotate(-26deg) translateX(-2px) } 46% { transform: rotate(8deg) } }
 @keyframes lgrVampireMClench { 0%, 100% { transform: none } 12%, 40% { transform: rotate(-14deg) scale(.88) } }
 ${P}[data-moment="crit"] .lg-vampire-head { animation: lgrVampireMCritHead 640ms cubic-bezier(.2,.9,.3,1) both }
@@ -63,7 +68,7 @@ ${P}[data-moment="sharpen"] .lg-vampire-claw { animation: lgrVampireMCutClaw 600
    gape, the wings flare wide, the claw rakes forward, she holds the bite and draws back. */
 @keyframes lgrVampireMBlowHead { 0% { transform: none } 12% { transform: translateY(-3px) rotate(-4deg) scale(.93) } 22% { transform: translateY(4px) rotate(3deg) scale(1.24) } 50% { transform: translateY(3px) rotate(2deg) scale(1.18) } 100% { transform: none } }
 @keyframes lgrVampireMBlowJaw { 0% { transform: none } 12% { transform: scaleY(.75) } 22%, 52% { transform: scaleY(1.6) } 100% { transform: none } }
-@keyframes lgrVampireMBlowWings { 0% { transform: none } 12% { transform: scale(.9, 1.02) } 22% { transform: scale(1.16, 1.08) } 52% { transform: scale(1.1, 1.05) } 100% { transform: none } }
+@keyframes lgrVampireMBlowWings { 0% { transform: none } 12% { transform: scale(.9, 1.02) } 22% { transform: scale(calc(1 + .16 * var(--vwx, 1)), calc(1 + .08 * var(--vwy, 1))) } 52% { transform: scale(calc(1 + .1 * var(--vwx, 1)), calc(1 + .05 * var(--vwy, 1))) } 100% { transform: none } }
 @keyframes lgrVampireMBlowClaw { 0% { transform: none } 12% { transform: rotate(-16deg) translateY(-3px) } 24% { transform: rotate(14deg) scale(1.38) } 52% { transform: rotate(10deg) scale(1.28) } 100% { transform: none } }
 @keyframes lgrVampireMBlowEyes { 0% { transform: none } 12% { transform: scaleY(.4) } 22%, 52% { transform: scale(1.35) } 100% { transform: none } }
 ${P}[data-assault-on] .lg-vampire-head { animation: lgrVampireMBlowHead 820ms cubic-bezier(.3,.7,.3,1) both }
@@ -76,9 +81,9 @@ ${P}[data-assault-on] .lg-vampire-eyes { animation: lgrVampireMBlowEyes 820ms cu
 ${P}[data-moment="hurt"] .lg-vampire-chalice { animation: lgrVampireMToast 900ms ease-in-out both }
 /* HER HEAVY BLOW (hurtBig): the pounce: the wings mantle up high, then she dives, head driving in deeper and tilted for
    the throat, the claw raking across, the chalice flung up. */
-@keyframes lgrVampireMHeavyHead { 0% { transform: none } 18% { transform: translateY(-5px) rotate(-8deg) scale(.9) } 30% { transform: translateY(6px) rotate(9deg) scale(1.32) } 56% { transform: translateY(4px) rotate(6deg) scale(1.22) } 100% { transform: none } }
-@keyframes lgrVampireMHeavyWings { 0% { transform: none } 18% { transform: scale(1.08, 1.22) translateY(-4px) } 30% { transform: scale(1.2, .96) translateY(2px) } 56% { transform: scale(1.12, 1) } 100% { transform: none } }
-@keyframes lgrVampireMHeavyClaw { 0% { transform: none } 18% { transform: rotate(-26deg) translateY(-4px) } 30% { transform: rotate(24deg) scale(1.45) } 56% { transform: rotate(16deg) scale(1.3) } 100% { transform: none } }
+@keyframes lgrVampireMHeavyHead { 0% { transform: none } 18% { transform: translateY(-5px) rotate(-8deg) scale(.9) } 30% { transform: translateY(9px) rotate(8deg) scale(1.24) } 56% { transform: translateY(6px) rotate(6deg) scale(1.17) } 100% { transform: none } }
+@keyframes lgrVampireMHeavyWings { 0% { transform: none } 18% { transform: scale(calc(1 + .08 * var(--vwx, 1)), calc(1 + .22 * var(--vwy, 1))) translateY(calc(-4px * var(--vwy, 1))) } 30% { transform: scale(calc(1 + .2 * var(--vwx, 1)), .96) translateY(2px) } 56% { transform: scale(calc(1 + .12 * var(--vwx, 1)), 1) } 100% { transform: none } }
+@keyframes lgrVampireMHeavyClaw { 0% { transform: none } 18% { transform: rotate(-18deg) translate(5px, -4px) } 30% { transform: rotate(24deg) scale(1.45) } 56% { transform: rotate(16deg) scale(1.3) } 100% { transform: none } }
 ${P}[data-moment="hurtBig"] .lg-vampire-head, ${P}[data-assault-on][data-moment="hurtBig"] .lg-vampire-head { animation: lgrVampireMHeavyHead 920ms cubic-bezier(.3,.7,.3,1) both }
 ${P}[data-moment="hurtBig"] .lg-vampire-jaw, ${P}[data-assault-on][data-moment="hurtBig"] .lg-vampire-jaw { animation: lgrVampireMBlowJaw 920ms cubic-bezier(.3,.7,.3,1) both }
 ${P}[data-moment="hurtBig"] .lg-vampire-wings, ${P}[data-assault-on][data-moment="hurtBig"] .lg-vampire-wings { animation: lgrVampireMHeavyWings 920ms cubic-bezier(.3,.7,.3,1) both }
@@ -88,7 +93,7 @@ ${P}[data-moment="hurtBig"] .lg-vampire-chalice { animation: lgrVampireMCritChal
    claw comes up to guard and the wings flinch. */
 @keyframes lgrVampireMBlockHead { 0% { transform: none } 10% { transform: translateY(2px) scale(1.12) } 26% { transform: translate(-2px, -4px) rotate(-9deg) scale(.92) } 52% { transform: rotate(2deg) } 100% { transform: none } }
 @keyframes lgrVampireMBlockJaw { 0% { transform: none } 10% { transform: scaleY(1.4) } 22%, 46% { transform: scaleY(.7) } 100% { transform: none } }
-@keyframes lgrVampireMBlockClaw { 0%, 100% { transform: none } 24%, 56% { transform: rotate(-24deg) translateY(-5px) } }
+@keyframes lgrVampireMBlockClaw { 0%, 100% { transform: none } 24%, 56% { transform: rotate(-16deg) translate(4px, -6px) } }
 ${P}[data-moment="block"] .lg-vampire-head { animation: lgrVampireMBlockHead 640ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="block"] .lg-vampire-jaw { animation: lgrVampireMBlockJaw 640ms ease-out both }
 ${P}[data-moment="block"] .lg-vampire-claw { animation: lgrVampireMBlockClaw 640ms ease-in-out both }
@@ -96,7 +101,7 @@ ${P}[data-moment="block"] .lg-vampire-wings { animation: lgrVampireMHitWings 640
 /* SAVED: her bite ricochets off the shield: the head is flung aside, the wings beat once to catch her, the chalice
    spills. */
 @keyframes lgrVampireMShieldHead { 0% { transform: none } 14% { transform: scale(1.1) } 32% { transform: translateX(4px) rotate(16deg) scale(.95) } 56% { transform: translateX(2px) rotate(8deg) } 100% { transform: none } }
-@keyframes lgrVampireMShieldWings { 0%, 100% { transform: none } 30% { transform: scale(1.12, .9) } 46% { transform: scale(.94, 1.06) } 62% { transform: scale(1.04, .98) } }
+@keyframes lgrVampireMShieldWings { 0%, 100% { transform: none } 30% { transform: scale(calc(1 + .12 * var(--vwx, 1)), .9) } 46% { transform: scale(.94, calc(1 + .06 * var(--vwy, 1))) } 62% { transform: scale(calc(1 + .04 * var(--vwx, 1)), .98) } }
 @keyframes lgrVampireMSpill { 0%, 100% { transform: none } 30%, 60% { transform: rotate(-34deg) translateX(-3px) } }
 ${P}[data-moment="shield"] .lg-vampire-head { animation: lgrVampireMShieldHead 760ms cubic-bezier(.2,.9,.3,1) both }
 ${P}[data-moment="shield"] .lg-vampire-wings { animation: lgrVampireMShieldWings 760ms ease-out both }
@@ -114,7 +119,7 @@ ${P}[data-moment="wind"] .lg-vampire-chalice { animation: lgrVampireMWindChalice
    shaking, then the wings fold in on her and the head sinks; the parts settle as the box bursts apart. */
 @keyframes lgrVampireMKoHead { 0% { transform: none } 14% { transform: translateY(-3px) rotate(-10deg) scale(1.06) } 18% { transform: translate(-1px, -3px) rotate(-10deg) scale(1.06) } 22% { transform: translate(1px, -3px) rotate(-10deg) scale(1.06) } 26% { transform: translate(-1px, -3px) rotate(-10deg) scale(1.06) } 32% { transform: translateY(-2px) rotate(-8deg) } 58% { transform: translateY(5px) rotate(7deg) scale(.92) } 82% { transform: translateY(3px) rotate(4deg) } 100% { transform: none } }
 @keyframes lgrVampireMKoJaw { 0% { transform: none } 12%, 34% { transform: scaleY(1.7) } 58% { transform: scaleY(.6) } 100% { transform: none } }
-@keyframes lgrVampireMKoWings { 0% { transform: none } 14%, 34% { transform: scale(1.2, 1.14) } 60% { transform: scale(.78, .9) translateY(4px) } 84% { transform: scale(.9, .95) } 100% { transform: none } }
+@keyframes lgrVampireMKoWings { 0% { transform: none } 14%, 34% { transform: scale(calc(1 + .2 * var(--vwx, 1)), calc(1 + .14 * var(--vwy, 1))) } 60% { transform: scale(.78, .9) translateY(4px) } 84% { transform: scale(.9, .95) } 100% { transform: none } }
 @keyframes lgrVampireMKoChalice { 0%, 30% { transform: none } 56% { transform: rotate(-60deg) translate(-4px, 6px) } 80% { transform: rotate(-40deg) translate(-3px, 4px) } 100% { transform: none } }
 ${P}[data-moment="ko"] .lg-vampire-head { animation: lgrVampireMKoHead 2100ms ease-in-out both }
 ${P}[data-moment="ko"] .lg-vampire-jaw { animation: lgrVampireMKoJaw 2100ms ease-in-out both }
@@ -126,8 +131,8 @@ ${P}[data-moment="ko"] .lg-vampire-eyes { animation: lgrVampireMBlowEyes 2100ms 
 @keyframes lgrVampireMDrip { 0%, 100% { transform: none } 30%, 60% { transform: rotate(-9deg) } }
 ${P}[data-fx="drip"] .lg-vampire-chalice { animation: lgrVampireMDrip 340ms ease-in-out both }
 /* Ward (a blood ward rises): she conjures it: the claw lifts palm-up, the wings mantle, the head tilts proud. */
-@keyframes lgrVampireMWardClaw { 0%, 100% { transform: none } 25%, 70% { transform: rotate(-20deg) translateY(-5px) scale(1.1) } }
-@keyframes lgrVampireMWardWings { 0%, 100% { transform: none } 25%, 70% { transform: scale(1.08, 1.12) translateY(-2px) } }
+@keyframes lgrVampireMWardClaw { 0%, 100% { transform: none } 25%, 70% { transform: rotate(-12deg) translate(4px, -6px) scale(1.08) } }
+@keyframes lgrVampireMWardWings { 0%, 100% { transform: none } 25%, 70% { transform: scale(calc(1 + .08 * var(--vwx, 1)), calc(1 + .12 * var(--vwy, 1))) translateY(calc(-2px * var(--vwy, 1))) } }
 @keyframes lgrVampireMWardHead { 0%, 100% { transform: none } 25%, 70% { transform: translateY(-2px) rotate(-5deg) } }
 ${P}[data-fx="ward"] .lg-vampire-claw { animation: lgrVampireMWardClaw 700ms ease-in-out both }
 ${P}[data-fx="ward"] .lg-vampire-wings { animation: lgrVampireMWardWings 700ms ease-in-out both }

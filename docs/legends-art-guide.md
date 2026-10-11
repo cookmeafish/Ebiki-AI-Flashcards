@@ -131,7 +131,7 @@ On the real asset view "Phase drawings" panel (all three phases), by the artist,
 4. Every element not on the character listed with its reason; paths and animations against the kitsune's.
 5. Same character? (faces covered: proportions and build; heads only: the face; personality the same)
 6. A significant change per phase, on the character? Labels covered, can a stranger order the three phases and say what
-   changed in each? **SILHOUETTE check** (owner 2026-10-10 on a Showman whose phases kept the same bust, hat, coat and pose: "they are too similar in each phase", "it needs to be more different each phase"): render each phase as a solid black silhouette at 60 px beside the kitsune's three; the shapes must be clearly different, and the pairwise silhouette overlap (IoU of the alpha masks) must be no higher than the kitsune's same pair. Colour, horns or a new halo over the same outline fail. Measure it ONLY with `node .scratch/raid-kitsune/silhouettes.mjs <motif>` (frame 0, committed kitsune, EACH pair no more alike than her same pair, entrances stripped; run it again with `--hide=<background selector>` when the boss has a background); hand-made scripts gave every artist a different kitsune number, and a highest-pair rule let the owner-rejected Showman pass.
+   changed in each? **SILHOUETTE check** (owner 2026-10-10 on a Showman whose phases kept the same bust, hat, coat and pose: "they are too similar in each phase", "it needs to be more different each phase"): render each phase as a solid black silhouette at 60 px beside the kitsune's three; the shapes must be clearly different, and the pairwise silhouette overlap (IoU of the alpha masks) must be no higher than the kitsune's same pair. Colour, horns or a new halo over the same outline fail. Measure it ONLY with `node .scratch/raid-kitsune/silhouettes.mjs <motif>` (frame 0, committed kitsune, EACH pair no more alike than her same pair, entrances stripped; run it again with `--hide=<every aura, halo, fan, backdrop selector>`: that BODY-ONLY run hides the kitsune's tails and fox-fire too and must pass within 0.05; it is the one that catches the same body under a new aura, as on the rejected Showman and a Kaleido); hand-made scripts gave every artist a different kitsune number, and a highest-pair rule let the owner-rejected Showman pass.
 7. Phase 3 the most impactful and the clearest?
 8. Power visible in every phase?
 9. Anatomy connects at 2 to 4x zoom; a confident villain face?
@@ -146,8 +146,11 @@ On the real asset view "Phase drawings" panel (all three phases), by the artist,
 3. Draw, then at least three rounds of: the Kitsune test on the panel, every join zoomed 2 to 4x, fix.
 4. Animation check: frames across the idle, entrance, moments, attack and every ability.
 5. `check-art.mjs` 0 failures, tests green. It includes the JOINT check (`check-joints.mjs`): in every fight animation
-   the head must stay on its neck (a kitsune head shifted off her neck in 40 animations); add the boss to its
-   `STRICT` list once it passes, and look at its `--sheet` contact sheets.
+   the head must stay on its neck (a kitsune head shifted off her neck in 40 animations), measured at the CHIN SEAM
+   (the head's lowest point on the neck axis), so a head pivots at its chin; a head with no `lg-<motif>-head` / `face`
+   wrapper is reported as NOT checked, so give every head one (`-mask` counts only for a boss whose face IS a mask,
+   `MASK_FACE`: a mask prop is never measured as the head). Add the boss to its `STRICT` list once it
+   passes, and look at its `--sheet` contact sheets.
 6. Independent review by a fresh agent given the owner's words and this section; anything below "equal to the kitsune"
    fails; repeat with a fresh reviewer until nothing must be fixed.
 7. The coordinator runs the Kitsune test on its OWN panel screenshot before the owner sees anything, and reports

@@ -32,36 +32,51 @@ export const css = `
 .lg-boss[data-phase="3"] .lggorgon-eyeL { left: 47% !important }
 .lg-boss[data-phase="3"] .lggorgon-eyeR { left: 53% !important }
 
+/* The snake crown, front snakes, wings and the phase 3 heads and knot nearly fill the arena's clip already, so their
+   moves play at a share of full strength (--gg, 1 = full; the clip edge would slice them flat). Set on every named
+   part so a small part inside a big one keeps full strength. */
+.lg-boss[data-motif="gorgon"] [class*="lg-gorgon-"] { --gg: 1 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-crown { --gg: .3 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-front { --gg: .4 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-wings { --gg: .35 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-heads3 { --gg: .3 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-knot3 { --gg: .65 }
+/* Full-strength moves for the parts that fill the clip (no --gg): the crown and front snakes strike DOWN from their
+   top pivot (the frame has room below the brow, none above), the round phase 3 head ring twists and recoils. */
+@keyframes lggorgonCrownLash { 0% { transform: none } 14% { transform: scale(.88) translateY(4%) } 40% { transform: scale(1.02, 1.28) rotate(4deg) translateY(5%) } 58% { transform: scale(1, 1.14) rotate(-3deg) translateY(4%) } 100% { transform: none } }
+@keyframes lggorgonVolleyDown { 0% { transform: none } 14% { transform: scale(.86) translateY(3%) } 36% { transform: scale(1.03, 1.34) translateY(6%) rotate(-4deg) } 56% { transform: scale(1.01, 1.18) translateY(4%) rotate(3deg) } 100% { transform: none } }
+@keyframes lggorgonRingTwist { 0% { transform: none } 14% { transform: scale(.88) rotate(-14deg) } 40% { transform: rotate(22deg) scale(.96) } 62% { transform: rotate(-8deg) } 80% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lggorgonRingWrench { 0% { transform: none } 16% { transform: scale(.84) rotate(18deg) } 40% { transform: rotate(-28deg) scale(.98) } 66% { transform: rotate(10deg) scale(.95) } 84% { transform: rotate(-3deg) } 100% { transform: none } }
 /* ---- the drawing itself, per moment ---- */
 @keyframes lggorgonRecoil { 0% { transform: none } 12% { transform: translateY(-14%) rotate(-13deg) scale(.88) } 30% { transform: translateY(3%) rotate(7deg) } 55% { transform: rotate(-3deg) } 100% { transform: none } }
-@keyframes lggorgonCoilIn { 0% { transform: none } 14% { transform: scale(.78) } 40% { transform: scale(1.12) } 70% { transform: scale(.97) } 100% { transform: none } }
-@keyframes lggorgonWingJolt { 0% { transform: none } 14% { transform: scaleX(.94) translateY(2%) } 45% { transform: scaleX(1.03) } 100% { transform: none } }
+@keyframes lggorgonCoilIn { 0% { transform: none } 14% { transform: scale(calc(1 + -0.22 * var(--gg, 1))) } 40% { transform: scale(calc(1 + 0.12 * var(--gg, 1))) } 70% { transform: scale(calc(1 + -0.03 * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonWingJolt { 0% { transform: none } 14% { transform: scaleX(calc(1 + -0.06 * var(--gg, 1))) translateY(calc(2% * var(--gg, 1))) } 45% { transform: scaleX(calc(1 + 0.03 * var(--gg, 1))) } 100% { transform: none } }
 @keyframes lggorgonBlink { 0%, 8% { transform: none } 16%, 34% { transform: scaleY(.08) } 52% { transform: scaleY(1.15) } 100% { transform: none } }
 @keyframes lggorgonWhip { 0% { transform: none } 10% { transform: translate(-16%, -6%) rotate(-24deg) scale(.86) } 26% { transform: translate(6%, 0) rotate(11deg) } 44% { transform: rotate(-6deg) } 66% { transform: rotate(3deg) } 100% { transform: none } }
-@keyframes lggorgonSplay { 0% { transform: none } 12% { transform: scale(1.4) rotate(-4deg) } 28% { transform: scale(1.26) rotate(4deg) } 50% { transform: scale(.9) } 100% { transform: none } }
+@keyframes lggorgonSplay { 0% { transform: none } 12% { transform: scale(calc(1 + 0.4 * var(--gg, 1))) rotate(calc(-4deg * var(--gg, 1))) } 28% { transform: scale(calc(1 + 0.26 * var(--gg, 1))) rotate(calc(4deg * var(--gg, 1))) } 50% { transform: scale(calc(1 + -0.1 * var(--gg, 1))) } 100% { transform: none } }
 @keyframes lggorgonSplitL { 0% { transform: none } 12% { transform: translate(-12%, 2%) rotate(-12deg) } 45% { transform: translate(-4%, 0) rotate(-4deg) } 100% { transform: none } }
 @keyframes lggorgonSplitR { 0% { transform: none } 12% { transform: translate(12%, 2%) rotate(12deg) } 45% { transform: translate(4%, 0) rotate(4deg) } 100% { transform: none } }
-@keyframes lggorgonSpinHit { 0% { transform: none } 14% { transform: rotate(-38deg) scale(.92) } 40% { transform: rotate(10deg) } 100% { transform: none } }
+@keyframes lggorgonSpinHit { 0% { transform: none } 14% { transform: rotate(calc(-38deg * var(--gg, 1))) scale(calc(1 + -0.08 * var(--gg, 1))) } 40% { transform: rotate(calc(10deg * var(--gg, 1))) } 100% { transform: none } }
 @keyframes lggorgonSliced { 0% { transform: none } 8% { transform: translateX(10%) rotate(10deg) } 16% { transform: translateX(-10%) rotate(-9deg) } 24% { transform: translateX(7%) rotate(6deg) } 32% { transform: translateX(-4%) rotate(-3deg) } 60% { transform: translateY(4%) } 100% { transform: none } }
 @keyframes lggorgonHoodCut { 0% { transform: none } 10% { transform: scaleX(1.3) } 22% { transform: scaleX(.82) scaleY(.94) } 45% { transform: scaleX(1.05) } 100% { transform: none } }
-@keyframes lggorgonShed { 0% { transform: none } 12% { transform: translateY(-2%) rotate(-3deg) } 40% { transform: translateY(4%) rotate(2deg) scaleY(.95) } 100% { transform: none } }
-@keyframes lggorgonLash { 0% { transform: none } 14% { transform: scale(.84) translateY(-8%) } 40% { transform: scale(1.38) translateY(10%) } 58% { transform: scale(1.22) translateY(6%) } 100% { transform: none } }
-@keyframes lggorgonFlare { 0% { transform: none } 16% { transform: scaleX(.86) } 40% { transform: scaleX(1.28) scaleY(1.06) } 70% { transform: scaleX(1.12) } 100% { transform: none } }
-@keyframes lggorgonFlareBig { 0% { transform: none } 14% { transform: scaleX(.86) scaleY(.96) } 38% { transform: scaleX(1.34) scaleY(1.1) translateY(-3%) } 70% { transform: scaleX(1.2) scaleY(1.05) } 100% { transform: none } }
-@keyframes lggorgonVolley { 0% { transform: none } 14% { transform: scale(.82) translateY(-5%) } 36% { transform: scale(1.36) translateY(8%) } 56% { transform: scale(1.2) translateY(5%) } 100% { transform: none } }
+@keyframes lggorgonShed { 0% { transform: none } 12% { transform: translateY(calc(-2% * var(--gg, 1))) rotate(calc(-3deg * var(--gg, 1))) } 40% { transform: translateY(calc(4% * var(--gg, 1))) rotate(calc(2deg * var(--gg, 1))) scaleY(calc(1 + -0.05 * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonLash { 0% { transform: none } 14% { transform: scale(calc(1 + -0.16 * var(--gg, 1))) translateY(calc(-8% * var(--gg, 1))) } 40% { transform: scale(calc(1 + 0.3 * var(--gg, 1))) translateY(calc(5% * var(--gg, 1))) } 58% { transform: scale(calc(1 + 0.18 * var(--gg, 1))) translateY(calc(3% * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonFlare { 0% { transform: none } 16% { transform: scaleX(calc(1 + -0.14 * var(--gg, 1))) } 40% { transform: scaleX(calc(1 + 0.28 * var(--gg, 1))) scaleY(calc(1 + 0.06 * var(--gg, 1))) } 70% { transform: scaleX(calc(1 + 0.12 * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonFlareBig { 0% { transform: none } 14% { transform: scaleX(calc(1 + -0.14 * var(--gg, 1))) scaleY(calc(1 + -0.04 * var(--gg, 1))) } 38% { transform: scaleX(calc(1 + 0.34 * var(--gg, 1))) scaleY(calc(1 + 0.1 * var(--gg, 1))) translateY(calc(-3% * var(--gg, 1))) } 70% { transform: scaleX(calc(1 + 0.2 * var(--gg, 1))) scaleY(calc(1 + 0.05 * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonVolley { 0% { transform: none } 14% { transform: scale(calc(1 + -0.18 * var(--gg, 1))) translateY(calc(-5% * var(--gg, 1))) } 36% { transform: scale(calc(1 + 0.36 * var(--gg, 1))) translateY(calc(8% * var(--gg, 1))) } 56% { transform: scale(calc(1 + 0.2 * var(--gg, 1))) translateY(calc(5% * var(--gg, 1))) } 100% { transform: none } }
 @keyframes lggorgonArmSlamR { 0% { transform: none } 18% { transform: rotate(-24deg) } 40% { transform: rotate(38deg) translateY(4%) } 62% { transform: rotate(30deg) translateY(3%) } 100% { transform: none } }
 @keyframes lggorgonArmSlamL { 0% { transform: none } 18% { transform: rotate(18deg) } 40% { transform: rotate(-30deg) translateX(-4%) } 62% { transform: rotate(-22deg) } 100% { transform: none } }
-@keyframes lggorgonKnotTwist { 0% { transform: none } 16% { transform: rotate(-14deg) scale(.94) } 40% { transform: rotate(28deg) scale(1.08) } 100% { transform: none } }
-@keyframes lggorgonHeadsOut { 0% { transform: none } 16% { transform: scale(.88) } 40% { transform: scale(1.3) } 66% { transform: scale(1.14) } 100% { transform: none } }
+@keyframes lggorgonKnotTwist { 0% { transform: none } 16% { transform: rotate(calc(-14deg * var(--gg, 1))) scale(calc(1 + -0.06 * var(--gg, 1))) } 40% { transform: rotate(calc(28deg * var(--gg, 1))) scale(calc(1 + 0.08 * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonHeadsOut { 0% { transform: none } 16% { transform: scale(calc(1 + -0.12 * var(--gg, 1))) } 40% { transform: scale(calc(1 + 0.3 * var(--gg, 1))) } 66% { transform: scale(calc(1 + 0.14 * var(--gg, 1))) } 100% { transform: none } }
 @keyframes lggorgonTurnAway { 0% { transform: none } 12% { transform: translateX(14%) rotate(20deg) scaleX(.8) } 50% { transform: translateX(10%) rotate(15deg) scaleX(.84) } 100% { transform: none } }
 @keyframes lggorgonSquint { 0%, 6% { transform: none } 14%, 55% { transform: scaleY(.25) scaleX(1.1) } 100% { transform: none } }
-@keyframes lggorgonFold { 0% { transform: none } 14% { transform: scaleX(.72) } 55% { transform: scaleX(.8) } 100% { transform: none } }
-@keyframes lggorgonGlance { 0% { transform: none } 14% { transform: rotate(-26deg) scale(.82) } 50% { transform: rotate(-18deg) scale(.86) } 100% { transform: none } }
-@keyframes lggorgonBounce { 0% { transform: none } 22% { transform: scale(1.32) translateY(10%) } 32% { transform: scale(.8) translateY(-10%) } 50% { transform: scale(.92) translateY(-3%) } 100% { transform: none } }
+@keyframes lggorgonFold { 0% { transform: none } 14% { transform: scaleX(calc(1 + -0.28 * var(--gg, 1))) } 55% { transform: scaleX(calc(1 + -0.2 * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonGlance { 0% { transform: none } 14% { transform: rotate(calc(-26deg * var(--gg, 1))) scale(calc(1 + -0.18 * var(--gg, 1))) } 50% { transform: rotate(calc(-18deg * var(--gg, 1))) scale(calc(1 + -0.14 * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lggorgonBounce { 0% { transform: none } 22% { transform: scale(calc(1 + 0.32 * var(--gg, 1))) translateY(calc(10% * var(--gg, 1))) } 32% { transform: scale(calc(1 + -0.2 * var(--gg, 1))) translateY(calc(-10% * var(--gg, 1))) } 50% { transform: scale(calc(1 + -0.08 * var(--gg, 1))) translateY(calc(-3% * var(--gg, 1))) } 100% { transform: none } }
 @keyframes lggorgonClamp { 0% { transform: none } 20% { transform: scaleY(1.5) } 32% { transform: scaleY(.3) } 60% { transform: scaleY(.6) } 100% { transform: none } }
 @keyframes lggorgonRebound { 0% { transform: none } 22% { transform: scale(1.12) } 34% { transform: scale(.82) } 100% { transform: none } }
 @keyframes lggorgonHiss { 0% { transform: none } 18% { transform: scaleY(2.4) scaleX(1.1) } 70% { transform: scaleY(2.1) } 100% { transform: none } }
-@keyframes lggorgonWrithe { 0%, 100% { transform: none } 12% { transform: rotate(-10deg) } 26% { transform: rotate(9deg) } 40% { transform: rotate(-8deg) } 54% { transform: rotate(7deg) } 68% { transform: rotate(-4deg) } 82% { transform: rotate(2deg) } }
+@keyframes lggorgonWrithe { 0%, 100% { transform: none } 12% { transform: rotate(calc(-10deg * var(--gg, 1))) } 26% { transform: rotate(calc(9deg * var(--gg, 1))) } 40% { transform: rotate(calc(-8deg * var(--gg, 1))) } 54% { transform: rotate(calc(7deg * var(--gg, 1))) } 68% { transform: rotate(calc(-4deg * var(--gg, 1))) } 82% { transform: rotate(calc(2deg * var(--gg, 1))) } }
 @keyframes lggorgonSnarl { 0% { transform: none } 18% { transform: translateY(-3%) scale(1.04) } 60% { transform: translateY(-2%) scale(1.03) } 100% { transform: none } }
 @keyframes lggorgonGlower { 0%, 100% { transform: none } 20% { transform: scaleY(.55) } 60% { transform: scaleY(.6) } }
 
@@ -85,16 +100,16 @@ export const css = `
 .lg-boss[data-motif="gorgon"][data-moment="sharpen"] .lg-gorgon-eye3 { animation: lggorgonSliced 640ms linear both }
 .lg-boss[data-motif="gorgon"][data-moment="sharpen"] .lg-gorgon-heads3 { animation: lggorgonCoilIn 600ms ease-out both }
 
-.lg-boss[data-motif="gorgon"][data-moment="hurt"] .lg-gorgon-crown { animation: lggorgonLash 620ms cubic-bezier(.3,0,.2,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="hurt"] .lg-gorgon-crown { animation: lggorgonCrownLash 620ms cubic-bezier(.3,0,.2,1) both }
 .lg-boss[data-motif="gorgon"][data-moment="hurt"] .lg-gorgon-hood, .lg-boss[data-motif="gorgon"][data-moment="hurt"] .lg-gorgon-wings { animation: lggorgonFlare 620ms cubic-bezier(.3,0,.2,1) both }
-.lg-boss[data-motif="gorgon"][data-moment="hurt"] .lg-gorgon-heads3 { animation: lggorgonLash 620ms cubic-bezier(.3,0,.2,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="hurt"] .lg-gorgon-heads3 { animation: lggorgonRingTwist 620ms cubic-bezier(.3,0,.2,1) both }
 
 .lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-wings, .lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-hood { animation: lggorgonFlareBig 820ms cubic-bezier(.3,0,.2,1) both }
-.lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-crown, .lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-front { animation: lggorgonVolley 820ms cubic-bezier(.3,0,.2,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-crown, .lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-front { animation: lggorgonVolleyDown 820ms cubic-bezier(.3,0,.2,1) both }
 .lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-armR { animation: lggorgonArmSlamR 820ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-armL { animation: lggorgonArmSlamL 820ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-knot3 { animation: lggorgonKnotTwist 820ms cubic-bezier(.3,0,.2,1) both }
-.lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-heads3 { animation: lggorgonHeadsOut 820ms cubic-bezier(.3,0,.2,1) both }
+.lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-gorgon-heads3 { animation: lggorgonRingWrench 820ms cubic-bezier(.3,0,.2,1) both }
 
 .lg-boss[data-motif="gorgon"][data-moment="block"] .lg-gorgon-face, .lg-boss[data-motif="gorgon"][data-moment="block"] .lg-gorgon-face2 { animation: lggorgonTurnAway 640ms cubic-bezier(.2,.8,.3,1) both }
 .lg-boss[data-motif="gorgon"][data-moment="block"] .lg-gorgon-eye, .lg-boss[data-motif="gorgon"][data-moment="block"] .lg-gorgon-eye3 { animation: lggorgonSquint 640ms ease-out both }

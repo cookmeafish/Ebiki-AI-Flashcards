@@ -60,6 +60,59 @@ ${B}[data-down] .lg-tempest-arm { transform: rotate(-76deg) translateY(15px) }
 ${B}[data-down] .lg-tempest-head { transform: translateY(7px) rotate(15deg) }
 ${B}[data-down] .lg-tempest-fist { transform: translateY(9px) rotate(26deg) }
 ${B}[data-down] .lg-tempest-beast { transform: translateY(20px) rotate(12deg) scale(.95) }
+/* PER PHASE: the clip edge (BOSS_HEADROOM) is close on different sides in each phase (check-moment-clip.mjs), so the
+   parts that reach it get their own version of a move, same beat and timing, aimed and sized to stay whole.
+   Phase 1: the bolt arm points out LEFT at the edge: its back-swings (negative turns) stay within about 20 degrees,
+   the strike still swings over his head. Phase 3: the bolt is raised up RIGHT at the edge: his swings are mirrored,
+   a short wind-up to the right and the blow comes down LEFT across the dragon. Phase 2: the dragon's horns touch the
+   top, so it rears and bites by tilting and lunging DOWN at you. Phase 3: the dragon fills the left and bottom
+   corner, so it lunges up and right. */
+@keyframes lgrTemLoseGrip1 { 0% { transform: none } 12% { transform: rotate(-19deg) translateY(4px) } 40% { transform: rotate(-9deg) translateY(2px) } 70% { transform: rotate(4deg) } 100% { transform: none } }
+@keyframes lgrTemArmSag1 { 0% { transform: none } 30% { transform: rotate(-18deg) translateY(4px) } 70% { transform: rotate(-17deg) translateY(4px) } 100% { transform: none } }
+@keyframes lgrTemHurl1 { 0% { transform: none } 14% { transform: rotate(-17deg) } 24% { transform: rotate(48deg) translateY(2px) } 34% { transform: rotate(40deg) translateY(1px) } 62% { transform: rotate(34deg) } 100% { transform: none } }
+@keyframes lgrTemSlam1 { 0% { transform: none } 24% { transform: rotate(-19deg) translateY(-3px) } 38% { transform: rotate(62deg) translateY(4px) } 48% { transform: rotate(54deg) translateY(3px) } 74% { transform: rotate(38deg) } 100% { transform: none } }
+@keyframes lgrTemKoArm1 { 0% { transform: none } 20% { transform: rotate(-12deg) } 30% { transform: rotate(10deg) } 40% { transform: rotate(-16deg) } 55% { transform: translateY(-3px) rotate(-14deg) } 72% { transform: translate(6px, 18px) rotate(-27deg) } 84% { transform: translate(6px, 14px) rotate(-24deg) } 100% { transform: translate(6px, 16px) rotate(-26deg) } }
+@keyframes lgrTemThunderArm1 { 0% { transform: none } 22% { transform: rotate(-16deg) translateY(-5px) scale(1.06) } 36% { transform: rotate(-18deg) translateY(-5px) scale(1.06) } 48% { transform: rotate(58deg) translateY(3px) } 70% { transform: rotate(40deg) } 100% { transform: none } }
+@keyframes lgrTemHurl3 { 0% { transform: none } 14% { transform: rotate(20deg) } 24% { transform: rotate(-48deg) translateY(2px) } 34% { transform: rotate(-40deg) translateY(1px) } 62% { transform: rotate(-34deg) } 100% { transform: none } }
+@keyframes lgrTemSlam3 { 0% { transform: none } 24% { transform: rotate(22deg) translateY(-3px) } 38% { transform: rotate(-62deg) translateY(4px) } 48% { transform: rotate(-54deg) translateY(3px) } 74% { transform: rotate(-38deg) } 100% { transform: none } }
+@keyframes lgrTemGuard3 { 0% { transform: none } 14% { transform: rotate(-72deg) translateY(4px) } 30% { transform: rotate(-62deg) translateY(3px) } 44% { transform: rotate(-68deg) translateY(4px) } 72% { transform: rotate(-66deg) translateY(4px) } 100% { transform: none } }
+@keyframes lgrTemThunderArm3 { 0% { transform: none } 22% { transform: rotate(18deg) scale(1.03) } 36% { transform: rotate(20deg) scale(1.03) } 48% { transform: rotate(-58deg) translateY(3px) } 70% { transform: rotate(-40deg) } 100% { transform: none } }
+@keyframes lgrTemBeastFlinch2 { 0%, 100% { transform: none } 14% { transform: translate(-4px, 2px) rotate(-6deg) scale(.95) } 45% { transform: rotate(2deg) } }
+@keyframes lgrTemBeastRear2 { 0% { transform: none } 12% { transform: translateY(5px) rotate(-12deg) scale(1.04) } 40% { transform: translateY(1px) rotate(5deg) } 100% { transform: none } }
+@keyframes lgrTemChomp2 { 0% { transform: none } 20% { transform: translateY(1px) scale(.92) } 34% { transform: translate(2px, 8px) scale(1.2) } 44% { transform: translate(2px, 6px) scale(1.13) } 54% { transform: translate(2px, 8px) scale(1.19) } 80% { transform: translate(1px, 2px) scale(1.05) } 100% { transform: none } }
+@keyframes lgrTemBeastLunge2 { 0% { transform: none } 16% { transform: translateX(-4px) scale(.95) } 30% { transform: translate(6px, 7px) scale(1.16) } 56% { transform: translate(4px, 5px) scale(1.1) } 100% { transform: none } }
+@keyframes lgrTemKoBeast2 { 0% { transform: none } 30% { transform: translateY(3px) rotate(-6deg) } 52% { transform: translateY(6px) rotate(-12deg) scale(1.05) } 74% { transform: translateY(22px) rotate(14deg) scale(.95) } 86% { transform: translateY(18px) rotate(10deg) scale(.95) } 100% { transform: translateY(20px) rotate(12deg) scale(.95) } }
+@keyframes lgrTemBeastRear3 { 0% { transform: none } 12% { transform: translate(3px, -8px) rotate(-10deg) scale(1.04) } 40% { transform: translate(1px, -3px) rotate(3deg) } 100% { transform: none } }
+@keyframes lgrTemBeastSide3 { 0%, 100% { transform: none } 10% { transform: translateX(8px) skewX(-7deg) } 30% { transform: translateX(-1px) skewX(3deg) } 55% { transform: none } }
+@keyframes lgrTemChomp3 { 0% { transform: none } 20% { transform: translate(2px, 3px) scale(.92) } 34% { transform: translate(9px, -6px) rotate(-5deg) scale(1.12) } 44% { transform: translate(7px, -4px) rotate(-2deg) scale(1.06) } 54% { transform: translate(9px, -6px) rotate(-5deg) scale(1.11) } 80% { transform: translate(2px, -1px) scale(1.02) } 100% { transform: none } }
+@keyframes lgrTemBeastLunge3 { 0% { transform: none } 16% { transform: translate(2px, 3px) scale(.95) } 30% { transform: translate(9px, -5px) scale(1.1) } 56% { transform: translate(7px, -4px) scale(1.06) } 100% { transform: none } }
+@keyframes lgrTemBeastSnap3 { 0% { transform: none } 16% { transform: translate(7px, -4px) scale(1.08) } 30% { transform: translate(-1px, 1px) scale(.92) } 55% { transform: none } 100% { transform: none } }
+@keyframes lgrTemBeastSink3 { 0%, 100% { transform: none } 30% { transform: translate(3px, 5px) rotate(5deg) } 70% { transform: translate(3px, 4px) rotate(4deg) } }
+@keyframes lgrTemKoBeast3 { 0% { transform: none } 30% { transform: translate(1px, -4px) rotate(-6deg) } 52% { transform: translate(3px, -8px) rotate(-10deg) scale(1.04) } 74% { transform: translate(8px, 8px) rotate(-8deg) scale(.88) } 86% { transform: translate(7px, 6px) rotate(-6deg) scale(.9) } 100% { transform: translate(7px, 7px) rotate(-7deg) scale(.89) } }
+${B}[data-phase="1"][data-assault-on] .lg-tempest-arm { animation-name: lgrTemHurl1 }
+${B}[data-phase="3"][data-assault-on] .lg-tempest-arm { animation-name: lgrTemHurl3 }
+${B}[data-phase="2"][data-assault-on] .lg-tempest-beast { animation-name: lgrTemBeastLunge2 }
+${B}[data-phase="3"][data-assault-on] .lg-tempest-beast { animation-name: lgrTemBeastLunge3 }
+${B}[data-phase="1"][data-moment="crit"] .lg-tempest-arm { animation-name: lgrTemLoseGrip1 }
+${B}[data-phase="1"][data-moment="wind"] .lg-tempest-arm { animation-name: lgrTemArmSag1 }
+${B}[data-phase="1"][data-moment="hurtBig"] .lg-tempest-arm { animation-name: lgrTemSlam1 }
+${B}[data-phase="1"][data-moment="ko"] .lg-tempest-arm { animation-name: lgrTemKoArm1 }
+${B}[data-phase="1"][data-down] .lg-tempest-arm { transform: translate(6px, 16px) rotate(-26deg) }
+${B}[data-phase="1"] .lgr-tempest-thunder .lg-tempest-arm { animation-name: lgrTemThunderArm1 }
+${B}[data-phase="3"][data-moment="hurtBig"] .lg-tempest-arm { animation-name: lgrTemSlam3 }
+${B}[data-phase="3"][data-moment="block"] .lg-tempest-arm { animation-name: lgrTemGuard3 }
+${B}[data-phase="3"] .lgr-tempest-thunder .lg-tempest-arm { animation-name: lgrTemThunderArm3 }
+${B}[data-phase="2"][data-moment="hit"] .lg-tempest-beast, ${B}[data-phase="2"][data-moment="block"] .lg-tempest-beast { animation-name: lgrTemBeastFlinch2 }
+${B}[data-phase="2"][data-moment="crit"] .lg-tempest-beast { animation-name: lgrTemBeastRear2 }
+${B}[data-phase="2"][data-moment="hurtBig"] .lg-tempest-beast, ${B}[data-phase="2"] .lgr-tempest-thunder .lg-tempest-beast { animation-name: lgrTemChomp2 }
+${B}[data-phase="2"][data-moment="ko"] .lg-tempest-beast { animation-name: lgrTemKoBeast2 }
+${B}[data-phase="3"][data-moment="crit"] .lg-tempest-beast { animation-name: lgrTemBeastRear3 }
+${B}[data-phase="3"][data-moment="sharpen"] .lg-tempest-beast { animation-name: lgrTemBeastSide3 }
+${B}[data-phase="3"][data-moment="hurtBig"] .lg-tempest-beast, ${B}[data-phase="3"] .lgr-tempest-thunder .lg-tempest-beast { animation-name: lgrTemChomp3 }
+${B}[data-phase="3"][data-moment="shield"] .lg-tempest-beast { animation-name: lgrTemBeastSnap3 }
+${B}[data-phase="3"][data-moment="wind"] .lg-tempest-beast { animation-name: lgrTemBeastSink3 }
+${B}[data-phase="3"][data-moment="ko"] .lg-tempest-beast { animation-name: lgrTemKoBeast3 }
+${B}[data-phase="3"][data-down] .lg-tempest-beast { transform: translate(7px, 7px) rotate(-7deg) scale(.89) }
 /* the storm measure: each beat his free fist pounds the drum and he nods to it; a dud measure he shrugs and lowers the
    bolt; the THUNDER he hurls it two-handed overhead while the dragon bellows */
 @keyframes lgrTemDrumFist { 0%, 100% { transform: none } 30% { transform: translateY(5px) scale(1.12, .88) } 60% { transform: translateY(-1px) } }

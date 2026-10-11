@@ -30,15 +30,15 @@ export const css = `
 @keyframes lgophanimJoltA { 0% { transform: none } 12% { transform: rotate(14deg) scale(.97) } 36% { transform: rotate(-6deg) } 60% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgophanimJoltB { 0% { transform: none } 12% { transform: rotate(-12deg) scale(1.03) } 36% { transform: rotate(5deg) } 60% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgophanimSquint { 0% { transform: none } 14% { transform: scaleY(.45) } 46% { transform: scaleY(.85) } 100% { transform: none } }
-@keyframes lgophanimSpinA { 0% { transform: none } 10% { transform: rotate(-20deg) scale(.95) } 70% { transform: rotate(375deg) } 100% { transform: rotate(360deg) } }
-@keyframes lgophanimSpinB { 0% { transform: none } 10% { transform: rotate(20deg) scale(1.05) } 70% { transform: rotate(-375deg) } 100% { transform: rotate(-360deg) } }
+@keyframes lgophanimSpinA { 0% { transform: none } 10% { transform: rotate(-20deg) scale(.92) } 40% { transform: rotate(200deg) scale(.93) } 70% { transform: rotate(375deg) scale(.97) } 100% { transform: rotate(360deg) } }
+@keyframes lgophanimSpinB { 0% { transform: none } 10% { transform: rotate(20deg) scale(.97) } 40% { transform: rotate(-200deg) scale(.95) } 70% { transform: rotate(-375deg) scale(.98) } 100% { transform: rotate(-360deg) } }
 @keyframes lgophanimSlam { 0% { transform: none } 8% { transform: scaleY(.06) } 34% { transform: scaleY(.06) } 50% { transform: scaleY(1.2) } 100% { transform: none } }
-@keyframes lgophanimFlinchIn { 0% { transform: none } 12% { transform: scale(.88, .94) } 44% { transform: scale(1.02) } 100% { transform: none } }
+@keyframes lgophanimFlinchIn { 0% { transform: none } 12% { transform: scale(.88, .94) } 44% { transform: scale(1.02, .99) } 100% { transform: none } }
 @keyframes lgophanimSlice { 0% { transform: none } 8% { transform: rotate(-28deg) scale(1, .78) translateY(3%) } 40% { transform: rotate(-20deg) scale(1, .84) translateY(2%) } 75% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgophanimLidFlinch { 0% { transform: none } 10% { transform: scaleY(.3) } 30% { transform: scaleY(.7) } 100% { transform: none } }
 @keyframes lgophanimStare { 0% { transform: none } 22% { transform: scaleY(1.55) scaleX(1.06) } 70% { transform: scaleY(1.45) scaleX(1.05) } 100% { transform: none } }
 @keyframes lgophanimBlaze { 0% { transform: none; filter: none } 22% { transform: scale(1.2); filter: brightness(1.7) saturate(1.4) } 70% { transform: scale(1.14); filter: brightness(1.4) } 100% { transform: none; filter: none } }
-@keyframes lgophanimBeat { 0% { transform: none } 30% { transform: scale(1.26, 1.12) translateY(-4%) } 46% { transform: scale(.9, .94) translateY(5%) } 62% { transform: scale(1.04) translateY(1%) } 100% { transform: none } }
+@keyframes lgophanimBeat { 0% { transform: none } 30% { transform: scale(1.02, .99) } 46% { transform: scale(.8, .86) translateY(6%) } 62% { transform: scale(1.03, .99) translateY(1%) } 100% { transform: none } }
 @keyframes lgophanimWhirlA { 0% { transform: none } 30% { transform: rotate(-30deg) scale(.92) } 100% { transform: rotate(360deg) } }
 @keyframes lgophanimWhirlB { 0% { transform: none } 30% { transform: rotate(30deg) scale(.92) } 100% { transform: rotate(-360deg) } }
 @keyframes lgophanimFlare { 0% { transform: none; filter: none } 30% { transform: scale(.9); filter: brightness(.8) } 46% { transform: scale(1.3); filter: brightness(2) saturate(1.5) } 70% { transform: scale(1.08); filter: brightness(1.3) } 100% { transform: none; filter: none } }
@@ -46,14 +46,14 @@ export const css = `
 @keyframes lgophanimLockB { 0% { transform: none } 16% { transform: rotate(-90deg) scale(.8) } 60% { transform: rotate(-84deg) scale(.82) } 100% { transform: rotate(0) } }
 @keyframes lgophanimNarrow { 0% { transform: none } 16% { transform: scaleY(.5) } 60% { transform: scaleY(.55) } 100% { transform: none } }
 @keyframes lgophanimGlance { 0% { transform: none } 24% { transform: translateX(-7%) scale(.94) } 60% { transform: translateX(-5%) scale(.96) } 100% { transform: none } }
-@keyframes lgophanimShelter { 0% { transform: none } 24% { transform: scale(.84, 1.04) } 60% { transform: scale(.88, 1.03) } 100% { transform: none } }
+@keyframes lgophanimShelter { 0% { transform: none } 24% { transform: scale(.8, .97) translateY(2%) } 60% { transform: scale(.85, .98) translateY(1%) } 100% { transform: none } }
 @keyframes lgophanimSink { 0% { transform: none } 35% { transform: scale(1, .9) translateY(5%) } 72% { transform: scale(1, .92) translateY(4%) } 100% { transform: none } }
 @keyframes lgophanimTiltA { 0% { transform: none } 40% { transform: rotate(-12deg) scale(.96, .9) } 75% { transform: rotate(-9deg) scale(.97, .92) } 100% { transform: none } }
 @keyframes lgophanimTiltB { 0% { transform: none } 40% { transform: rotate(9deg) scale(.96, .9) } 75% { transform: rotate(7deg) scale(.97, .92) } 100% { transform: none } }
 @keyframes lgophanimHalfClose { 0% { transform: none } 35% { transform: scaleY(.5) } 75% { transform: scaleY(.55) } 100% { transform: none } }
-@keyframes lgophanimHaltA { 0% { transform: none } 40% { transform: rotate(160deg) } 60% { transform: rotate(185deg) scale(.86, .7) } 66% { transform: rotate(180deg) scale(.88, .74) } 100% { transform: rotate(190deg) scale(.62, .42) translateY(10%) } }
-@keyframes lgophanimHaltB { 0% { transform: none } 40% { transform: rotate(-150deg) } 60% { transform: rotate(-178deg) scale(.86, .7) } 66% { transform: rotate(-172deg) scale(.88, .74) } 100% { transform: rotate(-182deg) scale(.6, .4) translateY(12%) } }
-@keyframes lgophanimFold { 0% { transform: none } 12% { transform: scale(1.12, 1.06) } 50% { transform: scale(.94, .92) translateY(3%) } 62% { transform: scale(.72, .6) translateY(12%) } 100% { transform: scale(.66, .52) translateY(15%) } }
+@keyframes lgophanimHaltA { 0% { transform: none } 40% { transform: rotate(160deg) scale(.93) } 60% { transform: rotate(185deg) scale(.86, .7) } 66% { transform: rotate(180deg) scale(.88, .74) } 100% { transform: rotate(190deg) scale(.62, .42) translateY(10%) } }
+@keyframes lgophanimHaltB { 0% { transform: none } 40% { transform: rotate(-150deg) scale(.93) } 60% { transform: rotate(-178deg) scale(.86, .7) } 66% { transform: rotate(-172deg) scale(.88, .74) } 100% { transform: rotate(-182deg) scale(.6, .4) translateY(12%) } }
+@keyframes lgophanimFold { 0% { transform: none } 12% { transform: scale(1.03, .99) } 50% { transform: scale(.94, .92) translateY(3%) } 62% { transform: scale(.72, .6) translateY(12%) } 100% { transform: scale(.66, .52) translateY(15%) } }
 @keyframes lgophanimClose { 0% { transform: none } 12% { transform: scaleY(1.4) } 40% { transform: scaleY(.3) } 50% { transform: scaleY(.6) } 62% { transform: scaleY(.04) } 100% { transform: scaleY(.04) } }
 @keyframes lgophanimDimOut { 0% { filter: none } 55% { filter: brightness(1.2) } 66% { filter: brightness(.5) saturate(.4) } 100% { filter: brightness(.45) saturate(.3) } }
 @keyframes lgophanimGlare { 0% { transform: translate(-50%, -50%) scale(.2, .05); opacity: 0 } 18% { transform: translate(-50%, -50%) scale(.6, .4); opacity: 1 } 40% { transform: translate(-50%, -50%) scale(1, 1); opacity: 1 } 70% { transform: translate(-50%, -50%) scale(2.6, 2.4); opacity: .9 } 100% { transform: translate(-50%, -50%) scale(3.4, 3.2); opacity: 0 } }

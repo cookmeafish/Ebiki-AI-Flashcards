@@ -24,10 +24,10 @@ ${B} .lg-inferno-kindle, ${B} .lg-inferno-throne, ${B} .lg-inferno-body, ${B} .l
 
 // A HIT: the blow snaps the crowned head back and up, the jaw clamps on its teeth, the wings jerk in and shudder.
 const hit = `
-@keyframes lginfernoHitHead { 0% { transform: translate(-6%, -9%) rotate(-11deg) } 30% { transform: translate(-3%, -4%) rotate(-6deg) } 60% { transform: translate(1%, 1%) rotate(2deg) } 100% { transform: none } }
+@keyframes lginfernoHitHead { 0% { transform: translate(-5%, -1%) rotate(-13deg) } 30% { transform: translate(-3%, 0) rotate(-7deg) } 60% { transform: translate(1%, 1%) rotate(2deg) } 100% { transform: none } }
 @keyframes lginfernoHitJaw { 0% { transform: scaleY(.8) } 40% { transform: scaleY(.88) } 100% { transform: none } }
-@keyframes lginfernoHitWingL { 0% { transform: rotate(-9deg) } 35% { transform: rotate(4deg) } 65% { transform: rotate(-2deg) } 100% { transform: none } }
-@keyframes lginfernoHitWingR { 0% { transform: rotate(9deg) } 35% { transform: rotate(-4deg) } 65% { transform: rotate(2deg) } 100% { transform: none } }
+@keyframes lginfernoHitWingL { 0% { transform: rotate(-4deg) } 35% { transform: rotate(4deg) } 65% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lginfernoHitWingR { 0% { transform: rotate(4deg) } 35% { transform: rotate(-4deg) } 65% { transform: rotate(2deg) } 100% { transform: none } }
 ${M('hit')} .lg-inferno-head { animation: lginfernoHitHead 460ms cubic-bezier(.2,.9,.3,1) both }
 ${M('hit')} .lg-inferno-jaw { animation: lginfernoHitJaw 420ms ease-out both }
 ${M('hit')} .lg-inferno-wingl { animation: lginfernoHitWingL 520ms ease-out both }
@@ -36,16 +36,18 @@ ${M('hit')} .lg-inferno-wingr { animation: lginfernoHitWingR 520ms ease-out both
 // A CRITICAL: the head is whipped round sideways, the jaw knocked open, both wings fling out of time, the fire on the
 // swords is knocked flat and springs back.
 const crit = `
-@keyframes lginfernoCritHead { 0% { transform: translate(-14%, -6%) rotate(-24deg) scale(.94) } 22% { transform: translate(-16%, -4%) rotate(-27deg) scale(.94) } 48% { transform: translate(5%, 2%) rotate(9deg) } 70% { transform: translate(-2%, 0) rotate(-4deg) } 100% { transform: none } }
+@keyframes lginfernoCritHead { 0% { transform: translate(-11%, -3%) rotate(-24deg) scale(.94) } 22% { transform: translate(-12%, -2%) rotate(-27deg) scale(.94) } 48% { transform: translate(5%, 2%) rotate(9deg) } 70% { transform: translate(-2%, 0) rotate(-4deg) } 100% { transform: none } }
 @keyframes lginfernoCritJaw { 0% { transform: scaleY(1.45) rotate(-6deg) } 30% { transform: scaleY(1.4) rotate(-6deg) } 55% { transform: scaleY(.8) } 75% { transform: scaleY(1.08) } 100% { transform: none } }
-@keyframes lginfernoCritWingL { 0% { transform: rotate(-22deg) } 30% { transform: rotate(14deg) } 55% { transform: rotate(-7deg) } 80% { transform: rotate(3deg) } 100% { transform: none } }
-@keyframes lginfernoCritWingR { 0% { transform: rotate(10deg) } 25% { transform: rotate(-18deg) } 52% { transform: rotate(9deg) } 80% { transform: rotate(-3deg) } 100% { transform: none } }
-@keyframes lginfernoCritKindle { 0% { transform: scaleY(.25) skewX(-25deg) } 45% { transform: scaleY(.5) skewX(-12deg) } 75% { transform: scaleY(1.25) } 100% { transform: none } }
+@keyframes lginfernoCritWingL { 0% { transform: rotate(-6deg) } 30% { transform: rotate(12deg) } 55% { transform: rotate(-5deg) } 80% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lginfernoCritWingR { 0% { transform: rotate(4deg) } 25% { transform: rotate(-12deg) } 52% { transform: rotate(3deg) } 80% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lginfernoCritSkull { 0% { transform: scaleY(.3) skewX(-25deg) } 45% { transform: scaleY(.55) skewX(-12deg) } 75% { transform: scaleY(1.03) } 100% { transform: none } }
+@keyframes lginfernoCritKindle { 0% { transform: scaleY(.25) skewX(-25deg) } 45% { transform: scaleY(.5) skewX(-12deg) } 75% { transform: scaleY(1.1) } 100% { transform: none } }
 ${M('crit')} .lg-inferno-head { animation: lginfernoCritHead 700ms cubic-bezier(.15,.85,.3,1) both }
 ${M('crit')} .lg-inferno-jaw { animation: lginfernoCritJaw 640ms ease-out both }
 ${M('crit')} .lg-inferno-wingl { animation: lginfernoCritWingL 760ms ease-out both }
 ${M('crit')} .lg-inferno-wingr { animation: lginfernoCritWingR 760ms ease-out both }
-${M('crit')} .lg-inferno-kindle, ${M('crit')} .lg-inferno-flameskull { animation: lginfernoCritKindle 700ms ease-out both }
+${M('crit')} .lg-inferno-kindle { animation: lginfernoCritKindle 700ms ease-out both }
+${M('crit')} .lg-inferno-flameskull { animation: lginfernoCritSkull 700ms ease-out both }
 `
 // A SHARPENED strike: honed steel bites into the obsidian: the head ducks low under the cut, the claws spring off the
 // throne, the wings shiver twice like struck glass.
@@ -66,7 +68,7 @@ ${M('sharpen')} .lg-inferno-wingr { animation: lginfernoShiverR 520ms linear bot
 const strike = `
 @keyframes lginfernoStrikeArmL { 0% { transform: translate(4%, 4%) rotate(4deg) } 30% { transform: translate(-6%, -8%) rotate(-12deg) } 55% { transform: translate(-4%, -5%) rotate(-8deg) } 100% { transform: none } }
 @keyframes lginfernoStrikeArmR { 0% { transform: translate(-4%, 4%) rotate(-4deg) } 30% { transform: translate(6%, -8%) rotate(12deg) } 55% { transform: translate(4%, -5%) rotate(8deg) } 100% { transform: none } }
-@keyframes lginfernoStrikeKindle { 0% { transform: scaleY(.8) } 25% { transform: scale(1.15, 1.6) } 60% { transform: scale(1.05, 1.3) } 100% { transform: none } }
+@keyframes lginfernoStrikeKindle { 0% { transform: scaleY(.8) } 16% { transform: scale(1.1, 1.32) } 28% { transform: scale(1.03, 1.1) } 40% { transform: scale(1.08, 1.28) } 56% { transform: scale(1.03, 1.1) } 72% { transform: scale(1.05, 1.18) } 100% { transform: none } }
 @keyframes lginfernoStrikeThrone { 0%, 100% { transform: none } 22% { transform: translateY(-3%) } 34% { transform: translateY(1.5%) } 48% { transform: translateY(-1%) } }
 ${M('hurt')} .lg-inferno-arml { animation: lginfernoStrikeArmL 760ms cubic-bezier(.3,1.2,.4,1) both }
 ${M('hurt')} .lg-inferno-armr { animation: lginfernoStrikeArmR 760ms cubic-bezier(.3,1.2,.4,1) both }
@@ -77,19 +79,28 @@ ${M('hurt')} .lg-inferno-throne { animation: lginfernoStrikeThrone 700ms linear 
 // arms, the river below boils up, then everything crashes down with the second blast.
 const heavy = `
 @keyframes lginfernoHeavyBody { 0% { transform: translateY(-2%) } 18% { transform: translateY(-9%) scale(1.04) } 34% { transform: translateY(3%) scale(.98, 1.02) } 50% { transform: translateY(-4%) } 64% { transform: translateY(2%) } 100% { transform: none } }
-@keyframes lginfernoHeavyWingL { 0% { transform: rotate(8deg) } 18% { transform: rotate(26deg) } 34% { transform: rotate(-12deg) } 52% { transform: rotate(16deg) } 70% { transform: rotate(-5deg) } 100% { transform: none } }
-@keyframes lginfernoHeavyWingR { 0% { transform: rotate(-8deg) } 18% { transform: rotate(-26deg) } 34% { transform: rotate(12deg) } 52% { transform: rotate(-16deg) } 70% { transform: rotate(5deg) } 100% { transform: none } }
+@keyframes lginfernoHeavyWingL { 0% { transform: rotate(7deg) } 18% { transform: rotate(17deg) } 34% { transform: rotate(-8deg) } 52% { transform: rotate(12deg) } 70% { transform: rotate(-4deg) } 100% { transform: none } }
+@keyframes lginfernoHeavyWingR { 0% { transform: rotate(-7deg) } 18% { transform: rotate(-17deg) } 34% { transform: rotate(6deg) } 52% { transform: rotate(-12deg) } 70% { transform: rotate(4deg) } 100% { transform: none } }
 @keyframes lginfernoHeavyArmL { 0% { transform: none } 18% { transform: translate(-8%, -14%) rotate(-18deg) } 34% { transform: translate(2%, 6%) rotate(6deg) } 52% { transform: translate(-5%, -8%) rotate(-10deg) } 100% { transform: none } }
 @keyframes lginfernoHeavyArmR { 0% { transform: none } 18% { transform: translate(8%, -14%) rotate(18deg) } 34% { transform: translate(-2%, 6%) rotate(-6deg) } 52% { transform: translate(5%, -8%) rotate(10deg) } 100% { transform: none } }
-@keyframes lginfernoHeavyRiver { 0%, 100% { transform: none } 20% { transform: translateY(-10%) scaleY(1.25) } 38% { transform: translateY(4%) scaleY(.9) } 56% { transform: translateY(-5%) scaleY(1.12) } 75% { transform: translateY(1%) } }
-@keyframes lginfernoHeavyKindle { 0% { transform: scale(1.1, 1.4) } 20% { transform: scale(1.3, 2.1) } 55% { transform: scale(1.15, 1.6) } 100% { transform: none } }
+@keyframes lginfernoHeavyRiver { 0%, 100% { transform: none } 20% { transform: scaleY(1.17) } 38% { transform: scaleY(.92) } 56% { transform: scaleY(1.09) } 75% { transform: scaleY(1.02) } }
+@keyframes lginfernoHeavyKindle { 0% { transform: scale(1.06, 1.2) } 14% { transform: scale(1.14, 1.34) } 26% { transform: scale(1.04, 1.08) } 38% { transform: scale(1.12, 1.33) } 52% { transform: scale(1.04, 1.1) } 66% { transform: scale(1.09, 1.26) } 82% { transform: scale(1.02, 1.06) } 100% { transform: none } }
 ${M('hurtBig')} .lg-inferno-body, ${M('hurtBig')} .lg-inferno-throne { animation: lginfernoHeavyBody 1000ms cubic-bezier(.3,.9,.4,1) both }
 ${M('hurtBig')} .lg-inferno-wingl { animation: lginfernoHeavyWingL 1050ms cubic-bezier(.3,.9,.4,1) both }
 ${M('hurtBig')} .lg-inferno-wingr { animation: lginfernoHeavyWingR 1050ms cubic-bezier(.3,.9,.4,1) both }
 ${M('hurtBig')} .lg-inferno-arml { animation: lginfernoHeavyArmL 1000ms ease-out both }
 ${M('hurtBig')} .lg-inferno-armr { animation: lginfernoHeavyArmR 1000ms ease-out both }
-${M('hurtBig')} .lg-inferno-river { animation: lginfernoHeavyRiver 1100ms ease-out both }
+${M('hurtBig')} .lg-inferno-river { animation: lginfernoHeavyRiver 1100ms ease-out both; transform-origin: 50% 0% }
 ${M('hurtBig')} .lg-inferno-kindle { animation: lginfernoHeavyKindle 1000ms ease-out both }
+/* phase 3: the sword fire already reaches high and the bigger wings fill the corners, so they flare less there */
+@keyframes lginfernoHeavyKindle3 { 0% { transform: scale(1.05, 1.08) } 14% { transform: scale(1.1, 1.15) } 26% { transform: scale(.98, .9) } 38% { transform: scale(1.09, 1.15) } 52% { transform: scale(.99, .92) } 66% { transform: scale(1.06, 1.12) } 100% { transform: none } }
+@keyframes lginfernoStrikeKindle3 { 0% { transform: scaleY(.8) } 16% { transform: scale(1.08, 1.14) } 30% { transform: scale(.98, .9) } 44% { transform: scale(1.06, 1.13) } 60% { transform: scale(1, .95) } 100% { transform: none } }
+@keyframes lginfernoHeavyWingL3 { 0% { transform: rotate(5deg) } 18% { transform: rotate(13deg) } 34% { transform: rotate(-6deg) } 52% { transform: rotate(10deg) } 70% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lginfernoHeavyWingR3 { 0% { transform: rotate(-5deg) } 18% { transform: rotate(-13deg) } 34% { transform: rotate(3deg) } 52% { transform: rotate(-10deg) } 70% { transform: rotate(2deg) } 100% { transform: none } }
+${B}[data-phase="3"][data-moment="hurtBig"] .lg-inferno-kindle { animation-name: lginfernoHeavyKindle3 }
+${B}[data-phase="3"][data-moment="hurt"] .lg-inferno-kindle { animation-name: lginfernoStrikeKindle3 }
+${B}[data-phase="3"][data-moment="hurtBig"] .lg-inferno-wingl { animation-name: lginfernoHeavyWingL3 }
+${B}[data-phase="3"][data-moment="hurtBig"] .lg-inferno-wingr { animation-name: lginfernoHeavyWingR3 }
 `
 // A BLOCK (its attack was parried): the breath is shoved back down its throat: the jaw SLAMS shut, the head reels back
 // and shakes it off, the claws skid back off the throne arms, the wings brace forward.
@@ -98,8 +109,8 @@ const block = `
 @keyframes lginfernoBlockJaw { 0% { transform: scaleY(.62) } 50% { transform: scaleY(.7) } 100% { transform: none } }
 @keyframes lginfernoBlockArmL { 0% { transform: translate(8%, 3%) rotate(8deg) } 45% { transform: translate(5%, 2%) rotate(5deg) } 100% { transform: none } }
 @keyframes lginfernoBlockArmR { 0% { transform: translate(-8%, 3%) rotate(-8deg) } 45% { transform: translate(-5%, 2%) rotate(-5deg) } 100% { transform: none } }
-@keyframes lginfernoBraceL { 0% { transform: rotate(-14deg) } 50% { transform: rotate(-10deg) } 100% { transform: none } }
-@keyframes lginfernoBraceR { 0% { transform: rotate(14deg) } 50% { transform: rotate(10deg) } 100% { transform: none } }
+@keyframes lginfernoBraceL { 0% { transform: rotate(-4deg) } 50% { transform: rotate(-3deg) } 100% { transform: none } }
+@keyframes lginfernoBraceR { 0% { transform: rotate(3deg) } 50% { transform: rotate(2deg) } 100% { transform: none } }
 ${M('block')} .lg-inferno-head { animation: lginfernoBlockHead 660ms ease-out both }
 ${M('block')} .lg-inferno-jaw { animation: lginfernoBlockJaw 600ms ease-out both }
 ${M('block')} .lg-inferno-arml { animation: lginfernoBlockArmL 560ms ease-out both }
@@ -110,7 +121,7 @@ ${M('block')} .lg-inferno-wingr { animation: lginfernoBraceR 620ms ease-out both
 // A SHIELD SAVE: its fire breaks on the dome: the head is turned aside by its own backwash, jaw still gaping, then it
 // snaps back to glare; the wings flare up in fury.
 const shield = `
-@keyframes lginfernoShieldHead { 0% { transform: translate(-4%, 0) rotate(-6deg) } 20% { transform: translate(8%, -3%) rotate(14deg) } 45% { transform: translate(6%, -2%) rotate(11deg) } 70% { transform: translate(-2%, 0) rotate(-3deg) } 100% { transform: none } }
+@keyframes lginfernoShieldHead { 0% { transform: translate(-4%, 0) rotate(-6deg) } 20% { transform: translate(8%, 0) rotate(14deg) } 45% { transform: translate(6%, 0) rotate(11deg) } 70% { transform: translate(-2%, 0) rotate(-3deg) } 100% { transform: none } }
 @keyframes lginfernoShieldJaw { 0% { transform: scaleY(1.3) } 45% { transform: scaleY(1.25) } 70% { transform: scaleY(.85) } 100% { transform: none } }
 @keyframes lginfernoFlareL { 0% { transform: none } 25% { transform: rotate(12deg) } 60% { transform: rotate(9deg) } 100% { transform: none } }
 @keyframes lginfernoFlareR { 0% { transform: none } 25% { transform: rotate(-12deg) } 60% { transform: rotate(-9deg) } 100% { transform: none } }
@@ -132,13 +143,14 @@ ${M('wind')} .lg-inferno-kindle, ${M('wind')} .lg-inferno-flameskull { animation
 // the head drops forward, the jaw hangs open, the wings collapse down over the throne, the claws slide off, the sword
 // fire gutters out and the river sinks. fx/inferno.jsx holds the fallen pose after the cinematic.
 const ko = `
-@keyframes lginfernoKoHead { 0% { transform: none } 14% { transform: translateY(-10%) rotate(-8deg) scale(1.06) } 30% { transform: translateY(-12%) rotate(-10deg) scale(1.08) } 52% { transform: translateY(6%) rotate(6deg) scale(.96) } 72% { transform: translateY(18%) rotate(12deg) scale(.92) } 86% { transform: translateY(16%) rotate(10deg) scale(.92) } 100% { transform: translateY(18%) rotate(12deg) scale(.92) } }
+@keyframes lginfernoKoHead { 0% { transform: none } 14% { transform: rotate(-11deg) } 30% { transform: rotate(-13deg) } 52% { transform: translateY(6%) rotate(6deg) scale(.96) } 72% { transform: translateY(18%) rotate(12deg) scale(.92) } 86% { transform: translateY(16%) rotate(10deg) scale(.92) } 100% { transform: translateY(18%) rotate(12deg) scale(.92) } }
 @keyframes lginfernoKoJaw { 0% { transform: none } 14% { transform: scaleY(1.5) } 34% { transform: scaleY(1.55) } 60% { transform: scaleY(1.2) } 100% { transform: scaleY(1.32) rotate(4deg) } }
-@keyframes lginfernoKoWingL { 0% { transform: none } 22% { transform: rotate(22deg) } 48% { transform: rotate(-10deg) } 70% { transform: rotate(-38deg) } 82% { transform: rotate(-33deg) } 100% { transform: rotate(-36deg) } }
-@keyframes lginfernoKoWingR { 0% { transform: none } 22% { transform: rotate(-22deg) } 48% { transform: rotate(10deg) } 70% { transform: rotate(38deg) } 82% { transform: rotate(33deg) } 100% { transform: rotate(36deg) } }
+@keyframes lginfernoKoWingL { 0% { transform: none } 22% { transform: rotate(12deg) } 48% { transform: rotate(-3deg) scale(.9) } 70% { transform: rotate(-14deg) scale(.84) } 82% { transform: rotate(-12deg) scale(.86) } 100% { transform: rotate(-13deg) scale(.85) } }
+@keyframes lginfernoKoWingR { 0% { transform: none } 22% { transform: rotate(-12deg) } 48% { transform: rotate(3deg) scale(.9) } 70% { transform: rotate(14deg) scale(.84) } 82% { transform: rotate(12deg) scale(.86) } 100% { transform: rotate(13deg) scale(.85) } }
 @keyframes lginfernoKoArmL { 0%, 40% { transform: none } 70% { transform: translate(-4%, 14%) rotate(14deg) } 100% { transform: translate(-4%, 12%) rotate(12deg) } }
 @keyframes lginfernoKoArmR { 0%, 40% { transform: none } 70% { transform: translate(4%, 14%) rotate(-14deg) } 100% { transform: translate(4%, 12%) rotate(-12deg) } }
-@keyframes lginfernoKoFire { 0% { transform: none } 20% { transform: scale(1.2, 1.7) } 50% { transform: scale(.9, .7) } 66% { transform: scale(1, .9) } 80% { transform: scale(.6, .25) } 100% { transform: scale(.4, .06) } }
+@keyframes lginfernoKoFire { 0% { transform: none } 20% { transform: scale(1.08, 1.16) } 50% { transform: scale(.9, .7) } 66% { transform: scale(1, .9) } 80% { transform: scale(.6, .25) } 100% { transform: scale(.4, .06) } }
+@keyframes lginfernoKoSkull { 0% { transform: none } 20% { transform: scale(1.06, 1) } 50% { transform: scale(.9, .7) } 66% { transform: scale(1, .9) } 80% { transform: scale(.6, .25) } 100% { transform: scale(.4, .06) } }
 @keyframes lginfernoKoRiver { 0%, 45% { transform: none } 80%, 100% { transform: translateY(14%) scaleY(.8) } }
 ${M('ko')} .lg-inferno-head { animation: lginfernoKoHead 2300ms cubic-bezier(.3,.6,.4,1) both }
 ${M('ko')} .lg-inferno-jaw { animation: lginfernoKoJaw 2300ms ease-out both }
@@ -146,7 +158,8 @@ ${M('ko')} .lg-inferno-wingl { animation: lginfernoKoWingL 2300ms cubic-bezier(.
 ${M('ko')} .lg-inferno-wingr { animation: lginfernoKoWingR 2300ms cubic-bezier(.4,.1,.5,1) both }
 ${M('ko')} .lg-inferno-arml { animation: lginfernoKoArmL 2300ms ease-in both }
 ${M('ko')} .lg-inferno-armr { animation: lginfernoKoArmR 2300ms ease-in both }
-${M('ko')} .lg-inferno-kindle, ${M('ko')} .lg-inferno-flameskull { animation: lginfernoKoFire 2300ms ease-in both }
+${M('ko')} .lg-inferno-kindle { animation: lginfernoKoFire 2300ms ease-in both }
+${M('ko')} .lg-inferno-flameskull { animation: lginfernoKoSkull 2300ms ease-in both }
 ${M('ko')} .lg-inferno-river { animation: lginfernoKoRiver 2300ms ease-in both }
 `
 // ITS OWN DRAWN PARTS

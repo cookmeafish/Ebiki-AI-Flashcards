@@ -176,7 +176,7 @@ const svgBox = (key, children, extra = {}) => (
 )
 
 export const PARTS = {
-  // Glyphs flung out from the centre.
+  // Glyphs flung out from the centre (or from p.y, cqw below it: Second wind's flourish stays under the face).
   burst: (p, ctx) => {
     const n = p.n || 6
     const reach = 40 * (p.reach || 1) * ctx.scale
@@ -185,7 +185,7 @@ export const PARTS = {
       const a = (Math.PI * 2 * i) / n + rnd(i, 3) * 0.5
       const r = reach * (0.75 + rnd(i, 5) * 0.45)
       return fly(`b${i}`, <Glyph name={glyphOf(p, ctx)} color={colorOf(p, ctx)} accent={ctx.accent} />,
-        { x1: Math.cos(a) * r, y1: Math.sin(a) * r, r1: (p.spin || 0) * (i % 2 ? 1 : -1), s0: 0.4, s1: 1, w, ms: 620 * ctx.speed, delay: rnd(i, 7) * 60 })
+        { y0: p.y || 0, x1: Math.cos(a) * r, y1: (p.y || 0) + Math.sin(a) * r, r1: (p.spin || 0) * (i % 2 ? 1 : -1), s0: 0.4, s1: 1, w, ms: 620 * ctx.speed, delay: rnd(i, 7) * 60 })
     })
   },
   // Thin bright streaks (a white core).
@@ -199,7 +199,8 @@ export const PARTS = {
   ring: (p, ctx) => {
     const c = colorOf(p, ctx)
     const s1 = (p.scale || 1.7) * ctx.scale
-    return <div key={`rg${p.delay || 0}`} style={{ position: 'absolute', left: '50%', top: '50%', width: '72cqw', height: '72cqw', borderRadius: '50%', border: `${p.width || 3}px ${p.dashed ? 'dashed' : 'solid'} ${c}`, boxShadow: `0 0 2cqw ${c}`,
+    // `top` (percent of the box, default the centre) lets a boss send its shockwave from its chest instead of its face
+    return <div key={`rg${p.delay || 0}`} style={{ position: 'absolute', left: '50%', top: `${p.top ?? 50}%`, width: '72cqw', height: '72cqw', borderRadius: '50%', border: `${p.width || 3}px ${p.dashed ? 'dashed' : 'solid'} ${c}`, boxShadow: `0 0 2cqw ${c}`,
       '--s0': p.inward ? 2.4 : 0.2, '--s1': p.inward ? 0.1 : s1, animation: `lgiRing ${560 * ctx.speed}ms ${p.inward ? 'cubic-bezier(.6,0,.8,.4)' : 'ease-out'} ${p.delay || 0}ms both` }} />
   },
   // A red (or tinted) glow at the box's rim: the player got hurt.
@@ -238,15 +239,18 @@ export const PARTS = {
     return fly(`ri${i}`, <Glyph name={glyphOf(p, ctx)} color={colorOf(p, ctx)} accent={ctx.accent} />,
       { x0: x * 0.5, y0: 10 + rnd(i, 33) * 25, x1: x + (rnd(i, 35) - 0.5) * 30, y1: -70 - rnd(i, 37) * 20, r0: 0, r1: (rnd(i, 39) - 0.5) * 120, s0: 0.5, s1: 1.1, w: 11 * (p.size || 1), ms: 1050 * ctx.speed, delay: rnd(i, 41) * 220, ease: 'cubic-bezier(.2,.6,.4,1)' })
   }),
-  // Conic rays turning behind the boss.
+  // Conic rays turning behind the boss. They fade out INSIDE the layer's clip at every moment of the spin: grown to 1.4x
+  // with the fade at 68% the rays reached 90cqw from the centre, past the knockout clip (box + 20%: 70cqw), and showed
+  // as a hard-edged RECTANGLE (the Seraph at 2.4 s; a plain `circle` mask measures to the CORNER, 1.41x). Now at most
+  // 95cqw x 1.15 x 59% = 64cqw.
   rays: (p, ctx) => {
     const c = colorOf(p, ctx)
     const stops = p.rainbow ? RAINBOW.map((x, i) => `${x}cc ${i * 60}deg ${i * 60 + 8}deg, transparent ${i * 60 + 8}deg ${i * 60 + 30}deg`).join(', ') : null
     const n = p.n || 12
     return <div key="ry" style={{ position: 'absolute', left: '50%', top: '50%', width: '190cqw', height: '190cqw', borderRadius: '50%',
       background: stops ? `conic-gradient(${stops})` : `repeating-conic-gradient(${c}cc 0deg ${180 / n}deg, transparent ${180 / n}deg ${360 / n}deg)`,
-      WebkitMaskImage: 'radial-gradient(circle, #000 22%, transparent 68%)', maskImage: 'radial-gradient(circle, #000 22%, transparent 68%)',
-      '--r0': '0deg', '--r1': '45deg', '--s0': 0.25, '--s1': 1.4, animation: `lgiSpin ${1250 * ctx.speed}ms ease-out both` }} />
+      WebkitMaskImage: 'radial-gradient(circle closest-side, #000 28%, transparent 59%)', maskImage: 'radial-gradient(circle closest-side, #000 28%, transparent 59%)',
+      '--r0': '0deg', '--r1': '45deg', '--s0': 0.25, '--s1': 1.15, animation: `lgiSpin ${1250 * ctx.speed}ms ease-out both` }} />
   },
   // Banshee: thick sound rings bursting out (or crushing in), blurred at the edge.
   scream: (p, ctx) => Array.from({ length: p.n || 3 }, (_, i) => {
@@ -502,8 +506,9 @@ export const PARTS = {
     return fly(`pu${i}`, <Glyph name={glyphOf(p, ctx)} color={i % 3 ? ctx.color : '#ffffff'} accent={ctx.accent} />,
       { x0: Math.cos(a) * r, y0: Math.sin(a) * r, x1: 0, y1: 0, r0: 0, r1: 360, s0: 1.1, s1: 0.1, w: 8, ms: 720 * ctx.speed, delay: rnd(i, 135) * 160, ease: 'cubic-bezier(.6,0,.9,.6)' })
   }),
-  // Shared: the white flash where a hit lands (every hit, bigger on a critical).
-  flash: (p) => <div key="fl" style={{ position: 'absolute', left: '50%', top: '46%', width: `${p.big ? 56 : 38}cqw`, height: `${p.big ? 56 : 38}cqw`, filter: 'drop-shadow(0 0 2cqw #fff)', '--r0': '0deg', '--r1': '35deg', '--s0': 0.2, '--s1': 1.3,
+  // Shared: the white flash where a hit lands (every hit, bigger on a critical). p.y (% of the box, default 46) and
+  // p.size (cqw) come from a boss's style.flash when its face sits where the flash would land.
+  flash: (p) => <div key="fl" style={{ position: 'absolute', left: '50%', top: `${p.y ?? 46}%`, width: `${p.size ?? (p.big ? 56 : 38)}cqw`, height: `${p.size ?? (p.big ? 56 : 38)}cqw`, filter: 'drop-shadow(0 0 2cqw #fff)', '--r0': '0deg', '--r1': '35deg', '--s0': 0.2, '--s1': 1.3,
     animation: `lgiSpin ${p.big ? 340 : 260}ms cubic-bezier(.1,.9,.3,1) both` }}><Glyph name="star4" color="#ffffff" accent="#ffffff" outline={false} /></div>,
   // Shared: a parry (blocked attack), a shield bubble, a heart back.
   parry: (p, ctx) => [45, -45].map((a, i) => (
@@ -512,7 +517,9 @@ export const PARTS = {
   )),
   bubble: () => <div key="bb" style={{ position: 'absolute', left: '50%', top: '50%', width: '96cqw', height: '96cqw', borderRadius: '50%', border: '1.2cqw solid #6fc3ff', boxShadow: '0 0 4cqw #6fc3ff, inset 0 0 6cqw #6fc3ff88',
     background: 'radial-gradient(circle at 35% 30%, #ffffff55, transparent 30%)', animation: 'lgiBubble 900ms ease-out 150ms both' }} />,
-  heart: () => fly('hrt', <div style={{ fontSize: '20cqw', lineHeight: 1, textAlign: 'center' }}>💖</div>, { x0: 0, y0: 30, x1: 0, y1: -55, s0: 0.4, s1: 1.2, w: 15, ms: 1150, ease: 'cubic-bezier(.22,1,.36,1)' }),
+  // Second wind's heart rises in the LOWER half of the box, toward the hearts: from the bottom to the chest (it rose from
+  // the chest to above the head, across the face: over the Banshee's mouth; the owner: effects never cover a face).
+  heart: () => fly('hrt', <div style={{ fontSize: '20cqw', lineHeight: 1, textAlign: 'center' }}>💖</div>, { x0: 0, y0: 48, x1: 0, y1: 30, s0: 0.4, s1: 1.1, w: 15, ms: 1150, ease: 'cubic-bezier(.22,1,.36,1)' }),
 
   // ── MOMENT PARTS: what makes a critical, a Sharpen, a heavy blow, a block, a save and Second wind read as their own
   // moment (StrikeFxLayer). Each takes the boss's colors and its own params, so no two bosses play one the same way.
@@ -625,7 +632,9 @@ export const PARTS = {
     const c = colorOf(p, ctx)
     const n = p.n || 40
     const ms = (p.ms || 560) * ctx.speed
-    const mask = 'radial-gradient(circle, transparent 28%, #000 40%, #000 56%, transparent 64%)'
+    // closest-side: the ring fades out by 66cqw from the centre, inside the knockout clip (box + 20%: 70cqw); a plain `circle`
+    // measured to the corner and reached 77cqw, cut flat at the clip's edges.
+    const mask = 'radial-gradient(circle closest-side, transparent 30%, #000 44%, #000 66%, transparent 78%)'
     return [
       <div key="sld" style={{ position: 'absolute', inset: '-20%', background: 'radial-gradient(closest-side, transparent 52%, #0a0612aa 82%, transparent 100%)', animation: `lgiFade ${ms}ms ease-out both` }} />,
       <div key="sll" style={{ position: 'absolute', left: '50%', top: '50%', width: '170cqw', height: '170cqw', marginLeft: '-85cqw', marginTop: '-85cqw', borderRadius: '50%',

@@ -213,7 +213,7 @@ export function PhotoLightBack({ motion }) {
           {/* the light pouring down from above (the owner's plate), added on top of the sky */}
           <div style={{ ...box(-25, -26, 170, 150), mixBlendMode: 'screen', '--o': s.plate, opacity: s.plate, animation: run(motion, 'lgOphBreath', 9),
             backgroundImage: `url(${L.url})`, backgroundSize: '300% 100%', backgroundPosition: `${s.cell * 50}% 0`, backgroundRepeat: 'no-repeat',
-            WebkitMaskImage: 'radial-gradient(circle at 50% 42%, #000 42%, transparent 70%)', maskImage: 'radial-gradient(circle at 50% 42%, #000 42%, transparent 70%)' }} />
+            WebkitMaskImage: 'radial-gradient(ellipse closest-side at 50% 42%, #000 62%, transparent 100%)', maskImage: 'radial-gradient(ellipse closest-side at 50% 42%, #000 62%, transparent 100%)' }} />
           {/* soft volumetric rays from the core: blurred wedges that fade with distance */}
           <div style={{ ...box(-20, -26, 160, 160), mixBlendMode: 'screen', opacity: 0.55, filter: 'blur(2.5px)',
             WebkitMaskImage: 'radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.5) 30%, transparent 62%)', maskImage: 'radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.5) 30%, transparent 62%)' }}>

@@ -53,20 +53,61 @@ export function posOf(front = '', back = '') {
 }
 // The learned word of a card: its front without a trailing "(...)" label and without edge punctuation.
 export const cardWord = (s) => str(s).replace(/\s*\([^)]*\)\s*$/, '').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
-// Its meaning: the first line of the other side, a "Label:" prefix dropped, cut at 80 characters.
-export function cardMeaning(s) {
-  const first = lines(s)[0] || ''
-  const m = first.match(/^[*_\s]*[\p{L} ]{1,24}[:：][*_\s]*(.+)$/u)
-  const out = str((m ? m[1] : first).replace(/\*\*|__/g, ''))
-  return out.length > 80 ? `${out.slice(0, 80).replace(/\s+\S*$/, '')}…` : out
+// ITS MEANING (the review: the app's own default Spanish back starts "Pronunciación: /…/", so "the first line" was the
+// IPA and every meaning check was dead). Per line of the other side, in order of trust:
+//   1. the line under the mode's own meaning label (`label`, from its back template: meaningLabel);
+//   2. a line labelled as a meaning in any language (MEANING_LABEL: Traducción, Translation, Definición, 意味...);
+//   3. the first line that is not pronunciation, part of speech, synonyms, an example or a note (NOT_MEANING_LABEL),
+//      not IPA-shaped ("/ˈpe.ro/", "[pero]"), not a bare part-of-speech tag and not the headword itself (`head`).
+// "Label:" prefixes dropped, cut at 80 characters. Data tables, never `if (lang === ...)`.
+const MEANING_LABEL = /^(?:translations?|traducci[oó]n|traduction|[uü]bersetzung|traduzione|tradu[cç][aã]o|meanings?|significado|signification|sens|bedeutung|significato|definitions?|definici[oó]n|d[eé]finition|definizione|defini[cç][aã]o|gloss|english|意味|意思|翻译|翻譯|释义|뜻|번역|의미)$/iu
+const NOT_MEANING_LABEL = /^(?:pronunciations?|pronunciaci[oó]n|prononciation|aussprache|pronuncia|pron[uú]ncia|ipa|phonetics?|fon[eé]tica|reading|lectura|lecture|furigana|pinyin|romaji|发音|發音|読み|発音|발음|part of speech|pos|categor[ií]a gramatical|categor[ií]a|word class|wortart|tipo|classe|synonyms?|sin[oó]nimos?|synonymes?|synonyme|sinonimi|antonyms?|ant[oó]nimos?|examples?|ejemplos?|exemples?|beispiele?|esempio|exemplos?|例句|例文|예문|notes?|notas?|tags?|gender|g[eé]nero|genre|geschlecht|plural|conjugation|conjugaci[oó]n|usage|uso|register|registro|region|regi[oó]n|audio|sound)$/iu
+const IPA_LIKE = /^\s*[/[].{1,60}[/\]]\s*$/u
+const LABELLED = /^[*_\s]*([\p{L}\p{M} ]{1,28})[:：][*_\s]*(.*)$/u
+const clipMeaning = (v) => { const out = str(String(v || '').replace(/\*\*|__/g, '')); return out.length > 80 ? `${out.slice(0, 80).replace(/\s+\S*$/, '')}…` : out }
+// The meaning line's label in a back template ("Traducción: {translation}" → "Traducción"), or ''.
+export function meaningLabel(template = '') {
+  const rows = String(template || '').split(/\r?\n/)
+  for (const ph of ['translation', 'meaning', 'definition', 'gloss']) {
+    const row = rows.find((r) => new RegExp(`\\{${ph}\\}`, 'i').test(r))
+    const m = row && row.match(/^\s*([^:{：]{1,28})[:：]/u)
+    if (m) return m[1].trim()
+  }
+  return ''
+}
+// Odd backs (the review): "EN → dog" (a language arrow), "/ˈpe.ro/ (n.) dog" (a one-liner: IPA and a tag before the
+// meaning), "🔊 Audio" (an unlabelled non-meaning line behind an emoji), "n." (a line that is only a tag).
+const LANG_ARROW = /^[\p{L}]{2,3}\s*(?:→|->|=>|›|»)\s*/u
+const IPA_LEAD = /^\s*[/[][^/\]]{1,60}[/\]]\s*/u
+const TAG_LEAD = /^\(([^)]{1,20})\)\s*/u
+const cleanMeaning = (v) => {
+  let out = String(v || '').replace(LANG_ARROW, '')
+  const ipa = out.match(IPA_LEAD)
+  if (ipa && ipa[0].length < out.length) out = out.slice(ipa[0].length)
+  const tag = out.match(TAG_LEAD)
+  if (tag && tag[0].length < out.length && tag[1].split(/[\s.,/;]+/).filter(Boolean).every((tk) => tagOf(tk))) out = out.slice(tag[0].length)
+  return out.trim()
+}
+const bareLabel = (v) => String(v || '').replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+export function cardMeaning(s, { head = '', label = '' } = {}) {
+  const rows = lines(s).map((l) => { const m = l.match(LABELLED); return m ? { label: m[1].trim(), value: cleanMeaning(m[2].trim()) } : { label: '', value: cleanMeaning(l) } })
+  const hk = key(cardWord(head))
+  const onlyTag = (v) => { const toks = v.split(/[\s.,/;()]+/).filter(Boolean); return !!toks.length && toks.length <= 2 && toks.every((tk) => tagOf(tk)) }
+  const usable = (r) => !!r.value && !IPA_LIKE.test(r.value) && !(hk && key(cardWord(r.value)) === hk) && !(words(r.value).length === 1 && tagOf(r.value, true)) &&
+    !onlyTag(r.value) && !(!r.label && NOT_MEANING_LABEL.test(bareLabel(r.value))) && /\p{L}|\p{N}/u.test(r.value)
+  const own = label ? rows.find((r) => r.label && key(r.label) === key(label) && usable(r)) : null
+  const named = own || rows.find((r) => r.label && MEANING_LABEL.test(r.label) && usable(r))
+  const plain = named || rows.find((r) => !(r.label && NOT_MEANING_LABEL.test(r.label)) && usable(r))
+  return plain ? clipMeaning(plain.value) : ''
 }
 // A card as the pool sees it. `studied`: reviewed at least once (never a new card).
-export function poolEntry({ front = '', back = '', studied = true, swap = false } = {}) {
+// `label`: the mode's meaning label (meaningLabel of its back template), when known.
+export function poolEntry({ front = '', back = '', studied = true, swap = false, label = '' } = {}) {
   const wordSide = swap ? lines(back)[0] || '' : front
   const meaningSide = swap ? front : back
   const word = cardWord(wordSide)
   if (!word) return null
-  return { word, meaning: cardMeaning(meaningSide), pos: posOf(front, back), studied: studied !== false }
+  return { word, meaning: cardMeaning(meaningSide, { head: word, label }), pos: posOf(front, back), studied: studied !== false }
 }
 // Is the learned word on the front (the usual) or the back? Read from THIS card and its answer.
 export function wordOnBack({ front = '', back = '' } = {}, accepted = []) {
@@ -87,7 +128,28 @@ const STOP_WORDS = new Set(('the a an to of in on at for by with from and or as 
   'para que se su sus lo le les le la les des du et ou au aux en dans pour par sur der die das ein eine und oder zu von ' +
   'mit il lo gli le di da e o per con su il os as um uma do da dos das em com por para').split(' '))
 const glossWords = (m) => key(m).split(' ').filter((w) => [...w].length >= 3 && !STOP_WORDS.has(w))
-const sameStem = (x, y) => x === y || (Math.min(x.length, y.length) >= 3 && (x.startsWith(y) || y.startsWith(x)))
+// The same word, or one a STEM of 4+ letters of the other ("thank"/"thanks"); "car"/"card", "pen"/"pencil" are different words.
+// The same CONTENT words ("perro" for "el perro", "veces" for "a veces", "los perros"): an article or a little word less,
+// or another form of the rest, is no other answer.
+const contentWords = (s) => key(s).split(' ').filter((w) => w && !STOP_WORDS.has(w)).sort().join(' ')
+export const sameContent = (a, b) => { const x = contentWords(a), y = contentWords(b); return !!x && !!y && !numbersDiffer(a, b) && (x === y || closeForm(x, y)) }
+// NUMBERS ARE THE ANSWER (the review: "Port 22"/"Port 23", "RAID 5"/"RAID 6", "IPv4"/"IPv6", "TLS 1.2"/"TLS 1.3" read as
+// another form of the answer, so a CompTIA fight lost every choice): two texts that both carry digits, different
+// ones, are never the same ("3 años" and "tres años" still compare as words).
+const digitsOf = (s) => (String(s ?? '').match(/\p{N}+/gu) || []).join(',')
+export const numbersDiffer = (a, b) => { const x = digitsOf(a), y = digitsOf(b); return !!x && !!y && x !== y }
+// The same text but for case, spacing and punctuation ("RAID-5", "raid5", "RAID 5"): general modes' only "same answer".
+// "+" and "#" are part of a name ("C", "C++" and "C#" are three languages), and so is the case of a SHORT token written
+// once mixed and once in capitals ("Co" cobalt, "CO" carbon monoxide; `caseClash`); all lowercase is neutral ("ssh").
+// Only 1 or 2 letters (chemical symbols): at 3, "Dns"/"Ssh" from a model are DNS/SSH, never another answer.
+const compactKey = (s) => fold(s).replace(/[^\p{L}\p{N}+#]+/gu, '')
+const shortCase = (t) => { const n = (t.match(/\p{L}/gu) || []).length; return n < 1 || n > 2 ? '' : /^\p{Lu}[\p{Ll}\p{N}]*$/u.test(t) && /\p{Ll}/u.test(t) ? 'mixed' : !/\p{Ll}/u.test(t) ? 'caps' : '' }
+const caseClash = (a, b) => {
+  const x = str(a).split(/[^\p{L}\p{N}]+/u).filter(Boolean), y = str(b).split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+  return x.length === y.length && x.some((t, i) => { const p = shortCase(t), q = shortCase(y[i]); return p && q && p !== q })
+}
+export const sameCompact = (a, b) => { const x = compactKey(a), y = compactKey(b); return !!x && x === y && !caseClash(a, b) }
+const sameStem = (x, y) => x === y || (Math.min(x.length, y.length) >= 4 && (x.startsWith(y) || y.startsWith(x)))
 // Classes whose members stand in for each other (the meanings, in English: card backs are usually in it; extend here).
 const MEANING_CLASSES = [
   /\b(hello|hi|hey|howdy|greeting|good (?:morning|day|afternoon|evening))\b/,
@@ -113,7 +175,7 @@ export function meaningsOverlap(a, b, { loose = false } = {}) {
 // Another form of the same word (comer/comió, hablar/hablé): a long shared start.
 export function sameLemma(a, b) {
   const x = key(a), y = key(b)
-  if (!x || !y) return false
+  if (!x || !y || numbersDiffer(x, y)) return false
   if (closeForm(x, y)) return true
   let i = 0
   while (i < x.length && i < y.length && x[i] === y[i]) i++
@@ -141,11 +203,12 @@ export function scriptOf(s) {
 //   3. a word of the asked card's meaning is the user's language: dropped; a card whose word is another card's MEANING
 //      (both directions of one note in the pool) keeps the side that LOOKS like the learned words (letter pairs shared
 //      with the asked word and the pool's unambiguous words), and is dropped when that can't be told.
-export function poolEntries(pool = [], { card = null, swap = false } = {}) {
+export function poolEntries(pool = [], { card = null, swap = false, label = '' } = {}) {
   const askWord = card ? (swap ? lines(card.back)[0] || '' : card.front) : ''
   const askMeaning = card ? (swap ? card.front : card.back) : ''
   const wScript = scriptOf(cardWord(askWord))
-  const mScript = scriptOf(cardMeaning(askMeaning))
+  const askMean = cardMeaning(askMeaning, { head: askWord, label })
+  const mScript = scriptOf(askMean)
   const byScript = wScript && mScript && wScript !== mScript
   const askShort = card && lines(askWord).length === 1 && lines(askMeaning).length >= 2
   const out = []
@@ -161,10 +224,10 @@ export function poolEntries(pool = [], { card = null, swap = false } = {}) {
       const [wordSide, otherSide] = flip ? [c.back, c.front] : [c.front, c.back]
       if (lines(wordSide).length >= 2 && lines(otherSide).length === 1) flip = !flip
     }
-    const e = poolEntry({ front: c.front, back: c.back, studied: c.studied !== false, swap: flip })
+    const e = poolEntry({ front: c.front, back: c.back, studied: c.studied !== false, swap: flip, label })
     if (e) out.push(e)
   }
-  const askGloss = new Set([key(cardMeaning(askMeaning)), ...glossWords(cardMeaning(askMeaning))].filter(Boolean))
+  const askGloss = new Set([key(askMean), ...glossWords(askMean)].filter(Boolean))
   const kept = out.filter((e) => !askGloss.has(key(e.word)))
   const meaningKeys = new Set(kept.map((e) => key(e.meaning)).filter(Boolean))
   const paired = (e) => meaningKeys.has(key(e.word))
@@ -193,6 +256,7 @@ export function closeForm(a, b) {
   const x = key(a), y = key(b)
   if (!x || !y) return false
   if (x === y) return true
+  if (numbersDiffer(x, y)) return false
   const [s, l] = x.length <= y.length ? [x, y] : [y, x]
   if (l.startsWith(s) && l.length - s.length <= 3) return true
   return Math.min(x.length, y.length) >= 4 && editDistance(x, y) <= (Math.min(x.length, y.length) >= 7 ? 2 : 1)
@@ -222,7 +286,7 @@ export function rankDistractors(answer, entries = [], { prefix = null, pos = '',
     if (!e || e.studied === false || !e.word) continue
     const k = key(e.word)
     if (!k || seen.has(k)) continue
-    if (acc.some((a) => sameLemma(a, k))) continue // another form of the answer
+    if (acc.some((a) => sameLemma(a, k) || sameContent(a, k))) continue // another form of the answer ("perro" for "el perro")
     if (meaningKey && e.meaning && meaningsOverlap(e.meaning, meaning, { loose: general })) continue // a stand-in: two right answers
     if (general) {
       if (!termShaped(e.word)) continue
@@ -277,22 +341,35 @@ export function planChoices({ answer = '', accepted = [], isLanguage = false, en
   const aiOk = ai && Array.isArray(ai.choices) && Number.isInteger(ai.answerIdx) && ai.choices[ai.answerIdx] != null
   const own = (entries || []).filter((e) => e && key(e.word) !== key(head || a))
   // A model option that is a pool card whose meaning overlaps the answer's, or a form of an accepted answer, is out.
-  const poolMeaning = new Map(own.map((e) => [key(e.word), e.meaning]))
+  const poolMeaning = new Map(own.map((e) => [compactKey(e.word), e.meaning]))
   // In a language mode a model option has the answer's number of words too (a one-word option beside "buenos días"
   // and "bien dicho" stood out).
-  const fairAi = (c, right, { loose = false } = {}) => !!c && !closeForm(c, right) && !acc.some((x) => sameLemma(x, c)) &&
-    (!isLanguage || words(c).length === words(right).length) &&
-    !(meaning && poolMeaning.get(key(c)) && meaningsOverlap(poolMeaning.get(key(c)), meaning, { loose }))
+  const fairAi = (c, right, { loose = false } = {}) => (!isLanguage || words(c).length === words(right).length) &&
+    optionIsFair(c, right, { accepted: acc, meaning, poolMeaning, loose })
   const done = (kind, right, list, extra = {}) => ({ kind, choices: [right, ...list.slice(0, need)], answerIdx: 0, spare: list.slice(need), ...extra })
   if (!isLanguage) {
-    if (termShaped(a)) {
+    // Deck terms only when the answer IS the card's term ("TPM" for the TPM card): for "What does TPM stand for?" other
+    // cards' terms (Secure Boot, FDE) are no rivals to "Trusted Platform Module", and the right one stood out.
+    const isTerm = !head || key(head) === key(a0) || key(cardWord(head)) === key(a0)
+    // SIBLINGS FIRST (a CompTIA "Port 22" among deck terms "802.11ac, TLS 1.3, IPv6" was the only port): when the
+    // model offers a fair option of the answer's own family ("Port 23"; "RAID 6"; "IPv4") and 2+ fair ones in all, the
+    // model's set leads (its family first).
+    if (aiOk) {
+      const right = str(ai.choices[ai.answerIdx])
+      const fair = ai.choices.map(str).filter((c, i) => i !== ai.answerIdx && fairAi(c, right, { loose: true }))
+      const fam = fair.filter((c) => sameFamily(c, right))
+      if (fam.length && fair.length >= 2) return done('ai', right, [...fam, ...fair.filter((c) => !fam.includes(c))])
+    }
+    if (termShaped(a) && isTerm) {
       const picks = rankDistractors(a, own, { accepted, general: true, meaning })
       if (picks.length >= need) return done('word', a, picks)
     }
     if (!aiOk) return null
     const right = str(ai.choices[ai.answerIdx])
     const fair = ai.choices.map(str).filter((c, i) => i !== ai.answerIdx && fairAi(c, right, { loose: true }))
-    return fair.length >= Math.min(need, 2) ? done('ai', right, fair) : { kind: 'ai', choices: ai.choices.map(str), answerIdx: ai.answerIdx, spare: [] }
+    // Fewer than 2 fair: the model's set as it is, marked `raw` (Study's buildChoices and the option check judge it;
+    // fights keep only the fair ones: fairModelOptions).
+    return fair.length >= Math.min(need, 2) ? done('ai', right, fair) : rawSet(ai)
   }
   // The letters the learner has SEEN: the prefix hint (or a longer one: a retry hint, a bought Hint), none when the
   // choices open first or the question shows no hint (`hintSeen: false`).
@@ -323,8 +400,137 @@ export function planChoices({ answer = '', accepted = [], isLanguage = false, en
   if (mf) return mf
   // Nothing keeps to the hint: the model's (fair) options, marked `loose`. Callers never show them after the hint:
   // the question then shows NO hint (fights `noHint`, Study's plan), or (hint already on screen) the meaning form.
+  // The deck's fitting words first here too (only the model's would drop "bien dicho" for nothing).
   const fair = ai.choices.map(str).filter((c, i) => i !== ai.answerIdx && fairAi(c, right))
-  return { kind: 'ai', choices: [right, ...fair.slice(0, need)], answerIdx: 0, spare: fair.slice(need), loose: true }
+  const all = [...picks, ...fair.filter((c) => !picks.some((p) => key(p) === key(c)))]
+  return { kind: 'ai', choices: [right, ...all.slice(0, need)], answerIdx: 0, spare: all.slice(need), loose: true }
+}
+// One FAMILY of numbered terms: the same letters around different numbers ("Port 22"/"Port 23", "IPv4"/"IPv6", "TLS
+// 1.2"/"TLS 1.3"), or the same leading number ("802.11ac"/"802.11n"). Only for answers that carry a number.
+function sameFamily(a, b) {
+  const x = key(a).replace(/\s+/g, ''), y = key(b).replace(/\s+/g, '')
+  if (!/\p{N}/u.test(x) || !/\p{N}/u.test(y)) return false
+  const letters = (s) => s.replace(/\p{N}+/gu, '#')
+  if (letters(x) === letters(y)) return true
+  const lead = (s) => (s.match(/^\p{N}{3,}/u) || [''])[0]
+  return !!lead(x) && lead(x) === lead(y)
+}
+// The model's set as it is, but never one option twice in another case, spacing or punctuation ("raid5", "RAID-5"
+// beside "RAID 5"): the right one is kept, a near copy of an earlier option dropped.
+function rawSet(ai) {
+  const right = str(ai.choices[ai.answerIdx])
+  const kept = [right]
+  for (const c of ai.choices.map(str)) if (c && !kept.some((k) => sameCompact(k, c))) kept.push(c)
+  return { kind: 'ai', choices: kept, answerIdx: 0, spare: [], raw: true }
+}
+// THE CODE GUARD on one model option (no shape rule): not the answer or a near form of it, not another form or the same
+// content words of an accepted answer ("perro" beside "el perro"), not a pool card whose meaning overlaps the answer's.
+// `loose` (general modes): a NEAR FORM of the answer or an accepted answer is no wrong option either (`generalNearForm`,
+// review rounds 4 to 6). Only these, never a spelling distance (exam distractors ARE one letter apart: Vishing/Phishing,
+// Ileum/Ilium, Hypotension/Hypertension, Austria/Australia) and never "it adds words" (Sodium chloride, South Sudan,
+// React Native, Equatorial Guinea are other things):
+//   - the same text but for case, spacing and punctuation ("RAID-5", "raid5"); "+" and "#" count ("C", "C++", "C#")
+//     and so does the case of a short token ("CO" carbon monoxide, "Co" cobalt);
+//   - a leading article ("the TPM", "a firewall");
+//   - a PLURAL of the last word, either way ("Firewalls", "TPMs", "tpms", "Trusted Platform Modules", "policies"); an
+//     uppercase or digit ending is another standard ("HTTPS", "RAID 10", "WPA3"), other endings other words ("Porter");
+//   - the answer followed by words set off in parentheses or after a comma, colon or spaced dash ("Port 22 (SSH)",
+//     "Port 22 - SSH", "Firewall: network"), unless what follows is only a number or version;
+//   - an acronym and its expansion, either way ("Trusted Platform Module" for "TPM"; one trailing letter may be
+//     missing: "United States" for "USA"), and the names one thing goes by (`SAME_TERMS`: "Wi-Fi 6" is 802.11ax).
+// Siblings stay offered: "802.11n", "RAID 6", "Port 23", "TLS 1.2", "IPv4", "Louis XVI", "World War II", "Objective-C".
+// What this cannot see (synonyms, a fragment like "Lincoln") is the AI option check's job (utils/distractorCheck.js).
+export function optionIsFair(c, right, { accepted = [], meaning = '', poolMeaning = null, loose = false } = {}) {
+  const o = str(c)
+  if (!o) return false
+  const acc = (accepted || []).map(str).filter(Boolean)
+  if (loose) { if ([right, ...acc].some((x) => generalNearForm(o, x))) return false }
+  else {
+    if (closeForm(o, right) || sameContent(o, right)) return false
+    if (acc.some((x) => sameLemma(x, o) || sameContent(x, o))) return false
+  }
+  const pm = poolMeaning && poolMeaning.get(compactKey(o))
+  return !(meaning && pm && meaningsOverlap(pm, meaning, { loose }))
+}
+// The names one thing goes by (data; extend here). Compared in compact form (sameCompact).
+const SAME_TERMS = [
+  ['802.11be', 'Wi-Fi 7'], ['802.11ax', 'Wi-Fi 6', 'Wi-Fi 6E'], ['802.11ac', 'Wi-Fi 5'], ['802.11n', 'Wi-Fi 4'],
+  ['JS', 'JavaScript'], ['TS', 'TypeScript'],
+  ['NaCl', 'Sodium chloride', 'Table salt'], ['H2O', 'Water'],
+  ['MI', 'Myocardial infarction', 'Heart attack'], ['CVA', 'Stroke', 'Cerebrovascular accident'],
+  ['Angina', 'Angina pectoris'], ['Magna Carta', 'Magna Carta Libertatum'], ['Certiorari', 'Writ of certiorari'],
+  ['Stare decisis', 'Precedent'],
+]
+const sameTerm = (a, b) => { const x = compactKey(a), y = compactKey(b); return SAME_TERMS.some((g) => { const c = g.map(compactKey); return c.includes(x) && c.includes(y) }) }
+const ARTICLES = new Set(['the', 'a', 'an'])
+// The words as written ("+"/"#" kept), a leading article dropped.
+const termTokens = (s) => { const t = str(s).split(/[^\p{L}\p{N}'’+#]+/u).filter(Boolean); return t.length > 1 && ARTICLES.has(t[0].toLowerCase()) ? t.slice(1) : t }
+const PLURALS = new Set(['s', 'es', "'s", '’s'])
+// `long` is `short` plus a plural ending, written in lowercase ("TPMs", "Firewalls", "Modules"; "policies"/"policy").
+const pluralOf = (long, short) => {
+  if (!/\p{L}$/u.test(short)) return false
+  if (long.toLowerCase().startsWith(short.toLowerCase()) && PLURALS.has(long.slice(short.length))) return true
+  return /y$/i.test(short) && long.toLowerCase() === short.toLowerCase().slice(0, -1) + 'ies' && /ies$/.test(long)
+}
+const sameTokens = (x, y) => {
+  if (!x.length || x.length !== y.length) return false
+  const n = x.length - 1
+  for (let i = 0; i < n; i++) if (!sameCompact(x[i], y[i])) return false
+  return sameCompact(x[n], y[n]) || pluralOf(x[n], y[n]) || pluralOf(y[n], x[n])
+}
+// The text before words set off by "(", ",", ":" or a SPACED dash, and what follows ("Port 22 (SSH)" → "Port 22", "SSH").
+// A hyphen inside a name ("Guinea-Bissau", "Objective-C") sets nothing off.
+const SET_OFF = /\s*(?:\(|,|:|\s[-–—]\s)/u
+const setOff = (s) => { const m = SET_OFF.exec(s); return m && m.index > 0 ? [s.slice(0, m.index), s.slice(m.index + m[0].length)] : null }
+// One of them is the other plus words set off, more than a number or version ("Port 22 (SSH)"; not "HTTP (2)").
+const addsSetOff = (o, a) => {
+  for (const [long, short] of [[o, a], [a, o]]) {
+    const p = setOff(long)
+    if (!p || setOff(short)) continue
+    const rest = key(p[1])
+    if (rest && !/^(?:v?\p{N}+\s*)+$/u.test(rest) && (sameCompact(p[0], short) || sameTokens(termTokens(p[0]), termTokens(short)))) return true
+  }
+  return false
+}
+const CONNECTORS = new Set(['of', 'and', 'for', 'the', 'a', 'an', 'to', 'in', 'on', 'over', 'with', 'by', 'at'])
+const isAcronym = (s) => /^\p{Lu}{2,7}s?$/u.test(str(s))
+// "TPM" and "Trusted Platform Module" (initials of every word, or of every word but the little ones); a 3+ letter
+// acronym may have ONE more letter at its end than the phrase has words ("USA", "United States"). Never a letter in
+// the middle: "Intrusion Prevention System" stays a fair option for "IDS".
+const expands = (acr, phrase) => {
+  const a = str(acr).replace(/s$/, '').toLowerCase()
+  const ws = str(phrase).split(/[\s-]+/).filter((w) => /\p{L}/u.test(w))
+  if (ws.length < 2) return false
+  const ini = (list) => list.map((w) => w.match(/\p{L}/u)[0].toLowerCase()).join('')
+  return [ini(ws), ini(ws.filter((w) => !CONNECTORS.has(w.toLowerCase())))].some((i) =>
+    i === a || (a.length >= 3 && i.length === a.length - 1 && a.startsWith(i)))
+}
+function generalNearForm(o, a) {
+  if (!a) return false
+  if (sameCompact(a, o) || sameTerm(a, o) || addsSetOff(o, a)) return true
+  if (!caseClash(o, a) && sameTokens(termTokens(o), termTokens(a))) return true
+  return (isAcronym(a) && expands(a, o)) || (isAcronym(o) && expands(o, a))
+}
+// The model's wrong options that pass the guard (no shape rule), for a fallback that must keep SOME choice (fights).
+export function fairModelOptions({ ai = null, accepted = [], meaning = '', entries = [], head = '', isLanguage = true } = {}) {
+  if (!ai || !Array.isArray(ai.choices) || !Number.isInteger(ai.answerIdx) || ai.choices[ai.answerIdx] == null) return []
+  const right = str(ai.choices[ai.answerIdx])
+  const fair = optionGuard({ answer: right, accepted, meaning, entries, head, isLanguage })
+  return ai.choices.map(str).filter((c, i) => i !== ai.answerIdx && fair(c))
+}
+// THE CODE GUARD as one check for a question: (option) → fair? Never the answer twice (`seen`, compact form), the deck
+// pool's meanings against the card's (`entries`, `meaning`, `head`), the accepted answers. Used by fairModelOptions and
+// the fresh-options retry (kit/choiceCheck.js), so the retry never skips the meaning guard ("buen día" for "buenos días").
+export function optionGuard({ answer = '', accepted = [], meaning = '', entries = [], head = '', isLanguage = true } = {}) {
+  const right = str(answer)
+  const acc = [right, ...(accepted || [])].map(str).filter(Boolean)
+  const poolMeaning = new Map((entries || []).filter((e) => e && e.word && key(e.word) !== key(head || right)).map((e) => [compactKey(e.word), e.meaning]))
+  const seen = [right]
+  return (c) => {
+    if (!compactKey(c) || seen.some((s) => sameCompact(s, c))) return false
+    seen.push(c)
+    return optionIsFair(c, right, { accepted: acc, meaning, poolMeaning, loose: !isLanguage })
+  }
 }
 // The options in a random order (models and the planner both put the answer first). → { choices, answerIdx }
 export function shuffleChoices(choices, answerIdx, rnd = Math.random) {

@@ -108,3 +108,41 @@ describe('the asset view demo hearts', () => {
     expect(demoHeartsFull(demoBlow(demoBlow(h, 2).hearts, 2).hearts)).toMatchObject({ gold: 2, lost: 0 })
   })
 })
+
+// THE LOST HEART'S CONTRAST (WCAG 3:1 for a UI graphic, src/config/contrast.js) against the arena card, calm (7% danger
+// tint) and raging (14%), both themes. The greys are the hearts as measured on screen once desaturated: the ❤️ emoji's
+// body about #717171, Steadfast's gold fill #ffcf4a about #cfcfcf (on its #ffcf4a22 pill).
+import { LOST_HEART } from './heartTargets'
+import { PALETTE_CSS } from '../../config/palette'
+import { paletteVars, parseColor, contrast, over, tintOver } from '../../config/contrast'
+
+const UI_MIN = 3
+const RED_GREY = 0x71, GOLD_GREY = 0xcf
+// A filter list on a grey (grayscale is a no-op on grey), painted over `bg`.
+function paint(grey, filter, bg) {
+  let v = grey, a = 1
+  for (const [, fn, arg] of filter.matchAll(/(\w+)\(([\d.]+)\)/g)) {
+    if (fn === 'brightness') v = Math.min(255, v * Number(arg))
+    if (fn === 'opacity') a *= Number(arg)
+  }
+  return over([v, v, v, a], bg)
+}
+describe('a lost heart stays visible (3:1) on the arena card', () => {
+  for (const [theme, sel] of [['light', ':root'], ['dark', '[data-theme="dark"]']]) {
+    const vars = paletteVars(PALETTE_CSS, sel)
+    const surface = parseColor(vars.surface), danger = parseColor(vars.danger)
+    for (const pct of [0.07, 0.14]) {
+      const card = tintOver(danger, pct, surface)
+      it(`${theme}, card tint ${pct * 100}%: red and gold`, () => {
+        expect(contrast(paint(RED_GREY, LOST_HEART[theme].red, card), card)).toBeGreaterThanOrEqual(UI_MIN)
+        const pill = tintOver(parseColor('#ffcf4a'), 0x22 / 255, card)
+        expect(contrast(paint(GOLD_GREY, LOST_HEART[theme].gold, pill), pill)).toBeGreaterThanOrEqual(UI_MIN)
+      })
+    }
+  }
+  it('the old look failed it (why it changed)', () => {
+    const vars = paletteVars(PALETTE_CSS, '[data-theme="dark"]')
+    const card = tintOver(parseColor(vars.danger), 0.07, parseColor(vars.surface))
+    expect(contrast(paint(RED_GREY, 'grayscale(1) opacity(.35)', card), card)).toBeLessThan(UI_MIN)
+  })
+})

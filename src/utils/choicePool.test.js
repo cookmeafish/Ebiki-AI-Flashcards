@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planChoices, rankDistractors, rankMeanings, poolEntry, posOf, cardWord, cardMeaning, closeForm, sharesPrefix, shuffleChoices, wordOnBack, distractorRule, MIN_DISTRACTORS, meaningsOverlap, sameLemma, poolEntries, scriptOf } from './choicePool'
+import { planChoices, rankDistractors, rankMeanings, poolEntry, posOf, cardWord, cardMeaning, closeForm, sharesPrefix, shuffleChoices, wordOnBack, distractorRule, MIN_DISTRACTORS, meaningsOverlap, sameLemma, poolEntries, scriptOf, meaningLabel, sameContent, optionIsFair, fairModelOptions } from './choicePool'
 
 const deck = (rows) => rows.map(([front, back, studied = true]) => poolEntry({ front, back, studied }))
 
@@ -165,7 +165,9 @@ describe('THE GUARD: a wrong option is never also right', () => {
     expect(meaningsOverlap('good day', 'good morning')).toBe(true)
     expect(meaningsOverlap('hello', 'good morning')).toBe(true) // both greetings
     expect(meaningsOverlap('thanks a lot', 'thank you')).toBe(true)
-    expect(meaningsOverlap('to run', 'running')).toBe(true)
+    expect(meaningsOverlap('to swim', 'swimming')).toBe(true)
+    expect(meaningsOverlap('car', 'card')).toBe(false)
+    expect(meaningsOverlap('pen', 'pencil')).toBe(false)
     expect(meaningsOverlap('umbrella', 'trousers')).toBe(false)
     expect(meaningsOverlap('a hat', 'the cat')).toBe(false) // short and stop words never count
     // general modes: long definitions share ordinary words; only a mostly-shared one counts
@@ -228,5 +230,219 @@ describe('the model\'s options keep the answer\'s shape', () => {
     const ai = { choices: ['buenos días', 'bufanda', 'gorra', 'bajo dos', 'bello día'], answerIdx: 0 }
     const p = planChoices({ answer: 'buenos días', isLanguage: true, entries: pool, head: 'buenos días', meaning: 'good morning', ai })
     expect(p.choices.every((c) => c.split(' ').length === 2)).toBe(true)
+  })
+})
+
+describe('review fixes: the real default template, general-mode terms', () => {
+  // The app's own default Spanish back (App.jsx defaultMode.backTemplate), as getCardBack renders it.
+  const back = (ipa, tr, syn, def) => `Pronunciación: ${ipa}\nTraducción: ${tr}\nSinónimos: ${syn}\nDefinición: ${def}\nEjemplo: …`
+  const TEMPLATE = 'Pronunciación: {pronunciation}\nTraducción: {translation}\nSinónimos: {synonyms}\nDefinición: {definition}\nEjemplo: {example}'
+  it('reads the meaning from the translation line, never the IPA', () => {
+    expect(meaningLabel(TEMPLATE)).toBe('Traducción')
+    expect(cardMeaning(back('/ˈbwe.nos ˈdi.as/', 'good morning', 'buen día', 'saludo matinal'))).toBe('good morning')
+    expect(cardMeaning(back('[ˈpe.ro]', 'dog', 'can', 'animal'), { label: 'Traducción' })).toBe('dog')
+    expect(cardMeaning('perro\ndog\nEl perro ladra.', { head: 'perro' })).toBe('dog') // first line repeats the headword
+    expect(cardMeaning('noun\ndog', { head: 'perro' })).toBe('dog')
+  })
+  it('with the default template the guard works: "buen día" and "bonito" are never wrong options', () => {
+    const cards = [
+      ['buen día', back('/bwen ˈdi.a/', 'good day', '', '')], ['bien dicho', back('/bjen ˈdi.tʃo/', 'well said', '', '')],
+      ['bajo dos', back('/ˈba.xo ðos/', 'under two', '', '')], ['bello día', back('/ˈbe.ʎo ˈdi.a/', 'nice day', '', '')],
+      ['bonito', back('/bo.ˈni.to/', 'beautiful, pretty', '', '')], ['barato', back('/ba.ˈra.to/', 'cheap', '', '')],
+      ['blanco', back('/ˈblaŋ.ko/', 'white', '', '')], ['bueno', back('/ˈbwe.no/', 'good', '', '')],
+    ]
+    const asked = { front: 'buenos días', back: back('/ˈbwe.nos ˈdi.as/', 'good morning', '', '') }
+    const es = poolEntries(cards.map(([front, b]) => ({ front, back: b })), { card: asked, label: 'Traducción' })
+    expect(es.length).toBe(cards.length)
+    const p = planChoices({ answer: 'buenos días', isLanguage: true, entries: es, head: 'buenos días', meaning: cardMeaning(asked.back, { label: 'Traducción' }) })
+    expect(p.choices).not.toContain('buen día')
+    const bello = { front: 'bello', back: back('/ˈbe.ʎo/', 'beautiful', '', '') }
+    const p2 = planChoices({ answer: 'bello', isLanguage: true, entries: poolEntries(cards.map(([front, b]) => ({ front, back: b })), { card: bello }), head: 'bello', meaning: 'beautiful', hintSeen: false })
+    expect(p2.choices).not.toContain('bonito')
+  })
+  it('a back whose first line repeats the headword keeps the pool', () => {
+    const pool = [{ front: 'pato', back: 'pato\nduck' }, { front: 'pan', back: 'pan\nbread' }, { front: 'papa', back: 'papa\npotato' }]
+    expect(poolEntries(pool, { card: { front: 'perro', back: 'perro\ndog' } }).map((e) => e.word)).toEqual(['pato', 'pan', 'papa'])
+  })
+  it('general modes: deck terms only when the answer IS the card\'s term', () => {
+    const terms = deck([['Secure Boot', 'Boot checks.'], ['FDE', 'Full disk encryption.'], ['Hash function', 'One-way.'], ['HSM', 'Key appliance.'], ['PKI', 'Certificates.']])
+    const ai = { choices: ['Trusted Platform Module', 'Total Privacy Mode', 'Trusted Process Manager', 'Token Protection Module'], answerIdx: 0 }
+    const p = planChoices({ answer: 'Trusted Platform Module', isLanguage: false, entries: terms, head: 'TPM', ai })
+    expect(p.kind).toBe('ai')
+    expect(p.choices).not.toContain('Secure Boot')
+    expect(planChoices({ answer: 'TPM', isLanguage: false, entries: terms, head: 'TPM' }).kind).toBe('word')
+  })
+})
+
+describe('round 2 review: odd backs and the fight fallback guard', () => {
+  it('cardMeaning reads the three odd formats', () => {
+    expect(cardMeaning('🔊 Audio\nEN → dog', { head: 'perro' })).toBe('dog')
+    expect(cardMeaning('n.\ndog', { head: 'perro' })).toBe('dog')
+    expect(cardMeaning('/ˈpe.ro/ (n.) dog', { head: 'perro' })).toBe('dog')
+    expect(cardMeaning('(adj) big, large')).toBe('big, large')
+    expect(cardMeaning('(informal) cool')).toBe('(informal) cool') // not a part-of-speech tag: kept
+  })
+  it('sameContent: an article or little word less is the same answer', () => {
+    expect(sameContent('el perro', 'perro')).toBe(true)
+    expect(sameContent('a veces', 'veces')).toBe(true)
+    expect(sameContent('el perro', 'el gato')).toBe(false)
+    expect(sameContent('el', 'la')).toBe(false) // nothing but little words: never "the same"
+  })
+  it('optionIsFair / fairModelOptions guard the model options without the shape rule', () => {
+    expect(optionIsFair('perro', 'el perro')).toBe(false)
+    expect(optionIsFair('gato', 'el perro')).toBe(true)
+    expect(optionIsFair('perros', 'perro')).toBe(false)
+    expect(fairModelOptions({ ai: { choices: ['el perro', 'perro', 'gato', 'gato', 'casa'], answerIdx: 0 }, accepted: ['el perro'] })).toEqual(['gato', 'casa'])
+    const entries = [{ word: 'can', meaning: 'dog' }]
+    expect(fairModelOptions({ ai: { choices: ['perro', 'can', 'gato'], answerIdx: 0 }, accepted: ['perro'], meaning: 'dog', entries, head: 'perro' })).toEqual(['gato'])
+  })
+  it('planChoices never offers "perro" for "el perro" from the deck either', () => {
+    const p = planChoices({ answer: 'el perro', isLanguage: true, hintSeen: false, entries: [{ word: 'perro', meaning: 'dog', studied: true }, { word: 'el gato', meaning: 'the cat', studied: true }], ai: { choices: ['el perro', 'perro', 'la casa', 'el gato'], answerIdx: 0 } })
+    expect(p.choices).not.toContain('perro')
+  })
+})
+
+describe('round 3 review: numbers and versions are the answer (general modes)', () => {
+  const pairs = [['Port 22', 'Port 23'], ['RAID 5', 'RAID 6'], ['802.11ac', '802.11n'], ['IPv4', 'IPv6'], ['TLS 1.2', 'TLS 1.3']]
+  it('two numbered or versioned answers are never "another form" of each other', () => {
+    for (const [a, b] of pairs) {
+      expect(optionIsFair(b, a, { accepted: [a], loose: true })).toBe(true)
+      expect(fairModelOptions({ ai: { choices: [a, b, 'other'], answerIdx: 0 }, accepted: [a], isLanguage: false })).toContain(b)
+    }
+    for (const [a, b] of pairs.filter(([a]) => /\d\D*\d|\d/.test(a) && a !== '802.11ac')) {
+      expect(closeForm(a, b)).toBe(false)
+      expect(sameLemma(a, b)).toBe(false)
+      expect(sameContent(a, b)).toBe(false)
+    }
+  })
+  it('in a general mode "the same answer" is only case, spacing and punctuation', () => {
+    expect(optionIsFair('raid5', 'RAID 5', { loose: true })).toBe(false)
+    expect(optionIsFair('RAID-5', 'RAID 5', { loose: true })).toBe(false)
+    expect(optionIsFair('RAID 50', 'RAID 5', { loose: true })).toBe(true)
+  })
+  it('the general raw fallback drops near copies of the right option', () => {
+    const p = planChoices({ answer: 'RAID 5', isLanguage: false, ai: { choices: ['RAID 5', 'raid5', 'RAID-5', 'RAID 1'], answerIdx: 0 } })
+    expect(p.choices).toEqual(['RAID 5', 'RAID 1'])
+  })
+  it('a language answer with digits still compares as words ("3 años" vs "tres años" untouched)', () => {
+    expect(closeForm('3 años', '3 anos')).toBe(true)
+  })
+})
+
+describe('numbered siblings lead in a general mode', () => {
+  it('"Port 22": the model\'s "Port 23/21/443" beat deck terms of other kinds', () => {
+    const entries = ['802.11ac', 'TLS 1.3', 'IPv6', 'RAID 5'].map((w) => ({ word: w, meaning: 'x ' + w, studied: true }))
+    const p = planChoices({ answer: 'Port 22', head: 'Port 22', isLanguage: false, entries, ai: { choices: ['Port 22', 'Port 23', 'Port 21', 'Port 443'], answerIdx: 0 } })
+    expect(p.choices).toEqual(['Port 22', 'Port 23', 'Port 21', 'Port 443'])
+    const w = planChoices({ answer: '802.11ac', head: '802.11ac', isLanguage: false, entries, ai: { choices: ['802.11ac', '802.11n', '802.11ax', 'WPA3'], answerIdx: 0 } })
+    expect(w.choices.slice(0, 3)).toEqual(['802.11ac', '802.11n', '802.11ax'])
+  })
+})
+
+describe('round 4 review: near forms of a general answer are no wrong options', () => {
+  const near = [['Firewall', 'Firewalls'], ['TPM', 'the TPM'], ['Trusted Platform Module', 'Trusted Platform Modules'], ['Port 22', 'Port 22 (SSH)'], ['TPM', 'TPMs']]
+  const siblings = [['RAID 5', 'RAID 6'], ['802.11ac', '802.11n'], ['Port 22', 'Port 23'], ['TLS 1.3', 'TLS 1.2'], ['IPv6', 'IPv4'], ['HTTP', 'HTTPS'], ['RAID 5', 'RAID 50']]
+  it('optionIsFair refuses a near form, keeps a numbered or coded sibling', () => {
+    for (const [a, b] of near) {
+      expect(optionIsFair(b, a, { loose: true })).toBe(false)
+      expect(optionIsFair(b, 'something else', { accepted: [a], loose: true })).toBe(false)
+    }
+    for (const [a, b] of siblings) expect(optionIsFair(b, a, { accepted: [a], loose: true })).toBe(true)
+  })
+  it('fights (fairModelOptions) drop the near forms and keep the siblings', () => {
+    for (const [a, b] of near) expect(fairModelOptions({ ai: { choices: [a, b, 'Proxy', 'VPN'], answerIdx: 0 }, accepted: [a], isLanguage: false })).toEqual(['Proxy', 'VPN'])
+    for (const [a, b] of siblings) expect(fairModelOptions({ ai: { choices: [a, b, 'Proxy'], answerIdx: 0 }, accepted: [a], isLanguage: false })).toEqual([b, 'Proxy'])
+  })
+  it('Study (planChoices) never offers a near form, keeps the siblings', () => {
+    for (const [a, b] of near) {
+      const p = planChoices({ answer: a, isLanguage: false, ai: { choices: [a, b, 'Proxy', 'VPN', 'IDS'], answerIdx: 0 } })
+      expect(p.choices[0]).toBe(a)
+      expect(p.choices).not.toContain(b)
+    }
+    for (const [a, b] of siblings) {
+      const p = planChoices({ answer: a, isLanguage: false, ai: { choices: [a, b, 'Proxy', 'VPN'], answerIdx: 0 } })
+      expect(p.choices).toContain(b)
+    }
+  })
+  it('only words SET OFF after the answer make it the same answer (round 6: added words alone are another thing)', () => {
+    expect(optionIsFair('SSH tunneling', 'SSH', { loose: true })).toBe(true)
+    expect(optionIsFair('Port 22 - SSH', 'Port 22', { loose: true })).toBe(false)
+    expect(optionIsFair('Firewall: network', 'Firewall', { loose: true })).toBe(false)
+    expect(optionIsFair('Port 22', 'Port 22 (SSH)', { loose: true })).toBe(false)
+    expect(optionIsFair('Port 220', 'Port 22', { loose: true })).toBe(true)
+    expect(optionIsFair('Proxy server', 'Firewall', { loose: true })).toBe(true)
+  })
+  it('the language branch is unchanged', () => {
+    expect(optionIsFair('perros', 'perro')).toBe(false)
+    expect(optionIsFair('gato', 'perro')).toBe(true)
+  })
+})
+
+describe('round 5 review: near forms only, never a spelling distance (general modes)', () => {
+  const kept = [['Phishing', 'Vishing'], ['Phishing', 'Smishing'], ['Hypothyroidism', 'Hyperthyroidism'], ['Hypertension', 'Hypotension'],
+    ['Ileum', 'Ilium'], ['Prussia', 'Russia'], ['Austria', 'Australia'], ['Mitosis', 'Meiosis'], ['Afferent', 'Efferent'],
+    ['Port 22', 'Port 2222'], ['Port 22', 'Port 23'], ['RAID 1', 'RAID 10'], ['HTTP', 'HTTPS'], ['HTTP', 'HTTP/2'], ['HTTP', 'HTTP 1.1'], ['Windows', 'Windows 11'],
+    ['Louis XIV', 'Louis XVI'], ['Henry VIII', 'Henry VII'], ['Type 1 diabetes', 'Type 2 diabetes'], ['SHA-1', 'SHA-256'], ['WPA2', 'WPA3'],
+    ['TCP', 'UDP'], ['World War I', 'World War II'], ['802.11ac', '802.11n'], ['802.11ac', '802.1X'],
+    // undecided by the review, fair for now (an answer's fragment is not refused)
+    ['Trusted Platform Module', 'Platform Module'], ['Treaty of Versailles', 'Versailles'], ['Battle of Hastings', 'Hastings']]
+  const rejected = [['TPM', 'the TPM'], ['TPM', 'TPMs'], ['TPM', 'tpms'], ['Firewall', 'Firewalls'], ['Firewall', 'a firewall'],
+    ['Port 22', 'Port 22 (SSH)'], ['TPM', 'Trusted Platform Module'], ['Trusted Platform Module', 'TPM'], ['AES', 'Advanced Encryption Standard'],
+    ['802.11ax', 'Wi-Fi 6'], ['Trusted Platform Module', 'Trusted Platform Modules'], ['Security policy', 'Security policies']]
+  it('optionIsFair keeps classic exam distractors and siblings', () => {
+    for (const [a, o] of kept) expect([a, o, optionIsFair(o, a, { accepted: [a], loose: true })]).toEqual([a, o, true])
+  })
+  it('optionIsFair refuses plurals, articles, added endings, containment, acronym expansions', () => {
+    for (const [a, o] of rejected) expect([a, o, optionIsFair(o, a, { accepted: [a], loose: true })]).toEqual([a, o, false])
+  })
+  it('a fight keeps all three wrong options for "Which attack uses voice calls?"', () => {
+    expect(fairModelOptions({ ai: { choices: ['Vishing', 'Phishing', 'Smishing', 'Whaling'], answerIdx: 0 }, accepted: ['Vishing'], isLanguage: false })).toEqual(['Phishing', 'Smishing', 'Whaling'])
+    const p = planChoices({ answer: 'Vishing', isLanguage: false, ai: { choices: ['Vishing', 'Phishing', 'Smishing', 'Whaling'], answerIdx: 0 } })
+    expect(p.choices).toEqual(['Vishing', 'Phishing', 'Smishing', 'Whaling'])
+  })
+  it('the language branch still refuses spelling neighbours', () => {
+    expect(optionIsFair('perra', 'perro')).toBe(false)
+  })
+})
+
+describe('round 6 review: names with + and #, chemical symbols, added words (general modes)', () => {
+  const kept = [['C', 'C++'], ['C', 'C#'], ['C++', 'C#'], ['C', 'Objective-C'], ['Java', 'JavaScript'], ['SQL', 'MySQL'], ['SQL', 'NoSQL'],
+    ['React', 'React Native'], ['Python', 'Python 3'], ['H2O', 'H2O2'], ['CO2', 'CO'], ['NaCl', 'KCl'], ['Sodium', 'Sodium chloride'],
+    ['Iron', 'Iron oxide'], ['CO', 'Co'], ['COPD', 'Asthma'], ['MI', 'CHF'], ['Guinea', 'Guinea-Bissau'], ['Guinea', 'Equatorial Guinea'],
+    ['Sudan', 'South Sudan'], ['Congo', 'Democratic Republic of the Congo'], ['Niger', 'Nigeria'], ['Dominica', 'Dominican Republic'],
+    ['Charles I', 'Charles II'], ['Treaty of Versailles', 'Treaty of Paris'], ['Bach', 'C. P. E. Bach'], ['Richard Strauss', 'Johann Strauss'],
+    ['Sonata', 'Sonatina'], ['Allegro', 'Allegretto'], ['Lessor', 'Lessee'], ['Mens rea', 'Actus reus'], ['Habeas corpus', 'Habeas data'],
+    ['Port', 'Porter'], ['Hash', 'Hashing'], ['IDS', 'Intrusion Prevention System']]
+  const rejected = [['JavaScript', 'JS'], ['NaCl', 'Sodium chloride'], ['H2O', 'Water'], ['MI', 'Myocardial infarction'],
+    ['CHF', 'Congestive heart failure'], ['Myocardial infarction', 'Heart attack'], ['Angina', 'Angina pectoris'], ['USA', 'United States'],
+    ['UK', 'United Kingdom'], ['Magna Carta', 'Magna Carta Libertatum'], ['Tort', 'Torts'], ['Certiorari', 'Writ of certiorari'],
+    ['Stare decisis', 'Precedent'], ['Router', 'Routers'], ['Policy', 'Policies'], ['IDS', 'Intrusion Detection System']]
+  // Known and accepted (left to the AI option check): "Lincoln" for "Abraham Lincoln" and back stay fair; a lowercase
+  // "https" for "HTTP" is refused (read as the plural of "http", like "tpms" for "TPM").
+  it('keeps distractors that add words, symbols or another case', () => {
+    for (const [a, o] of kept) expect([a, o, optionIsFair(o, a, { accepted: [a], loose: true })]).toEqual([a, o, true])
+  })
+  it('refuses aliases, expansions and plurals', () => {
+    for (const [a, o] of rejected) expect([a, o, optionIsFair(o, a, { accepted: [a], loose: true })]).toEqual([a, o, false])
+  })
+  it('a fight keeps C++ and C# for "C" (the duplicate check keeps + and #)', () => {
+    expect(fairModelOptions({ ai: { choices: ['C', 'C++', 'C#', 'Objective-C'], answerIdx: 0 }, accepted: ['C'], isLanguage: false })).toEqual(['C++', 'C#', 'Objective-C'])
+    expect(fairModelOptions({ ai: { choices: ['CO', 'Co', 'CO2', 'co'], answerIdx: 0 }, accepted: ['CO'], isLanguage: false })).toEqual(['Co', 'CO2'])
+    const p = planChoices({ answer: 'C', isLanguage: false, ai: { choices: ['C', 'C++', 'C#', 'Objective-C'], answerIdx: 0 } })
+    expect(p.choices).toEqual(['C', 'C++', 'C#', 'Objective-C'])
+  })
+  it('the language branch is unchanged', () => {
+    expect(optionIsFair('perro', 'el perro', { accepted: ['el perro'] })).toBe(false)
+    expect(optionIsFair('gato', 'perro', { accepted: ['perro'] })).toBe(true)
+  })
+})
+
+describe('round 7 review: only 1 or 2 letters keep their case apart', () => {
+  it('"Dns" and "Ssh" are DNS and SSH, never a wrong option', () => {
+    for (const [a, o] of [['DNS', 'Dns'], ['SSH', 'Ssh'], ['TPM', 'Tpm']]) expect([a, o, optionIsFair(o, a, { accepted: [a], loose: true })]).toEqual([a, o, false])
+    expect(fairModelOptions({ ai: { choices: ['DNS', 'Dns', 'DHCP', 'NTP'], answerIdx: 0 }, accepted: ['DNS'], isLanguage: false })).toEqual(['DHCP', 'NTP'])
+  })
+  it('chemical symbols still differ by case', () => {
+    for (const [a, o] of [['CO', 'Co'], ['NO', 'No'], ['Hf', 'HF']]) expect([a, o, optionIsFair(o, a, { accepted: [a], loose: true })]).toEqual([a, o, true])
   })
 })

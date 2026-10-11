@@ -1809,9 +1809,24 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   deliberate collapses are allowed; lines meant to leave a shape go in `REVIEWED` only after looking. Write edit
   scripts holding regex backslashes with the Write tool (a heredoc turned `\b` into a backspace, `\s` into `s`).
   It also runs **`check-joints.mjs`** (JOINT: the kitsune's head "dislocated from her body" in 40 fight animations):
-  every moment, ability fx, assault and knockout hold, 3 phases, every 60 ms, the head's neck joint followed through
-  head vs body wrappers; over 2.5 units FAILS for its `STRICT` bosses (kitsune), warns per boss for the rest
-  (`--sheet <dir>` = contact sheets). A head moves by TILTING on its neck (pivot at the joint) or rides a bust wrapper.
+  every moment, ability fx, assault and knockout hold, 3 phases, every 60 ms, three probes on the CHIN SEAM (the head's
+  lowest drawn point on the neck axis; a point inside the face, her mouth, let a swinging chin pass) followed through
+  head vs body wrappers; over 2.5 units FAILS for its `STRICT` bosses (kitsune, banshee, showman), warns per boss for
+  the rest; a boss or phase with no head wrapper is REPORTED as not checked (chimera, leviathan), never skipped,
+  and a `-mask` counts as the head only for `MASK_FACE` bosses (the kitsune's mask is a prop) (`--sheet <dir>` =
+  contact sheets). A head moves by TILTING on its chin (pivot at the seam) or rides a bust wrapper.
+  And **`check-moment-clip.mjs`** (CUT: a Horseman's lantern and horse muzzle were sliced flat in fight frames every
+  check missed): every moment, fx (with its `.lgr-` reaction), fx-pending, assault, knockout, held down pose and
+  `data-ab-*` state layer, again on the MOST VISIBLE ability state (every `data-ab-*` at its max: six Hydra heads), 3 phases,
+  every 60 ms, inside the arena's real `inset(-20%)` art box; a shape partly inside reaching over 0.5 units past it FAILS
+  (real outline + stroke; `<image>` cells, filled as PHOTO LAYERS does, by the corners of their painted alpha box and
+  failing even at rest since check-art never sees them; wholly-outside parked parts ignored; `EBIKI_ONLY`, `--sheet <dir>`, ~100 s for all 27).
+  And **`check-ko-hold.mjs`** (KO: the Showman's arms, head and masks snapped back to idle when the ko moment ended):
+  plays the knockout as useJuice does (data-down, then data-moment="ko" + the strike layer's PARTS_CSS, both gone at
+  JUICE.delay + koMs + 250) and FAILS a named part moving over 1 unit or changing opacity from the last cinematic frame to
+  the held pose 300 ms / 2 s later. The hold must come from `[data-down]` rules in fx/<motif>.jsx. It also plays the REAL
+  arena (dev/raid-impact ?arena=, full AND compact layout) and FAILS a held boss with over 55% of its painted pixels lost
+  (outside the card or under the DEFEATED tag; the Horseman sank off the compact card). `CLIP_OVERRIDE`/`CLIP_SVG_DIR` work.
 - **SVG pivots**: scale/rotate/skew pivot on local (0,0); a part drawn elsewhere needs
   `style="transform-box:fill-box;transform-origin:center"` (the sanitizer keeps it) or it slides. Flames pivot
   `center bottom`, drips `center top`, flags/capes/sails/hanging banners at the top or pole side, plants at the base.
@@ -1947,7 +1962,7 @@ SURE THE USER UNDERSTANDS IT ... DIFFERENT CARDS AND SUBJECT MIGHT NEED A DIFFER
 QUESTION OR LEARNING EXPERIENCE IT SHOULD GIVE BASED ON THE GOAL IS REQUIRED." A CompTIA learner who can type "secure
 enclave" may still not know what it is.
 - **Before a question is written, the card's GOAL is decided** (`cardGoal`, memoized per card): language `word` (recall,
-  then use) / `phrase` (say it, know when) / `rule` (apply it, never recite it); general `concept` (understand: what it
+  then use) / `phrase` (any 2+ words past a leading article or particle, "buenos días": say it, know when) / `rule` (apply it, never recite it); general `concept` (understand: what it
   is, what for, when, how it differs, applied; the default) / `fact` (exact, then its context) / `procedure` (steps in
   order, what breaks) / `formula` (apply, then each part). From what the app knows: mode kind, card shape, a Legends
   item's kind. The writer may state its own `goal` in the JSON (`shapeGoal` keeps a valid one).
@@ -1968,7 +1983,8 @@ enclave" may still not know what it is.
   (`utils/letterCue.js`) and fights (`kit/fightSettings.js`): one word = its first ~20% of letters, at least 1, never
   leaving under 2 hidden (perro "(p…)", sombrero "(so…)", pantalones "(pa…)"); several words = each word's first letter
   ("(b… d…)"), a SHORT word (1 to 2 letters) only "…" ("a veces" "(… v…)"), all-short phrases none; an ELISION shows
-  the word after it ("l'eau" "(l'e…)", `splitElision`). Han/kana-first and 1-letter answers get none (only Han/kana
+  the word after it ("l'eau" "(l'e…)", `splitElision`), a number "…" ("3 años" "(… a…)"). A word of 1 or 2 letters
+  ("yo") and a Hangul word under 4 syllables get none (one letter would be half of it). Han/kana-first answers get none (only Han/kana
   ask the model for the reading's first sound in quotes, `needsReadingCue`). LANGUAGE modes only, typed
   recall/fill_blank only, never an open tier, never while choices show (`choicePromptText` / `stripLetterCues`;
   `stripPrefixHint(text, answers)` strips only THOSE answers' group, a bare "(…)" never). `typedPrompt` puts it after
@@ -1983,21 +1999,44 @@ enclave" may still not know what it is.
   the learner saw (a retry hint) is the one options must share (`shownPrefix`). Each pool card is read on its OWN
   sides (`poolEntries`: a script difference, else a reversed card's shape, else the side that looks like the learned
   words; a word of the asked card's meaning is dropped): a reversed card never adds a user-language word.
+  **A card's MEANING is read from its meaning line** (`cardMeaning(back, { head, label })`, `meaningLabel(backTemplate)`):
+  the mode's own `{translation}`/`{meaning}`/`{definition}` line, else a line labelled as a meaning in any language,
+  else the first line that is not pronunciation, IPA, part of speech, synonyms, an example or the headword (the default
+  Spanish back starts "Pronunciación: /…/": "the first line" made every meaning check dead; tests use that template).
 - **⭐ A WRONG OPTION IS NEVER ALSO RIGHT** (it marks a correct answer wrong: "buen día" among the options for "buenos
   días", good morning in LatAm). Code guard on every deck and model option (`meaningsOverlap`: the same back, a shared
   gloss word, one class of stand-ins like greetings, data in `MEANING_CLASSES`; `sameLemma` / `closeForm` against the
-  accepted answers), then THE OPTION CHECK (`utils/distractorCheck.js`, the review model, one cheap fail-soft call):
+  accepted answers, `sameContent`: "perro" beside "el perro"; two texts with DIFFERENT numbers are never the same
+  (`numbersDiffer`: "Port 22"/"Port 23", "IPv4"/"IPv6", "TLS 1.2"/"TLS 1.3"), and in general modes "the same answer" is
+  only case, spacing and punctuation (`sameCompact`: "802.11ac"/"802.11n" are two standards); a numbered answer's
+  model siblings lead over deck terms of other kinds (`sameFamily`); the general raw set drops near copies), then THE
+  OPTION CHECK (`utils/distractorCheck.js`, the review model, one cheap fail-soft call):
   Study checks every card's next question (`optionCheckedRef`, job `study.review`, `choicesChecked`), raids beside the
   review pass (`checkChoices` in kit/choiceCheck.js, job `raid.check`; unusable = rewritten), Legends quizzes in
-  `makeQuiz` (job `legends.check`). A flagged option is swapped for a spare in place or dropped while 2 wrong ones remain.
+  `makeQuiz` (job `legends.check`). A flagged option is swapped for a spare in place or dropped while 1 wrong one
+  remains (2 options are still a choice). A fight without a fair planned set keeps only the model options passing the
+  guard (`fairModelOptions`), never all of them. **Fight choices are ALWAYS offered, so typed only is a last resort**:
+  a question left with NO fair wrong option (the guard or the check rejected them all) is marked `needChoices` and
+  `checkChoices` asks the model ONCE for fresh wrong options (one call for the batch, `buildFreshOptionsPrompt`: told
+  what was rejected and why, and the prefix hint the learner sees), runs the same guard (`optionGuard`, with the deck meanings the question carries in `_guard`) and check over them (options
+  not sharing the shown prefix: the question shows no hint instead); only nothing fair again = typed only
+  (`typedOnly`), a Legends choice-only question leaves and the set is TOPPED UP (`applyOptionCheck`,
+  `makeQuizNow({ refill })`). `makeQuiz` runs pool + check + refill once per quiz (`quizopts:` in `once`).
+  Study HOLDS a question's options until the check answers (`optionHold`, keyed `optionHoldKey`: session, card,
+  question, options; tiles disabled at .5, `study_checkingOptions`, at most `OPTION_CHECK_HOLD_MS`; keys 1-4 too).
+  `cardMeaning` also reads "EN → dog", a tag-only line ("n."), "🔊 Audio" and "/ˈpe.ro/ (n.) dog". Gloss words overlap as the same word or a 4+ letter stem (car/card don't).
 - **CHOICES NEVER BEAT THE HINT.** No set keeps to the hint while it is not on screen yet (generation, fights): the
   question shows NO hint (`noHint`, honored by `withLetterCount`, `ensurePrefixHint`, `retryHints`, the Hint power) and
   gets options planned for that. The hint already on screen (Show choices after a re-plan, the background options
   call): the MEANING form, else no options, never ones it gives away. The **MEANING form** (`choiceMode: 'meaning'` +
   `choicePrompt`, `qt_meaningPick`: the word shown, its meaning picked) otherwise only when the options open FIRST (a
-  choices session, `cs.mc`), never in fights; no "Type it instead" after it; question reuse never saves its options
+  choices session, `cs.mc`), never in fights. **A fight question NEVER loses its choices**: without a fair set of 3
+  the model's own options stay and the question shows no hint. Study's planning waits for the learner context's studied
+  sample (`waitForChoicePool`, at most `CHOICE_POOL_WAIT_MS`, once per session): the first cards were planned without it
+  and lost their hint for good. No "Type it instead" after the meaning form; question reuse never saves its options
   (`storableQuestion`); graded rows show the question as ASKED (`byChoice` → `choiceQuestionText`).
-- `distractorRule` tells every writer the same rules. General modes: deck terms of the same shape when 3 exist, else
+- `distractorRule` tells every writer the same rules. General modes: deck terms of the same shape when 3 exist AND
+  the answer IS the card's term ("What does TPM stand for?" keeps the model's expansions), else
   the model's (never a prefix). Legends choice-only questions go through the same pool and guard when their answer is
   the item's word. Pools: Study = the session's studied cards + the learner context's studied sample of the same deck
   (its read starts at `beginStudy`); raids = the due cards read + that sample; Legends = the map's taught items

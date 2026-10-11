@@ -90,6 +90,9 @@ export default {
    under reduced motion). */
 @keyframes lgrRatkingHoardRattle { 0%, 100% { transform: none } 20% { transform: translateX(2px) rotate(3deg) } 40% { transform: translateX(-2px) rotate(-3deg) } 60% { transform: translateX(1.5px) rotate(2deg) } 80% { transform: translateX(-1px) } }
 .lg-boss[data-fx="loot"] [class*="lg-ab-hoard-"], .lg-boss[data-fx="stolen"] [class*="lg-ab-hoard-"] { transform-box: fill-box; transform-origin: center bottom; animation: lgrRatkingHoardRattle 320ms cubic-bezier(.22,1,.36,1) both }
+.lg-p2 [class*="lg-ab-hoard-"] { transform: translateY(-1.6px) }
+@keyframes lgrRatkingHoardRattleP2 { 0%, 100% { transform: translateY(-1.6px) } 20% { transform: translate(2px, -1.8px) } 40% { transform: translate(-2px, -1.8px) } 60% { transform: translate(1.5px, -1.7px) } 80% { transform: translate(-1px, -1.6px) } }
+.lg-boss[data-fx="loot"] .lg-p2 [class*="lg-ab-hoard-"], .lg-boss[data-fx="stolen"] .lg-p2 [class*="lg-ab-hoard-"] { animation-name: lgrRatkingHoardRattleP2 }
 /* THE DRAWING ACTS IT OUT: his own SVG parts (lg-ratking-arml = the scepter or card hand, -armr = the coin paw
    or the chip shove, -head, -crown in raids/ratking.svg, all three phases; -cigar only in phase 3) move with every moment, his attack
    and each ability. Pivots in the drawing's own units (view-box); crown and cigar about themselves. Played only while
@@ -113,9 +116,9 @@ export default {
   27% { transform: rotate(32deg) translate(3px, -3px) scale(1.16) } 40% { transform: rotate(24deg) scale(1.1) } 100% { transform: none } }
 @keyframes lgrRkChipShove { 0% { transform: none } 11% { transform: translate(-5px, -2px) rotate(-6deg) } 18% { transform: translate(-6px, -2px) rotate(-7deg) }
   27% { transform: translate(9px, 5px) rotate(8deg) scale(1.18) } 40% { transform: translate(7px, 4px) rotate(5deg) scale(1.12) } 100% { transform: none } }
-@keyframes lgrRkHeadStrike { 0% { transform: none } 11% { transform: rotate(-9deg) translateY(-3px) } 18% { transform: rotate(-10deg) translateY(-3px) }
+@keyframes lgrRkHeadStrike { 0% { transform: none } 11% { transform: rotate(-9deg) translateY(-1px) } 18% { transform: rotate(-10deg) translateY(-1px) }
   27% { transform: rotate(8deg) translate(4px, 3px) scale(1.07) } 45% { transform: rotate(4deg) translate(2px, 1px) scale(1.03) } 100% { transform: none } }
-@keyframes lgrRkCrownStrike { 0% { transform: none } 11% { transform: rotate(-7deg) } 29% { transform: rotate(12deg) translateY(-4px) } 42% { transform: rotate(-5deg) } 60% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgrRkCrownStrike { 0% { transform: none } 11% { transform: rotate(-7deg) } 29% { transform: rotate(12deg) translateY(-1px) } 42% { transform: rotate(-5deg) } 60% { transform: rotate(3deg) } 100% { transform: none } }
 @keyframes lgrRkCigarStrike { 0% { transform: none } 11% { transform: rotate(10deg) } 27% { transform: rotate(-22deg) } 50% { transform: rotate(-12deg) } 100% { transform: none } }
 .lg-boss[data-motif="ratking"][data-assault-on] .lg-ratking-arml, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-ratking-arml { animation: lgrRkArmStrike 900ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="ratking"][data-assault-on] .lg-ratking-armr, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-ratking-armr { animation: lgrRkPawStrike 900ms cubic-bezier(.3,0,.3,1) both }
@@ -133,21 +136,13 @@ export default {
   36% { transform: rotate(34deg) translate(3px, 3px) scale(1.2) } 100% { transform: none } }
 @keyframes lgrRkChipHeavy { 0% { transform: translate(-5px, -2px) rotate(-6deg) } 18% { transform: translate(-9px, -5px) rotate(-12deg) } 28% { transform: translate(12px, 7px) rotate(12deg) scale(1.3) }
   36% { transform: translate(10px, 6px) rotate(9deg) scale(1.24) } 100% { transform: none } }
-@keyframes lgrRkHeadHeavy { 0% { transform: rotate(-9deg) translateY(-3px) } 18% { transform: rotate(-13deg) translateY(-5px) } 28% { transform: rotate(11deg) translate(5px, 5px) scale(1.13) }
-  34% { transform: rotate(8deg) translate(4px, 4px) scale(1.1) } 60% { transform: rotate(5deg) translate(2px, 2px) scale(1.05) } 100% { transform: none } }
-@keyframes lgrRkCrownHeavy { 0% { transform: rotate(-7deg) } 18% { transform: rotate(-10deg) } 30% { transform: translateY(-10px) rotate(22deg) } 44% { transform: translateY(0) rotate(-8deg) }
-  52% { transform: translateY(-3px) rotate(4deg) } 62% { transform: none } 100% { transform: none } }
+@keyframes lgrRkHeadHeavy { 0% { transform: rotate(-9deg) translateY(-1px) } 18% { transform: rotate(-12deg) translateY(-1px) } 28% { transform: rotate(11deg) translate(5px, 6px) scale(1.04) }
+  34% { transform: rotate(8deg) translate(4px, 5px) scale(1.03) } 60% { transform: rotate(5deg) translate(2px, 2px) scale(1.01) } 100% { transform: none } }
+@keyframes lgrRkCrownHeavy { 0% { transform: rotate(-7deg) } 18% { transform: rotate(-10deg) } 30% { transform: translateY(-2px) rotate(20deg) } 44% { transform: translateY(0) rotate(-8deg) }
+  52% { transform: translateY(-1px) rotate(4deg) } 62% { transform: none } 100% { transform: none } }
 .lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-ratking-arml { animation: lgrRkArmHeavy 1150ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-ratking-armr { animation: lgrRkPawHeavy 1150ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p2 .lg-ratking-armr { animation-name: lgrRkChipHeavy }
-/* Phase 3's conjuring paw is raised high, so phase 1's swat (32 to 40 degrees about the shoulder) carried it out past
-   the right edge of the boss box: here it winds back and HURLS the coin at you, a shorter arc plus a lunge in size. */
-@keyframes lgrRkPawStrikeP3 { 0% { transform: none } 11% { transform: rotate(-14deg) translate(-2px, 2px) } 18% { transform: rotate(-16deg) translate(-2px, 2px) }
-  27% { transform: rotate(13deg) translate(-3px, 1px) scale(1.14) } 40% { transform: rotate(9deg) translate(-2px, 1px) scale(1.08) } 100% { transform: none } }
-@keyframes lgrRkPawHeavyP3 { 0% { transform: rotate(-14deg) translate(-2px, 2px) } 18% { transform: rotate(-24deg) translate(-3px, -2px) } 28% { transform: rotate(16deg) translate(-4px, 2px) scale(1.22) }
-  36% { transform: rotate(12deg) translate(-3px, 2px) scale(1.16) } 100% { transform: none } }
-.lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-armr, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-p3 .lg-ratking-armr { animation-name: lgrRkPawStrikeP3 }
-.lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p3 .lg-ratking-armr { animation-name: lgrRkPawHeavyP3 }
 .lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-ratking-head { animation: lgrRkHeadHeavy 1150ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-ratking-crown { animation: lgrRkCrownHeavy 1150ms ease-out both }
 
@@ -163,12 +158,12 @@ export default {
 
 /* CRIT: the crown is knocked clean off his head, flips over in the air and drops back on; his head whips, both arms
    fly up (the scepter nearly lost, the paw throws its money). */
-@keyframes lgrRkCrownCrit { 0% { transform: none } 10% { transform: translate(-4px, -20px) rotate(-60deg) } 32% { transform: translate(-6px, -34px) rotate(-200deg) }
-  54% { transform: translate(-1px, -6px) rotate(-340deg) } 60% { transform: translateY(0) rotate(-372deg) } 70% { transform: translateY(-3px) rotate(-352deg) } 82% { transform: rotate(-362deg) } 100% { transform: rotate(-360deg) } }
+@keyframes lgrRkCrownCrit { 0% { transform: none } 10% { transform: translate(-2px, -2px) rotate(-28deg) } 22% { transform: translate(-3px, -2px) rotate(-34deg) } 36% { transform: translate(1px, 0) rotate(22deg) }
+  54% { transform: rotate(-12deg) } 70% { transform: translateY(-1px) rotate(6deg) } 82% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgrRkHeadCrit { 0% { transform: none } 10% { transform: rotate(-17deg) translate(-5px, -3px) scale(.95) } 28% { transform: rotate(7deg) translateX(1px) } 46% { transform: rotate(-4deg) } 64% { transform: rotate(2deg) } 100% { transform: none } }
 @keyframes lgrRkArmCrit { 0% { transform: none } 10% { transform: rotate(-30deg) translateY(-2px) } 36% { transform: rotate(12deg) } 58% { transform: rotate(-5deg) } 100% { transform: none } }
 @keyframes lgrRkPawCrit { 0% { transform: none } 10% { transform: rotate(30deg) translateY(-3px) } 36% { transform: rotate(-10deg) } 58% { transform: rotate(4deg) } 100% { transform: none } }
-.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-ratking-crown { transform-origin: 50% 50%; animation: lgrRkCrownCrit 1000ms cubic-bezier(.3,.7,.4,1) both }
+.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-ratking-crown { animation: lgrRkCrownCrit 1000ms cubic-bezier(.3,.7,.4,1) both }
 .lg-boss[data-motif="ratking"][data-moment="crit"] .lg-ratking-head { animation: lgrRkHeadCrit 1000ms cubic-bezier(.2,.8,.3,1) both }
 .lg-boss[data-motif="ratking"][data-moment="crit"] .lg-ratking-arml { animation: lgrRkArmCrit 1000ms cubic-bezier(.2,.8,.3,1) both }
 .lg-boss[data-motif="ratking"][data-moment="crit"] .lg-ratking-armr { animation: lgrRkPawCrit 1000ms cubic-bezier(.2,.8,.3,1) both }
@@ -215,7 +210,7 @@ export default {
 
 /* KNOCKOUT, DETHRONED: he reels, the crown is knocked off and tumbles down into his lap, the scepter falls out of his
    grip, the money spills from the paw, the cigar drops and the head slumps. */
-@keyframes lgrRkCrownKo { 0% { transform: none } 8% { transform: translateY(-4px) rotate(-10deg) } 24% { transform: translateY(-16px) rotate(35deg) } 46% { transform: translate(4px, -12px) rotate(170deg) }
+@keyframes lgrRkCrownKo { 0% { transform: none } 8% { transform: translateY(-1px) rotate(-10deg) } 24% { transform: translateY(-3px) rotate(35deg) } 46% { transform: translate(8px, 6px) rotate(170deg) }
   64% { transform: translate(12px, 58px) rotate(262deg) } 70% { transform: translate(12px, 53px) rotate(250deg) } 76% { transform: translate(13px, 58px) rotate(256deg) } 100% { transform: translate(13px, 58px) rotate(254deg) } }
 @keyframes lgrRkArmKo { 0% { transform: none } 12% { transform: rotate(-14deg) } 40% { transform: rotate(-6deg) } 60% { transform: rotate(72deg) translateY(10px) } 68% { transform: rotate(86deg) translateY(16px) }
   74% { transform: rotate(80deg) translateY(14px) } 100% { transform: rotate(83deg) translateY(15px) } }
@@ -234,16 +229,16 @@ export default {
 /* Phase 2: the card fan THRUSTS at the camera (the cards come at you big), same timing as the swing. Phase 1: the
    scepter is held at its middle and drawn behind his head, so it CHOPS: raised high, then brought down at you with the
    skull coming at the camera on the left (a swing to the right would vanish behind his head). */
-@keyframes lgrRkChop { 0% { transform: none } 11% { transform: rotate(12deg) translateY(-6px) } 16% { transform: rotate(14deg) translateY(-7px) scale(1.04) }
-  25% { transform: rotate(-38deg) translate(-2px, 4px) scale(1.5) } 31% { transform: rotate(-32deg) translate(-2px, 3px) scale(1.42) } 38% { transform: rotate(-35deg) translate(-2px, 4px) scale(1.45) }
-  65% { transform: rotate(-15deg) translateY(1px) scale(1.15) } 100% { transform: none } }
-@keyframes lgrRkChopHeavy { 0% { transform: rotate(12deg) translateY(-6px) } 16% { transform: rotate(18deg) translateY(-10px) scale(1.08) } 20% { transform: rotate(19deg) translateY(-10px) scale(1.08) }
-  28% { transform: rotate(-48deg) translate(-2px, 6px) scale(1.7) } 32% { transform: rotate(-42deg) translate(-2px, 6px) scale(1.58) } 36% { transform: rotate(-46deg) translate(-2px, 6px) scale(1.64) }
-  70% { transform: rotate(-24deg) translateY(2px) scale(1.25) } 100% { transform: none } }
-@keyframes lgrRkChopBlock { 0% { transform: none } 14% { transform: rotate(-30deg) translateY(3px) scale(1.4) } 22% { transform: rotate(-32deg) translateY(3px) scale(1.42) }
+@keyframes lgrRkChop { 0% { transform: none } 11% { transform: rotate(12deg) translateY(-6px) } 16% { transform: rotate(14deg) translateY(-7px) scale(1.03) }
+  25% { transform: rotate(-12deg) translate(4px, -2px) scale(1.16) } 31% { transform: rotate(-9deg) translate(4px, -2px) scale(1.12) } 38% { transform: rotate(-11deg) translate(4px, -2px) scale(1.14) }
+  65% { transform: rotate(-5deg) translateY(-1px) scale(1.05) } 100% { transform: none } }
+@keyframes lgrRkChopHeavy { 0% { transform: rotate(12deg) translateY(-6px) } 16% { transform: rotate(18deg) translateY(-8px) scale(1.05) } 20% { transform: rotate(19deg) translateY(-8px) scale(1.05) }
+  28% { transform: rotate(-14deg) translate(5px, -3px) scale(1.2) } 32% { transform: rotate(-11deg) translate(5px, -3px) scale(1.16) } 36% { transform: rotate(-13deg) translate(5px, -3px) scale(1.18) }
+  70% { transform: rotate(-6deg) translateY(-1px) scale(1.06) } 100% { transform: none } }
+@keyframes lgrRkChopBlock { 0% { transform: none } 14% { transform: rotate(-10deg) translate(4px, -2px) scale(1.14) } 22% { transform: rotate(-11deg) translate(4px, -2px) scale(1.15) }
   32% { transform: rotate(20deg) translateY(-5px) scale(.96) } 48% { transform: rotate(8deg) translateY(-2px) } 66% { transform: rotate(-4deg) } 82% { transform: rotate(2deg) } 100% { transform: none } }
-@keyframes lgrRkChopShield { 0% { transform: none } 14% { transform: rotate(12deg) translateY(-5px) } 26% { transform: rotate(-30deg) translateY(3px) scale(1.35) }
-  38% { transform: rotate(-52deg) translate(-3px, 7px) scale(1.3) } 60% { transform: rotate(-20deg) translateY(2px) scale(1.1) } 100% { transform: none } }
+@keyframes lgrRkChopShield { 0% { transform: none } 14% { transform: rotate(12deg) translateY(-5px) } 26% { transform: rotate(-10deg) translate(4px, -2px) scale(1.12) }
+  38% { transform: rotate(-15deg) translate(5px, -2px) scale(1.1) } 60% { transform: rotate(-6deg) translateY(-1px) scale(1.04) } 100% { transform: none } }
 @keyframes lgrRkThrust { 0% { transform: none } 11% { transform: rotate(-18deg) } 16% { transform: rotate(-20deg) scale(1.04) }
   25% { transform: rotate(28deg) translate(6px, -4px) scale(1.5) } 31% { transform: rotate(22deg) translate(5px, -3px) scale(1.42) } 38% { transform: rotate(25deg) translate(6px, -4px) scale(1.45) }
   65% { transform: rotate(12deg) translate(2px, -1px) scale(1.15) } 100% { transform: none } }
@@ -277,32 +272,11 @@ export default {
 .lg-boss[data-motif="ratking"][data-down] .lg-p3 .lg-ratking-arml { transform: rotate(8deg) translateY(4px) }
 /* PHASE 3 KNOCKOUT: his treasury vault stays put (the shared body move would rotate and drop the whole drawing, vault
    and all), so in phase 3 that move is off and the FIGURE (body, arms, head: lg-ratking-figure) reels and slumps
-   instead, pivoting at his hem; the crown tumbles off to his left and lands on top of the left coin heap, never down his chin. */
+   instead, pivoting at his hem; the crown tumbles off to his left and lands on his chest, never down his chin. */
 .lg-boss[data-motif="ratking"][data-phase="3"] [style*="lgBodyKO_"] { animation: none !important }
 .lg-p3 .lg-ratking-figure { transform-box: view-box; transform-origin: 60px 118px }
-@keyframes lgrRkFigureKoP3 { 0% { transform: none } 16% { transform: translate(2px, -3px) rotate(3deg) } 26% { transform: rotate(-5deg) } 36% { transform: rotate(5deg) }
-  46% { transform: rotate(-3deg) } 58% { transform: translate(5px, 9px) rotate(11deg) scale(1, .93) } 66% { transform: translate(4px, 6px) rotate(9deg) scale(1, .96) }
-  74%, 100% { transform: translate(5px, 9px) rotate(11deg) scale(1, .93) } }
-.lg-boss[data-motif="ratking"][data-moment="ko"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigureKoP3 2200ms ease-in-out both }
-.lg-boss[data-motif="ratking"][data-down] .lg-p3 .lg-ratking-figure { transform: translate(5px, 9px) rotate(11deg) scale(1, .93) }
 /* phase 3: his head never slides off his neck; every reaction moves the WHOLE figure (head on its body) instead */
 .lg-boss[data-motif="ratking"] .lg-p3 .lg-ratking-head { animation: none !important; transform: none !important }
-.lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-figure, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadStrike 900ms cubic-bezier(.3,0,.3,1) both }
-.lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadHeavy 1150ms cubic-bezier(.3,0,.3,1) both }
-.lg-boss[data-motif="ratking"][data-moment="hit"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadHit 700ms cubic-bezier(.2,.8,.3,1) both }
-.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadCrit 1000ms cubic-bezier(.2,.8,.3,1) both }
-.lg-boss[data-motif="ratking"][data-moment="sharpen"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadSharpen 750ms cubic-bezier(.2,.8,.3,1) both }
-.lg-boss[data-motif="ratking"][data-moment="block"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadBlock 800ms ease-out both }
-.lg-boss[data-motif="ratking"][data-moment="shield"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadShield 820ms ease-out both }
-.lg-boss[data-motif="ratking"][data-moment="wind"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadWind 900ms ease-in-out both }
-.lg-boss[data-motif="ratking"][data-fx="loot"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadLoot 340ms ease-out both }
-.lg-boss[data-motif="ratking"][data-fx="stolen"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadStolen 800ms cubic-bezier(.22,1,.36,1) both }
-.lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-p3 .lg-ratking-figure { animation: lgrRkHeadBomb 1200ms cubic-bezier(.3,0,.3,1) both }
-.lg-boss[data-motif="ratking"][data-moment="ko"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigureKoP3 2200ms ease-in-out both }
-@keyframes lgrRkCrownKoP3 { 0% { transform: none } 8% { transform: translateY(-4px) rotate(-10deg) } 24% { transform: translate(-6px, -16px) rotate(-40deg) } 44% { transform: translate(-40px, 4px) rotate(-170deg) }
-  62% { transform: translate(-78px, 76px) rotate(-345deg) } 69% { transform: translate(-78px, 71px) rotate(-334deg) } 76%, 100% { transform: translate(-78px, 76px) rotate(-340deg) } }
-.lg-boss[data-motif="ratking"][data-moment="ko"] .lg-p3 .lg-ratking-crown { animation-name: lgrRkCrownKoP3 }
-.lg-boss[data-motif="ratking"][data-down] .lg-p3 .lg-ratking-crown { transform: translate(-78px, 76px) rotate(-340deg) }
 /* phase 3: his near paw rests on his vest, so every moment only sways that arm (the conjuring arm does the work) */
 @keyframes lgrRkSleeveSway { 0% { transform: none } 25% { transform: rotate(-8deg) } 55% { transform: rotate(4deg) } 100% { transform: none } }
 .lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-arml, .lg-boss[data-motif="ratking"][data-moment]:not([data-moment="ko"]) .lg-p3 .lg-ratking-arml, .lg-boss[data-motif="ratking"][data-fx] .lg-p3 .lg-ratking-arml { animation-name: lgrRkSleeveSway }
@@ -326,8 +300,8 @@ export default {
    the side, both arms thrown up. */
 @keyframes lgrRkHeadBomb { 0% { transform: none } 30% { transform: rotate(-10deg) translateY(-3px) } 39% { transform: rotate(-11deg) translateY(-3px) } 42% { transform: translateY(5px) scale(1.08, .84) }
   52% { transform: translateY(1px) scale(.96, 1.04) } 64% { transform: rotate(5deg) translateY(2px) } 100% { transform: none } }
-@keyframes lgrRkCrownBomb { 0% { transform: none } 39% { transform: rotate(-6deg) } 44% { transform: translate(-14px, -22px) rotate(-80deg) } 62% { transform: translate(-12px, -8px) rotate(-48deg) } 82% { transform: rotate(-12deg) } 100% { transform: none } }
-@keyframes lgrRkArmBomb { 0% { transform: none } 40% { transform: none } 46% { transform: rotate(-32deg) translateY(-3px) } 66% { transform: rotate(-20deg) } 100% { transform: none } }
+@keyframes lgrRkCrownBomb { 0% { transform: none } 39% { transform: rotate(-6deg) } 44% { transform: translate(-10px, -4px) rotate(-60deg) } 62% { transform: translate(-8px, -1px) rotate(-38deg) } 82% { transform: rotate(-12deg) } 100% { transform: none } }
+@keyframes lgrRkArmBomb { 0% { transform: none } 40% { transform: none } 46% { transform: rotate(-22deg) translateY(-3px) } 66% { transform: rotate(-20deg) } 100% { transform: none } }
 @keyframes lgrRkPawBomb { 0% { transform: none } 40% { transform: none } 46% { transform: rotate(30deg) translateY(-3px) } 66% { transform: rotate(18deg) } 100% { transform: none } }
 .lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-ratking-head { animation: lgrRkHeadBomb 1200ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-ratking-crown { animation: lgrRkCrownBomb 1200ms cubic-bezier(.3,0,.3,1) both }
@@ -348,5 +322,119 @@ export default {
 .lg-boss[data-motif="ratking"][data-fx="tail"] .lg-ratking-arml { animation: lgrRkArmRage 1100ms cubic-bezier(.3,0,.3,1) both }
 .lg-boss[data-motif="ratking"][data-fx="tail"] .lg-ratking-armr { animation: lgrRkPawClench 1100ms ease-out both }
 .lg-boss[data-motif="ratking"][data-fx="tail"] .lg-ratking-crown { animation: lgrRkCrownRattle 1100ms linear both }
+/* PHASE 3 IN THE FIGHT (round 14): his mantle reaches the box's sides and the burst and the coin spray its right edge,
+   so his reactions are a sway of the whole figure (a few degrees about his hem, no sideways lunge), the conjuring arm
+   only winds back toward his head, the crown jolts in place, and when he falls the burst and the spray go dark. */
+@keyframes lgrRkFigHitP3 { 0% { transform: none } 12% { transform: rotate(-2deg) translateY(1px) scale(1, .97) } 30% { transform: rotate(1deg) } 48% { transform: rotate(-.4deg) } 100% { transform: none } }
+@keyframes lgrRkFigSharpenP3 { 0% { transform: none } 8% { transform: rotate(-1.6deg) } 30% { transform: rotate(1.6deg) } 46% { transform: rotate(-.4deg) } 100% { transform: none } }
+@keyframes lgrRkFigBlockP3 { 0% { transform: none } 14% { transform: rotate(1deg) } 32% { transform: rotate(-2deg) translateY(-1px) } 56% { transform: rotate(.6deg) } 100% { transform: none } }
+@keyframes lgrRkFigShieldP3 { 0% { transform: none } 14% { transform: rotate(-1.2deg) translateY(-1px) } 38% { transform: rotate(1.8deg) translateY(2px) } 60% { transform: rotate(-.6deg) } 100% { transform: none } }
+@keyframes lgrRkFigWindP3 { 0% { transform: none } 10% { transform: rotate(-1.2deg) } 24% { transform: rotate(1.2deg) } 38% { transform: rotate(-1deg) } 52% { transform: rotate(.8deg) } 100% { transform: none } }
+@keyframes lgrRkFigLootP3 { 0% { transform: none } 30% { transform: rotate(-1deg) translateY(1px) } 100% { transform: none } }
+@keyframes lgrRkFigStolenP3 { 0% { transform: none } 26% { transform: rotate(-2deg) translateY(-2px) } 72% { transform: rotate(-1.6deg) translateY(-1px) } 100% { transform: none } }
+@keyframes lgrRkFigBombP3 { 0% { transform: none } 30% { transform: rotate(-2deg) translateY(-2px) } 39% { transform: rotate(-2deg) translateY(-2px) } 42% { transform: translateY(4px) scale(1.012, .92) } 52% { transform: translateY(1px) scale(.995, 1.02) } 64% { transform: rotate(1deg) translateY(1px) } 100% { transform: none } }
+@keyframes lgrRkFigKoP3b { 0% { transform: none } 16% { transform: translateY(-2px) rotate(1.5deg) } 26% { transform: rotate(-2deg) } 36% { transform: rotate(2deg) } 46% { transform: rotate(-1deg) }
+  58% { transform: translateY(8px) rotate(3deg) scale(1, .93) } 66% { transform: translateY(6px) rotate(2.5deg) scale(1, .95) } 74%, 100% { transform: translateY(8px) rotate(3deg) scale(1, .93) } }
+.lg-boss[data-motif="ratking"][data-moment="hit"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigHitP3 700ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="sharpen"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigSharpenP3 750ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="block"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigBlockP3 800ms ease-out both }
+.lg-boss[data-motif="ratking"][data-moment="shield"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigShieldP3 820ms ease-out both }
+.lg-boss[data-motif="ratking"][data-moment="wind"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigWindP3 900ms ease-in-out both }
+.lg-boss[data-motif="ratking"][data-fx="loot"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigLootP3 340ms ease-out both }
+.lg-boss[data-motif="ratking"][data-fx="stolen"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigStolenP3 800ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigBombP3 1200ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="ko"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigKoP3b 2200ms ease-in-out both }
+.lg-boss[data-motif="ratking"][data-down] .lg-p3 .lg-ratking-figure { transform: translateY(8px) rotate(3deg) scale(1, .93) }
+@keyframes lgrRkPawHitP3 { 0% { transform: none } 14% { transform: rotate(-10deg) translate(-2px, 1px) } 60% { transform: rotate(-5deg) } 100% { transform: none } }
+@keyframes lgrRkPawSharpenP3 { 0% { transform: none } 8% { transform: rotate(-6deg) } 30% { transform: rotate(1deg) } 50% { transform: none } 100% { transform: none } }
+@keyframes lgrRkPawBlockP3 { 0% { transform: none } 32% { transform: rotate(-6deg) } 40% { transform: rotate(1deg) } 48% { transform: rotate(-5deg) } 56% { transform: rotate(.5deg) } 64% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrRkPawStolenP3 { 0% { transform: none } 22% { transform: rotate(-8deg) translate(-2px, 3px) } 48% { transform: rotate(-18deg) translate(-3px, -3px) } 72% { transform: rotate(-14deg) translate(-2px, -2px) } 100% { transform: none } }
+@keyframes lgrRkPawBombP3 { 0% { transform: none } 40% { transform: none } 46% { transform: rotate(-16deg) translateY(-2px) } 66% { transform: rotate(-9deg) } 100% { transform: none } }
+@keyframes lgrRkPawWagP3 { 0% { transform: none } 18% { transform: rotate(-10deg) } 34% { transform: rotate(1deg) } 50% { transform: rotate(-10deg) } 66% { transform: rotate(0deg) } 100% { transform: none } }
+@keyframes lgrRkPawKoP3 { 0% { transform: none } 12% { transform: rotate(-12deg) translateY(-2px) } 40% { transform: rotate(-4deg) } 62% { transform: rotate(14deg) translateY(6px) } 72% { transform: rotate(11deg) translateY(7px) } 100% { transform: rotate(13deg) translateY(7px) } }
+.lg-boss[data-motif="ratking"][data-moment="hit"] .lg-p3 .lg-ratking-armr { animation: lgrRkPawHitP3 700ms ease-out both }
+.lg-boss[data-motif="ratking"][data-moment="sharpen"] .lg-p3 .lg-ratking-armr { animation: lgrRkPawSharpenP3 750ms ease-out both }
+.lg-boss[data-motif="ratking"][data-moment="block"] .lg-p3 .lg-ratking-armr { animation: lgrRkPawBlockP3 800ms linear both }
+.lg-boss[data-motif="ratking"][data-fx="stolen"] .lg-p3 .lg-ratking-armr { animation: lgrRkPawStolenP3 800ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-p3 .lg-ratking-armr { animation: lgrRkPawBombP3 1200ms ease-out both }
+.lg-boss[data-motif="ratking"][data-fx="buyTail"] .lg-p3 .lg-ratking-armr { animation: lgrRkPawWagP3 800ms ease-in-out both }
+.lg-boss[data-motif="ratking"][data-moment="ko"] .lg-p3 .lg-ratking-armr { animation: lgrRkPawKoP3 2200ms ease-in-out both }
+.lg-boss[data-motif="ratking"][data-down] .lg-p3 .lg-ratking-armr { transform: rotate(13deg) translateY(7px) }
+@keyframes lgrRkCrownBombP3 { 0% { transform: none } 39% { transform: rotate(-6deg) } 44% { transform: translate(-4px, 1px) rotate(-22deg) } 62% { transform: translate(-3px, 1px) rotate(-14deg) } 82% { transform: rotate(-5deg) } 100% { transform: none } }
+@keyframes lgrRkCrownKoP3b { 0% { transform: none } 8% { transform: rotate(-8deg) } 24% { transform: translate(-4px, 2px) rotate(-26deg) } 44% { transform: translate(-26px, 30px) rotate(-170deg) }
+  62% { transform: translate(-50px, 75px) rotate(-345deg) } 69% { transform: translate(-50px, 70px) rotate(-334deg) } 76%, 100% { transform: translate(-50px, 75px) rotate(-340deg) } }
+.lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-p3 .lg-ratking-crown { animation: lgrRkCrownBombP3 1200ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="ko"] .lg-p3 .lg-ratking-crown { animation: lgrRkCrownKoP3b 2200ms cubic-bezier(.4,0,.6,1) both }
+.lg-boss[data-motif="ratking"][data-down] .lg-p3 .lg-ratking-crown { transform: translate(-50px, 75px) rotate(-340deg) }
+@keyframes lgrRkPowerOutP3 { 0%, 30% { opacity: 1 } 46%, 100% { opacity: 0 } }
+.lg-boss[data-motif="ratking"][data-moment="ko"] .lg-p3 :is(.lg-ratking-burst, .lg-ratking-spray) { animation: lgrRkPowerOutP3 2200ms ease-in both }
+.lg-boss[data-motif="ratking"][data-down] .lg-p3 :is(.lg-ratking-burst, .lg-ratking-spray) { opacity: 0 }
+/* PHASE 3'S OWN ATTACK (round 15; the review: P1 swings the scepter, P2 thrusts the cards, P3 must hit hardest). The
+   figure only sways (his mantle fills the box's width), so the POWER does the attacking: the burst gathers, then flares
+   big and turns; the paw thrusts the coin at you (in toward the middle and up in size: the box's right edge stays clear);
+   the coin spray FIRES down at the player's hearts and refills from the coin; the crown jolts. A crit SNUFFS his power
+   (burst to a spark, spray falls, the arm knocked down): plainly not a bigger hit. Bomb: the blast knocks the spray out
+   of the air and chokes the burst. Stolen: the spray is sucked back into the coin, then the burst flares as he gloats.
+   Sizes are measured against the clip: burst x 87..139, spray x 108..139 y -5..58, arm pivot 98,94 (check-moment-clip). */
+.lg-p3 .lg-ratking-burst, .lg-p3 .lg-ratking-spray { transform-box: view-box; transform-origin: 113.2px 61px }
+@keyframes lgrRkThrustP3 { 0% { transform: none } 14% { transform: rotate(-9deg) } 20% { transform: rotate(-10deg) } 27% { transform: translate(-12px, 6px) scale(1.12) }
+  38% { transform: translate(-11px, 5px) scale(1.1) } 56% { transform: translate(-4px, 2px) scale(1.03) } 100% { transform: none } }
+@keyframes lgrRkThrustHeavyP3 { 0% { transform: rotate(-10deg) } 20% { transform: rotate(-14deg) } 26% { transform: rotate(-14deg) } 33% { transform: translate(-16px, 8px) scale(1.16) }
+  46% { transform: translate(-15px, 7px) scale(1.14) } 64% { transform: translate(-5px, 2px) scale(1.04) } 100% { transform: none } }
+@keyframes lgrRkFlareP3 { 0% { transform: none } 18% { transform: scale(.8) rotate(-10deg) } 27% { transform: scale(1.25) rotate(28deg) } 40% { transform: scale(1.18) rotate(40deg) }
+  60% { transform: scale(1.06) rotate(52deg) } 100% { transform: rotate(60deg) } }
+@keyframes lgrRkFlareHeavyP3 { 0% { transform: scale(.85) } 24% { transform: scale(.72) rotate(-14deg) } 33% { transform: scale(1.35) rotate(30deg) } 44% { transform: scale(1.22) rotate(44deg) }
+  52% { transform: scale(1.32) rotate(52deg) } 70% { transform: scale(1.08) rotate(64deg) } 100% { transform: rotate(72deg) } }
+@keyframes lgrRkVolleyP3 { 0% { transform: none; opacity: 1 } 18% { transform: scale(.8); opacity: 1 } 28% { transform: translate(-3px, 36px) scale(1.04); opacity: 1 }
+  44% { transform: translate(-4px, 56px) scale(1.06); opacity: 0 } 45% { transform: scale(.25); opacity: 0 } 60% { transform: scale(.4); opacity: .8 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrRkVolleyHeavyP3 { 0% { transform: scale(.85); opacity: 1 } 26% { transform: scale(.7); opacity: 1 } 34% { transform: translate(-3px, 40px) scale(1.05); opacity: 1 }
+  50% { transform: translate(-4px, 58px) scale(1.07); opacity: 0 } 51% { transform: scale(.25); opacity: 0 } 70% { transform: scale(.45); opacity: .8 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrRkCrownJoltP3 { 0% { transform: none } 20% { transform: rotate(-7deg) } 28% { transform: rotate(12deg) } 38% { transform: rotate(-6deg) } 52% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgrRkCrownJoltHeavyP3 { 0% { transform: rotate(-7deg) } 26% { transform: rotate(-10deg) } 34% { transform: rotate(16deg) } 44% { transform: rotate(-8deg) } 56% { transform: rotate(4deg) } 100% { transform: none } }
+@keyframes lgrRkFigThrustP3 { 0% { transform: none } 18% { transform: rotate(-2deg) translateY(-2px) } 27% { transform: rotate(2.4deg) translateY(4px) } 44% { transform: rotate(1.4deg) translateY(2px) } 100% { transform: none } }
+@keyframes lgrRkFigThrustHeavyP3 { 0% { transform: rotate(-2deg) translateY(-2px) } 26% { transform: rotate(-3deg) translateY(-3px) } 33% { transform: rotate(3deg) translateY(6px) scale(1, .97) } 50% { transform: rotate(2deg) translateY(3px) } 100% { transform: none } }
+.lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-armr, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-p3 .lg-ratking-armr { animation: lgrRkThrustP3 900ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p3 .lg-ratking-armr { animation: lgrRkThrustHeavyP3 1150ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-burst, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-p3 .lg-ratking-burst { animation: lgrRkFlareP3 900ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p3 .lg-ratking-burst { animation: lgrRkFlareHeavyP3 1150ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-spray, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-p3 .lg-ratking-spray { animation: lgrRkVolleyP3 900ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p3 .lg-ratking-spray { animation: lgrRkVolleyHeavyP3 1150ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-crown, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-p3 .lg-ratking-crown { animation: lgrRkCrownJoltP3 900ms ease-out both }
+.lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p3 .lg-ratking-crown { animation: lgrRkCrownJoltHeavyP3 1150ms ease-out both }
+.lg-boss[data-motif="ratking"][data-assault-on] .lg-p3 .lg-ratking-figure, .lg-boss[data-motif="ratking"][data-moment="hurt"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigThrustP3 900ms cubic-bezier(.3,0,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="hurtBig"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigThrustHeavyP3 1150ms cubic-bezier(.3,0,.3,1) both }
+/* hit: a flinch; his power flickers */
+@keyframes lgrRkFlickerP3 { 0% { transform: none; opacity: 1 } 12% { transform: scale(.78) rotate(-8deg); opacity: .55 } 24% { transform: scale(.95); opacity: 1 } 36% { transform: scale(.86); opacity: .75 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrRkSprayShakeP3 { 0% { transform: none } 12% { transform: translate(3px, 4px) } 24% { transform: translate(-2px, 1px) } 36% { transform: translate(1px, 2px) } 100% { transform: none } }
+@keyframes lgrRkCrownTipP3 { 0% { transform: none } 12% { transform: rotate(6deg) } 30% { transform: rotate(-3deg) } 100% { transform: none } }
+.lg-boss[data-motif="ratking"][data-moment="hit"] .lg-p3 .lg-ratking-burst { animation: lgrRkFlickerP3 700ms ease-out both }
+.lg-boss[data-motif="ratking"][data-moment="hit"] .lg-p3 .lg-ratking-spray { animation: lgrRkSprayShakeP3 700ms ease-out both }
+.lg-boss[data-motif="ratking"][data-moment="hit"] .lg-p3 .lg-ratking-crown { animation: lgrRkCrownTipP3 700ms ease-out both }
+/* crit: his power is SNUFFED: the burst shrinks to a spark, the spray drops out of the air, the arm is knocked down,
+   the crown knocked crooked; the light comes back slowly */
+@keyframes lgrRkSnuffP3 { 0% { transform: none; opacity: 1 } 8% { transform: scale(.32) rotate(-30deg); opacity: .35 } 60% { transform: scale(.38) rotate(-24deg); opacity: .4 }
+  74% { transform: scale(.7) rotate(-12deg); opacity: .8 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrRkSprayDropP3 { 0% { transform: none; opacity: 1 } 10% { transform: translate(-3px, 8px) rotate(-6deg); opacity: 1 } 40% { transform: translate(-8px, 42px) rotate(-14deg); opacity: 0 }
+  41% { transform: scale(.2); opacity: 0 } 70% { transform: scale(.3); opacity: 0 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrRkArmDownP3 { 0% { transform: none } 8% { transform: rotate(10deg) translateY(4px) } 60% { transform: rotate(8deg) translateY(3px) } 100% { transform: none } }
+@keyframes lgrRkCrownKnockP3 { 0% { transform: none } 8% { transform: rotate(-18deg) } 22% { transform: rotate(-12deg) } 60% { transform: rotate(-14deg) } 100% { transform: none } }
+@keyframes lgrRkFigReelP3 { 0% { transform: none } 8% { transform: rotate(3deg) translateY(4px) scale(1, .95) } 24% { transform: rotate(1.6deg) translateY(2px) } 60% { transform: rotate(2deg) translateY(2px) } 100% { transform: none } }
+.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-p3 .lg-ratking-burst { animation: lgrRkSnuffP3 1000ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-p3 .lg-ratking-spray { animation: lgrRkSprayDropP3 1000ms ease-in both }
+.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-p3 .lg-ratking-armr { animation: lgrRkArmDownP3 1000ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-p3 .lg-ratking-crown { animation: lgrRkCrownKnockP3 1000ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="ratking"][data-moment="crit"] .lg-p3 .lg-ratking-figure { animation: lgrRkFigReelP3 1000ms cubic-bezier(.2,.8,.3,1) both }
+/* bomb: the blast (at 42%) knocks the spray out of the air and chokes the burst; both come back */
+@keyframes lgrRkBombBurstP3 { 0%, 38% { transform: none; opacity: 1 } 43% { transform: scale(.4) rotate(20deg); opacity: .4 } 52% { transform: scale(.6) rotate(10deg); opacity: .6 }
+  56% { transform: scale(.45); opacity: .45 } 82% { transform: scale(.9); opacity: .9 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrRkBombSprayP3 { 0%, 39% { transform: none; opacity: 1 } 44% { transform: translate(-8px, 10px) rotate(-10deg); opacity: 1 } 64% { transform: translate(-14px, 46px) rotate(-22deg); opacity: 0 }
+  65% { transform: scale(.2); opacity: 0 } 80% { transform: scale(.35); opacity: .7 } 100% { transform: none; opacity: 1 } }
+.lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-p3 .lg-ratking-burst { animation: lgrRkBombBurstP3 1200ms ease-out both }
+.lg-boss[data-motif="ratking"][data-fx="bomb"] .lg-p3 .lg-ratking-spray { animation: lgrRkBombSprayP3 1200ms ease-out both }
+/* stolen: his rats snatch a coin back: the spray is sucked into the coin, then the burst flares as he gloats */
+@keyframes lgrRkReclaimP3 { 0% { transform: none; opacity: 1 } 40% { transform: scale(.22); opacity: .3 } 52% { transform: scale(.22); opacity: 0 } 70% { transform: scale(.6); opacity: .8 } 100% { transform: none; opacity: 1 } }
+@keyframes lgrRkGloatBurstP3 { 0% { transform: none } 36% { transform: scale(.7) } 48% { transform: scale(1.22) rotate(24deg) } 64% { transform: scale(1.1) rotate(34deg) } 100% { transform: rotate(45deg) } }
+.lg-boss[data-motif="ratking"][data-fx="stolen"] .lg-p3 .lg-ratking-spray { animation: lgrRkReclaimP3 800ms cubic-bezier(.22,1,.36,1) both }
+.lg-boss[data-motif="ratking"][data-fx="stolen"] .lg-p3 .lg-ratking-burst { animation: lgrRkGloatBurstP3 800ms cubic-bezier(.22,1,.36,1) both }
 `,
 }

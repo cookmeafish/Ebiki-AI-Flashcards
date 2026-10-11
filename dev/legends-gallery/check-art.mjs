@@ -10,6 +10,9 @@
 //           picture's corner: give the part transform-box:fill-box + transform-origin)
 //   joint   a raid boss's head that leaves its neck / body in any fight animation (check-joints.mjs, run at the end in
 //           its own browser: strict for the bosses its STRICT lists, one warning per boss for the rest)
+//   cut     a raid boss part cut flat by the arena's clip in any fight moment, ability effect, assault or knockout
+//           (check-moment-clip.mjs, run at the end in its own browser)
+//   ko      a raid boss part that jumps when the knockout cinematic ends and the fallen pose holds (check-ko-hold.mjs)
 // and WARNS on banner parts cut by the picture's edge mid-motion (often fine: a spotlight running off the edge).
 import fs from 'fs'
 import os from 'os'
@@ -236,13 +239,14 @@ const over = await page.evaluate(async (ONLY) => {
     const isLine = (e) => cs(e).fill === 'none' && cs(e).stroke !== 'none'
     const toRoot = (e) => svg.getScreenCTM().inverse().multiply(e.getScreenCTM())
     const box = (e) => { const b = e.getBBox(), m = toRoot(e); const p = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]].map(([x, y]) => new DOMPoint(x, y).matrixTransform(m)); return { l: Math.min(...p.map((q) => q.x)), r: Math.max(...p.map((q) => q.x)), t: Math.min(...p.map((q) => q.y)), b: Math.max(...p.map((q) => q.y)) } }
-    const shapes = all.filter((e) => !isLine(e) && cs(e).fill !== 'none' && parseFloat(cs(e).fillOpacity || 1) > 0.3 && parseFloat(cs(e).opacity || 1) > 0.3)
+    const shown = (e) => { const m = toRoot(e); return Math.abs(m.a * m.d - m.b * m.c) > 1e-9 } // scale(0) = hidden until its loop shows it
+    const shapes = all.filter((e) => shown(e) && !isLine(e) && cs(e).fill !== 'none' && parseFloat(cs(e).fillOpacity || 1) > 0.3 && parseFloat(cs(e).opacity || 1) > 0.3)
       .map((e) => ({ e, b: box(e), inv: toRoot(e).inverse() }))
       .filter((s) => !(s.b.r - s.b.l >= vb.width * 0.98 && s.b.b - s.b.t >= vb.height * 0.98))
     const inAny = (x, y) => shapes.some((s) => x >= s.b.l && x <= s.b.r && y >= s.b.t && y <= s.b.b && s.e.isPointInFill(new DOMPoint(x, y).matrixTransform(s.inv)))
     const near = (x, y) => [[0, 0], [0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12]].some(([dx, dy]) => inAny(x + dx, y + dy))
     const pieces = []
-    for (const st of all.filter(isLine)) {
+    for (const st of all.filter((e) => isLine(e) && shown(e))) {
       const d = st.getAttribute('d')
       const subs = st.tagName === 'path' && d && !/m/.test(d.slice(1)) ? d.split(/(?=M)/).map((x) => x.trim()).filter(Boolean) : [null]
       if (subs.length < 2) { pieces.push(st); continue }
@@ -274,6 +278,16 @@ const over = await page.evaluate(async (ONLY) => {
   const lines = (j.stdout || '').split(/\r?\n/)
   for (const l of lines) { if (l.startsWith('FAIL  ')) res.fails.push(l.slice(6).trim()); else if (l.startsWith('warn  ')) res.warns.push(l.slice(6).trim()) }
   if (j.status !== 0 && !lines.some((l) => l.startsWith('FAIL  '))) res.fails.push('joint  check-joints.mjs did not finish: ' + ((j.stderr || '').trim().split(/\r?\n/).slice(-3).join(' ') || j.error?.message || 'exit ' + j.status))
+  // CUT: every fight animation against the arena's clip (check-moment-clip.mjs; it reads EBIKI_ONLY itself)
+  const c = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'check-moment-clip.mjs')], { encoding: 'utf8', maxBuffer: 64 << 20, timeout: 30 * 60 * 1000 })
+  const cl = (c.stdout || '').split(/\r?\n/)
+  for (const l of cl) { if (l.startsWith('FAIL  ')) res.fails.push(l.slice(6).trim()); else if (l.startsWith('warn  ')) res.warns.push(l.slice(6).trim()) }
+  if (c.status !== 0 && !cl.some((l) => l.startsWith('FAIL  '))) res.fails.push('cut    check-moment-clip.mjs did not finish: ' + ((c.stderr || '').trim().split(/\r?\n/).slice(-3).join(' ') || c.error?.message || 'exit ' + c.status))
+  // KO: the fallen pose holds what the knockout cinematic ended on (check-ko-hold.mjs; it reads EBIKI_ONLY itself)
+  const k = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'check-ko-hold.mjs')], { encoding: 'utf8', maxBuffer: 64 << 20, timeout: 30 * 60 * 1000 })
+  const kl = (k.stdout || '').split(/\r?\n/)
+  for (const l of kl) { if (l.startsWith('FAIL  ')) res.fails.push(l.slice(6).trim()); else if (l.startsWith('warn  ')) res.warns.push(l.slice(6).trim()) }
+  if (k.status !== 0 && !kl.some((l) => l.startsWith('FAIL  '))) res.fails.push('ko     check-ko-hold.mjs did not finish: ' + ((k.stderr || '').trim().split(/\r?\n/).slice(-3).join(' ') || k.error?.message || 'exit ' + k.status))
 }
 res.warns.push(...over.filter((o) => !REVIEWED.has(`${o.file}|${o.d.slice(0, 24)}`)).map((o) => `overdraw ${o.file}: a line leaves its shape: ${o.d.slice(0, 70)}`))
 await browser.close()

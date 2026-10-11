@@ -18,8 +18,14 @@ export default {
       block: [['sigil', { sides: 7, turn: -51 }], ['sparks', { n: 8, color: '#bff4ff' }]],
       shield: [['bubble', {}], ['deflect', { n: 4, glyph: 'wisp', from: 'side' }]],
       wind: [['heart', {}], ['pulse', { color: '#6fe3ff' }]],
-      body: { hit: 'reel', crit: 'whiplash', sharpen: 'sever', strike: 'swipe', heavy: 'overreach', block: 'recoil', shield: 'glance', wind: 'dim', ko: 'reaped' },
+      body: { hit: 'reel', crit: 'whiplash', sharpen: 'sever', strike: 'reaperChop', heavy: 'reaperCleave', block: 'recoil', shield: 'glance', wind: 'dim', ko: 'reaped' },
   },
   assault: { travel: 'arc', impact: 'cut' }, // the scythe swings across the card and leaves a gash
-  body: {},
+  body: {
+    // his strike and heavy blow: the scythe in his own drawing can only chop so far before its long shaft leaves the
+    // frame, so the WHOLE reaper carries the blow down toward the hearts: a hitch back and up, then he drops forward
+    // and low as the blade lands (the drawing's chop peaks at 34 to 46%), and rises back
+    strike: { reaperChop: '0% { transform: none } 18% { transform: translateY(-6px) rotate(-3deg) scale(1.02) } 42% { transform: translate(8px, 16px) rotate(6deg) scale(1.14) } 64% { transform: translate(4px, 8px) rotate(3deg) scale(1.06) } 100% { transform: none }' },
+    heavy: { reaperCleave: '0% { transform: none } 20% { transform: translateY(-10px) rotate(-5deg) scale(1.03) } 40% { transform: translate(12px, 24px) rotate(9deg) scale(1.26) } 54% { transform: translate(10px, 20px) rotate(8deg) scale(1.22) } 72% { transform: translate(4px, 8px) rotate(3deg) scale(1.08) } 100% { transform: none }' },
+  },
 }

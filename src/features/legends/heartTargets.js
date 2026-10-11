@@ -64,3 +64,15 @@ export function demoGain(h) {
 export const demoHeartsFull = (h) => ({ ...h, lost: 0, gold: h.goldOf })
 // Steadfast switched on (n gold hearts, all full) or off (0).
 export const demoSteadfast = (h, n) => ({ ...h, goldOf: Math.max(0, n | 0), gold: Math.max(0, n | 0) })
+
+// ── HOW A LOST HEART LOOKS (both themes): a grey heart that still reads as a heart. It is a UI graphic, so it must hold
+// WCAG's 3:1 against the arena card (src/config/contrast.js, heartTargets.test.js), in the calm card and the raging
+// one. The old grayscale + 35% opacity sank into the dark card (about 1.3:1) and washed out on the light one (1.5:1).
+// `red`: the fight's hearts (the ❤️ emoji, grey about #4e4e4e once desaturated); `gold`: Steadfast's (#ffcf4a fill,
+// grey about #cfcfcf). Dark mode lifts the grey, light mode keeps it solid enough. Values are CSS filter lists.
+export const LOST_HEART = {
+  light: { red: 'grayscale(1)', gold: 'grayscale(1) brightness(.6)' },
+  dark: { red: 'grayscale(1) brightness(1.5)', gold: 'grayscale(1)' },
+}
+export const LOST_HEART_CSS = `:root { --lg-heart-lost: ${LOST_HEART.light.red}; --lg-heart-gold-lost: ${LOST_HEART.light.gold} }`
+  + ` [data-theme="dark"] { --lg-heart-lost: ${LOST_HEART.dark.red}; --lg-heart-gold-lost: ${LOST_HEART.dark.gold} }`

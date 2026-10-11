@@ -70,12 +70,22 @@ export default {
 .lg-boss[data-motif="gorgon"] [class*="lg-gorgon-"] { transform-box: fill-box; transform-origin: 50% 50% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-face, .lg-boss[data-motif="gorgon"] .lg-gorgon-face2 { transform-origin: 50% 88% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-maw { transform-origin: 50% 0 }
-.lg-boss[data-motif="gorgon"] .lg-gorgon-crown { transform-origin: 50% 95% }
-.lg-boss[data-motif="gorgon"] .lg-gorgon-front, .lg-boss[data-motif="gorgon"] .lg-gorgon-wings { transform-origin: 50% 85% }
+/* the crown, front snakes and wings brush the top of the clip, so they swell DOWN from a pivot near their top */
+.lg-boss[data-motif="gorgon"] .lg-gorgon-crown { transform-origin: 50% 8% }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-front, .lg-boss[data-motif="gorgon"] .lg-gorgon-wings { transform-origin: 50% 8% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-armR { transform-origin: 8% 92% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-armL { transform-origin: 92% 12% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-halfL { transform-origin: 100% 100% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-halfR { transform-origin: 0 100% }
+/* The snake crown, front snakes, wings and the phase 3 heads and knot nearly fill the arena's clip already, so their
+   moves play at a share of full strength (--gg, 1 = full; the clip edge would slice them flat). Set on every named
+   part so a small part inside a big one keeps full strength. */
+.lg-boss[data-motif="gorgon"] [class*="lg-gorgon-"] { --gg: 1 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-crown { --gg: .3 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-front { --gg: .4 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-wings { --gg: .35 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-heads3 { --gg: .3 }
+.lg-boss[data-motif="gorgon"] .lg-gorgon-knot3 { --gg: .65 }
 /* Her attack on the player (impact/AssaultFx: her gaze travels to your heart as a beam and stone frosts the screen).
    The drawing does it: she rears back and squints (the charge), then thrusts her head at you with her eyes blazing and
    her jaws wide as the gaze leaves her, holding the glare while it lands. */
@@ -94,21 +104,21 @@ export default {
    frozen mid-writhe, then a crack-shake runs through the statue and she breaks free. */
 @keyframes lgrGorgonReflectFace { 0% { transform: none } 14% { transform: translateY(-7%) rotate(-11deg) scale(.92) } 22%, 52% { transform: translateY(-6%) rotate(-9deg) scale(.93) } 55% { transform: translateY(-6%) rotate(-7deg) translateX(-3%) } 58% { transform: translateY(-6%) rotate(-11deg) translateX(3%) } 62% { transform: translateY(-5%) rotate(-8deg) } 80% { transform: translateY(-1%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgrGorgonReflectEyes { 0% { transform: none } 12%, 70% { transform: scaleY(.06) scaleX(1.15) } 85% { transform: scaleY(1.2) } 100% { transform: none } }
-@keyframes lgrGorgonReflectRigid { 0% { transform: none } 14% { transform: scale(1.16) } 22%, 52% { transform: scale(1.12) } 56% { transform: scale(1.12) translateX(-2%) } 60% { transform: scale(1.12) translateX(2%) } 64% { transform: scale(1.06) translateY(3%) } 100% { transform: none } }
+@keyframes lgrGorgonReflectRigid { 0% { transform: none } 14% { transform: scale(calc(1 + 0.16 * var(--gg, 1))) } 22%, 52% { transform: scale(calc(1 + 0.12 * var(--gg, 1))) } 56% { transform: scale(calc(1 + 0.12 * var(--gg, 1))) translateX(calc(-2% * var(--gg, 1))) } 60% { transform: scale(calc(1 + 0.12 * var(--gg, 1))) translateX(calc(2% * var(--gg, 1))) } 64% { transform: scale(calc(1 + 0.06 * var(--gg, 1))) translateY(calc(3% * var(--gg, 1))) } 100% { transform: none } }
 .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-face, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-face2, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-eye3 { animation: lgrGorgonReflectFace 1200ms linear both }
 .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-eye { animation: lgrGorgonReflectEyes 1200ms linear both }
 .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-crown, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-front, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-wings, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-knot3, .lg-boss.lg-boss[data-fx="reflect"] .lg-gorgon-heads3 { animation: lgrGorgonReflectRigid 1200ms linear both }
 /* Stoned (her gaze took your heart): she coils back smug, the snakes sway and the cobra hood fans out in triumph. */
-@keyframes lgrGorgonSmugSway { 0%, 100% { transform: none } 22% { transform: rotate(-6deg) scale(1.08) } 48% { transform: rotate(5deg) scale(1.1) } 74% { transform: rotate(-2deg) scale(1.04) } }
-@keyframes lgrGorgonHoodFan { 0%, 100% { transform: none } 30% { transform: scaleX(1.32) scaleY(1.06) } 70% { transform: scaleX(1.22) } }
+@keyframes lgrGorgonSmugSway { 0%, 100% { transform: none } 22% { transform: rotate(calc(-6deg * var(--gg, 1))) scale(calc(1 + 0.08 * var(--gg, 1))) } 48% { transform: rotate(calc(5deg * var(--gg, 1))) scale(calc(1 + 0.1 * var(--gg, 1))) } 74% { transform: rotate(calc(-2deg * var(--gg, 1))) scale(calc(1 + 0.04 * var(--gg, 1))) } }
+@keyframes lgrGorgonHoodFan { 0%, 100% { transform: none } 30% { transform: scaleX(calc(1 + 0.32 * var(--gg, 1))) scaleY(calc(1 + 0.06 * var(--gg, 1))) } 70% { transform: scaleX(calc(1 + 0.22 * var(--gg, 1))) } }
 .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-crown, .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-front, .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-heads3 { animation: lgrGorgonSmugSway 800ms ease-in-out both }
 .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-hood, .lg-boss.lg-boss[data-fx="stoned"] .lg-gorgon-wings { animation: lgrGorgonHoodFan 800ms ease-in-out both }
 /* THE KNOCKOUT (data-moment="ko"): kept here, not in impact/bosses/gorgon.parts.jsx, because its 2300 ms outlasts the
    shortest knockout and the impact layer's style is shared by every boss.
    the knockout: her own gaze turns her to stone, the snakes stiffen and sag, the head cracks and drops at the climax */
 @keyframes lgrGorgonKoFace { 0% { transform: none } 8%, 55% { transform: translateY(-4%) rotate(-6deg) } 62% { transform: translateY(5%) rotate(5deg) } 66% { transform: translateY(4%) rotate(3deg) } 88% { transform: translateY(3%) rotate(2deg) } 100% { transform: none } }
-@keyframes lgrGorgonKoSnakes { 0% { transform: none } 10%, 55% { transform: scale(1.12) } 63% { transform: scaleY(.84) translateY(9%) } 88% { transform: scaleY(.88) translateY(7%) } 100% { transform: none } }
-@keyframes lgrGorgonKoWings { 0% { transform: none } 10%, 55% { transform: scaleX(1.1) } 63% { transform: translateY(7%) rotate(3deg) scaleX(.94) } 88% { transform: translateY(5%) rotate(2deg) } 100% { transform: none } }
+@keyframes lgrGorgonKoSnakes { 0% { transform: none } 10%, 55% { transform: scale(calc(1 + 0.12 * var(--gg, 1))) } 63% { transform: scaleY(calc(1 + -0.16 * var(--gg, 1))) translateY(calc(9% * var(--gg, 1))) } 88% { transform: scaleY(calc(1 + -0.12 * var(--gg, 1))) translateY(calc(7% * var(--gg, 1))) } 100% { transform: none } }
+@keyframes lgrGorgonKoWings { 0% { transform: none } 10%, 55% { transform: scaleX(calc(1 + 0.1 * var(--gg, 1))) } 63% { transform: translateY(calc(7% * var(--gg, 1))) rotate(calc(3deg * var(--gg, 1))) scaleX(calc(1 + -0.06 * var(--gg, 1))) } 88% { transform: translateY(calc(5% * var(--gg, 1))) rotate(calc(2deg * var(--gg, 1))) } 100% { transform: none } }
 @keyframes lgrGorgonKoEyes { 0% { transform: none } 10%, 55% { transform: scale(1.5) } 60% { transform: scaleY(.1) } 90% { transform: scaleY(.1) } 100% { transform: none } }
 @keyframes lgrGorgonKoEye3 { 0% { transform: none } 10%, 55% { transform: scale(1.3) } 62% { transform: scale(.7) scaleY(.15) } 90% { transform: scale(.7) scaleY(.15) } 100% { transform: none } }
 .lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-face, .lg-boss[data-motif="gorgon"][data-moment="ko"] .lg-gorgon-face2 { animation: lgrGorgonKoFace 2300ms cubic-bezier(.3,.6,.4,1) both }

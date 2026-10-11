@@ -67,12 +67,18 @@ export default {
    under reduced motion). */
 @keyframes lgrPuppeteerPuppetFlash { 0%, 100% { filter: none } 35% { filter: brightness(1.9) drop-shadow(0 0 3px #fff3c4) } }
 .lg-boss[data-fx="kick"] [class*="lg-ab-puppets-"], .lg-boss[data-fx="steal"] [class*="lg-ab-puppets-"] { transform-box: fill-box; transform-origin: center; animation: lgrPuppeteerPuppetFlash 320ms cubic-bezier(.22,1,.36,1) both }
+/* PIVOTS (raids/puppeteer.svg sets only transform-box: fill-box): the string spider spans the stage edge to edge, so it
+   squashes and turns about its own body; the mask turns near its eyes and the attack's lean grows it DOWN toward you
+   (the arena's clip sits right above the mask). */
+.lg-boss[data-motif="puppeteer"] .lg-puppeteer-spider { transform-origin: 50% 55% }
+.lg-boss[data-motif="puppeteer"] .lg-puppeteer-mask { transform-origin: 50% 22% }
+.lg-boss[data-motif="puppeteer"] .lg-puppeteer-maskA { transform-origin: 50% 8% }
 /* THE ATTACK ON THE PLAYER (impact/assault.js chain + drain; data-assault-on while it plays, land at about 400 ms):
    the right hand winds back, then FLINGS its strings out of the box at your heart, the left hand follows, and both reel
    it in with hard jerks (the drain) while the mask leans after it grinning. Inner wrappers (-handRA/-handLA/-maskA), so
    the strike moment's own moves on the outer ones play over it. */
-@keyframes lgrPuppeteerFlingR { 0% { transform: none } 8% { transform: translate(-7%, -10%) rotate(-18deg) } 24% { transform: translate(16%, 8%) rotate(18deg) scale(1.12) } 30% { transform: translate(13%, 6%) rotate(14deg) scale(1.08) } 42% { transform: translate(3%, -2%) rotate(2deg) } 50% { transform: translate(9%, 3%) rotate(9deg) } 58% { transform: translate(1%, -3%) rotate(0) } 66% { transform: translate(7%, 2%) rotate(7deg) } 76% { transform: translate(-1%, -3%) rotate(-2deg) } 100% { transform: none } }
-@keyframes lgrPuppeteerFlingL { 0% { transform: none } 12% { transform: translate(-4%, -6%) rotate(-10deg) } 28% { transform: translate(9%, 6%) rotate(12deg) } 44% { transform: translate(1%, -2%) rotate(-2deg) } 54% { transform: translate(6%, 3%) rotate(6deg) } 64% { transform: translate(0, -2%) } 74% { transform: translate(4%, 1%) rotate(3deg) } 100% { transform: none } }
+@keyframes lgrPuppeteerFlingR { 0% { transform: none } 8% { transform: translate(-7%, -6%) rotate(-15deg) } 24% { transform: translate(16%, 8%) rotate(18deg) scale(1.12) } 30% { transform: translate(13%, 6%) rotate(14deg) scale(1.08) } 42% { transform: translate(3%, -2%) rotate(2deg) } 50% { transform: translate(9%, 3%) rotate(9deg) } 58% { transform: translate(1%, -3%) rotate(0) } 66% { transform: translate(7%, 2%) rotate(7deg) } 76% { transform: translate(-1%, -3%) rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrPuppeteerFlingL { 0% { transform: none } 12% { transform: translate(-4%, -3%) rotate(-7deg) } 28% { transform: translate(9%, 6%) rotate(12deg) } 44% { transform: translate(1%, -2%) rotate(-2deg) } 54% { transform: translate(6%, 3%) rotate(6deg) } 64% { transform: translate(0, -2%) } 74% { transform: translate(4%, 1%) rotate(3deg) } 100% { transform: none } }
 @keyframes lgrPuppeteerLeer { 0% { transform: none } 8% { transform: rotate(-7deg) scale(.96) } 26% { transform: translateX(7%) rotate(9deg) scale(1.1) } 50% { transform: translateX(5%) rotate(6deg) scale(1.07) } 66% { transform: translateX(6%) rotate(8deg) scale(1.1) } 100% { transform: none } }
 .lg-boss[data-motif="puppeteer"][data-assault-on] .lg-puppeteer-handRA { animation: lgrPuppeteerFlingR 1350ms cubic-bezier(.3,.7,.3,1) both }
 .lg-boss[data-motif="puppeteer"][data-assault-on] .lg-puppeteer-handLA { animation: lgrPuppeteerFlingL 1350ms cubic-bezier(.3,.7,.3,1) 40ms both }
@@ -86,11 +92,27 @@ export default {
 @keyframes lgrPuppeteerGape { 0% { transform: none } 14% { transform: scale(.94, 1.14) translateY(-3%) } 60% { transform: scale(.97, 1.07) translateY(-1%) } 100% { transform: none } }
 @keyframes lgrPuppeteerReelR { 0% { transform: none } 22% { transform: translate(6%, 6%) rotate(10deg) } 48% { transform: translate(-6%, -14%) rotate(-26deg) } 62% { transform: translate(-4%, -11%) rotate(-20deg) } 100% { transform: none } }
 @keyframes lgrPuppeteerSmirk { 0% { transform: none } 40% { transform: translateX(3%) rotate(7deg) } 100% { transform: none } }
-.lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-doll, .lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-spider { animation: lgrPuppeteerBuckle 420ms cubic-bezier(.2,.9,.3,1) 120ms both }
+@keyframes lgrPuppeteerSpiderBuckle { 0% { transform: none } 18% { transform: translateY(4%) rotate(-3deg) scale(.95, .86) } 40% { transform: translateY(-1%) rotate(1.5deg) scale(.98, 1.03) } 70% { transform: rotate(-.6deg) } 100% { transform: none } }
+.lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-doll { animation: lgrPuppeteerBuckle 420ms cubic-bezier(.2,.9,.3,1) 120ms both }
+.lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-spider { animation: lgrPuppeteerSpiderBuckle 420ms cubic-bezier(.2,.9,.3,1) 120ms both }
 .lg-boss[data-motif="puppeteer"][data-fx="kick"] .lg-puppeteer-mask { animation: lgrPuppeteerGlare 420ms ease-out 120ms both }
 .lg-boss[data-motif="puppeteer"][data-fx="steal"] .lg-puppeteer-handL { animation: lgrPuppeteerSnapUp 1100ms cubic-bezier(.2,.9,.3,1) both }
 .lg-boss[data-motif="puppeteer"][data-fx="steal"] .lg-puppeteer-mask { animation: lgrPuppeteerGape 1000ms ease-out both }
 .lg-boss[data-motif="puppeteer"][data-fx="yank"] .lg-puppeteer-handR { animation: lgrPuppeteerReelR 780ms cubic-bezier(.3,.8,.3,1) both }
 .lg-boss[data-motif="puppeteer"][data-fx="yank"] .lg-puppeteer-mask { animation: lgrPuppeteerSmirk 780ms ease-out both }
+/* THE FALLEN POSE (data-down, after the knockout cinematic in impact/bosses/puppeteer.parts.jsx): every part stays where
+   the knockout left it: the hands up in the corners with their strings cut, the control bars dropped on the stage under
+   their slack strings, the mask fallen, the marionette (or the spider) crumpled. Same pivots as the knockout. */
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-handL, .lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-handR { transform-box: fill-box; transform-origin: 50% 50% }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-handL { transform: translate(-9%, -10%) rotate(-27deg) scale(.85) }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-handR { transform: translate(9%, -10%) rotate(27deg) scale(.85) }
+.lg-boss[data-motif="puppeteer"][data-phase="2"][data-down]:not([data-moment="ko"]) .lg-puppeteer-handL { transform: translate(-3%, -6%) rotate(-20deg) scale(.85) }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-barL, .lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-barR { transform-box: fill-box; transform-origin: 50% 20%; transform: translateY(70%) rotate(42deg) }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-stringsL, .lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-stringsR { transform-box: fill-box; transform-origin: 50% 0%; transform: scale(.88, .38) rotate(-2deg) }
+.lg-boss[data-motif="puppeteer"][data-phase="2"][data-down]:not([data-moment="ko"]) .lg-puppeteer-stringsL { transform: rotate(2deg) }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-doll { transform: translateY(30%) scale(1.04, .58) rotate(18deg) }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-mask { transform: translateY(16%) rotate(17deg) scale(.96) }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-cloak { transform: translateY(10%) scale(1, .82) }
+.lg-boss[data-motif="puppeteer"][data-down]:not([data-moment="ko"]) .lg-puppeteer-spider { transform: translateY(26%) scale(1, .58) }
 `,
 }

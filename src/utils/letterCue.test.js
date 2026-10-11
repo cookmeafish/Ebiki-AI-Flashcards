@@ -62,8 +62,8 @@ describe('first-letter cue', () => {
     const once = appendLetterCue(q('Translate "eye"', ['ojo', 'yo']))
     expect(once.question).toBe('Translate "eye" (o…)')
     expect(appendLetterCue(once)).toBe(once)
-    expect(appendLetterCue(q('Hi?', ['ok'])).question).toBe('Hi (o…)?')
-    expect(appendLetterCue(q('Translate (y·)', ['yo'])).question).toBe('Translate (y…)')
+    expect(appendLetterCue(q('Hi?', ['ok'])).question).toBe('Hi?') // two letters: no hint
+    expect(appendLetterCue(q('Translate (y·)', ['yo'])).question).toBe('Translate') // the legacy skeleton goes, no hint for two letters
   })
   it('a single dot outside brackets is ordinary text, never a cue', () => {
     expect(hasLetterCue(q('Tradueix: col·lecció', ['col·lecció', 'lata']))).toBe(false)

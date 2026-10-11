@@ -100,7 +100,7 @@ describe('the prefix hint in fights (one engine with Study: utils/prefixHint.js)
     expect(letterHint('pantalones')).toBe('(pa…)')
     expect(letterHint('雨伞')).toBe('')
     expect(letterHint('がっこう')).toBe('')
-    expect(letterHint('학교')).toBe('(학…)')
+    expect(letterHint('학교')).toBe('')
   })
   it('replaces a quoted first letter and a legacy skeleton, and strips everything for choices', () => {
     const q = { kind: 'typed', prompt: 'Hoy ___ mucho (to rain, "l").', accepted: ['llueve'] }

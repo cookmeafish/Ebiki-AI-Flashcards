@@ -4,6 +4,8 @@
 // Its knockout story: time runs out and the titan SHATTERS INTO SAND: its chest glass bursts outward in shards and the
 // sand pours out of the box in curtains, heaping at its base.
 
+import { Glyph } from '../glyphs'
+
 const rnd = (i, salt = 1) => { const x = Math.sin(i * 47.3 + salt * 113.7) * 43758.5453; return x - Math.floor(x) }
 
 export const css = `
@@ -11,6 +13,8 @@ export const css = `
   12% { opacity: 1 } 85% { opacity: 1 } 100% { transform: translate(-50%, -50%) translate(calc(var(--x) * 1cqw + var(--dx) * 1cqw), calc(var(--y1) * 1cqw)) scale(1); opacity: 0 } }
 @keyframes lgchronosCurtain { 0% { transform: translateX(-50%) scaleY(0); opacity: 0 } 18% { opacity: .95 } 70% { transform: translateX(-50%) scaleY(1); opacity: .9 } 100% { transform: translateX(-50%) scaleY(1) scaleX(.2); opacity: 0 } }
 @keyframes lgchronosHeap { 0% { transform: translateX(-50%) scaleY(0) } 60% { transform: translateX(-50%) scaleY(1.1) } 80%, 100% { transform: translateX(-50%) scaleY(1) } }
+@keyframes lgchronosFly { 0% { transform: translate(-50%, -50%) scale(.4) rotate(0); opacity: 0 } 12% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translate(-50%, -50%) translate(calc(var(--x) * 1cqw), calc(var(--y) * 1cqw)) scale(1) rotate(var(--r)); opacity: 0 } }
+@keyframes lgchronosStar { 0% { transform: translate(-50%, -50%) scale(.15) rotate(0); opacity: 0 } 15% { opacity: 1 } 60% { transform: translate(-50%, -50%) scale(1) rotate(20deg); opacity: 1 } 100% { transform: translate(-50%, -50%) scale(1.1) rotate(30deg); opacity: 0 } }
 @keyframes lgchronosSweep { 0% { transform: translate(-50%, -50%) rotate(-90deg); opacity: 0 } 12% { opacity: 1 } 80% { opacity: 1 } 100% { transform: translate(-50%, -50%) rotate(630deg); opacity: 0 } }
 @keyframes lgchronosHeapFade { 0%, 80% { opacity: 1 } 100% { opacity: 0 } }
 @keyframes lgchronosGlass { 0% { transform: translate(-50%, -50%) rotate(0) scale(.4); opacity: 0 } 10% { opacity: 1 }
@@ -18,6 +22,25 @@ export const css = `
 `
 
 export default {
+  // Its gears (or grains) burst from its CHEST, flying out to the sides and down: never over the dial (its face).
+  chronosChestBurst: (p, ctx) => Array.from({ length: p.n || 6 }, (_, i) => {
+    const n = p.n || 6, a = (-15 + (210 * i) / Math.max(1, n - 1) + (rnd(i, 3) - 0.5) * 14) * Math.PI / 180
+    const r = 34 * (p.reach || 1) * (0.75 + rnd(i, 5) * 0.4)
+    const w = 9 * (p.size || 1)
+    return (
+      <div key={`cb${i}`} style={{ position: 'absolute', left: '50%', top: '78%', width: `${w}cqw`, height: `${w}cqw`, '--x': Math.cos(a) * r, '--y': Math.sin(a) * r * 0.6, '--r': `${(p.spin || 0) * (i % 2 ? 1 : -1)}deg`,
+        animation: `lgchronosFly ${620 * ctx.speed}ms cubic-bezier(.2,.8,.4,1) ${rnd(i, 7) * 60}ms both` }}><Glyph name={p.glyph || ctx.glyph} color={p.color || ctx.color} accent={ctx.accent} /></div>
+    )
+  }),
+  // A small starburst at the bottom of its chest (the critical's flash), well under the face.
+  chronosChestStar: (p, ctx) => {
+    const n = 10, pts = Array.from({ length: n * 2 }, (_, i) => { const a = (Math.PI * i) / n - Math.PI / 2, r = i % 2 ? 22 : 50; return `${(50 + Math.cos(a) * r).toFixed(1)},${(50 + Math.sin(a) * r).toFixed(1)}` }).join(' ')
+    return (
+      <div key="cst" style={{ position: 'absolute', left: '50%', top: '88%', width: '34cqw', height: '34cqw', filter: `drop-shadow(0 0 1.6cqw ${ctx.color})`, animation: `lgchronosStar ${520 * ctx.speed}ms cubic-bezier(.1,.8,.3,1) both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><polygon points={pts} fill="#ffffff" stroke={ctx.color} strokeWidth="3" strokeLinejoin="round" /></svg>
+      </div>
+    )
+  },
   // Its clock runs out: a sweep of light races twice round the ring of its halo (never across the face), then fades.
   chronosRingSweep: (p, ctx) => [0, 1].map((g) => (
     <div key={`sw${g}`} style={{ position: 'absolute', left: '50%', top: '36.7%', width: '92cqw', height: '92cqw', borderRadius: '50%', border: '1.6cqw solid transparent', borderTopColor: g ? 'rgba(255,242,176,.45)' : '#fff2b0', borderRightColor: g ? 'transparent' : 'rgba(255,242,176,.6)', filter: 'drop-shadow(0 0 1.2cqw #ffd25e)', opacity: 0,

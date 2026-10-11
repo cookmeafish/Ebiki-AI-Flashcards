@@ -61,3 +61,33 @@ export function swapFlagged(set, flagged, { min = 2 } = {}) {
   if (out.length - 1 < min) return null
   return { choices: out, answerIdx: out.indexOf(right), spare }
 }
+
+// FRESH WRONG OPTIONS (the owner, in capitals: a fight's choices are ALWAYS offered): when every wrong option of a
+// question was rejected (the code guard: also right, another form of the answer; or the check above), the model is
+// asked ONCE for new ones, told which were rejected and why. The caller runs the same guard over the reply.
+// items: [{ question, answer, accepted: [...], rejected: [{ option, why }] }]
+export function buildFreshOptionsPrompt(items, { isLanguage = false, learnLang = '' } = {}) {
+  const rows = (items || []).map((it, i) => {
+    const rej = (it.rejected || []).filter((r) => r && r.option)
+    return `${i}. Question: ${clip(it.question, 400)}\n   Correct answer: ${clip(it.answer, 120)}${(it.accepted || []).length > 1 ? `\n   Also accepted: ${it.accepted.filter((a) => a !== it.answer).map((a) => `"${clip(a, 80)}"`).join(', ')}` : ''}${it.prefix ? `\n   The learner sees the hint "${clip(it.prefix, 40)}": every wrong option starts the same way` : ''}${rej.length ? `\n   Rejected options (never again): ${rej.map((r) => `"${clip(r.option, 80)}" (${clip(r.why, 80)})`).join(', ')}` : ''}`
+  })
+  return {
+    system: `You write WRONG options for multiple-choice questions whose earlier wrong options were all rejected. For each question write 3 new options that are CLEARLY WRONG answers to it (no fair teacher would accept them: never a synonym, another form or spelling of the answer, a word the answer contains, or a value that is also right), the same kind of thing as the correct answer${isLanguage ? ` (${learnLang || 'learned-language'} words or phrases with the same number of words and the same part of speech)` : ' (terms or values from the same subject)'}, tempting only to someone who half-knows it. Never repeat a rejected option. Reply with JSON only: {"options": [{"i": <question index>, "wrong": ["...", "...", "..."]}]}. ${NO_DASH}`,
+    user: rows.join('\n'),
+  }
+}
+// → Map(index → [wrong option texts]) or null when the reply is unusable.
+export function parseFreshOptions(raw0, n) {
+  const raw = Array.isArray(raw0) ? raw0 : canonKeys(raw0, ['options', 'questions', 'items'])
+  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.options) ? raw.options : Array.isArray(raw?.questions) ? raw.questions : Array.isArray(raw?.items) ? raw.items : null
+  if (!list) return null
+  const out = new Map()
+  list.forEach((f0, k) => {
+    const f = canonKeys(f0, ['i', 'wrong', 'options', 'choices'])
+    const i = f && f.i != null && f.i !== '' ? Number(f.i) : k
+    if (!Number.isInteger(i) || i < 0 || i >= n) return
+    const opts = (Array.isArray(f?.wrong) ? f.wrong : Array.isArray(f?.options) ? f.options : Array.isArray(f?.choices) ? f.choices : []).map((o) => clip(o, 120)).filter(Boolean)
+    if (opts.length) out.set(i, opts)
+  })
+  return out
+}

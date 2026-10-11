@@ -8,6 +8,7 @@
 //   ?fx=<a,b,...|all>      every raid ABILITY effect (fx/<motif>.jsx), one row per boss, one real arena per fx key, as the
 //                          fight plays it (last.fx + the file's demo state); &calm=1 renders them in focus mode
 //                          (nothing may play); window.replay() fires them all again
+// ?phase=1|2|3 picks the phase the moment and timeline cells draw (default 2).
 // ?only=a,b narrows the first and last views, ?size=n sets the cell size, ?light=1 the light theme (else the dark one).
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -19,11 +20,11 @@ import StrikeFxLayer, { KoTag } from '../../src/features/legends/StrikeFxLayer'
 import { impactFor, koTiming } from '../../src/features/legends/impact/styles'
 import { BODY_CSS, bodyAnimation } from '../../src/features/legends/impact/body'
 import { JUICE_CSS } from '../../src/features/legends/fx/_juice'
-import { BossArena } from '../../src/features/legends/BossArena'
+import { BossArena, BossStyle } from '../../src/features/legends/BossArena'
 import { newFight } from '../../src/features/legends/fight'
 import { RAID_ABILITY } from '../../src/features/legends/raid'
 import { abilityById } from '../../src/features/legends/abilities'
-import { fxDemoFor } from '../../src/features/legends/fx'
+import { abilityCss, fxDemoFor } from '../../src/features/legends/fx'
 
 window.__ebikiArtEager = true
 const q = new URLSearchParams(location.search)
@@ -33,6 +34,7 @@ const TIMES = (q.get('times') || '').split(',').filter(Boolean)
 const ARENA = (q.get('arena') || '').split(',').filter(Boolean)
 const FXQ = q.get('fx') || ''
 const CALM = !!q.get('calm')
+const PHASE = Math.min(3, Math.max(1, Number(q.get('phase')) || 2)) // ?phase=1|2|3: the phase the moment cells draw
 const SIZE = Number(q.get('size')) || (BOSSES.length || TIMES.length ? 120 : 150)
 const ONLY = (q.get('only') || '').split(',').filter(Boolean)
 const MOMENTS = ['hit', 'crit', 'sharpen', 'hurt', 'hurtBig', 'block', 'shield', 'wind', 'ko']
@@ -48,8 +50,13 @@ function Cell({ motif, moment, run, label }) {
   return (
     <div style={{ display: 'grid', justifyItems: 'center', gap: 4 }}>
       <div style={{ position: 'relative', width: SIZE, height: SIZE, margin: SIZE * 0.2 }}>
-        <div key={`b${run}`} style={{ animation: run ? anim : undefined, filter: run && ko ? 'grayscale(.8) opacity(.6)' : undefined }}>
-          <LegendsArt kind="raids" motif={motif} height={SIZE} width={SIZE} round={0} animated={false} phase={2} roomed />
+        {/* the arena's own root attributes, so the phase layers and the boss's drawing reactions (fx/<motif>.jsx css on
+            .lg-boss[data-phase][data-moment]) play as in a fight */}
+        <div className="lg-boss" data-motif={motif} data-phase={PHASE} data-moment={run ? moment : undefined} data-down={run && ko ? 1 : undefined} style={{ position: 'relative' }}>
+          <style>{abilityCss(RAID_ABILITY[motif], {})}</style>
+          <div key={`b${run}`} style={{ animation: run ? anim : undefined, filter: run && ko ? 'grayscale(.8) opacity(.6)' : undefined }}>
+            <LegendsArt kind="raids" motif={motif} height={SIZE} width={SIZE} round={0} animated={false} phase={PHASE} roomed />
+          </div>
         </div>
         {run > 0 && <StrikeFxLayer t={t} moment={moment} motif={motif} n={run} />}
         {run > 0 && ko && <KoTag key={`k${run}`} t={t} motif={motif} delay={koTiming(motif).ms - 200} />}
@@ -73,6 +80,15 @@ function Frozen({ motif, moment, at }) {
     return () => clearInterval(id)
   }, [at])
   return <div ref={ref} data-frozen={at}><Cell motif={motif} moment={moment} run={1} label={`${motif} · ${at}ms`} /></div>
+}
+
+// The real arena knocked out. It mounts idle and takes the killing blow (the boss's whole health) after mount:
+// BossArena never plays a strike that was already there when it mounted (`mountKey`).
+function KoArena({ motif, calm, n }) {
+  const [last, setLast] = useState(null)
+  useEffect(() => { const id = setTimeout(() => setLast({ kind: 'hit', damage: 5, lives: 0, n }), 50); return () => clearTimeout(id) }, [n])
+  const state = { ...newFight(), damage: last ? 30 : 0, last }
+  return <BossArena t={t} area={{ motif, palette: 'original' }} name={motif} need={30} lives={3} state={state} phases={3} kind="raids" ability={RAID_ABILITY[motif]} focus={calm} questionKey={0} />
 }
 
 function Sheet() {
@@ -107,8 +123,6 @@ function Sheet() {
     )
   }
   if (ARENA.length) {
-    // the killing blow: the boss's whole health in one strike
-    const state = { ...newFight(), damage: 30, last: { kind: 'hit', damage: 5, lives: 0, n: run + 1 } }
     return (
       <div style={{ padding: 16, display: 'grid', gap: 18 }}>
         <style>{PALETTE_CSS}</style>
@@ -116,7 +130,7 @@ function Sheet() {
           <div key={m} style={{ display: 'flex', gap: 18 }}>
             {[false, true].map((calm) => (
               <div key={String(calm)} data-arena={calm ? 'calm' : 'fx'} style={{ width: 460 }}>
-                <BossArena key={run} t={t} area={{ motif: m, palette: 'original' }} name={m} need={30} lives={3} state={state} phases={3} kind="raids" ability={RAID_ABILITY[m]} focus={calm} questionKey={0} />
+                <KoArena key={run} motif={m} calm={calm} n={run + 1} />
               </div>
             ))}
           </div>
@@ -127,7 +141,7 @@ function Sheet() {
   if (TIMES.length) {
     return (
       <div style={{ padding: 16 }}>
-        <style>{PALETTE_CSS + JUICE_CSS + BODY_CSS}</style>
+        <style>{PALETTE_CSS + JUICE_CSS + BODY_CSS}</style><BossStyle />
         {/* one time: a contact sheet (the bosses wrap); several: one strip per boss */}
         <div style={{ display: TIMES.length === 1 ? 'flex' : 'block', flexWrap: 'wrap', gap: 2 }}>
         {list.map((m) => (
@@ -141,7 +155,7 @@ function Sheet() {
   }
   return (
     <div style={{ padding: 16 }}>
-      <style>{PALETTE_CSS + JUICE_CSS + BODY_CSS}</style>
+      <style>{PALETTE_CSS + JUICE_CSS + BODY_CSS}</style><BossStyle />
       <div style={{ marginBottom: 8, fontWeight: 800 }}>{BOSSES.length ? `bosses: ${BOSSES.join(', ')}` : `moment: ${MOMENT}`} <button onClick={() => setRun((r) => r + 1)}>play</button></div>
       {BOSSES.length ? BOSSES.map((m) => (
         <div key={m} className="row" style={{ display: 'flex', flexWrap: 'nowrap', gap: 2, alignItems: 'flex-start' }}>
