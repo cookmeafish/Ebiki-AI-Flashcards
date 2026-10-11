@@ -21,6 +21,7 @@ import { floaterKeyFor, fxDemoFor, fxLabel } from './fx'
 import { bestiaryHelpText, raidBossName, BESTIARY_TABS } from './bestiaryHelp'
 import { useHelpEntry } from '../kit/useHelp'
 import { useLegendsMap } from './store'
+import { hasRaidBefore, RAID_BEFORE_COMMIT } from './raidBefore'
 
 // Sample values for a floater that counts something ("+{n} heads"), so the asset view never shows a raw placeholder.
 const demoVars = (ability, fx) => ({ n: 2, ...(fxDemoFor(ability, fx)?.fxVars || {}) })
@@ -270,9 +271,29 @@ function RaidLore({ t, motif }) {
 }
 
 // A raid boss as the fight shows it in a phase: the arena's own rules switch the lg-p1/p2/p3/p12 layers.
-const RaidPhase = ({ motif, palette, phase, size, animate = true }) => (
-  <div className="lg-boss" data-phase={phase}><LegendsArt kind="raids" motif={motif} palette={palette} height={size} width={size} round={0} animated={animate ? 'idle' : false} phase={phase} /></div>
+const RaidPhase = ({ motif, palette, phase, size, animate = true, before = false }) => (
+  <div className="lg-boss" data-phase={phase}><LegendsArt kind="raids" motif={motif} palette={palette} height={size} width={size} round={0} animated={animate ? 'idle' : false} phase={phase} before={before} /></div>
 )
+// BEFORE / NOW (the owner: "a before and after button to see what it used to be"): a segmented control for a raid boss
+// with a BEFORE copy (raidBefore.js). Only the Phase drawings panel swaps; the demo arena and real fights use the
+// current file (the old drawing under today's fight CSS would not match). Asset view state only, never saved.
+function BeforeNow({ t, before, setBefore }) {
+  return (
+    <div role="group" aria-label={t('lg_assetsBeforeNow')} style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+      {[[true, 'lg_assetsBefore'], [false, 'lg_assetsNow']].map(([v, key]) => {
+        const on = before === v
+        return (
+          <button key={key} type="button" aria-pressed={on} onClick={() => setBefore(v)} className={`ui-tab${on ? ' ui-tab-current' : ''}`}
+            style={{ padding: '5px 12px', borderRadius: RADIUS.md, cursor: on ? 'default' : 'pointer', fontFamily: FONT.display, fontWeight: 900, fontSize: 13,
+              border: `2px solid ${on ? (v ? C.warning : C.brand) : C.border}`, background: on ? `color-mix(in srgb, ${v ? C.warning : C.brand} 12%, ${C.surface})` : C.surface,
+              color: on ? (v ? C.warning : C.brandText) : C.inkDim }}>
+            {t(key)}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 // A still copy that animates while hovered or focused (ASSET_RAID_ANIMATE_COPIES).
 function LiveCopy({ children }) {
   const [live, setLive] = useState(false)
@@ -501,6 +522,7 @@ export default function AssetView({ ctx, onBack }) {
   const [shot, setShot] = useState(null) // the ability effect last played on the demo arena: { motif, fx, n }
   const [palette, setPalette] = useState(PALETTES[0])
   const [replay, setReplay] = useState(0)
+  const [beforeOn, setBeforeOn] = useState(false) // BEFORE / NOW in Phase drawings (asset view only)
   // "Fight this boss": a real raid against the chosen raid boss with today's due cards (RaidRun `test`: real reviews,
   // nothing stored for the raid, no rewards). It ends back here, on the same tab and boss.
   const [testFight, setTestFight] = useState(null) // motif | null
@@ -518,6 +540,7 @@ export default function AssetView({ ctx, onBack }) {
   const { list } = TABS.find((x) => x.id === tab)
   const raids = tab === 'raids'
   const motif = list[Math.min(idx, list.length - 1)]
+  const oldArt = raids && beforeOn && hasRaidBefore(motif) // BEFORE copies in Phase drawings (raidBefore.js)
   const [find, setFind] = useState('')
   // The bosses the search keeps (indexes into list): file name, the raid boss's name, its number.
   const q = find.trim().toLowerCase()
@@ -729,15 +752,19 @@ export default function AssetView({ ctx, onBack }) {
         </Fold>
 
         {raids ? (
-          <Fold id="phaseCopies" title={t('lg_assetsPhaseCopies')}>
+          <Fold id="phaseCopies" title={t('lg_assetsPhaseCopies')}
+            extra={hasRaidBefore(motif) ? <BeforeNow t={t} before={beforeOn} setBefore={setBeforeOn} /> : null}>
+            {oldArt && (
+              <div style={{ fontSize: 12.5, lineHeight: 1.45, color: C.warning, fontWeight: 700, overflowWrap: 'anywhere' }}>{t('lg_assetsBeforeNote', { commit: RAID_BEFORE_COMMIT })}</div>
+            )}
             <div style={row}>
               {Array.from({ length: RAID.phases }, (_, i) => (
-                <Cell key={i} label={t('lg_assetsPhase', { n: i + 1 })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={i + 1} size={VIEW.phase} animate={on} />}</LiveCopy></Cell>
+                <Cell key={`${i}-${oldArt}`} label={t(oldArt ? 'lg_assetsPhaseBefore' : 'lg_assetsPhase', { n: i + 1 })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={i + 1} size={VIEW.phase} animate={on} before={oldArt} />}</LiveCopy></Cell>
               ))}
             </div>
             <div style={row}>
-              <Cell label={t('lg_assetsFight', { px: BOSS.arena })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arena} animate={on} />}</LiveCopy></Cell>
-              <Cell label={t('lg_assetsFight', { px: BOSS.arenaCompact })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arenaCompact} animate={on} />}</LiveCopy></Cell>
+              <Cell key={`full-${oldArt}`} label={t(oldArt ? 'lg_assetsFightBefore' : 'lg_assetsFight', { px: BOSS.arena })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arena} animate={on} before={oldArt} />}</LiveCopy></Cell>
+              <Cell key={`compact-${oldArt}`} label={t(oldArt ? 'lg_assetsFightBefore' : 'lg_assetsFight', { px: BOSS.arenaCompact })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arenaCompact} animate={on} before={oldArt} />}</LiveCopy></Cell>
             </div>
           </Fold>
         ) : (

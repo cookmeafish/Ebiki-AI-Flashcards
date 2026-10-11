@@ -51,7 +51,11 @@ item before anything reaches the owner or a commit. Any FAIL = not done, however
    dominant, nothing cluttered or ambiguous.
 4. **SMOOTH MOTION**: every moving part plays smoothly at the display's own rate; nothing steps, judders or looks low
    frame rate (measured: per-frame positions over a second at 1x and 2x density, baked AND `__ebikiNoBake`). "Choppy
-   and low frame rate ... looks buggy" (Seraph breath, Rat King chips) FAILS.
+   and low frame rate ... looks buggy" (Seraph breath, Rat King chips) FAILS. Measure it the way the owner SEES it: the
+   real asset view with every drawing on the page animating at once, GPU raster, under CPU throttling, counting
+   PRESENTED frames per moving part (held frames = stutter), never one drawing in software raster (a Banshee float and
+   Kaleido crystals measured "smooth" that way still stuttered on the owner's 480 Hz screen: "every animation even
+   subtle isn't low framerate").
 5. **MOTION SENSE**: for each moving part, should it move at all? Objects and constructs (metal, stone, wood, clockwork)
    never "breathe"; a living breath must read clearly as breathing; a whole-figure drift so slow and small it "looks
    like the svg is glitching up and down" FAILS: give it real range, smooth it, or stop it.
@@ -1729,6 +1733,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the
   current `SHRIMP` Ebi first); every palette; ←/→ step. **File names ONLY there** (and the dev gallery): `ArtLabels`
   puts a tag UNDER drawings of 100px+, never on them, never in gameplay (the owner).
+- **BEFORE / NOW (raid redesigns are reversible)**: `src/features/legends/raidBefore.js` lists the bosses with a BEFORE
+  copy (`public/assets/legends/raids-before/<motif>.svg` = the file at `RAID_BEFORE_COMMIT` d4a2791, from `git show`,
+  never the working tree; `raidBefore.test.js` checks it byte for byte). The asset view's Phase drawings panel has a
+  Before / Now toggle (`BeforeNow`, `LegendsArt before`: its own URL, so loader, snapshot and bake caches never mix;
+  the demo arena and real fights always use `raids/`). Revert a boss for good (svg + fx + impact style + parts):
+  `node dev/legends-gallery/restore-before.mjs <motif> [--dry-run]` (impact/body.js and art.jsx are only reported).
 - **Small STILL drawings are bitmaps** (`snap/web.js`, STILL SNAPSHOTS in `LegendsArt`): still, no `phase`, both sizes
   numeric and at most `SNAP_MAX_PX` (260), not the photo ophanim. Drawn once at the box's EXACT device pixels (rounding
   read as blur) STRAIGHT FROM THE FILE (`snap/plan.js` `stillImageSvg`, pure + tested: string edits only, no sanitize

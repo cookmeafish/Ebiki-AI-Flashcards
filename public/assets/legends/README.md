@@ -52,3 +52,10 @@ file may hold a `<defs>` of linear/radial gradients (also `clipPath`/`mask`) wit
 Every reference stays inside the file, every `var()` keeps its fallback (also in `stop-color`), one part stays
 tinted, and no `<filter>` (the sanitizer strips filter primitives, and an empty filter hides what uses it). The app
 gives each mounted copy its own ids. Every other file keeps the rules above.
+
+## Before / now (reverting a raid redesign)
+`raids-before/<motif>.svg` holds a raid boss as it was before the 2026-10-11 redesigns (commit d4a2791), for the bosses
+listed in `src/features/legends/raidBefore.js`. They are history: never edit them, and the game never uses them. The
+asset view's Phase drawings panel has a Before / Now toggle to compare. To put a boss back for good (drawing and fight
+files), run `node dev/legends-gallery/restore-before.mjs <motif> --dry-run` to see the files, then without
+`--dry-run`.

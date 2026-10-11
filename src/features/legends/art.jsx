@@ -21,6 +21,7 @@ import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from 
 import { densityBucket } from './bakePlan'
 import { easeTurns } from './easeMotion'
 import { bakeArt } from './bake/web'
+import { raidBeforeUrl } from './raidBefore'
 import { noteSnapUse, warmSnaps, artText, fileSig, readSnap, makeSnap, snapBase, snapKeyOf, peekSnap, findSnap, adoptSnap, indexedKey } from './snap/web'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
@@ -113,6 +114,8 @@ export const photoCellUrl = (sprite, n) => `${ART_BASE}/raids/ophanim/${sprite}-
 export const PHOTO_CELL_URLS = Object.entries(PHOTO_CELLS).flatMap(([k, n]) => Array.from({ length: n }, (_, i) => photoCellUrl(k, i)))
 export const PHOTO_EYE_URL = PHOTO_SPRITES.eye.url
 const PHOTO_FILE = `${ART_BASE}/raids/ophanim.svg`
+// The asset view's BEFORE ophanim (raidBefore.js) uses the same photo cells, so it is a photo file too.
+const PHOTO_FILES = new Set([PHOTO_FILE, raidBeforeUrl('ophanim')].filter(Boolean))
 const EYE_CELLS = { // class: [sprite cell, center x, center y, size] in the drawing's 120 x 120 units
   'lg-photo-ball': [0, 60, 54, 48.33], 'lg-photo-ball3': [1, 60, 54, 48.33],
   'lg-photo-iris': [2, 60, 56.4, 32.17], 'lg-photo-iris3': [3, 60, 56.4, 32.17],
@@ -149,7 +152,7 @@ function checkPhotoSprites() {
   return photoCheck
 }
 export function withPhotoEye(svg, url) {
-  if (url !== PHOTO_FILE || !svg) return svg
+  if (!PHOTO_FILES.has(url) || !svg) return svg
   return svg
     .replace(/class="lg-photo-hide([^"]*)"/g, 'class="lg-photo-hide$1" style="display:none"')
     .replace(/<g class="(lg-photo-(?:ball|iris)3?)"><\/g>/g, (m, cls) => {
@@ -278,7 +281,7 @@ const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0))
 function loadArt(url) {
   if (!cache.has(url)) {
     cache.set(url, Promise.all([artText(url), import('../../components/Markdown'),
-      url === PHOTO_FILE ? checkPhotoSprites() : false])
+      PHOTO_FILES.has(url) ? checkPhotoSprites() : false])
       .then(([text, m, photos]) => {
         const job = sanitizeQueue.then(nextTask).then(() => {
           // eased where the motion turns (easeMotion.js: the sanitizer drops calcMode, so every bob reversed in one frame)
@@ -608,8 +611,9 @@ const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
 // `room`: a figure wrapped in its headroom as real space (margin on every side), for places where text, buttons or
 // other drawings sit next to it. The asset view and gallery (ArtLabels) always give it.
-export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false, phase }) {
-  const url = artUrl(kind, motif)
+export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false, phase, before = false }) {
+  // `before` (asset view only): the raid boss's BEFORE copy (raidBefore.js), its own URL, so every cache keys apart.
+  const url = (before && kind === 'raids' && raidBeforeUrl(motif)) || artUrl(kind, motif)
   const [html, setHtml] = useState(() => (ready.has(url) ? { url, svg: ready.get(url) } : { url: '', svg: '' }))
   const boxRef = useRef(null)
   const near = useArtInView(boxRef)
@@ -622,7 +626,7 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // and rastering every file. Its SVG file is read only when no snapshot exists yet (the vector shows meanwhile).
   const theme = useThemeTick()
   const snapOn = !mode && phase == null && typeof height === 'number' && typeof width === 'number' && Math.max(height, width) <= SNAP_MAX_PX
-    && url !== PHOTO_FILE && !(typeof window !== 'undefined' && (window.__ebikiArtEager || window.__ebikiNoBake || window.__ebikiNoSnap))
+    && !PHOTO_FILES.has(url) && !(typeof window !== 'undefined' && (window.__ebikiArtEager || window.__ebikiNoBake || window.__ebikiNoSnap))
   const snapIdent = `${url}|${palette ?? ''}|${theme}`
   const [snap, setSnap] = useState(null) // { ident, href }
   const [snapNeed, setSnapNeed] = useState(null) // { ident, key, base, pxW, pxH } when a snapshot must be drawn (key '' = none possible)
@@ -770,7 +774,7 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     bakeArt(key, bakeSource, box, { intro: mode === 'intro', density, wanted }).then((out) => { if (alive && out && bakeKeyRef.current === key) setBaked({ key, out }) })
     return () => { alive = false }
   }, [shown, bakeOn, bakeSource, bakeIdentity, density]) // eslint-disable-line react-hooks/exhaustive-deps
-  const photo = url === PHOTO_FILE && photoSpritesUsable() // the photo ophanim's own light layers (PHOTO LIGHT); never over the painted fallback
+  const photo = PHOTO_FILES.has(url) && photoSpritesUsable() // the photo ophanim's own light layers (PHOTO LIGHT); never over the painted fallback
   const labels = useContext(ArtLabels)
   const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
   const art = (
