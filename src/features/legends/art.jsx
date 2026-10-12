@@ -20,8 +20,9 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from './artPace'
 import { densityBucket } from './bakePlan'
 import { easeTurns } from './easeMotion'
+import { compositeMotion, releaseMotion } from './motion/web'
 import { bakeArt } from './bake/web'
-import { raidBeforeUrl } from './raidBefore'
+import { historyUrl, RAID_HISTORY_BASE } from './raidHistory'
 import { noteSnapUse, warmSnaps, artText, fileSig, readSnap, makeSnap, snapBase, snapKeyOf, peekSnap, findSnap, adoptSnap, indexedKey } from './snap/web'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
@@ -114,8 +115,8 @@ export const photoCellUrl = (sprite, n) => `${ART_BASE}/raids/ophanim/${sprite}-
 export const PHOTO_CELL_URLS = Object.entries(PHOTO_CELLS).flatMap(([k, n]) => Array.from({ length: n }, (_, i) => photoCellUrl(k, i)))
 export const PHOTO_EYE_URL = PHOTO_SPRITES.eye.url
 const PHOTO_FILE = `${ART_BASE}/raids/ophanim.svg`
-// The asset view's BEFORE ophanim (raidBefore.js) uses the same photo cells, so it is a photo file too.
-const PHOTO_FILES = new Set([PHOTO_FILE, raidBeforeUrl('ophanim')].filter(Boolean))
+// The asset view's past ophanim versions (raidHistory.js) fill their photo groups the same way.
+const isPhotoFile = (url) => url === PHOTO_FILE || url.startsWith(`${RAID_HISTORY_BASE}/ophanim/`)
 const EYE_CELLS = { // class: [sprite cell, center x, center y, size] in the drawing's 120 x 120 units
   'lg-photo-ball': [0, 60, 54, 48.33], 'lg-photo-ball3': [1, 60, 54, 48.33],
   'lg-photo-iris': [2, 60, 56.4, 32.17], 'lg-photo-iris3': [3, 60, 56.4, 32.17],
@@ -152,7 +153,7 @@ function checkPhotoSprites() {
   return photoCheck
 }
 export function withPhotoEye(svg, url) {
-  if (!PHOTO_FILES.has(url) || !svg) return svg
+  if (!isPhotoFile(url) || !svg) return svg
   return svg
     .replace(/class="lg-photo-hide([^"]*)"/g, 'class="lg-photo-hide$1" style="display:none"')
     .replace(/<g class="(lg-photo-(?:ball|iris)3?)"><\/g>/g, (m, cls) => {
@@ -188,23 +189,57 @@ const PHOTO_LIGHT = { // per phase: sky stops, plate cell, plate strength, ray c
 }
 const BOKEH = [[22, 30, 7], [96, 26, 5], [14, 70, 9], [104, 66, 6], [34, 12, 4], [88, 92, 8]] // x, y, size (units)
 const STARS = [[18, 20], [30, 8], [92, 14], [104, 40], [12, 52], [84, 6], [108, 84], [8, 34]]
-const LIGHT_CSS = `
-@keyframes lgOphRays { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-@keyframes lgOphBreath { 0%, 100% { opacity: var(--o) } 50% { opacity: calc(var(--o) * .78) } }
-@keyframes lgOphDrift { 0%, 100% { transform: translate(0, 0) } 50% { transform: translate(3%, -2%) } }
-@keyframes lgOphTwinkle { 0%, 100% { opacity: .9 } 50% { opacity: .25 } }
-`
+// The light's loops are WEB ANIMATIONS, never CSS ones: in Chromium these CSS opacity/transform loops kept the page at 20
+// to 70 main-thread frames a second (no composite failure reported; the same keyframes as Web Animations: none), the
+// stutter check-smooth catches. Each looping element names its loop in `--lg-wa` ("name seconds easing");
+// useLightLoops plays them, and rests a loop whose phase layer is hidden (a waiting animation on an undrawn element
+// asks for a main-thread frame every frame, as in motion/web.js).
+const LIGHT_LOOPS = {
+  lgOphRays: () => [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
+  lgOphBreath: (el) => { const o = parseFloat(el.style.getPropertyValue('--o')) || 1; return [{ opacity: o }, { opacity: o * 0.78 }, { opacity: o }] },
+  lgOphDrift: () => [{ transform: 'translate(0, 0)' }, { transform: 'translate(3%, -2%)' }, { transform: 'translate(0, 0)' }],
+  lgOphTwinkle: () => [{ opacity: 0.9 }, { opacity: 0.25 }, { opacity: 0.9 }],
+}
+function useLightLoops(ref, motion) {
+  useLayoutEffect(() => {
+    const root = ref.current
+    if (!motion || !root || typeof root.animate !== 'function') return undefined
+    const loops = []
+    for (const el of root.querySelectorAll('[style*="--lg-wa"]')) {
+      const [name, sec, easing = 'ease-in-out'] = el.style.getPropertyValue('--lg-wa').trim().split(/\s+/)
+      const frames = LIGHT_LOOPS[name] && LIGHT_LOOPS[name](el)
+      if (!frames || !(+sec > 0)) continue
+      // (the easing of every segment, as a CSS animation-timing-function does)
+      loops.push({ el, frames: frames.map((f, i) => (i < frames.length - 1 ? { ...f, easing } : f)), ms: +sec * 1000, anim: null })
+    }
+    const drawn = (el) => { for (let e = el; e && e !== document.body; e = e.parentElement) if (getComputedStyle(e).display === 'none') return false; return true }
+    const look = () => {
+      for (const l of loops) {
+        const shown = root.isConnected && drawn(l.el)
+        if (shown && !l.anim) {
+          l.anim = l.el.animate(l.frames, { duration: l.ms, iterations: Infinity })
+          l.anim.currentTime = (document.timeline.currentTime || 0) % l.ms // every copy in step, as one clock
+        } else if (!shown && l.anim) { l.anim.cancel(); l.anim = null }
+      }
+    }
+    look()
+    const mo = typeof MutationObserver === 'function' ? new MutationObserver(look) : null
+    if (mo) for (let e = root; e && e !== document.body; e = e.parentElement) mo.observe(e, { attributes: true })
+    return () => { if (mo) mo.disconnect(); for (const l of loops) if (l.anim) l.anim.cancel() }
+  }, [ref, motion])
+}
 function phaseLayer(p, children) {
   if (p === 1) return <div key={p} className="lg-p1" style={FILL}>{children}</div>
   if (p === 2) return <div key={p} className="lg-p12" style={FILL}><div className="lg-p2" style={{ ...FILL, display: 'none' }}>{children}</div></div>
   return <div key={p} className="lg-p3" style={{ ...FILL, display: 'none' }}>{children}</div>
 }
-const run = (motion, name, s, extra = '') => (motion ? `${name} ${s}s ${extra || 'ease-in-out'} infinite` : 'none')
+const run = (motion, name, s, extra = '') => (motion ? `${name} ${s} ${extra || 'ease-in-out'}` : 'none')
 export function PhotoLightBack({ motion }) {
   const L = PHOTO_SPRITES.light, C = PHOTO_SPRITES.cloud
+  const ref = useRef(null)
+  useLightLoops(ref, motion)
   return (
-    <div aria-hidden="true" style={{ ...FILL, zIndex: 0 }}>
-      <style>{LIGHT_CSS}</style>
+    <div ref={ref} aria-hidden="true" style={{ ...FILL, zIndex: 0 }}>
       {[1, 2, 3].map((p) => {
         const s = PHOTO_LIGHT[p]
         return phaseLayer(p, <>
@@ -215,23 +250,23 @@ export function PhotoLightBack({ motion }) {
             backgroundSize: '200% 200%', backgroundPosition: s.wisp ? '0 100%' : '0 0', backgroundRepeat: 'no-repeat',
             WebkitMaskImage: 'radial-gradient(ellipse at 50% 50%, #000 30%, transparent 70%)', maskImage: 'radial-gradient(ellipse at 50% 50%, #000 30%, transparent 70%)' }} />
           {/* the light pouring down from above (the owner's plate), added on top of the sky */}
-          <div style={{ ...box(-25, -26, 170, 150), mixBlendMode: 'screen', '--o': s.plate, opacity: s.plate, animation: run(motion, 'lgOphBreath', 9),
+          <div style={{ ...box(-25, -26, 170, 150), mixBlendMode: 'screen', '--o': s.plate, opacity: s.plate, '--lg-wa': run(motion, 'lgOphBreath', 9),
             backgroundImage: `url(${L.url})`, backgroundSize: '300% 100%', backgroundPosition: `${s.cell * 50}% 0`, backgroundRepeat: 'no-repeat',
             WebkitMaskImage: 'radial-gradient(ellipse closest-side at 50% 42%, #000 62%, transparent 100%)', maskImage: 'radial-gradient(ellipse closest-side at 50% 42%, #000 62%, transparent 100%)' }} />
           {/* soft volumetric rays from the core: blurred wedges that fade with distance */}
           <div style={{ ...box(-20, -26, 160, 160), mixBlendMode: 'screen', opacity: 0.55, filter: 'blur(2.5px)',
             WebkitMaskImage: 'radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.5) 30%, transparent 62%)', maskImage: 'radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.5) 30%, transparent 62%)' }}>
-            <div style={{ ...FILL, borderRadius: '50%', animation: run(motion, 'lgOphRays', 160, 'linear'),
+            <div style={{ ...FILL, borderRadius: '50%', '--lg-wa': run(motion, 'lgOphRays', 160, 'linear'),
               background: `repeating-conic-gradient(from 7deg at 50% 50%, ${s.ray} 0deg 3deg, transparent 7deg 17deg, ${s.ray} 21deg 22.5deg, transparent 26deg 33deg)` }} />
           </div>
           {/* distant light, out of focus */}
           {BOKEH.map(([x, y, d], i) => (
             <div key={i} style={{ ...box(x - d / 2, y - d / 2, d, d), borderRadius: '50%', mixBlendMode: 'screen', opacity: 0.35, filter: 'blur(1.4px)',
-              background: `radial-gradient(circle, ${s.bloom} 0%, transparent 70%)`, animation: run(motion, 'lgOphDrift', 11 + i * 2) }} />
+              background: `radial-gradient(circle, ${s.bloom} 0%, transparent 70%)`, '--lg-wa': run(motion, 'lgOphDrift', 11 + i * 2) }} />
           ))}
           {s.stars ? STARS.map(([x, y], i) => (
             <div key={`s${i}`} style={{ ...box(x - 0.5, y - 0.5, 1, 1), borderRadius: '50%', background: '#fff', opacity: 0.9 * s.stars,
-              boxShadow: '0 0 3px 1px rgba(210,220,255,.8)', animation: run(motion, 'lgOphTwinkle', 2.5 + (i % 4)) }} />
+              boxShadow: '0 0 3px 1px rgba(210,220,255,.8)', '--lg-wa': run(motion, 'lgOphTwinkle', 2.5 + (i % 4)) }} />
           )) : null}
         </>)
       })}
@@ -239,14 +274,16 @@ export function PhotoLightBack({ motion }) {
   )
 }
 export function PhotoLightFront({ motion }) {
+  const ref = useRef(null)
+  useLightLoops(ref, motion)
   return (
-    <div aria-hidden="true" style={{ ...FILL, zIndex: 2 }}>
+    <div ref={ref} aria-hidden="true" style={{ ...FILL, zIndex: 2 }}>
       {[1, 2, 3].map((p) => {
         const s = PHOTO_LIGHT[p]
         // a blurred bloom just outside the eyeball: the core's light wrapping the wheels and wings that pass it
         return phaseLayer(p,
           <div style={{ ...box(14, 9, 92, 92), borderRadius: '50%', mixBlendMode: 'screen', filter: 'blur(3px)', '--o': p === 3 ? 0.8 : 0.6,
-            opacity: p === 3 ? 0.8 : 0.6, animation: run(motion, 'lgOphBreath', 6),
+            opacity: p === 3 ? 0.8 : 0.6, '--lg-wa': run(motion, 'lgOphBreath', 6),
             background: `radial-gradient(circle, transparent 24%, ${s.bloom} 27%, transparent 52%)` }} />)
       })}
     </div>
@@ -281,7 +318,7 @@ const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0))
 function loadArt(url) {
   if (!cache.has(url)) {
     cache.set(url, Promise.all([artText(url), import('../../components/Markdown'),
-      PHOTO_FILES.has(url) ? checkPhotoSprites() : false])
+      isPhotoFile(url) ? checkPhotoSprites() : false])
       .then(([text, m, photos]) => {
         const job = sanitizeQueue.then(nextTask).then(() => {
           // eased where the motion turns (easeMotion.js: the sanitizer drops calcMode, so every bob reversed in one frame)
@@ -611,9 +648,9 @@ const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
 // `room`: a figure wrapped in its headroom as real space (margin on every side), for places where text, buttons or
 // other drawings sit next to it. The asset view and gallery (ArtLabels) always give it.
-export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false, phase, before = false }) {
-  // `before` (asset view only): the raid boss's BEFORE copy (raidBefore.js), its own URL, so every cache keys apart.
-  const url = (before && kind === 'raids' && raidBeforeUrl(motif)) || artUrl(kind, motif)
+export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false, phase, version = '' }) {
+  // `version` (asset view only): a past drawing of the raid boss (raidHistory.js), its own URL, so every cache keys apart.
+  const url = (version && kind === 'raids' && historyUrl(motif, version)) || artUrl(kind, motif)
   const [html, setHtml] = useState(() => (ready.has(url) ? { url, svg: ready.get(url) } : { url: '', svg: '' }))
   const boxRef = useRef(null)
   const near = useArtInView(boxRef)
@@ -626,7 +663,7 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // and rastering every file. Its SVG file is read only when no snapshot exists yet (the vector shows meanwhile).
   const theme = useThemeTick()
   const snapOn = !mode && phase == null && typeof height === 'number' && typeof width === 'number' && Math.max(height, width) <= SNAP_MAX_PX
-    && !PHOTO_FILES.has(url) && !(typeof window !== 'undefined' && (window.__ebikiArtEager || window.__ebikiNoBake || window.__ebikiNoSnap))
+    && !isPhotoFile(url) && !(typeof window !== 'undefined' && (window.__ebikiArtEager || window.__ebikiNoBake || window.__ebikiNoSnap))
   const snapIdent = `${url}|${palette ?? ''}|${theme}`
   const [snap, setSnap] = useState(null) // { ident, href }
   const [snapNeed, setSnapNeed] = useState(null) // { ident, key, base, pxW, pxH } when a snapshot must be drawn (key '' = none possible)
@@ -739,10 +776,17 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     if (!shown || !mode || !boxRef.current || (typeof window !== 'undefined' && window.__ebikiArtEager)) return
     // ART_CLOCK off: native playback at the display's rate, continuity only (keepTimeline).
     for (const v of artSvgs(boxRef.current)) {
+      // COMPOSITED MOTION (motion/plan.js): the drawing's SMIL becomes compositor animations, so every part moves at
+      // the display's rate with no main-thread frame (SMIL re-ran the page's style, paint and layerization every frame
+      // and dropped frames at 480 Hz and on any slow machine). The SVG keeps its clock API, so what follows is unchanged.
+      // (window.__ebikiNoComposite: SMIL as before, to compare)
+      if (typeof window !== 'undefined' && !window.__ebikiNoComposite) compositeMotion(v)
       // The still copy's own drawing (same markup, kept by React) comes to life from its first frame.
       if (v.__lgFrozen) { v.__lgFrozen = false; try { v.setCurrentTime(0); if (!asleep) v.unpauseAnimations() } catch { /* not an SVG document */ } }
       ;(ART_CLOCK ? clockAttach : keepTimeline)(v, boxRef.current, `${url}|${mode}`)
     }
+    const live = artSvgs(boxRef.current)
+    return () => { for (const v of live) releaseMotion(v) } // only once it left the page (a kept node keeps playing)
   }, [shown, svg, mode, url])
   // Pixels per drawing unit on THIS screen: the box's layout width (never its transformed size: an entrance that starts
   // small would bake a blurry boss) times the app zoom and the screen's density. It only ever goes UP while shown: a
@@ -774,7 +818,7 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     bakeArt(key, bakeSource, box, { intro: mode === 'intro', density, wanted }).then((out) => { if (alive && out && bakeKeyRef.current === key) setBaked({ key, out }) })
     return () => { alive = false }
   }, [shown, bakeOn, bakeSource, bakeIdentity, density]) // eslint-disable-line react-hooks/exhaustive-deps
-  const photo = PHOTO_FILES.has(url) && photoSpritesUsable() // the photo ophanim's own light layers (PHOTO LIGHT); never over the painted fallback
+  const photo = isPhotoFile(url) && (url === PHOTO_FILE || raw.includes('lg-photo-')) && photoSpritesUsable() // the photo ophanim's own light layers (PHOTO LIGHT); never over the painted fallback
   const labels = useContext(ArtLabels)
   const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
   const art = (

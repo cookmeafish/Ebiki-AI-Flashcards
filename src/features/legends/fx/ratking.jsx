@@ -270,11 +270,6 @@ export default {
 .lg-boss[data-motif="ratking"][data-down] .lg-ratking-armr { transform: rotate(54deg) translateY(10px) }
 .lg-boss[data-motif="ratking"][data-down] :is(.lg-p1, .lg-p2) .lg-ratking-arml { transform: rotate(-69deg) translateY(15px) }
 .lg-boss[data-motif="ratking"][data-down] .lg-p3 .lg-ratking-arml { transform: rotate(8deg) translateY(4px) }
-/* phase 3's cackle stops when he is knocked out: the dazed face (X eyes, worried brows, shades knocked askew) replaces
-   the laughing one for the whole knockout cinematic and the held pose. !important: the dazed layer starts hidden by
-   its own style attribute (the file's rest pose). */
-.lg-boss[data-motif="ratking"]:is([data-down], [data-moment="ko"]) .lg-p3 .lg-ratking-face { display: none !important }
-.lg-boss[data-motif="ratking"]:is([data-down], [data-moment="ko"]) .lg-p3 .lg-ratking-dazed { display: inline !important }
 /* PHASE 3 KNOCKOUT: his treasury vault stays put (the shared body move would rotate and drop the whole drawing, vault
    and all), so in phase 3 that move is off and the FIGURE (body, arms, head: lg-ratking-figure) reels and slumps
    instead, pivoting at his hem; the crown tumbles off to his left and lands on his chest, never down his chin. */

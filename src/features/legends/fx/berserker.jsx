@@ -25,7 +25,7 @@ const DRAWING = `
 @keyframes lgrBeRattle { 0%, 100% { transform: none } 10% { transform: rotate(8deg) } 22% { transform: rotate(-7deg) } 34% { transform: rotate(5deg) } 48% { transform: rotate(-3deg) } 64% { transform: none } }
 /* the raised arm (arm2) rattles less: its fist sits by the top of the clip */
 @keyframes lgrBeRattleArm { 0%, 100% { transform: none } 10% { transform: rotate(5deg) } 22% { transform: rotate(-5deg) } 34% { transform: rotate(4deg) } 48% { transform: rotate(-2deg) } 64% { transform: none } }
-@keyframes lgrBeHeadbutt { 0% { transform: none } 20% { transform: translateY(1px) rotate(-7deg) } 34% { transform: translateY(4px) rotate(8deg) scale(1.05) } 60% { transform: translateY(2px) rotate(3deg) scale(1.02) } 100% { transform: none } }
+@keyframes lgrBeHeadbutt { 0% { transform: none } 20% { transform: translateY(2px) rotate(-6deg) } 34% { transform: translateY(5px) rotate(8deg) scale(1.03) } 60% { transform: translateY(3px) rotate(3deg) scale(1.01) } 100% { transform: none } }
 @keyframes lgrBeRoar { 0%, 100% { transform: none } 20% { transform: scaleY(.85) } 34% { transform: scale(1.12, 1.45) translateY(1px) } 70% { transform: scale(1.06, 1.25) } }
 @keyframes lgrBeJab { 0% { transform: none } 18% { transform: translate(-3px, 1px) rotate(-7deg) } 34% { transform: translate(3px, 3px) rotate(7deg) scale(1.05) } 60% { transform: translate(2px, 2px) rotate(4deg) scale(1.02) } 100% { transform: none } }
 @keyframes lgrBeHurl { 0% { transform: none } 14% { transform: rotate(-16deg) translate(3px, 2px) } 26% { transform: rotate(72deg) translate(8px, 4px) scale(1.1) } 36% { transform: rotate(62deg) translate(7px, 3px) } 62% { transform: rotate(40deg) translate(4px, 2px) } 100% { transform: none } }

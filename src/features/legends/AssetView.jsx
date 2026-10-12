@@ -21,7 +21,7 @@ import { floaterKeyFor, fxDemoFor, fxLabel } from './fx'
 import { bestiaryHelpText, raidBossName, BESTIARY_TABS } from './bestiaryHelp'
 import { useHelpEntry } from '../kit/useHelp'
 import { useLegendsMap } from './store'
-import { hasRaidBefore, RAID_BEFORE_COMMIT } from './raidBefore'
+import { RAID_HISTORY_MANIFEST, NOW_ID, shapeHistory, versionList } from './raidHistory'
 
 // Sample values for a floater that counts something ("+{n} heads"), so the asset view never shows a raw placeholder.
 const demoVars = (ability, fx) => ({ n: 2, ...(fxDemoFor(ability, fx)?.fxVars || {}) })
@@ -271,26 +271,48 @@ function RaidLore({ t, motif }) {
 }
 
 // A raid boss as the fight shows it in a phase: the arena's own rules switch the lg-p1/p2/p3/p12 layers.
-const RaidPhase = ({ motif, palette, phase, size, animate = true, before = false }) => (
-  <div className="lg-boss" data-phase={phase}><LegendsArt kind="raids" motif={motif} palette={palette} height={size} width={size} round={0} animated={animate ? 'idle' : false} phase={phase} before={before} /></div>
+const RaidPhase = ({ motif, palette, phase, size, animate = true, version = '' }) => (
+  <div className="lg-boss" data-phase={phase}><LegendsArt kind="raids" motif={motif} palette={palette} height={size} width={size} round={0} animated={animate ? 'idle' : false} phase={phase} version={version} /></div>
 )
-// BEFORE / NOW (the owner: "a before and after button to see what it used to be"): a segmented control for a raid boss
-// with a BEFORE copy (raidBefore.js). Only the Phase drawings panel swaps; the demo arena and real fights use the
-// current file (the old drawing under today's fight CSS would not match). Asset view state only, never saved.
-function BeforeNow({ t, before, setBefore }) {
+// THE VERSION PICKER (raidHistory.js; the owner: pick, per boss, the past version he liked): every past drawing of the
+// boss from dev/raid-history/manifest.json (written by dev/legends-gallery/raid-history.mjs). Only the Phase drawings
+// panel switches; the demo arena and real fights always use the live file. Asset view state only, never saved.
+let historyLoad = null
+const loadHistory = () => (historyLoad ||= fetch(RAID_HISTORY_MANIFEST, { cache: 'no-store' })
+  .then((r) => (r.ok ? r.json() : {})).then(shapeHistory).catch(() => ({})))
+function useRaidHistory() {
+  const [history, setHistory] = useState(null)
+  useEffect(() => { let live = true; loadHistory().then((h) => { if (live) setHistory(h) }); return () => { live = false } }, [])
+  return history
+}
+const versionTag = (t, v) => (v.id === NOW_ID ? t('lg_assetsVersionNow') : v.source === 'rejected' ? t('lg_assetsVersionRejected') : v.id)
+const STEP_BTN = { padding: '5px 11px', borderRadius: RADIUS.md, fontFamily: FONT.display, fontWeight: 900, fontSize: 14, border: `2px solid ${C.border}`, background: C.surface, color: C.inkDim }
+function VersionPicker({ t, versions, idx, setIdx }) {
+  const v = versions[idx]
+  const step = (d) => setIdx(Math.min(versions.length - 1, Math.max(0, idx + d)))
+  const btn = (d, label, glyph) => {
+    const off = idx + d < 0 || idx + d >= versions.length
+    return <button type="button" aria-label={label} disabled={off} onClick={() => step(d)} style={{ ...STEP_BTN, opacity: off ? 0.5 : 1, cursor: off ? 'default' : 'pointer' }}>{glyph}</button>
+  }
   return (
-    <div role="group" aria-label={t('lg_assetsBeforeNow')} style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
-      {[[true, 'lg_assetsBefore'], [false, 'lg_assetsNow']].map(([v, key]) => {
-        const on = before === v
-        return (
-          <button key={key} type="button" aria-pressed={on} onClick={() => setBefore(v)} className={`ui-tab${on ? ' ui-tab-current' : ''}`}
-            style={{ padding: '5px 12px', borderRadius: RADIUS.md, cursor: on ? 'default' : 'pointer', fontFamily: FONT.display, fontWeight: 900, fontSize: 13,
-              border: `2px solid ${on ? (v ? C.warning : C.brand) : C.border}`, background: on ? `color-mix(in srgb, ${v ? C.warning : C.brand} 12%, ${C.surface})` : C.surface,
-              color: on ? (v ? C.warning : C.brandText) : C.inkDim }}>
-            {t(key)}
-          </button>
-        )
-      })}
+    <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+        {btn(1, t('lg_assetsVersionOlder'), '◀')}
+        {btn(-1, t('lg_assetsVersionNewer'), '▶')}
+        <select value={idx} onChange={(e) => setIdx(Number(e.target.value))} aria-label={t('lg_assetsVersionPick')}
+          style={{ fontFamily: FONT.body, fontWeight: 700, fontSize: 13, padding: '6px 8px', borderRadius: RADIUS.sm, border: `2px solid ${C.borderStrong}`, background: C.surface, color: C.ink, minWidth: 0, maxWidth: '100%', textOverflow: 'ellipsis' }}>
+          {versions.map((x, i) => <option key={x.id} value={i}>{[i + 1, x.date, versionTag(t, x)].filter(Boolean).join(' · ')}</option>)}
+        </select>
+        <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 14, color: idx ? C.warning : C.brandText, minWidth: 0, overflowWrap: 'anywhere' }}>
+          {[t('lg_assetsVersionOf', { n: idx + 1, total: versions.length }), v.date, versionTag(t, v)].filter(Boolean).join(' · ')}
+        </span>
+      </div>
+      {idx > 0 && (
+        <div style={{ fontSize: 12.5, lineHeight: 1.45, color: C.warning, fontWeight: 700, overflowWrap: 'anywhere' }}>
+          {v.subject && v.source === 'git' && <div style={{ color: C.inkDim }}>{v.subject}</div>}
+          {t('lg_assetsVersionNote')}
+        </div>
+      )}
     </div>
   )
 }
@@ -522,7 +544,8 @@ export default function AssetView({ ctx, onBack }) {
   const [shot, setShot] = useState(null) // the ability effect last played on the demo arena: { motif, fx, n }
   const [palette, setPalette] = useState(PALETTES[0])
   const [replay, setReplay] = useState(0)
-  const [beforeOn, setBeforeOn] = useState(false) // BEFORE / NOW in Phase drawings (asset view only)
+  const history = useRaidHistory()
+  const [verPick, setVerPick] = useState({ motif: '', idx: 0 }) // the version picker's choice, for one boss only
   // "Fight this boss": a real raid against the chosen raid boss with today's due cards (RaidRun `test`: real reviews,
   // nothing stored for the raid, no rewards). It ends back here, on the same tab and boss.
   const [testFight, setTestFight] = useState(null) // motif | null
@@ -540,7 +563,10 @@ export default function AssetView({ ctx, onBack }) {
   const { list } = TABS.find((x) => x.id === tab)
   const raids = tab === 'raids'
   const motif = list[Math.min(idx, list.length - 1)]
-  const oldArt = raids && beforeOn && hasRaidBefore(motif) // BEFORE copies in Phase drawings (raidBefore.js)
+  const versions = raids ? versionList(history, motif) : []
+  const verIdx = verPick.motif === motif ? Math.min(verPick.idx, versions.length - 1) : 0
+  const ver = verIdx > 0 ? versions[verIdx] : null // a past drawing in Phase drawings (raidHistory.js)
+  const oldArt = ver ? ver.id : ''
   const [find, setFind] = useState('')
   // The bosses the search keeps (indexes into list): file name, the raid boss's name, its number.
   const q = find.trim().toLowerCase()
@@ -752,19 +778,16 @@ export default function AssetView({ ctx, onBack }) {
         </Fold>
 
         {raids ? (
-          <Fold id="phaseCopies" title={t('lg_assetsPhaseCopies')}
-            extra={hasRaidBefore(motif) ? <BeforeNow t={t} before={beforeOn} setBefore={setBeforeOn} /> : null}>
-            {oldArt && (
-              <div style={{ fontSize: 12.5, lineHeight: 1.45, color: C.warning, fontWeight: 700, overflowWrap: 'anywhere' }}>{t('lg_assetsBeforeNote', { commit: RAID_BEFORE_COMMIT })}</div>
-            )}
+          <Fold id="phaseCopies" title={t('lg_assetsPhaseCopies')}>
+            {versions.length > 1 && <VersionPicker t={t} versions={versions} idx={verIdx} setIdx={(idx) => setVerPick({ motif, idx })} />}
             <div style={row}>
               {Array.from({ length: RAID.phases }, (_, i) => (
-                <Cell key={`${i}-${oldArt}`} label={t(oldArt ? 'lg_assetsPhaseBefore' : 'lg_assetsPhase', { n: i + 1 })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={i + 1} size={VIEW.phase} animate={on} before={oldArt} />}</LiveCopy></Cell>
+                <Cell key={`${i}-${oldArt}`} label={ver ? t('lg_assetsPhaseVersion', { n: i + 1, v: versionTag(t, ver) }) : t('lg_assetsPhase', { n: i + 1 })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={i + 1} size={VIEW.phase} animate={on} version={oldArt} />}</LiveCopy></Cell>
               ))}
             </div>
             <div style={row}>
-              <Cell key={`full-${oldArt}`} label={t(oldArt ? 'lg_assetsFightBefore' : 'lg_assetsFight', { px: BOSS.arena })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arena} animate={on} before={oldArt} />}</LiveCopy></Cell>
-              <Cell key={`compact-${oldArt}`} label={t(oldArt ? 'lg_assetsFightBefore' : 'lg_assetsFight', { px: BOSS.arenaCompact })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arenaCompact} animate={on} before={oldArt} />}</LiveCopy></Cell>
+              <Cell key={`full-${oldArt}`} label={ver ? t('lg_assetsFightVersion', { px: BOSS.arena, v: versionTag(t, ver) }) : t('lg_assetsFight', { px: BOSS.arena })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arena} animate={on} version={oldArt} />}</LiveCopy></Cell>
+              <Cell key={`compact-${oldArt}`} label={ver ? t('lg_assetsFightVersion', { px: BOSS.arenaCompact, v: versionTag(t, ver) }) : t('lg_assetsFight', { px: BOSS.arenaCompact })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arenaCompact} animate={on} version={oldArt} />}</LiveCopy></Cell>
             </div>
           </Fold>
         ) : (

@@ -16,6 +16,8 @@
 //   breath  a raid boss whose WHOLE figure idles by under 2 px at the asset view's panel size (reads as a glitch), or a
 //           construct (CONSTRUCTS there) that breathes at all; judder: any idle loop whose speed jumps in one frame as
 //           the app plays it, after easeMotion.js (check-idle-breath.mjs, both)
+//   smooth  a live drawing not fully COMPOSITED (a SMIL animation left, one the browser refuses, main-thread frames
+//           while only it plays) or whose composited motion looks different from its SMIL (check-smooth.mjs)
 // and WARNS on banner parts cut by the picture's edge mid-motion (often fine: a spotlight running off the edge).
 import fs from 'fs'
 import os from 'os'
@@ -296,6 +298,12 @@ const over = await page.evaluate(async (ONLY) => {
   const bl = (b.stdout || '').split(/\r?\n/)
   for (const l of bl) { if (l.startsWith('FAIL  ')) res.fails.push(l.slice(6).trim()); else if (l.startsWith('warn  ')) res.warns.push(l.slice(6).trim()) }
   if (b.status !== 0 && !bl.some((l) => l.startsWith('FAIL  '))) res.fails.push('breath check-idle-breath.mjs did not finish: ' + ((b.stderr || '').trim().split(/\r?\n/).slice(-3).join(' ') || b.error?.message || 'exit ' + b.status))
+  // SMOOTH: every live drawing COMPOSITED (a new position every display frame) and looking as its SMIL did
+  // (check-smooth.mjs; it reads EBIKI_ONLY itself)
+  const m = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), 'check-smooth.mjs')], { encoding: 'utf8', maxBuffer: 64 << 20, timeout: 90 * 60 * 1000 })
+  const ml = (m.stdout || '').split(/\r?\n/)
+  for (const l of ml) { if (l.startsWith('FAIL  ')) res.fails.push(l.slice(6).trim()); else if (l.startsWith('warn  ')) res.warns.push(l.slice(6).trim()) }
+  if (m.status !== 0 && !ml.some((l) => l.startsWith('FAIL  '))) res.fails.push('smooth check-smooth.mjs did not finish: ' + ((m.stderr || '').trim().split(/\r?\n/).slice(-3).join(' ') || m.error?.message || 'exit ' + m.status))
 }
 res.warns.push(...over.filter((o) => !REVIEWED.has(`${o.file}|${o.d.slice(0, 24)}`)).map((o) => `overdraw ${o.file}: a line leaves its shape: ${o.d.slice(0, 70)}`))
 await browser.close()

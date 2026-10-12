@@ -65,3 +65,6 @@ game-inbox.json
 /.agents/
 .ebiki-build/
 .ebiki-build.tmp/
+
+# The asset view version picker: every past raid boss drawing, written from git by dev/legends-gallery/raid-history.mjs
+dev/raid-history/

@@ -28,7 +28,7 @@ for (const t of times.split(',')) {
   await page.evaluate((t) => {
     window.__ebikiArtFreeze = true
     for (const s of document.querySelectorAll('svg')) { try { s.pauseAnimations(); s.setCurrentTime(+t) } catch { /* nested */ } }
-    for (const a of document.getAnimations()) { try { a.pause(); a.currentTime = 250 } catch { /* gone */ } }
+    for (const a of document.getAnimations()) if (a.animationName) { try { a.pause(); a.currentTime = 250 } catch { /* gone */ } } // the page CSS only (composited SMIL follows setCurrentTime)
   }, t)
   await page.waitForTimeout(+waitMs)
   await page.screenshot({ path: `.scratch/bake-sweep/pair-${motif}-${animated}-${t}-w${waitMs}.png` })

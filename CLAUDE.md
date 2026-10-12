@@ -1726,12 +1726,16 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the
   current `SHRIMP` Ebi first); every palette; ←/→ step. **File names ONLY there** (and the dev gallery): `ArtLabels`
   puts a tag UNDER drawings of 100px+, never on them, never in gameplay (the owner).
-- **BEFORE / NOW (raid redesigns are reversible)**: `src/features/legends/raidBefore.js` lists the bosses with a BEFORE
-  copy (`public/assets/legends/raids-before/<motif>.svg` = the file at `RAID_BEFORE_COMMIT` d4a2791, from `git show`,
-  never the working tree; `raidBefore.test.js` checks it byte for byte). The asset view's Phase drawings panel has a
-  Before / Now toggle (`BeforeNow`, `LegendsArt before`: its own URL, so loader, snapshot and bake caches never mix;
-  the demo arena and real fights always use `raids/`). Revert a boss for good (svg + fx + impact style + parts):
-  `node dev/legends-gallery/restore-before.mjs <motif> [--dry-run]` (impact/body.js and art.jsx are only reported).
+- **VERSION PICKER (raid redesigns are reversible)**: the asset view's Phase drawings panel steps through every past
+  drawing of a raid boss (◀ ▶ + a dropdown, "Version 3 of 7 · date · sha", the commit subject; "Now" = the live file,
+  first). Files: `dev/raid-history/<motif>/<sha>.svg` + `manifest.json`, GITIGNORED (git holds them; about 50 MB),
+  written by `node dev/legends-gallery/raid-history.mjs` (git show, never the working tree; distinct contents only,
+  the live file's twin skipped, the rejected 2026-10-11 redesigns from `.scratch/restore-1011/now/` as
+  `rejected-2026-10-11`); rerun it after an art change. Pure parts in `raidHistory.js` (tested, incl. safe SVG and
+  byte-identical to git when the files exist). `LegendsArt version` = its own URL (loader, snapshot and bake caches
+  never mix); the demo arena and real fights always use `raids/`. Put a version back for good (svg + that commit's fx +
+  impact style + parts when they exist): `node dev/legends-gallery/restore-version.mjs <motif> <sha> [--dry-run]`
+  (impact/body.js and art.jsx are only reported; an old fx may not fit today's code: test and look after).
 - **Small STILL drawings are bitmaps** (`snap/web.js`, STILL SNAPSHOTS in `LegendsArt`): still, no `phase`, both sizes
   numeric and at most `SNAP_MAX_PX` (260), not the photo ophanim. Drawn once at the box's EXACT device pixels (rounding
   read as blur) STRAIGHT FROM THE FILE (`snap/plan.js` `stillImageSvg`, pure + tested: string edits only, no sanitize
@@ -1777,7 +1781,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   (pause/unpause/setCurrentTime drive both), so freeze, keepTimeline, sleep and hit-stop are unchanged. An element the
   page's CSS reaches (`lg-<motif>-*`) keeps its transform; its idle goes on an inner wrapper. A SHAPE (circle, path)
   can't hold a wrapper (a `<g>` inside a `<circle>` is never drawn: the Leviathan's bubbles lost their pop and ticked
-  the main thread): it moves into new groups carrying all its layers. Eager pages (gallery,
+  the main thread): it moves into new groups carrying all its layers. An animation on a part that is NOT DRAWN
+  (display none: an ability layer, a missing Hydra head) stays pending and asks for a main frame every frame: it is
+  cancelled while hidden and rejoins the drawing's time when shown (a MutationObserver on the SVG's ancestors' attributes
+  re-looks). A CSS animation moving an element's transform (fight moves, `.lgfa-vampire-orbit > g`) WINS as it did over
+  SMIL: ours steps aside while it runs (animation events + a 500 ms re-look while anything has stepped aside). Eager pages (gallery,
   check-art) keep SMIL. `node dev/legends-gallery/check-smooth.mjs` (in check-art) fails a leftover SMIL, a refused
   composite, main-thread frames while only a drawing plays, and any look difference from the SMIL;
   `__ebikiNoComposite = true` compares.

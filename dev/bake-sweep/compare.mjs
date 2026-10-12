@@ -59,8 +59,10 @@ async function shots(c, noBake) {
   for (const t of TIMES[c.animated]) {
     await page.evaluate((t) => {
       window.__ebikiArtFreeze = true
-      for (const s of document.querySelectorAll('#host svg')) { try { s.pauseAnimations(); s.setCurrentTime(t) } catch { /* inner svg */ } }
-      for (const a of document.getAnimations()) { try { a.pause(); a.currentTime = 250 } catch { /* gone */ } }
+      // (composited motion: the SVG's own clock API moves its Web Animations to t; only the page's CSS ones go to 250 ms)
+      const own = new Set()
+      for (const s of document.querySelectorAll('#host svg')) { try { s.pauseAnimations(); s.setCurrentTime(t); for (const a of s.__lgComposited?.anims || []) own.add(a) } catch { /* inner svg */ } }
+      for (const a of document.getAnimations()) { if (own.has(a)) continue; try { a.pause(); a.currentTime = 250 } catch { /* gone */ } }
     }, t)
     await page.waitForTimeout(+(process.env.FREEZE_WAIT || 120))
     out.push(await page.locator('#host').screenshot())

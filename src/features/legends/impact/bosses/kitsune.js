@@ -22,7 +22,7 @@ export default {
       heavy: [['kitsuneSweep', {}], ['rise', { n: 12, glyph: 'flame', color: '#7fe8ff', size: 0.6 }], ['quake', { n: 2, color: '#ff5a7a' }]],
       block: [['sigil', { sides: 9, rot: 20, turn: 80 }], ['drops', { n: 6, glyph: 'petal', size: 0.5 }]],
       shield: [['bubble', {}], ['deflect', { n: 6, glyph: 'petal' }]],
-      wind: [['heart', {}], ['drops', { n: 10, glyph: 'petal', size: 0.4, color: '#ffd6e0' }], ['gust', { n: 3, color: '#7fe8ff', turn: -170 }]],
+      wind: [['heart', {}], ['drops', { n: 10, glyph: 'petal', size: 0.4, color: '#ffd6e0', from: 6, to: 50 }], ['gust', { n: 3, color: '#7fe8ff', turn: -170, y: 28, size: 50 }]],
       body: { hit: 'flinch', crit: 'twirl', sharpen: 'gash', strike: 'cast', heavy: 'charge', block: 'rebound', shield: 'glance', wind: 'sway', ko: 'foxfire' },
   },
   assault: { travel: 'orb', impact: 'burn' }, // foxfire and spirit flames rising
