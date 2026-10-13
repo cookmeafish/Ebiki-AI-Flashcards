@@ -1807,7 +1807,7 @@ export default {
   lg_assetsLoreFold: "Historia y voz",
   lg_assetsPhaseCopies: "Dibujos de las fases",
   lg_assetsVersionNow: "Ahora (archivo actual)",
-  lg_assetsVersionRejected: "rediseño rechazado",
+  lg_assetsVersionRejected: "antes de la restauración",
   lg_assetsVersionOf: "Versión {n} de {total}",
   lg_assetsVersionOlder: "Versión anterior",
   lg_assetsVersionNewer: "Versión más nueva",

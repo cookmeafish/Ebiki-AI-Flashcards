@@ -1866,7 +1866,7 @@ export default {
   lg_assetsLoreFold: "Lore and voice",
   lg_assetsPhaseCopies: "Phase drawings",
   lg_assetsVersionNow: "Now (live file)",
-  lg_assetsVersionRejected: "rejected redesign",
+  lg_assetsVersionRejected: "before the restore",
   lg_assetsVersionOf: "Version {n} of {total}",
   lg_assetsVersionOlder: "Older version",
   lg_assetsVersionNewer: "Newer version",

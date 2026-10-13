@@ -1807,7 +1807,7 @@ export default {
   lg_assetsLoreFold: "传说与声音",
   lg_assetsPhaseCopies: "各阶段图",
   lg_assetsVersionNow: "现在（当前文件）",
-  lg_assetsVersionRejected: "被否决的重新设计",
+  lg_assetsVersionRejected: "恢复之前",
   lg_assetsVersionOf: "版本 {n} / {total}",
   lg_assetsVersionOlder: "更早的版本",
   lg_assetsVersionNewer: "更新的版本",

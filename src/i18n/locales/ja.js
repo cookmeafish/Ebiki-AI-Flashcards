@@ -1807,7 +1807,7 @@ export default {
   lg_assetsLoreFold: "伝承と声",
   lg_assetsPhaseCopies: "各フェーズの絵",
   lg_assetsVersionNow: "現在（使用中のファイル）",
-  lg_assetsVersionRejected: "却下されたリデザイン",
+  lg_assetsVersionRejected: "復元前",
   lg_assetsVersionOf: "バージョン {n} / {total}",
   lg_assetsVersionOlder: "古いバージョン",
   lg_assetsVersionNewer: "新しいバージョン",

@@ -40,7 +40,7 @@ for (const name of fs.readdirSync(RAIDS).filter((f) => f.endsWith('.svg')).sort(
   const rejected = path.join(ROOT, REJECTED_DIR, 'raids', name)
   const commits = git('log', '--format=%h|%ad|%s', '--date=format:%Y-%m-%d', '--', rel).toString().trim().split('\n').filter(Boolean)
   // the rejected redesigns are newer than every commit: listed first
-  if (fs.existsSync(rejected)) add(REJECTED_ID, fs.readFileSync(rejected), { date: '2026-10-11', subject: 'rejected redesign 2026-10-11', source: 'rejected' })
+  if (fs.existsSync(rejected)) add(REJECTED_ID, fs.readFileSync(rejected), { date: '2026-10-11', subject: 'the 2026-10-11 version, before all bosses were restored', source: 'rejected' })
   for (const line of commits) {
     const [sha, date, ...subject] = line.split('|')
     let buf

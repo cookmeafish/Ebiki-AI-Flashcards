@@ -57,15 +57,16 @@ const hourglass = (glass = '#fff3d0') => (
 // (the fallen pose after the knockout). Parts: head (pivot at the neck), brow (the hour and minute hands, on the hub),
 // crown, jaw, torso (pivot at its base), armL (the viewer's left arm with the great winding key in phases 1 and 2),
 // armR (the presenting palm under the floating hourglass, the HALT palm, the sand-pouring palm in phase 3), key (pivot: the
-// fist that holds it). Since the 2026-10-10 redraw every phase shares one framing: shoulders (the bell tops) at 31 81 and
-// 89 81, the neck at 60 72; only the key's fist moves per phase (PIV, from .scratch/raid-kitsune/chronos/gen.mjs). The
+// fist that holds it). Since the 2026-10-10 redraw every phase shares one framing: shoulders (the bell tops) at 28 81 and
+// 92 81 (broadened 2026-10-11), the neck at 60 73.4 (phase 2 sits 2 lower: its stance hunches); only the key's fist moves per phase (PIV, from .scratch/raid-kitsune/chronos/gen.mjs). The
 // brow sits in the head's own space with the hub at 0 0; the crown pivots on its own stem (inline fill-box style).
 // Every move ends on the drawn pose.
 const P = '.lg-boss[data-motif="chronos"]'
 const PIV = {
-  1: { armL: [31, 81], armR: [89, 81], head: [60, 72], torso: [60, 70], key: [21.4, 79] },
-  2: { armL: [31, 81], armR: [89, 81], head: [60, 72], torso: [60, 70], key: [14.6, 62.4] },
-  3: { armL: [31, 81], armR: [89, 81], head: [60, 72], torso: [60, 70], key: [16.4, 42.6] },
+  // (in each part's OWN coordinates: the body's growth and phase 2's lean wrap these parts, so the joints stay put)
+  1: { armL: [28, 81], armR: [92, 81], head: [60, 73.4], torso: [60, 70], key: [21.4, 79] },
+  2: { armL: [28, 83], armR: [92, 83], head: [60, 75.4], torso: [60, 72], key: [14.6, 64.4] },
+  3: { armL: [28, 81], armR: [92, 81], head: [60, 73.4], torso: [60, 70], key: [16.4, 42.6] },
 }
 const PARTS = ['armL', 'armR', 'head', 'torso', 'key']
 const origins = Object.entries(PIV).map(([ph, pv]) => PARTS.map((p) => `${P}${ph === '1' ? '' : `[data-phase="${ph}"]`} .lg-chronos-${p} { transform-box: view-box; transform-origin: ${pv[p][0]}px ${pv[p][1]}px }`).join('\n')).join('\n')
@@ -75,12 +76,13 @@ const origins = Object.entries(PIV).map(([ph, pv]) => PARTS.map((p) => `${P}${ph
 // Each knockout ends exactly on its held pose (data-down), with one rebound on the way.
 const FALL = {
   // phase 1 SINKS: the titan slumps down into its own sand, head tipped, arms fallen, the key toppled
-  1: { armL: 'translate(-3px, 18px) rotate(-34deg)', armR: 'translate(4px, 18px) rotate(38deg)', head: 'translate(0px, 16px) rotate(-26deg) scale(.94)', torso: 'translateY(16px) scale(1.06, .8)', key: 'translate(2px, 10px) rotate(14deg)', crown: 'translate(-6px, 8px) rotate(-30deg)' },
-  // phase 2 SHATTERS: every part is blown apart from the burst chest and hangs there, broken
-  2: { armL: 'translate(-8px, -2px) rotate(-24deg)', armR: 'translate(20px, 12px) rotate(52deg)', head: 'translate(0px, 10px) rotate(-30deg) scale(.92)', torso: 'translate(0px, 10px) rotate(10deg) scale(.96, .82)', key: 'translate(-2px, 6px) rotate(10deg)', crown: 'translate(-8px, -12px) rotate(-56deg)' },
+  1: { armL: 'translate(-3px, 18px) rotate(-34deg)', armR: 'translate(4px, 18px) rotate(38deg)', head: 'translate(0px, 16px) rotate(-26deg) scale(.94)', torso: 'translateY(16px) scale(1.06, .8)', key: 'translate(4px, 10px) rotate(19deg)', crown: 'translate(-6px, 8px) rotate(-30deg)' },
+  // phase 2 SHATTERS: the limbs are blown apart from the burst chest and hang there, broken; the head stays seated on the
+  // slumped torso (it rides the torso's tilt and squash: a review found it 12 units off its neck)
+  2: { armL: 'translate(-8px, -2px) rotate(-24deg)', armR: 'translate(5px, 12px) rotate(42deg)', head: 'translate(-1px, 8.5px) rotate(6deg) scale(.92)', torso: 'translate(0px, 10px) rotate(10deg) scale(.96, .82)', key: 'translate(-2px, 3px) rotate(10deg)', crown: 'translate(-8px, -12px) rotate(-56deg)' },
   // phase 3 CRUMBLES INTO SAND: the raised arms drop, the body slumps down into its own heap of sand, the key falls
   // across it and the halo fades; the fallen pose stays above the card's bottom edge (about 104 drawing units)
-  3: { armL: 'translate(8px, 14px) rotate(-38deg)', armR: 'translate(-6px, 6px) rotate(40deg)', head: 'translate(0px, 10px) rotate(-14deg) scale(.92)', torso: 'translateY(10px) scale(.92, .62)', key: 'translate(0px, 44px) rotate(60deg)', crown: 'translate(-4px, 16px) rotate(-24deg)' },
+  3: { armL: 'translate(8px, 14px) rotate(-38deg)', armR: 'translate(-8px, 6px) rotate(34deg)', head: 'translate(0px, 10px) rotate(-14deg) scale(.92)', torso: 'translateY(10px) scale(.92, .62)', key: 'translate(0px, 44px) rotate(60deg)', crown: 'translate(-4px, 16px) rotate(-24deg)' },
 }
 const FALL_AT = { armL: 50, armR: 50, head: 52, torso: 52, key: 44, crown: 46 }
 function phaseFalls() {
@@ -108,24 +110,27 @@ const on = (state, parts) => Object.entries(parts).map(([p, a]) => { ON_CALLS.pu
 // a move of its own for that phase (an animation written below).
 // Phase 3's big palm moves, [state, length in ms]: the sand stream breaks for them (lgrChronosSandBreak).
 const SAND_BREAK = [['[data-assault-on]', 820], ['[data-moment="hurtBig"]', 900], ['[data-assault-on][data-moment="hurtBig"]', 900], ['[data-moment="shield"]', 760], ['[data-moment="block"]', 680]]
-const SAND_SWING = { rot: 0.1, rotN: 1, tr: 0.5, sc: 0.4 }
+const SAND_SWING = { rot: 0.1, rotN: 0.8, tr: 0.2, sc: 0.2 }
 const FIT = [
   // phase 1: the mantle's shear and swell, and the crown's jolt, a little smaller
   { phase: 1, part: 'cape', states: ['[data-moment="sharpen"]', '[data-fx="overflow"]'], rot: 0.75, rotN: 0.75, sc: 0.75 },
   { phase: 1, part: 'crown', states: ['[data-moment="hurtBig"]'], tr: 0.75 },
   // phase 2: the mantle already fills the box (it only flexes), the key held in both hands only rocks
   { phase: 2, part: 'cape', rot: 0.25, rotN: 0.25, tr: 0.25, sc: 0.2 },
-  { phase: 2, part: 'key', rot: 0.25, rotN: 0.25, tr: 0.25, sc: 0.25 },
-  { phase: 2, part: 'armL', states: ['[data-moment="hurtBig"]', '[data-assault-on][data-moment="hurtBig"]'], rot: 0.7, rotN: 0.7, sc: 0.25 },
+  { phase: 2, part: 'key', rot: 0.05, rotN: 0.05, tr: 0.05, sc: 0.05 },
+  { phase: 1, part: 'armL', states: ['[data-moment="hurtBig"]', '[data-assault-on][data-moment="hurtBig"]'], rot: 0.8, rotN: 0.8, tr: 0.8, sc: 0.8 },
+  // phase 1 (broadened 2026-10-11): the presenting arm sits nearer the right edge, so its blows reach a little less
+  { phase: 1, part: 'armR', rot: 0.6, rotN: 0.6, tr: 0.5, sc: 0.5 },
+  { phase: 2, part: 'armL', states: ['[data-moment="hurtBig"]', '[data-assault-on][data-moment="hurtBig"]'], rot: 0.45, rotN: 0.45, tr: 0.5, sc: 0.2 },
   // phase 3: the palm rests at the right edge with its sand pouring from it (lg-chronos-vortex). In the small moves it
   // only jolts (a turn of more than a degree tips the stream past the edge)...
-  { phase: 3, part: 'armR', rot: 0.06, rotN: 0.06, tr: 0.25, sc: 0.12 },
+  { phase: 3, part: 'armR', rot: 0.04, rotN: 0.04, tr: 0.08, sc: 0.05 },
   // ...but in its BIG moves the stream BREAKS as he jerks (SAND_BREAK below) and the palm swings with real punch,
   // the stream pouring back as it settles; the palm itself still stays inside the frame
   ...SAND_BREAK.map(([state]) => ({ phase: 3, part: 'armR', states: [state], ...SAND_SWING })),
   // (the heavy blow's swell and the parry's knock outward are the moves that reach for the edge: those grow less)
-  { phase: 3, part: 'armR', states: ['[data-moment="hurtBig"]', '[data-assault-on][data-moment="hurtBig"]'], ...SAND_SWING, sc: 0.25 },
-  { phase: 3, part: 'armR', states: ['[data-moment="block"]'], ...SAND_SWING, tr: 0.15 },
+  { phase: 3, part: 'armR', states: ['[data-moment="hurtBig"]', '[data-assault-on][data-moment="hurtBig"]'], ...SAND_SWING, rotN: 0.55, sc: 0.08 },
+  { phase: 3, part: 'armR', states: ['[data-moment="block"]'], ...SAND_SWING, tr: 0.08 },
   { phase: 3, part: 'head', states: ['[data-assault-on]'], use: 'lgrChronosStrikeHead 820ms cubic-bezier(.2,.9,.3,1) both' },
   { phase: 3, part: 'crown', states: ['[data-moment="hurtBig"]'], tr: 0 },
   { phase: 3, part: 'head', states: ['[data-moment="hurtBig"]'], sc: 0.6 },
