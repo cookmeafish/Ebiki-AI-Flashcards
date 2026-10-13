@@ -88,10 +88,10 @@ export default {
    phases 2 and 3) move with every moment, his attack and each ability. Arms pivot at the shoulder (under the epaulette) in
    every phase, the head at the neck, masks, horns, fire and brand about themselves. Played only while data-moment / data-assault-on / data-fx is set. */
 .lg-showman-arml, .lg-showman-armr, .lg-showman-head, .lg-showman-fan { transform-box: view-box }
-.lg-p1 .lg-showman-arml { transform-origin: 17px 92px } .lg-p1 .lg-showman-armr { transform-origin: 103px 92px } .lg-p1 .lg-showman-head { transform-origin: 60px 75px }
-.lg-p2 .lg-showman-arml { transform-origin: 17px 92px } .lg-p2 .lg-showman-armr { transform-origin: 103px 92px } .lg-p2 .lg-showman-head { transform-origin: 60px 75px }
-.lg-p3 .lg-showman-arml { transform-origin: 17px 92px } .lg-p3 .lg-showman-armr { transform-origin: 103px 92px } .lg-p3 .lg-showman-head { transform-origin: 60px 75px }
-.lg-showman-fan { transform-origin: 60px 52px } .lg-p2 .lg-showman-fan { transform-origin: 60px 44px } .lg-p3 .lg-showman-fan { transform-origin: 60px 88px }
+.lg-p1 .lg-showman-arml { transform-origin: 11px 90px } .lg-p1 .lg-showman-armr { transform-origin: 109px 90px } .lg-p1 .lg-showman-head { transform-origin: 60px 74.5px }
+.lg-p2 .lg-showman-arml { transform-origin: 8px 80px } .lg-p2 .lg-showman-armr { transform-origin: 112px 80px } .lg-p2 .lg-showman-head { transform-origin: 60px 82.5px }
+.lg-p3 .lg-showman-arml { transform-origin: 6px 84px } .lg-p3 .lg-showman-armr { transform-origin: 114px 84px } .lg-p3 .lg-showman-head { transform-origin: 60px 78.5px }
+.lg-showman-fan { transform-origin: 60px 42px } .lg-p2 .lg-showman-fan { transform-origin: 60px 72px } .lg-p3 .lg-showman-fan { transform-origin: 60px 88px }
 .lg-showman-comedy, .lg-showman-tragedy { transform-box: fill-box; transform-origin: 50% 50% }
 .lg-showman-shadow, .lg-showman-fire { transform-box: fill-box; transform-origin: 50% 100% }
 /* the magic acts too: his demon shadow lunges with every blow and recoils when he is hit; the fire roars when he strikes,
@@ -338,14 +338,47 @@ export default {
 .lg-showman-stage { transform-box: view-box; transform-origin: 60px 0px }
 .lg-boss[data-motif="showman"][data-down] .lg-showman-armsfallen { display: inline !important }
 @keyframes lgrSmArmsFallenIn { 0% { opacity: 0 } 48% { opacity: 0 } 70% { opacity: .85 } 100% { opacity: 1 } }
-@keyframes lgrSmStageDrop { 0% { transform: none } 45% { transform: none } 70% { transform: translate(0px, -30px) scale(.88) } 100% { transform: translate(0px, -30px) scale(.88) } }
+@keyframes lgrSmStageDrop { 0% { transform: none } 45% { transform: none } 70% { transform: translate(0px, -12px) scale(.93) } 100% { transform: translate(0px, -12px) scale(.93) } }
 .lg-boss[data-motif="showman"][data-moment="ko"] .lg-showman-armsfallen { animation: lgrSmArmsFallenIn 2400ms ease-in-out both }
 .lg-boss[data-motif="showman"][data-moment="ko"] .lg-showman-stage { animation: lgrSmStageDrop 2400ms ease-in-out both }
 .lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-armsfallen { opacity: 1 }
-.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-stage { transform: translate(0px, -30px) scale(.88) }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-showman-stage { transform: translate(0px, -12px) scale(.93) }
 /* phase 3's fire wings burn out with him (folded wings left spikes poking up behind the fallen shoulders) */
+/* phase 1's arm hangs at his side (rotating it the shared way would lift the presenting hand): it drops DOWN instead */
+@keyframes lgrSmArmKoP1L { 0% { transform: none } 12% { transform: rotate(-6deg) } 40% { transform: rotate(-2deg) } 66% { transform: rotate(18deg) translateY(10px) } 100% { transform: rotate(20deg) translateY(12px) } }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p1 .lg-showman-arml { animation-name: lgrSmArmKoP1L }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p1 .lg-showman-arml { transform: rotate(20deg) translateY(12px) }
+/* phase 2's masks are mid-swap (their own idle keeps playing): as they fall they lose their spell and vanish */
+@keyframes lgrSmComedyKoP2 { 0% { transform: none; opacity: 1 } 40% { transform: rotate(-10deg); opacity: 1 } 72% { transform: translate(-8px, 50px) rotate(-250deg); opacity: .3 } 100% { transform: translate(-8px, 56px) rotate(-246deg); opacity: 0 } }
+@keyframes lgrSmTragedyKoP2 { 0% { transform: none; opacity: 1 } 44% { transform: rotate(10deg); opacity: 1 } 76% { transform: translate(8px, 50px) rotate(230deg); opacity: .3 } 100% { transform: translate(8px, 56px) rotate(226deg); opacity: 0 } }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p2 .lg-showman-comedy { animation-name: lgrSmComedyKoP2 }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p2 .lg-showman-tragedy { animation-name: lgrSmTragedyKoP2 }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p2 :is(.lg-showman-comedy, .lg-showman-tragedy) { opacity: 0 }
 @keyframes lgrSmFanKoP3 { 0% { transform: none; opacity: 1 } 50% { transform: none; opacity: 1 } 72% { transform: scale(.7, .5) translateY(30px); opacity: .2 } 100% { transform: scale(.66, .46) translateY(34px); opacity: 0 } }
 .lg-boss[data-motif="showman"][data-moment="ko"] .lg-p3 .lg-showman-fan { animation-name: lgrSmFanKoP3 }
 .lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p3 .lg-showman-fan { opacity: 0 }
-`,
+/* 2026-10-11 BODY: phase 3 holds the masks HIGH (60 units above the shoulder pivot), so every shared arm swing would fling
+   them out of the frame: there the arms only jolt a few degrees and the held masks (their own rules above) do the acting.
+   Block and the knockout keep their own phase 3 arcs. */
+@keyframes lgrSmArmP3JoltL { 0% { transform: none } 16% { transform: rotate(4deg) } 40% { transform: rotate(-3deg) } 64% { transform: rotate(1.5deg) } 100% { transform: none } }
+@keyframes lgrSmArmP3JoltR { 0% { transform: none } 16% { transform: rotate(-4deg) } 40% { transform: rotate(3deg) } 64% { transform: rotate(-1.5deg) } 100% { transform: none } }
+.lg-boss[data-motif="showman"]:is([data-assault-on], [data-moment="hit"], [data-moment="crit"], [data-moment="sharpen"], [data-moment="hurt"], [data-moment="hurtBig"], [data-moment="shield"], [data-moment="wind"], [data-fx]) .lg-p3 .lg-showman-arml { animation-name: lgrSmArmP3JoltL }
+.lg-boss[data-motif="showman"]:is([data-assault-on], [data-moment="hit"], [data-moment="crit"], [data-moment="sharpen"], [data-moment="hurt"], [data-moment="hurtBig"], [data-moment="shield"], [data-moment="wind"], [data-fx]) .lg-p3 .lg-showman-armr { animation-name: lgrSmArmP3JoltR }
+/* phase 2's elbows already reach the frame's sides: the parry and the shield glance are short checks there */
+@keyframes lgrSmArmBlockP2 { 0% { transform: none } 14% { transform: rotate(7deg) scale(1.02) } 32% { transform: rotate(-5deg) } 56% { transform: rotate(2deg) } 100% { transform: none } }
+@keyframes lgrSmArmShieldP2 { 0% { transform: none } 14% { transform: rotate(3deg) } 30% { transform: rotate(-6deg) scale(1.02) } 64% { transform: rotate(-2deg) } 100% { transform: none } }
+.lg-boss[data-motif="showman"][data-moment="block"] .lg-p2 .lg-showman-arml { animation-name: lgrSmArmBlockP2 }
+.lg-boss[data-motif="showman"][data-moment="shield"] .lg-p2 .lg-showman-armr { animation-name: lgrSmArmShieldP2 }
+@keyframes lgrSmFanApplauseP2 { 0% { transform: none } 20% { transform: scale(1.05) } 30% { transform: scale(1) } 40% { transform: scale(1.05) } 50% { transform: scale(1) } 60% { transform: scale(1.04) } 100% { transform: none } }
+.lg-boss[data-motif="showman"][data-fx="encore"] .lg-p2 .lg-showman-fan { animation-name: lgrSmFanApplauseP2 }
+/* phase 2 leans hard to his right, so the violet mantle already reaches the left edge: it SURGES upward when he
+   strikes (scaled from its base, no swing sideways), and his askew-hatted head snaps a shorter way */
+@keyframes lgrSmFanSurgeP2 { 0% { transform: none } 14% { transform: scale(.97, .94) } 30% { transform: scale(1, 1.06) } 46% { transform: scale(1, 1.02) } 100% { transform: none } }
+.lg-boss[data-motif="showman"][data-assault-on] .lg-p2 .lg-showman-fan, .lg-boss[data-motif="showman"][data-moment="hurt"] .lg-p2 .lg-showman-fan, .lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-p2 .lg-showman-fan { animation-name: lgrSmFanSurgeP2 }
+@keyframes lgrSmHeadHitP2 { 0% { transform: none } 12% { transform: rotate(9deg) } 30% { transform: rotate(-4deg) } 50% { transform: rotate(1.5deg) } 100% { transform: none } }
+.lg-boss[data-motif="showman"][data-moment="hit"] .lg-p2 .lg-showman-head, .lg-boss[data-motif="showman"][data-moment="crit"] .lg-p2 .lg-showman-head { animation-name: lgrSmHeadHitP2 }
+/* phase 1's Tragedy floats at the right edge: knocked out it falls IN, toward the coat */
+@keyframes lgrSmTragedyKoP1 { 0% { transform: none } 44% { transform: rotate(10deg) } 62% { transform: translate(-6px, 30px) rotate(150deg) } 76% { transform: translate(-8px, 56px) rotate(230deg) } 84% { transform: translate(-8px, 52px) rotate(222deg) } 100% { transform: translate(-8px, 56px) rotate(226deg) } }
+.lg-boss[data-motif="showman"][data-moment="ko"] .lg-p1 .lg-showman-tragedy { animation-name: lgrSmTragedyKoP1 }
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p1 .lg-showman-tragedy { transform: translate(-8px, 56px) rotate(226deg) }`,
 }
