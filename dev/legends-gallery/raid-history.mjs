@@ -17,7 +17,10 @@ const hash = (buf) => crypto.createHash('sha1').update(buf).digest('hex')
 const OUT = path.join(ROOT, RAID_HISTORY_DIR)
 const RAIDS = path.join(ROOT, 'public/assets/legends/raids')
 
-fs.rmSync(OUT, { recursive: true, force: true }) // only our own generated folder
+// Written IN PLACE, never emptied first: an asset view open meanwhile read an empty folder as "no versions" (the owner
+// lost the picker). Files are overwritten, the manifest swapped in last in one rename, and only then are files no
+// version names any more removed (only inside our own generated folder).
+const written = new Set()
 const manifest = {}
 let files = 0
 const skipped = []
@@ -34,6 +37,7 @@ for (const name of fs.readdirSync(RAIDS).filter((f) => f.endsWith('.svg')).sort(
     if (bad) { skipped.push(`${motif} ${id}: ${bad}`); return }
     fs.mkdirSync(path.join(OUT, motif), { recursive: true })
     fs.writeFileSync(path.join(OUT, motif, `${id}.svg`), buf)
+    written.add(path.join(OUT, motif, `${id}.svg`))
     list.push({ id, ...entry })
     files++
   }
@@ -50,7 +54,16 @@ for (const name of fs.readdirSync(RAIDS).filter((f) => f.endsWith('.svg')).sort(
   manifest[motif] = list
 }
 fs.mkdirSync(OUT, { recursive: true })
-fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1))
+const tmp = path.join(OUT, 'manifest.json.tmp')
+fs.writeFileSync(tmp, JSON.stringify(manifest, null, 1))
+fs.renameSync(tmp, path.join(OUT, 'manifest.json'))
+for (const d of fs.readdirSync(OUT, { withFileTypes: true })) {
+  if (!d.isDirectory()) continue
+  for (const n of fs.readdirSync(path.join(OUT, d.name))) {
+    const p = path.join(OUT, d.name, n)
+    if (!written.has(p)) fs.rmSync(p, { force: true })
+  }
+}
 console.log(`${files} versions of ${Object.keys(manifest).length} bosses in ${RAID_HISTORY_DIR}/`)
 for (const [m, l] of Object.entries(manifest)) console.log(`  ${m.padEnd(11)} ${l.length}`)
 if (skipped.length) console.log(`skipped as unsafe:\n  ${skipped.join('\n  ')}`)

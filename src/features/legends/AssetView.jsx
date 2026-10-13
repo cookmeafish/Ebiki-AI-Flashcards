@@ -278,8 +278,11 @@ const RaidPhase = ({ motif, palette, phase, size, animate = true, version = '' }
 // boss from dev/raid-history/manifest.json (written by dev/legends-gallery/raid-history.mjs). Only the Phase drawings
 // panel switches; the demo arena and real fights always use the live file. Asset view state only, never saved.
 let historyLoad = null
+// Only a manifest WITH versions is kept for the page's life: a failed or empty read (the folder mid-rewrite) is asked
+// again on the next visit, never remembered as "no versions".
 const loadHistory = () => (historyLoad ||= fetch(RAID_HISTORY_MANIFEST, { cache: 'no-store' })
-  .then((r) => (r.ok ? r.json() : {})).then(shapeHistory).catch(() => ({})))
+  .then((r) => (r.ok ? r.json() : {})).then(shapeHistory).catch(() => ({}))
+  .then((h) => { if (!Object.keys(h).length) historyLoad = null; return h }))
 function useRaidHistory() {
   const [history, setHistory] = useState(null)
   useEffect(() => { let live = true; loadHistory().then((h) => { if (live) setHistory(h) }); return () => { live = false } }, [])
