@@ -8,6 +8,12 @@ taught: `docs/raid-art-lessons.md`.
 
 ## ⭐⭐ RAID BOSSES (read before ANY raid boss work, even a one-line edit)
 
+> **⭐⭐⭐ THE BIGGEST RULE: EVERY PHASE IS INTERESTING.** Something HAPPENS in every phase (an action caught mid-way),
+> and P2 and P3 each are a "WTF IS THAT THING" moment (a reveal or transformation nobody saw coming). A phase where
+> nothing happens, or that only adds fire, colour, horns, a crown, a halo or size, FAILS however good it looks. Write
+> each phase's moment in one sentence before drawing; judge it first, before every other check. See "What the owner
+> picks" below.
+
 ### The vision
 A raid boss is **a dangerous foe**, bigger than the player, **detailed yet beautiful**, and **easy to see what is going
 on**, and **every phase feels unique and amazing**: three moments of one character, "unique yet elegant and yet the

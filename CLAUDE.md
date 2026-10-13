@@ -30,6 +30,14 @@ not only the agent's renders, and EVERY owner rule is checked against it one by 
 latest complaint. For raid art that list is the RAID BOSS CHECKMARKS below. Write it out with a pass/fail per item
 before relaying anything, judged honestly as the owner would, never as the one who made it.
 
+## ⭐⭐⭐ THE BIGGEST RAID ART RULE: EVERY PHASE IS INTERESTING (the owner: "NOTHING HAPPENS. ITS BORING")
+**Every phase of every raid boss must be INTERESTING: something HAPPENS in it, and P2 and P3 each make the player
+think "WTF IS THAT THING".** An action caught mid-way (the Showman's masks rotating off his face), a reveal or a
+transformation nobody saw coming (the mask splits and there is no face inside). A pose where nothing happens, or a
+phase that only adds fire, colour, horns, a crown, a halo or size, FAILS no matter how clean or detailed it is.
+Before drawing any phase, write its moment in one sentence (what HAPPENS, what is the WTF) and judge it against this;
+after drawing, judge the panel the same way. It goes FIRST in every artist and reviewer brief and every PASS/FAIL list.
+
 ## ⭐⭐ RAID BOSS CHECKMARKS: VERY SERIOUS RULES (owner: "its a very serious rule it should be taken seriously")
 **The vision**: a raid boss is a dangerous foe, "detailed yet beautiful", "easy to see what is going on", and "every
 phase feels unique and amazing"; "go all out" means QUALITY and IMPACT, never more stuff ("make sure that its all
