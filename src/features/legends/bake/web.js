@@ -104,14 +104,28 @@ async function keep(id, markup, urls) {
   } catch { /* storage full or refused: the bake still serves this session */ }
 }
 
+// A bitmap with not one painted pixel is a FAILED draw, never a picture: a GPU reset (a remote desktop connecting, a
+// driver update, sleep) hands back empty canvases, and a blank bake or snapshot kept in Cache Storage showed bosses with
+// only their moving parts (the owner over RDP, 2026-10-13). The caller then keeps the vector drawing, and nothing is
+// kept. Canvases are CPU-backed (willReadFrequently), so a GPU reset can not wipe one mid-draw either. Also inlined
+// into the encoder workers (toString), so it uses nothing from this module.
+function painted(g, w, h) {
+  const px = new Uint32Array(g.getImageData(0, 0, w, h).data.buffer)
+  for (let i = 0; i < px.length; i++) if (px[i] !== 0) return true
+  return false
+}
+
 // PNG ENCODERS: a few workers turn bitmaps into PNG files in parallel, off the page's thread. Made once, on first
 // use, from inline code (no extra file to serve); none where a platform lacks workers or OffscreenCanvas.
-const WORKER_CODE = `self.onmessage = async (e) => {
+const WORKER_CODE = `${painted.toString()}
+self.onmessage = async (e) => {
   const { id, bitmap } = e.data
   try {
     const c = new OffscreenCanvas(bitmap.width, bitmap.height)
-    c.getContext('2d').drawImage(bitmap, 0, 0)
+    const g = c.getContext('2d', { willReadFrequently: true })
+    g.drawImage(bitmap, 0, 0)
     bitmap.close()
+    if (!painted(g, c.width, c.height)) throw new Error('blank')
     self.postMessage({ id, blob: await c.convertToBlob({ type: 'image/png' }) })
   } catch (err) { self.postMessage({ id, error: String(err) }) }
 }`
@@ -154,7 +168,9 @@ export async function encodePng(source, width, height) {
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
-  canvas.getContext('2d').drawImage(source, 0, 0, width, height)
+  const g = canvas.getContext('2d', { willReadFrequently: true })
+  g.drawImage(source, 0, 0, width, height)
+  if (!painted(g, width, height)) throw new Error('blank')
   const png = await new Promise((r) => canvas.toBlob(r, 'image/png'))
   if (!png) throw new Error('no bitmap')
   return png

@@ -152,7 +152,7 @@ export function neededDefs(markup, defs) {
 // Storage) so a returning user never waits for the same bake twice, on any device. Format: 4 bytes (the header's
 // length), the header as JSON ({ v, markup, sizes }), then the PNG files back to back. In `markup` each bitmap's
 // address is the placeholder BAKE_SLOT(i), swapped for a fresh blob URL on load.
-export const BAKE_FORMAT = 7 // bump whenever the baked output changes (older kept bakes are dropped)
+export const BAKE_FORMAT = 8 // 8: 7 could hold blank bitmaps drawn during a GPU reset; bump whenever the baked output changes (older kept bakes are dropped)
 export const BAKE_SLOT = (i) => `__ebikiBake${i}__`
 export function packBake(markup, pngs) {
   const header = new TextEncoder().encode(JSON.stringify({ v: BAKE_FORMAT, markup, sizes: pngs.map((p) => p.byteLength) }))

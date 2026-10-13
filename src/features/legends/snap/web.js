@@ -9,7 +9,7 @@ import { hashText } from '../bakePlan'
 import { stillImageSvg } from './plan'
 import { encodePng } from '../bake/web'
 
-const STORE = 'ebiki-art-snap-v2'
+const STORE = 'ebiki-art-snap-v3' // v3: v2 could hold blank snapshots drawn during a GPU reset
 const KEPT_MAX = 600
 const BUILD_AT_ONCE = 4
 const mem = new Map() // key -> Promise<href | null>
@@ -60,7 +60,7 @@ const colorKey = (box) => Object.entries(boxColors(box)).map(([k, v]) => `${k}:$
 // background: a tab switch never waits on 26 requests to a busy server. A page-life map answers before the first paint.
 export const snapBase = (url, box, pxW, pxH) => `${url}|${pxW}x${pxH}|${colorKey(box)}`
 export const snapKeyOf = (base, sig) => `${base}|${sig}`
-const INDEX_KEY = 'ebiki-art-snap-index-v2'
+const INDEX_KEY = 'ebiki-art-snap-index-v3'
 const INDEX_MAX = 600
 let index = null
 const readIndex = () => {
@@ -104,7 +104,7 @@ export async function readSnap(key) {
     if (!cleaned) { // stores and index of an older snapshot format
       cleaned = true
       for (const name of await caches.keys()) if (name.startsWith('ebiki-art-snap-') && name !== STORE) caches.delete(name)
-      try { localStorage.removeItem('ebiki-art-snap-index') } catch { /* blocked storage */ }
+      try { localStorage.removeItem('ebiki-art-snap-index'); localStorage.removeItem('ebiki-art-snap-index-v2') } catch { /* blocked storage */ }
     }
     const res = await (await caches.open(STORE)).match(idOf(key))
     if (!res) return null
@@ -155,7 +155,7 @@ export function makeSnap(key, url, box, pxW, pxH, grow = 0) {
         const canvas = document.createElement('canvas')
         canvas.width = W
         canvas.height = H
-        canvas.getContext('2d').drawImage(img, 0, 0, W, H)
+        canvas.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0, W, H)
         return keepSnap(key, await encodePng(canvas, W, H))
       } finally { URL.revokeObjectURL(src) }
     } catch { return null } finally { release() }
