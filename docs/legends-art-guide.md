@@ -16,6 +16,23 @@ certain feeling". **"Go all out" means QUALITY and IMPACT, never MORE STUFF**; "
 limit; "good enough" is a failure; even a one-line edit gets the full process ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW
 THE BEST QA").
 
+### What the owner picks (his verdicts in the version picker, 2026-10-13)
+- **Something HAPPENS in every phase.** A pose with nothing going on is "BORING. NOTHING HAPPENS". Each phase is an
+  ACTION caught mid-way that the eye can follow: the Showman's P2 masks rotating off his face is the model he praised.
+- **P2 and P3 are "WTF IS THAT THING" moments** (his words, Seraph and Showman): a REVEAL or TRANSFORMATION the player
+  did not see coming and has to look at twice: the mask splits open and there is no face inside, he peels off his own
+  face, the true form is wrong in a way that unsettles. Escalation by more fire, a new colour, horns, a crown or a halo
+  is what he calls boring. Be creative; propose the moment in one sentence before drawing it.
+- **Busy and badass beats clean and plain.** Given a menacing, busy version and a simpler, cleaner one, he keeps the
+  busy one (Gorgon, Chimera) and asks for it ORGANISED: a value hierarchy (the character's face and body brightest and
+  sharpest, the lair and props darker and lower in contrast, parts grouped into masses), never fewer parts. Simpler
+  versions he rejects as soft and tame.
+- **Soft reads as weak.** Pastel, rounded, smooth, cute or friendly faces and thin limp poses lose him. Menace comes from
+  hard edges, teeth, weight (muscle, never fat), dark values and a face that wants to hurt you.
+- **"More refined"** (Titan) means POLISH of the picked design: even line weights, metal shaded as metal, crisp small
+  detail (rivets, chains, spikes), every part reading as what it is. Not a new concept.
+- **His pick is the base.** Start from the version he named, edit it, keep everything he liked about it.
+
 ### The kitsune: the gold standard
 `raids/kitsune.svg` is the standard to match. "There is detail on kitsune but its all very intentional. the beauty is
 in its simplicity and beauty without compromising on detail." She is the picture: one bust, face centered, the same

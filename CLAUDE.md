@@ -39,8 +39,11 @@ golden corona). Every raid boss, every phase, every change (even a one-line edit
 item, before anything reaches the owner or a commit; any FAIL = not done, however clean the automated checks are.
 1. **PHASE FEEL**: each phase a different MOMENT of the same character: pose and gesture, expression, action, idle
    animation. Holds in GREYSCALE; one sentence per phase with a different verb and mood; P1 and P3 differ as much as
-   any pair. Colour, aura, fire, size, a crown or accessories alone FAIL.
-2. **INTERESTING**: each phase worth looking at, not merely different.
+   any pair. Colour, aura, fire, size, a crown or accessories alone FAIL. SOMETHING HAPPENS in every phase (an action
+   caught mid-way, like the Showman's P2 masks rotating off his face): "NOTHING HAPPENS. ITS BORING" is a FAIL.
+2. **INTERESTING**: each phase worth looking at, not merely different. P2 and P3 each a "WTF IS THAT THING" moment: a
+   reveal or transformation the player did not see coming (the mask splits and there is no face inside), never just
+   more fire. Busy and badass beats clean and plain: organise a busy version, never simplify it; soft, cute or tame FAILS.
 3. **CLARITY**: a one-second read at panel size and blurred; one big figure dominant; a background only if it fits the
    boss, simple and alike in every phase; P3 the most impactful AND the clearest.
 4. **DETAILED AND BEAUTIFUL, BETTER THAN THE CHOSEN VERSION**: beside the version the owner picked in the asset view's
