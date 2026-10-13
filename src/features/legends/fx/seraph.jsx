@@ -51,6 +51,9 @@ const ph = (n) => `${P}[data-phase="${n}"]`
 const PARTS_CSS = `
 ${P} .lgs-wing, ${P} .lgs-eye, ${P} .lgs-halo, ${P} .lgs-beam, ${P} .lgs-panL, ${P} .lgs-panR { transform-box: view-box; transform-origin: 0 0 }
 ${P} .lg-seraph-head { transform-box: view-box }
+/* phase 2's bone hands ride a second lgs-halo wrapper: they take the halo's scale, shift and glow, never its spin (the ring is round, so
+   the hands stay on it while a 150deg turn would have swung the arms round her head) */
+${P} .lg-seraph-bonehalo { rotate: 0deg !important }
 /* the head pivots at the NECK (where it meets the collar), so a tilt never parts it from the body (check-joints) */
 ${P} .lg-seraph-head { transform-origin: 60px 100px }
 ${ph(3)} .lg-seraph-head { transform-origin: 60px 90px }
