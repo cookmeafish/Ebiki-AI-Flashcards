@@ -65,7 +65,11 @@ item, before anything reaches the owner or a commit; any FAIL = not done, howeve
    hands; anatomy connects; every element nameable in one word.
 8. **SMOOTH AND SENSIBLE MOTION**: every moving part smooth at the display's own rate, measured as the owner sees it
    (the real asset view, everything animating, GPU raster, CPU throttled, presented frames; per-frame positions at 1x
-   and 2x, baked and `__ebikiNoBake`); objects and constructs never breathe; a living breath reads clearly.
+   and 2x, baked and `__ebikiNoBake`). **The WHOLE figure never drifts, bobs or breathes in idle** (the owner, in
+   capitals: "THE SLOW STUTTERING BOBBING/WEIRD BREATHING ... ITS LOW FRAMERATE AND CHOPPY"): a figure moving a few px
+   over seconds steps one pixel about every half second, which reads as a low frame rate on ANY screen however smooth
+   the playback (measured 2026-10-13); idle life goes in the PARTS, and a big part (30%+) moves 3+ px or not at all.
+   `check-idle-breath.mjs` fails both (drift, creep).
 **How raid art is made**: start from the owner's CHOSEN version and EDIT it (never regenerate from primitives by
 script; a full redesign only when asked); ONE boss at a time; the owner sees it (panel + previous version) BEFORE it is
 committed; an independent review asks "better than the chosen version, equal to the kitsune?" first. The coordinator
@@ -1888,9 +1892,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   arena (dev/raid-impact ?arena=, full AND compact layout) and FAILS a held boss with over 55% of its painted pixels lost
   (outside the card or under the DEFEATED tag; the Horseman sank off the compact card). `CLIP_OVERRIDE`/`CLIP_SVG_DIR` work.
   And **`check-idle-breath.mjs`** (BREATH/JUDDER: Chronos, "a hunk of metal", breathed so slowly and subtly "it looks like
-  he's glitching up and down"): FAILS an idle loop moving most of the figure under 2 px at the panel's screen size, any
-  whole-figure breath on a boss in its `CONSTRUCTS` table, and any idle loop whose speed jumps in one frame as the app
-  plays it (eased); `BREATH_TABLE=1` prints every whole-figure loop, `BREATH_NOEASE=1` measures linear playback.
+  he's glitching up and down"; then "THE SLOW STUTTERING BOBBING ... LOW FRAMERATE" on 17 bosses): FAILS ANY idle loop
+  moving half the figure or more (drift), a big part (30%+) moving under 3 px at panel size (creep), and any idle loop
+  whose speed jumps in one frame as the app plays it (eased); `BREATH_TABLE=1` prints every whole-figure loop, `BREATH_NOEASE=1` measures linear playback.
 - **SVG pivots and loops** (fill-box origins, flame/drip/cape pivots, additive loops, entrances ending on the file's
   pose, never forced `opacity`): `docs/legends-art-guide.md` "Motion". Check with measured centre drift.
 - **Help** can open a map edit: `legends_edit` action (capability text only when `appContext.legendsAvailable`),

@@ -6,11 +6,15 @@
 // The owner, 2026-10-11, on the Chronos: "a lot of the raid bosses weirdly breath where the whole svg moves a little bit.
 // if breathing makes sense then keep it but this guy is a hunk of metal and the breathing movement is so slow and subtle
 // that it looks like he's glitching up and down". So:
-//   FAIL  a boss marked a CONSTRUCT below (clockwork, armour, wheels, a puppet...) with ANY whole-figure idle
-//         oscillation (a translate / scale / rotate that returns to its start, moving most of the painted pixels):
-//         a machine does not breathe; give it a mechanical idle instead (hands tick, a gear turns, a lens glints)
-//   FAIL  any boss whose whole figure oscillates by under MIN_PX screen pixels at the asset view's panel size: it can
-//         only read as the picture glitching up and down (breathing must be a clear rise of the chest / bust, or none)
+// Then, 2026-10-13, in capitals, after that rule (whole figure at least 2 px) had shipped: "THE SLOW STUTTERING
+// BOBBING/WEIRD BREATHING IS STILL THERE. ITS LOW FRAMERATE AND CHOPPY". Measured on the presented frames: the playback
+// was smooth (the Banshee's face moved a few hundredths of a pixel every frame, none dropped). The motion ITSELF was the
+// fault: a whole figure drifting 2 to 5 px over 2 to 3 s moves under 0.03 px a frame, so its outlines step one pixel
+// about every half second and the eye reads that as a low frame rate, on a 60 Hz or a 480 Hz screen alike. So:
+//   FAIL  DRIFT: ANY boss with a whole-figure idle oscillation (a translate / scale / rotate that returns to its start,
+//         moving MIN_SHARE or more of the painted pixels). Idle life goes in the PARTS (hair, hands, fire, eyes)
+//   FAIL  CREEP: a loop moving a BIG PART (CREEP_SHARE to MIN_SHARE of the figure) under CREEP_PX at panel size: it only
+//         creeps. A big part moves clearly (the kitsune's hair sways 4 to 7 px) or not at all
 // HOW: each phase is built as the arena shows it (sanitized, idle motion only, the phase layers switched by data-phase)
 // at the panel's real screen size (VIEW.phase 180 CSS px x the default app zoom 1.35) and the fight arena's (BOSS.arena
 // 120 x 1.35). The painted pixels are sampled on a grid (hit testing: the topmost painted shape under each point).
@@ -32,7 +36,8 @@ const ZOOM = 1.35          // the default app zoom (src/config/zoom.js: shown as
 const PANEL = 180          // AssetView VIEW.phase: the owner's "Phase drawings" panel
 const ARENA = 120          // BossArena BOSS.arena
 const MIN_SHARE = 0.5      // share of the painted figure an idle loop must move to count as "the whole figure"
-const MIN_PX = 2           // screen px at panel size a whole-figure loop must reach to read as motion, not a glitch
+const CREEP_SHARE = 0.3    // a loop moving this share of the figure (under MIN_SHARE) moves a BIG PART
+const CREEP_PX = 3         // screen px at panel size a big part must travel; under it the part only creeps (reads as stutter)
 const GRID = 3             // px between hit-test samples
 const CHOP_SHARE = 0.02    // a loop moving at least this share of the painted figure is judged for judder
 const HZ = 120             // samples per second of a loop's own motion
@@ -174,10 +179,12 @@ for (const motif of motifs) {
       const row = { motif, phase, ...l, ampArena: a ? a.amp : NaN }
       rows.push(row)
       const what = `${motif} p${phase}: idle ${l.type} of ${l.part} moves ${Math.round(l.share * 100)}% of the figure ${l.amp.toFixed(2)} px at panel size (${row.ampArena.toFixed(2)} px in the arena), ${l.dur}s`
+      const loc = ` [type=${l.type} values="${l.values}" dur=${l.dur}s]`
       if (l.share >= MIN_SHARE) {
         row.whole = true
-        if (CONSTRUCTS[motif]) fails.push(`breath ${what}: a construct (${CONSTRUCTS[motif]}) must not breathe; give it a mechanical idle`)
-        else if (l.amp < MIN_PX) fails.push(`breath ${what}: under ${MIN_PX} px reads as the picture glitching; breathe clearly with the chest / bust, or not at all`)
+        fails.push(`drift ${what}: the whole picture drifting a few px over seconds reads as a slow, low-framerate stutter on any screen; put idle life in the parts${CONSTRUCTS[motif] ? ` (a construct, ${CONSTRUCTS[motif]}, never breathes)` : ''}${loc}`)
+      } else if (l.share >= CREEP_SHARE && l.amp < CREEP_PX) {
+        fails.push(`creep ${what}: a big part creeping under ${CREEP_PX} px reads as stutter, not motion; move it clearly or not at all${loc}`)
       }
       // judder: the motion turns or starts at full speed (no ease): with an eased file (easeMotion.js) none should
       if (!l.stepped && l.amp >= 0.3 && l.abrupt > ABRUPT) fails.push(`judder ${what}: its speed jumps by ${Math.round(l.abrupt * 100)}% of its peak in one ${Math.round(1000 / HZ)} ms step at ${Math.round(l.abruptAt * 100)}% of the loop (a turn or a start with no ease)`)

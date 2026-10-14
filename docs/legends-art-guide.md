@@ -95,7 +95,8 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
     part (held frames = stutter), plus per-frame positions over a second at 1x and 2x density, baked AND
     `__ebikiNoBake`.
 11. **MOTION SENSE**: per moving part, should it move at all? Objects and constructs (metal, stone, wood, clockwork)
-    never breathe; a living breath reads clearly (at least 2 screen px at panel size). Idle is calm presence (a blink,
+    never breathe, and NO boss's whole figure drifts, bobs or breathes in idle (a few px over seconds steps one pixel
+    every half second: it reads as a low frame rate on any screen). Idle is calm presence in the PARTS (a blink,
     slow layered sway, small flicker; big motion is for the entrance and fight). Every animation (entrance, nine impact
     moments, attack, knockout, each ability "crazy distinct") has its own feeling and moves the boss's own parts, never
     burying the figure or face; nothing detaches, slides or pops.
@@ -131,7 +132,7 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
   animation, over 2.5 units fails `STRICT` bosses: pivot heads at the chin, give every head a `lg-<motif>-head`/`face`
   wrapper (`-mask` only for `MASK_FACE`), add the boss to `STRICT` once it passes, look at `--sheet`),
   `check-moment-clip.mjs` (over 0.5 units past the arena box fails), `check-ko-hold.mjs` (held pose moves under 1 unit,
-  boss under 55% lost), `check-idle-breath.mjs` (whole-figure idle under 2 px, breath on a `CONSTRUCTS` boss, a
+  boss under 55% lost), `check-idle-breath.mjs` (any whole-figure idle, a big part creeping under 3 px, a
   one-frame speed jump all fail), `check-smooth.mjs` (every part composited, same look).
 
 **Phase layers** (the arena's `data-phase`): `lg-p1` phase 1 only, `lg-p2` / `lg-p3` from that phase on (start
@@ -405,13 +406,14 @@ keeps its transform for that CSS and its idle moves on a wrapper inside it). `no
   bursts. Main beats around 55 to 70% of a 1.4 to 1.6 s run, so they land after the card's own motion.
 - `class="lg-loop"`: IDLE life, `repeatCount="indefinite"`: breathing, blinking, swaying, flames, drips, sparks,
   falling snow, drifting fog, sweeping lights. Bosses AND banners have it; banners have no `lg-in`.
-- **Breathing only where it makes sense, and only when it READS**. A machine,
-  armour or object (Chronos, Titan, Kaleido, Ophanim's wheels, a marionette) never breathes: give it a mechanical idle
-  (hands tick, a gear turns, a glass runs and turns over, a lens glints, a blink). A living boss that breathes moves its
-  chest and shoulders with a clear rise (a scale up from the base, or a float for a ghost), at least 2 screen px at the
-  asset view's panel size; a whole drawing sliding under a pixel is a glitch. `check-idle-breath.mjs` (run by
-  check-art) FAILS a whole-figure idle under 2 px, any whole-figure breath on a boss in its `CONSTRUCTS` table, and any
-  idle loop whose speed jumps in one frame as the app plays it.
+- **The whole figure never moves in idle** (no float, bob, sway or breath of the whole drawing, on any boss: the owner,
+  2026-10-13, in capitals, "THE SLOW STUTTERING BOBBING/WEIRD BREATHING ... ITS LOW FRAMERATE AND CHOPPY"). A whole
+  figure drifting 2 to 5 px over 2 to 3 s moves under 0.03 px a frame: its outlines step one pixel about every half
+  second, which reads as a low frame rate however smooth the playback (measured on the presented frames). Idle life
+  goes in the PARTS: hair, cloth, hands, fire, eyes, a blink; a machine gets a mechanical idle (hands tick, a gear
+  turns, a lens glints). A BIG part (30% or more of the figure) moves clearly, 3+ screen px at panel size (the
+  kitsune's hair sways 4 to 7), or not at all. `check-idle-breath.mjs` (run by check-art) FAILS any whole-figure idle
+  (drift), a big part under 3 px (creep), and any idle loop whose speed jumps in one frame as the app plays it.
 - **The file's own attributes are the resting pose.** The app strips animation where motion is not wanted; what remains
   must be the finished boss. Never rely on an animation to put a part in its place.
 - **Scaling around a point**: `scale` scales around (0,0). Wrap:

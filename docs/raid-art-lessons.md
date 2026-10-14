@@ -120,6 +120,13 @@ first; come here when a rule needs an example.
 - A Banshee float and Kaleido crystals measured "smooth" in one drawing in software raster still stuttered on the
   owner's 480 Hz screen ("every animation even subtle isn't low framerate"): measure the real asset view, GPU raster,
   CPU throttled, presented frames (hence compositing and `check-smooth.mjs`).
+- "THE SLOW STUTTERING BOBBING/WEIRD BREATHING IS STILL THERE. ITS LOW FRAMERATE AND CHOPPY. I ASKED YOU TO FIX THIS
+  MULTIPLE TIMES" (2026-10-13, Banshee and 16 more): every earlier fix (compositing, easing, the clock off, a 2 px
+  minimum) treated the PLAYBACK; the presented frames were already smooth. The fault was the motion: a whole figure
+  drifting a few px over seconds steps one pixel about every half second and reads as a low frame rate on any screen.
+  The 2 px minimum had blessed exactly that range. Whole-figure idle motion is now banned and big parts must move 3+
+  px (`check-idle-breath.mjs` drift/creep). Lesson: when a pipeline fix does not change what the owner sees, question
+  the content, and measure what reaches the screen, not the animation's maths.
 - A keyTimes list ending at `.46` left a boss's eyes shut forever.
 - The rex's twitchy idle arm was rejected: idle is slow and small.
 
