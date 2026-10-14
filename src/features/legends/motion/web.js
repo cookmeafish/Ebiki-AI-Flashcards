@@ -123,6 +123,20 @@ export function releaseMotion(svg) {
   c.anims.length = 0
 }
 
+// The time (ms) a composited drawing SHOWS: its first running animation's time on the drawing's clock, else the SVG's.
+export function shownTime(svg) {
+  const c = svg && svg.__lgComposited
+  const a = c && c.anims.find((x) => x.playState !== 'idle' && !x.__lgYield && !x.__lgHidden && !x.__lgWait && x.currentTime != null)
+  if (a) return a.currentTime + (a.__lgDelay || 0)
+  try { return svg.getCurrentTime() * 1000 } catch { return null }
+}
+function syncClock(svg, P) {
+  if (!svg.isConnected || (svg.__lgComposited && svg.__lgComposited.leftover)) return // leftover SMIL keeps its own clock
+  const t = shownTime(svg)
+  if (t == null || Math.abs(t - svg.getCurrentTime() * 1000) < 1) return
+  try { P.setCurrentTime.call(svg, t / 1000) } catch { /* not an SVG document */ }
+}
+
 // Convert one drawing in place. Returns { anims, leftover } (leftover = SMIL elements it had to keep), or null.
 export function compositeMotion(svg) {
   if (!svg || svg.__lgComposited) return svg ? svg.__lgComposited : null
@@ -223,9 +237,15 @@ export function compositeMotion(svg) {
     if (!still && next < Infinity && svg.isConnected) wake = setTimeout(begin, Math.max(0, next - t) + 1)
   }
   begin()
+  // THE CLOCK FOLLOWS THE SCREEN: a Web Animation starts only once the compositor takes it, which while the page loads is
+  // a frame or a few hundred ms after it was asked; the SVG's own clock ran on meanwhile. Every re-sync (a part beginning
+  // late, a part shown again, a baked rig or phase swapping in) read that clock, so the parts jumped ahead by the gap
+  // (the owner: "when animations start they bug out and jump a little but then fix themselves", only while loading;
+  // measured 70 ms on a quiet load). Once the first animation runs, the SVG's clock is set to the time it shows.
+  // (synced below, once hidden parts are taken off)
   svg.pauseAnimations = function pauseAnimations() { P.pauseAnimations.call(this); clearTimeout(wake); wake = 0; for (const a of anims) if (live(a)) a.pause() }
-  svg.unpauseAnimations = function unpauseAnimations() { P.unpauseAnimations.call(this); for (const a of anims) if (live(a)) resume(a); begin() }
-  svg.setCurrentTime = function setCurrentTime(s) { P.setCurrentTime.call(this, s); for (const a of anims) if (live(a)) startAt(a, s * 1000); begin() }
+  svg.unpauseAnimations = function unpauseAnimations() { P.unpauseAnimations.call(this); for (const a of anims) if (live(a)) resume(a); begin(); if (this.__lgArmSync) this.__lgArmSync() }
+  svg.setCurrentTime = function setCurrentTime(s) { P.setCurrentTime.call(this, s); for (const a of anims) if (live(a)) startAt(a, s * 1000); begin(); if (this.__lgArmSync) this.__lgArmSync() }
   // HIDDEN PARTS REST: an animation on an element that is not drawn (display none: an ability layer before its effect,
   // the Hydra's missing heads) never gets a start time and asks for a MAIN-thread frame on every frame while it waits
   // (the Hydra kept the page at 60 to 190 lifecycles a second). So such animations are taken off (cancelled) and rejoin
@@ -290,6 +310,14 @@ export function compositeMotion(svg) {
     const on = (e) => settleAll(e.target)
     for (const type of ['animationstart', 'animationend', 'animationcancel']) svg.addEventListener(type, on)
   }
+  // (the lead is a part that is drawn and running: one cancelled for being hidden never becomes ready)
+  // Every play or seek starts the animations again (pending until the compositor takes them), so each one re-arms it.
+  const armSync = () => {
+    const lead = anims.find((a) => live(a) && !(a.__lgDelay > 0) && a.playState !== 'idle')
+    if (lead && lead.ready) lead.ready.then(() => { syncClock(svg, P) }, () => {})
+  }
+  armSync()
+  svg.__lgArmSync = armSync
   unzoom(svg)
   fitted.add(svg)
   {

@@ -1803,7 +1803,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   SMIL: ours steps aside while it runs (animation events + a 500 ms re-look while anything has stepped aside). Eager pages (gallery,
   check-art) keep SMIL. `node dev/legends-gallery/check-smooth.mjs` (in check-art) fails a leftover SMIL, a refused
   composite, main-thread frames while only a drawing plays, and any look difference from the SMIL;
-  `__ebikiNoComposite = true` compares.
+  `__ebikiNoComposite = true` compares. **The SVG's clock follows what is ON SCREEN** (`syncClock`, re-armed on every play and seek): a Web Animation starts
+  only once the compositor takes it (70 ms to a few hundred while the page loads) and every re-sync read the SVG clock, so a
+  baked rig swapping in jumped ahead by that gap (the owner: animations "bug out and jump a little but then fix themselves",
+  while loading); a replaced drawing hands on `shownTime`, and the live effect is a LAYOUT effect (a new SVG painted one frame
+  at time 0 first).
 - **The art clock is OFF (`ART_CLOCK = false`, art.jsx)**: paced at 30 redraws a second under a shared page budget,
   every boss and the whole app looked choppy on the owner's 480 Hz screen. Drawings play NATIVELY at the display's rate;
   `keepTimeline` only keeps continuity (a baked rig or phase swap carries on at the old SVG's time); the bake keeps that

@@ -20,7 +20,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from './artPace'
 import { densityBucket } from './bakePlan'
 import { easeTurns } from './easeMotion'
-import { compositeMotion, releaseMotion } from './motion/web'
+import { compositeMotion, releaseMotion, shownTime } from './motion/web'
 import { bakeArt } from './bake/web'
 import { historyUrl, RAID_HISTORY_BASE } from './raidHistory'
 import { noteSnapUse, warmSnaps, artText, fileSig, readSnap, makeSnap, snapBase, snapKeyOf, peekSnap, findSnap, adoptSnap, indexedKey } from './snap/web'
@@ -768,7 +768,10 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])
   // Animated drawings run on the shared art clock (THE ART CLOCK above, paced by artPace.js), never at the monitor's rate. The dev gallery and
   // check-art drive their own clocks (window.__ebikiArtEager).
-  useEffect(() => {
+  // A LAYOUT effect: the new SVG must be converted and set to its time BEFORE its first paint. As a plain effect the
+  // browser painted one frame of it at time 0 (its rest pose) first, so a baked rig or phase swapping in snapped back
+  // for a frame and then jumped to where it was (the owner: animations "bug out and jump a little but then fix themselves").
+  useLayoutEffect(() => {
     // A drawing that goes still or leaves the page forgets its timeline: continuity is for one animated SVG REPLACING
     // another (the baked rig, a phase change), never across a pause. Kept across a pause, a hovered asset view copy
     // started mid-animation on every later hover, as if it had played on unseen.
@@ -786,7 +789,14 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
       ;(ART_CLOCK ? clockAttach : keepTimeline)(v, boxRef.current, `${url}|${mode}`)
     }
     const live = artSvgs(boxRef.current)
-    return () => { for (const v of live) releaseMotion(v) } // only once it left the page (a kept node keeps playing)
+    const box = boxRef.current
+    return () => {
+      // the drawing being replaced hands on the time it SHOWS (a composited animation can run behind the wall clock by
+      // however long the compositor took to start it while the page loaded), so the next SVG carries on without a jump
+      const shown = live.length ? shownTime(live[0]) : null
+      if (box && box.__lgClock && shown != null) box.__lgClock.start = clockNow() - shown
+      for (const v of live) releaseMotion(v) // only once it left the page (a kept node keeps playing)
+    }
   }, [shown, svg, mode, url])
   // Pixels per drawing unit on THIS screen: the box's layout width (never its transformed size: an entrance that starts
   // small would bake a blurry boss) times the app zoom and the screen's density. It only ever goes UP while shown: a
