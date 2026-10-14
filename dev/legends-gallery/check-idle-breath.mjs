@@ -15,6 +15,8 @@
 //         moving MIN_SHARE or more of the painted pixels). Idle life goes in the PARTS (hair, hands, fire, eyes)
 //   FAIL  CREEP: a loop moving a BIG PART (CREEP_SHARE to MIN_SHARE of the figure) under CREEP_PX at panel size: it only
 //         creeps. A big part moves clearly (the kitsune's hair sways 4 to 7 px) or not at all
+//   FAIL  BREATHE: a big part's scale or translate loop slower than BREATH_SPEED px/s at its peak (a slow chest breath
+//         or hood bob is the same stutter); sways (rotate) are gestures and stay
 // HOW: each phase is built as the arena shows it (sanitized, idle motion only, the phase layers switched by data-phase)
 // at the panel's real screen size (VIEW.phase 180 CSS px x the default app zoom 1.35) and the fight arena's (BOSS.arena
 // 120 x 1.35). The painted pixels are sampled on a grid (hit testing: the topmost painted shape under each point).
@@ -38,6 +40,7 @@ const ARENA = 120          // BossArena BOSS.arena
 const MIN_SHARE = 0.5      // share of the painted figure an idle loop must move to count as "the whole figure"
 const CREEP_SHARE = 0.3    // a loop moving this share of the figure (under MIN_SHARE) moves a BIG PART
 const CREEP_PX = 3         // screen px at panel size a big part must travel; under it the part only creeps (reads as stutter)
+const BREATH_SPEED = 12    // peak screen px a second (panel size) a big part's breathing (scale) or bob (translate) must reach
 const GRID = 3             // px between hit-test samples
 const CHOP_SHARE = 0.02    // a loop moving at least this share of the painted figure is judged for judder
 const HZ = 120             // samples per second of a loop's own motion
@@ -185,6 +188,12 @@ for (const motif of motifs) {
         fails.push(`drift ${what}: the whole picture drifting a few px over seconds reads as a slow, low-framerate stutter on any screen; put idle life in the parts${CONSTRUCTS[motif] ? ` (a construct, ${CONSTRUCTS[motif]}, never breathes)` : ''}${loc}`)
       } else if (l.share >= CREEP_SHARE && l.amp < CREEP_PX) {
         fails.push(`creep ${what}: a big part creeping under ${CREEP_PX} px reads as stutter, not motion; move it clearly or not at all${loc}`)
+      }
+      // a big part BREATHING or BOBBING slowly steps its outlines a pixel at a time like the whole figure did (Berserker's
+      // chest 5 px over 3.6 s, 4.5 px/s; the Banshee's float was 5.8 px/s): brisk, or not at all. Sways (rotate about a
+      // pivot: a head tilt, hair) are gestures and stay.
+      else if (l.share >= CREEP_SHARE && (l.type === 'scale' || l.type === 'translate') && Math.PI * l.amp / l.dur < BREATH_SPEED) {
+        fails.push(`breathe ${what}: a big part breathing or bobbing at ${(Math.PI * l.amp / l.dur).toFixed(1)} px/s steps a pixel at a time and reads as a low frame rate (the owner's "SLOW STUTTERING BOBBING/WEIRD BREATHING"); ${BREATH_SPEED}+ px/s or not at all${loc}`)
       }
       // judder: the motion turns or starts at full speed (no ease): with an eased file (easeMotion.js) none should
       if (!l.stepped && l.amp >= 0.3 && l.abrupt > ABRUPT) fails.push(`judder ${what}: its speed jumps by ${Math.round(l.abrupt * 100)}% of its peak in one ${Math.round(1000 / HZ)} ms step at ${Math.round(l.abruptAt * 100)}% of the loop (a turn or a start with no ease)`)
