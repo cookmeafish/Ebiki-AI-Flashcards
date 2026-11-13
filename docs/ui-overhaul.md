@@ -1,8 +1,7 @@
 # UI overhaul (2026-10): design direction
 
-The reference for how Ebiki looks. It lives in shared layers (tokens, palettes, global classes, `S.*`,
-`src/features/ui.jsx`, the shell), so a screen picks it up without its own styling. When a screen needs something
-new, add it to a shared layer first.
+How Ebiki looks. It lives in shared layers (tokens, palettes, global classes, `S.*`, `src/features/ui.jsx`, the
+shell), so a screen picks it up without its own styling. Something new goes into a shared layer first.
 
 ## Principles
 1. **Depth, not lines.** Surfaces are separated by soft layered shadows and a 1px hairline, not 2px outlines. Thick
@@ -34,8 +33,8 @@ new, add it to a shared layer first.
 | Solid ink | `--c-ink-solid` / `--c-on-ink` (`C.inkSolid`, `C.onInk`) | near black | near white |
 | Hover tint | `--c-hover` | ink at 5% | white at 6% |
 
-`ink-dim` on surface is above 6:1 in both themes; `ink-faint` (about 3.4:1) is for captions and icons, never the only
-copy of important text. Solid ink is the second voice: the learner's chat bubbles, the session count pill,
+`ink-dim` on surface is above 7:1 in both themes; `ink-faint` (AA, 4.5:1 or more, on every surface: `contrast.test.js`)
+is for captions and icons, never the only copy of important text. Solid ink is the second voice: the learner's chat bubbles, the session count pill,
 Discover's level badge.
 
 ## Tokens (`src/config/tokens.js`)
@@ -63,8 +62,8 @@ in icon + label rows. Density: 8px grid, cards pad 16 to 20, screens 24 (16 on n
   (raised 24px-corner hero panel; a `.duo-bubble` inside goes sunken), `.ui-halo` (round centering wrapper for Ebi,
   deliberately with no background), `.ui-glass`, `.ui-eyebrow`, `.ui-pop` (modal pop-in), `.ui-chunky`. Older
   shared classes: `.duo-title`, `.duo-bubble`, `.duo-cta` (+ `.green`), `.duo-tile` (+ `.brand`), `.ui-tab`,
-  `.btn-press`, `.card-head`, `.click-dim`. Every button, link, `[role=button]`, `[role=radio]` and `summary` shows a
-  2px brand outline on `:focus-visible`.
+  `.btn-press`, `.card-head`, `.click-dim`. Every button, link, `[role=button]`, `[role=radio]`, `summary` and
+  `[tabindex="0"]` (not inputs) shows a 2px brand outline on `:focus-visible`.
 - **`S.*`** (`src/styles/theme.js`): `S.screenTitle` (30px display heading) and `S.panel` (surface, hairline,
   `RADIUS.lg`, `SHADOW.card`, 18 x 20 padding) are the screen title and the card.
 - **`src/features/ui.jsx`**: `Card` (`.ui-card`, `.ui-lift` when clickable), `ChunkyButton` (flat face, pressable
@@ -74,7 +73,7 @@ in icon + label rows. Density: 8px grid, cards pad 16 to 20, screens 24 (16 on n
   marker (`inset 3px 0 0 var(--c-brand)`, also the current Settings pane and the open chat); rail without a divider.
 
 ## Second pass: a layout per screen
-Each core screen got its own layout; every handler, ref, guard and i18n key is unchanged (elements were moved and
+Each core screen got its own layout; handlers, refs, guards and i18n keys are unchanged (elements moved and
 restyled, never re-implemented). The layouts live in ONE class block in App.jsx's `<style>` (marked `UI second
 pass`), so a screen reverts by deleting its classes.
 
@@ -96,7 +95,7 @@ pass`), so a screen reverts by deleting its classes.
 | Deck | Page head; picker, search, filters and tools in one sticky blurred strip; ONE list with hairline rows | `.dk-sticky`, `.dk-list` |
 | Discover | The suggestion is the top card of a stack, the term in 36px display type | `.dc-stack`, `.dc-card` |
 | Picture (idle) | One dashed drop zone, three ways in as tiles | `.pc-drop`, `.pc-methods`, `.pc-method` |
-| Picture (analysis) | The picture with the reading panel as a sticky side inspector; stacked under 760px | `.pc-stage`, `.pc-split`, `.pc-reading` |
+| Picture (analysis) | The picture with the reading panel as a sticky side inspector; stacked under 760px | `.pc-stage` (container `pcstage`), `.pc-split`, `.pc-reading` |
 | Stats | Dashboard grid: KPI tiles, the 14-day chart beside the per-deck list, sessions full width | `.stx-grid`, `.stx-kpi`, `.stx-span*`, container `stx` |
 | Onboarding | Full-screen flow on the app canvas, a segmented step bar, footer with a step count | inline |
 | Settings | 220px nav with raised current row | inline |

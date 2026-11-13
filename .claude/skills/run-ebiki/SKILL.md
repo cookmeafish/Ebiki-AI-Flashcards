@@ -5,8 +5,7 @@ description: Launch the Ebiki dev server and drive the running app in a headless
 
 # Run Ebiki
 
-`npm test` (vitest) covers only pure modules; layout, modals and click paths need the running app. Start the
-server, drive it, read the screenshots.
+`npm test` (vitest) covers only pure modules; layout, modals and click paths need the running app.
 
 ## Start
 
@@ -14,7 +13,7 @@ server, drive it, read the screenshots.
 npm run dev:agent            # in the background; Vite serves port 3001 (3000 is the owner's app) and never opens a tab
 ```
 
-Poll the port instead of sleeping:
+Poll the port, don't sleep:
 
 ```bash
 until curl -s -o /dev/null --max-time 2 http://localhost:3001/; do sleep 0.5; done
@@ -43,18 +42,18 @@ npm run drive -- --studio "learn negotiation"   # Ebi Studio path, SPENDS API CR
 npm run drive -- --shots ./out --url http://localhost:3001/
 ```
 
-Works on a fresh clone: `drive.mjs` installs `playwright-core` into `~/.ebiki-drive` on first run (outside the
-repo, so `package.json` is untouched) plus Playwright's bundled Chromium, and drives ONLY that bundled browser.
+On first run `drive.mjs` installs `playwright-core` into `~/.ebiki-drive` (outside the repo; `EBIKI_DRIVE_DEPS`
+overrides) plus Playwright's bundled Chromium, and drives ONLY that browser, launched muted (`--mute-audio`).
 **Never launch the installed Chrome or Edge (`executablePath`, `channel`, `CHROME_BIN`)**: on the owner's Windows
-machine it logged failed logons (event 4625) and locked their account. `EBIKI_DRIVE_DEPS` overrides the folder.
+machine it logged failed logons (event 4625) and locked their account.
 
-Screenshots go to `<os temp>/ebiki-drive-shots/` by default (`--shots` or `SHOTS` overrides; `--url` or `APP_URL`
-for another host); each path is printed. **Look at them**: a blank frame means the app never loaded. Console errors
-and 4xx responses print at the end; a failure also screenshots the stuck state.
+Screenshots go to `<os temp>/ebiki-drive-shots/` (`--shots` or `SHOTS` overrides; `--url` or `APP_URL` for another
+host); each path is printed. **Look at them**: a blank frame means the app never loaded. Console errors and 4xx
+responses print at the end; a failure also screenshots the stuck state.
 
 - **smoke** - loads the app and opens Settings > Learning modes (server, config load, settings chrome).
 - **`--studio`** - types a brief (default "Learn persuasion and negotiation"), opens Ebi Studio, waits for Ebi's
-  reply and reports the panel geometry. A real chat call on the user's key: run it only for changes on that path.
+  reply and reports the panel geometry. A real AI call on the user's key: run it only for changes on that path.
 
 For another screen, copy the `drive.mjs` pattern: `waitForSelector` on the English UI string, click by role and
 name, `fill` inputs (assigning `.value` skips React's onChange), screenshot, read console errors.

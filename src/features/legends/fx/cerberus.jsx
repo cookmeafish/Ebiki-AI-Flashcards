@@ -39,19 +39,21 @@ const SEL = { hf: '.lg-cerberus-head-brand', hi: '.lg-cerberus-head-warden', hs:
 // box per phase (the necks are raised and flung differently), so the pivots are per-phase custom properties. The legs
 // swing from the shoulder, the side chains from where they hang.
 const PIVOT = { hf: 'var(--cerb-cf, 12px 82.1px)', hi: 'var(--cerb-ci, 60px 74.4px)', hs: 'var(--cerb-cs, 108.2px 84.2px)', body: 'var(--cerb-kb, 60px 110px)', fire: 'var(--cerb-of, 42px 94px)', iron: 'var(--cerb-oi, 60px 92px)', shadow: 'var(--cerb-os, 78px 94px)', key: '50% 0%', pawl: '50% 8%', pawr: '50% 8%', chainl: '100% 0%', chainr: '0% 0%' }
-const ROOTS = { 1: ['42px 94px', '60px 92px', '78px 94px'], 2: ['28px 96px', '60px 92px', '92px 96px'], 3: ['46px 88px', '60px 86px', '74px 88px'] }
+const ROOTS = { 1: ['40px 104px', '60px 89px', '80px 104px'], 2: ['46px 62px', '60px 48px', '74px 62px'], 3: ['30px 66px', '60px 64px', '90px 66px'] }
 // where each head meets its neck (the collar join, view-box units, per phase: written by roots.sh with ROOTS)
-const NECKS = { 1: ['12px 82.1px', '60px 74.4px', '108.2px 84.2px'], 2: ['5.3px 71px', '60.7px 73.6px', '115.3px 72.2px'], 3: ['22.6px 74.5px', '60px 66.8px', '97.3px 76.4px'] }
+const NECKS = { 1: ['28.3px 79.9px', '60px 75.8px', '93.4px 82.9px'], 2: ['20.7px 23.2px', '60px 35.1px', '100.8px 22.7px'], 3: ['17.9px 45.3px', '60px 77.4px', '98.5px 47.3px'] }
 // the keel: the bottom centre the whole body squashes onto in a knockout
-const KEEL = { 1: '60px 108px', 2: '60px 113px', 3: '60px 104px' }
+const KEEL = { 1: '60px 116px', 2: '60px 116px', 3: '60px 118px' }
 // THE KNOCKOUT (per phase, as far as each phase's clip room allows): the side heads go limp and flop inward onto the Warden on their
 // necks (--cerb-kd, about the collar join) as their necks sink, the Warden's head drops sideways (--cerb-kw), the body
 // squashes onto its keel (--cerb-ks)
 const KO_FALL = { 1: '24deg', 2: '22deg', 3: '22deg' }
-const KO_SLUMP = { 1: '21deg', 2: '20deg', 3: '20deg' }
-const KO_SQUASH = { 1: 0.9, 2: 0.94, 3: 0.91 }
+const KO_SLUMP = { 1: '16deg', 2: '14deg', 3: '7deg' }
+// how far the side heads sink when he falls (phase 3's sit low already)
+const KO_HANG = { 1: '8px', 2: '8px', 3: '2px' }
+const KO_SQUASH = { 1: 0.9, 2: 0.94, 3: 0.97 }
 // the Warden's neck sinks with the squashed body (his chin seam stays on it): (keel - chin) x (1 - squash)
-const KO_SINK = { 1: '3.8px', 2: '2.5px', 3: '3.6px' }
+const KO_SINK = { 1: '4px', 2: '4.9px', 3: '1.2px' }
 // how hard the heads nod on a hit or a critical (a share of the base angles in the keyframes)
 const NOD = { 1: 1, 2: 1, 3: 0.6 }
 // the heads turn about a FIXED point of the drawing, their neck root in view-box units (their own box changes when the
@@ -59,7 +61,7 @@ const NOD = { 1: 1, 2: 1, 3: 0.6 }
 const BOX = { fire: 'view-box', iron: 'view-box', shadow: 'view-box', hf: 'view-box', hi: 'view-box', hs: 'view-box', body: 'view-box' }
 const on = (state, parts) => Object.entries(parts).map(([p, a]) => `${B}${state} ${SEL[p]} { ${PIVOT[p] ? `transform-box: ${BOX[p] || 'fill-box'}; transform-origin: ${PIVOT[p]}; ` : ''}animation: ${a} }`).join('\n')
 const DRAWING = `
-${Object.entries(ROOTS).map(([ph, [f, i, sh]]) => `${B}[data-phase="${ph}"] { --cerb-of: ${f}; --cerb-oi: ${i}; --cerb-os: ${sh}; --cerb-cf: ${NECKS[ph][0]}; --cerb-ci: ${NECKS[ph][1]}; --cerb-cs: ${NECKS[ph][2]}; --cerb-kb: ${KEEL[ph]}; --cerb-kd: ${KO_FALL[ph]}; --cerb-kw: ${KO_SLUMP[ph]}; --cerb-ks: ${KO_SQUASH[ph]}; --cerb-ky: ${KO_SINK[ph]}; --cerb-a: ${NOD[ph]} }`).join(' ')}
+${Object.entries(ROOTS).map(([ph, [f, i, sh]]) => `${B}[data-phase="${ph}"] { --cerb-of: ${f}; --cerb-oi: ${i}; --cerb-os: ${sh}; --cerb-cf: ${NECKS[ph][0]}; --cerb-ci: ${NECKS[ph][1]}; --cerb-cs: ${NECKS[ph][2]}; --cerb-kb: ${KEEL[ph]}; --cerb-kd: ${KO_FALL[ph]}; --cerb-kw: ${KO_SLUMP[ph]}; --cerb-ks: ${KO_SQUASH[ph]}; --cerb-ky: ${KO_SINK[ph]}; --cerb-a: ${NOD[ph]}; --cerb-kh: ${KO_HANG[ph]} }`).join(' ')}
 @keyframes lgrCerbYelp { 0% { transform: none } 14% { transform: translateY(-1.2px) rotate(-3.2deg) scale(0.95) } 40% { transform: translateY(-0.3px) rotate(1.6deg) } 70% { transform: rotate(-0.8deg) } 100% { transform: none } }
 @keyframes lgrCerbFlinchL { 0% { transform: none } 16% { transform: rotate(-4.5deg) translateX(-1.0px) } 50% { transform: rotate(-1.5deg) } 100% { transform: none } }
 @keyframes lgrCerbFlinchR { 0% { transform: none } 16% { transform: rotate(4.5deg) translateX(1.0px) } 50% { transform: rotate(1.5deg) } 100% { transform: none } }
@@ -74,7 +76,7 @@ ${Object.entries(ROOTS).map(([ph, [f, i, sh]]) => `${B}[data-phase="${ph}"] { --
 @keyframes lgrCerbLeanInL { 0%, 100% { transform: none } 30% { transform: translateX(2.0px) rotate(4.0deg) } 60% { transform: translateX(1.5px) rotate(3.0deg) } }
 @keyframes lgrCerbRake { 0% { transform: none } 18% { transform: translate(-2px, -10px) rotate(-26deg) } 34% { transform: translate(10px, 2px) rotate(22deg) scale(1.15) } 56% { transform: translate(8px, 1px) rotate(16deg) scale(1.1) } 100% { transform: none } }
 @keyframes lgrCerbChainLash { 0% { transform: none } 16% { transform: rotate(-13.2deg) } 32% { transform: rotate(22.8deg) scale(1.048) } 50% { transform: rotate(10.8deg) } 70% { transform: rotate(-3.6deg) } 100% { transform: none } }
-@keyframes lgrCerbLungeR { 0% { transform: none } 16% { transform: translateX(-0.3px) rotate(-1.8deg) } 32% { transform: translate(1.2px, 0.6px) rotate(4.8deg) scale(1.03) } 58% { transform: translate(0.9px, 0.3px) rotate(3.3deg) scale(1.018) } 100% { transform: none } }
+@keyframes lgrCerbLungeR { 0% { transform: none } 16% { transform: translateX(-0.3px) rotate(-1deg) } 32% { transform: translate(0.6px, 0.6px) rotate(2.4deg) scale(1.02) } 58% { transform: translate(0.4px, 0.3px) rotate(1.6deg) scale(1.01) } 100% { transform: none } }
 @keyframes lgrCerbSnap3 { 0% { transform: none } 18% { transform: translateY(-1.1px) scale(0.983) } 30% { transform: translateY(1.5px) scale(1.078, 1.045) } 42% { transform: translateY(0.8px) scale(1.045, 1.017) } 52% { transform: translateY(1.5px) scale(1.073, 1.039) } 80% { transform: translateY(0.4px) scale(1.014) } 100% { transform: none } }
 @keyframes lgrCerbStomp { 0% { transform: none } 22% { transform: translateY(-12px) rotate(-8deg) } 36% { transform: translateY(2px) scale(1.18, .82) } 50% { transform: translateY(0) scale(1.06, .94) } 100% { transform: none } }
 @keyframes lgrCerbTaut { 0%, 100% { transform: none } 30% { transform: scale(1.04, 1.1) } 40% { transform: scale(1.02, 1.05) rotate(3deg) } 50% { transform: scale(1.04, 1.1) rotate(-3deg) } }
@@ -89,8 +91,8 @@ ${Object.entries(ROOTS).map(([ph, [f, i, sh]]) => `${B}[data-phase="${ph}"] { --
 @keyframes lgrCerbDroopR { 0% { transform: none } 30% { transform: translateY(1.8px) rotate(4.9deg) } 70% { transform: translateY(1.8px) rotate(4.2deg) } 100% { transform: none } }
 @keyframes lgrCerbDroopC { 0% { transform: none } 30% { transform: translateY(1.4px) rotate(1.7deg) scale(0.972) } 70% { transform: translateY(1.2px) rotate(1.1deg) scale(0.979) } 100% { transform: none } }
 @keyframes lgrCerbSlack { 0%, 100% { transform: none } 30% { transform: scaleY(.85) rotate(4deg) } 70% { transform: scaleY(.88) rotate(3deg) } }
-@keyframes lgrCerbKoSinkL { 0%, 22% { transform: none } 30% { transform: translateY(-3px) } 46% { transform: translateY(12px) } 54% { transform: translateY(9px) } 100% { transform: translateY(10px) } }
-@keyframes lgrCerbKoSinkR { 0%, 36% { transform: none } 44% { transform: translateY(-3px) } 60% { transform: translateY(12px) } 68% { transform: translateY(9px) } 100% { transform: translateY(10px) } }
+@keyframes lgrCerbKoSinkL { 0%, 22% { transform: none } 30% { transform: translateY(-3px) } 46% { transform: translateY(calc(var(--cerb-kh, 10px) * 1.2)) } 54% { transform: translateY(calc(var(--cerb-kh, 10px) * 0.9)) } 100% { transform: translateY(var(--cerb-kh, 10px)) } }
+@keyframes lgrCerbKoSinkR { 0%, 36% { transform: none } 44% { transform: translateY(-3px) } 60% { transform: translateY(calc(var(--cerb-kh, 10px) * 1.2)) } 68% { transform: translateY(calc(var(--cerb-kh, 10px) * 0.9)) } 100% { transform: translateY(var(--cerb-kh, 10px)) } }
 @keyframes lgrCerbKoSinkC { 0%, 56% { transform: none } 76% { transform: translateY(calc(var(--cerb-ky, 4px) * 1.1)) } 86% { transform: translateY(calc(var(--cerb-ky, 4px) * 0.9)) } 100% { transform: translateY(var(--cerb-ky, 4px)) } }
 @keyframes lgrCerbKoHangL { 0%, 26% { transform: none } 32% { transform: rotate(calc(var(--cerb-kd, 20deg) * -0.3)) } 48% { transform: rotate(calc(var(--cerb-kd, 20deg) * 1.12)) } 58% { transform: rotate(calc(var(--cerb-kd, 20deg) * 0.9)) } 100% { transform: rotate(var(--cerb-kd, 20deg)) } }
 @keyframes lgrCerbKoHangR { 0%, 40% { transform: none } 46% { transform: rotate(calc(var(--cerb-kd, 20deg) * 0.3)) } 62% { transform: rotate(calc(var(--cerb-kd, 20deg) * -1.12)) } 72% { transform: rotate(calc(var(--cerb-kd, 20deg) * -0.9)) } 100% { transform: rotate(calc(var(--cerb-kd, 20deg) * -1)) } }
@@ -103,8 +105,8 @@ ${Object.entries(ROOTS).map(([ph, [f, i, sh]]) => `${B}[data-phase="${ph}"] { --
 @keyframes lgrCerbWhipNodR { 0% { transform: none } 12% { transform: rotate(calc(var(--cerb-a, 1) * -18deg)) scale(.94) } 34% { transform: rotate(calc(var(--cerb-a, 1) * 6deg)) } 58% { transform: rotate(calc(var(--cerb-a, 1) * -3deg)) } 100% { transform: none } }
 @keyframes lgrCerbWhipNodC { 0% { transform: none } 12% { transform: rotate(calc(var(--cerb-a, 1) * 9deg)) scale(.93) } 34% { transform: rotate(calc(var(--cerb-a, 1) * -5deg)) } 58% { transform: rotate(calc(var(--cerb-a, 1) * 2deg)) } 100% { transform: none } }
 @keyframes lgrCerbSnapNod { 0% { transform: none } 18% { transform: rotate(calc(var(--cerb-a, 1) * -6deg)) scale(.96) } 32% { transform: rotate(calc(var(--cerb-a, 1) * 5deg)) scale(1.03) } 48% { transform: rotate(calc(var(--cerb-a, 1) * -3deg)) scale(1.01) } 100% { transform: none } }
-@keyframes lgrCerbKoChainL { 0%, 8% { transform: none; opacity: 1 } 14% { transform: rotate(-30deg) } 30% { transform: translate(-10px, 20px) rotate(-80deg); opacity: .8 } 46%, 100% { transform: translate(-14px, 34px) rotate(-100deg); opacity: 0 } }
-@keyframes lgrCerbKoChainR { 0%, 8% { transform: none; opacity: 1 } 14% { transform: rotate(30deg) } 30% { transform: translate(10px, 20px) rotate(80deg); opacity: .8 } 46%, 100% { transform: translate(14px, 34px) rotate(100deg); opacity: 0 } }
+@keyframes lgrCerbKoChainL { 0%, 8% { transform: none; opacity: 1 } 16% { transform: rotate(-8deg) } 30% { transform: translate(-3px, 5px) rotate(-14deg); opacity: .6 } 40%, 100% { transform: translate(-4px, 7px) rotate(-16deg); opacity: 0 } }
+@keyframes lgrCerbKoChainR { 0%, 8% { transform: none; opacity: 1 } 16% { transform: rotate(8deg) } 30% { transform: translate(3px, 5px) rotate(14deg); opacity: .6 } 40%, 100% { transform: translate(4px, 7px) rotate(16deg); opacity: 0 } }
 @keyframes lgrCerbKoKey { 0%, 58% { transform: none; opacity: 1 } 64% { transform: rotate(40deg) } 80% { transform: translateY(26px) rotate(150deg); opacity: 1 } 92%, 100% { transform: translateY(30px) rotate(170deg); opacity: 0 } }
 @keyframes lgrCerbKoPaw { 0%, 60% { transform: none } 76% { transform: scale(1.12, .8) } 100% { transform: scale(1.1, .82) } }
 ${on('[data-moment="hit"]', { hf: 'lgrCerbNodL 520ms ease-out', hs: 'lgrCerbNodR 520ms ease-out 40ms', hi: 'lgrCerbNodC 520ms ease-out', iron: 'lgrCerbYelp 520ms ease-out', fire: 'lgrCerbFlinchL 520ms ease-out', shadow: 'lgrCerbFlinchR 520ms ease-out 40ms' })}
@@ -124,7 +126,7 @@ ${B}[data-moment="block"] .lg-cerberus-pawl, ${B}[data-moment="block"] .lg-cerbe
 @keyframes lgrCerbLungeR3 { 0% { transform: none } 20% { transform: rotate(1.2deg) } 38% { transform: rotate(-3.6deg) scale(1.018) } 62% { transform: rotate(-2.4deg) scale(1.009) } 100% { transform: none } }
 /* truly down: every power goes out (breath, burning eyes, eye smoke) and every head's lids squeeze shut; in phase 3 the
    Warden only bows, so his neck stays in view between the shoulders */
-${B}[data-down] .lgfa-cerberus-fire, ${B}[data-down] .lgfa-cerberus-shadow { transform: translateY(10px) }
+${B}[data-down] .lgfa-cerberus-fire, ${B}[data-down] .lgfa-cerberus-shadow { transform: translateY(var(--cerb-kh, 10px)) }
 ${B}[data-down] .lgfa-cerberus-iron { transform: translateY(var(--cerb-ky, 4px)) }
 ${B}[data-down] .lg-cerberus-head-brand { transform-box: view-box; transform-origin: ${PIVOT.hf}; transform: rotate(var(--cerb-kd, 20deg)) }
 ${B}[data-down] .lg-cerberus-head-shade { transform-box: view-box; transform-origin: ${PIVOT.hs}; transform: rotate(calc(var(--cerb-kd, 20deg) * -1)) }
@@ -132,9 +134,9 @@ ${B}[data-down] .lg-cerberus-head-warden { transform-box: view-box; transform-or
 ${B}[data-down] .lg-cerberus-body { transform-box: view-box; transform-origin: ${PIVOT.body}; transform: scaleY(var(--cerb-ks, .88)) }
 ${B}[data-down] .lg-cerberus-power { display: none }
 /* his aura (lg-cerberus-portal: the cold soul flames, the hellfire, the soul corona) gutters out with his power */
-@keyframes lgrCerbPortalOut { 0%, 50% { opacity: 1 } 100% { opacity: .12 } }
+@keyframes lgrCerbPortalOut { 0%, 50% { opacity: 1 } 100% { opacity: 0 } }
 ${B}[data-moment="ko"] .lg-cerberus-portal { animation: lgrCerbPortalOut 2200ms ease-in both }
-${B}[data-down] .lg-cerberus-portal { opacity: .12 }
+${B}[data-down] .lg-cerberus-portal { opacity: 0 }
 ${B}[data-down] .lg-fxh-bound { display: none !important }
 ${B}[data-down] .lg-fx-bound { display: inline !important }
 @keyframes lgrCerbEyesOut { 0%, 58% { opacity: 1 } 64%, 100% { opacity: 0 } }

@@ -1,7 +1,7 @@
 # Raid powers: how to design and add one
 
-Raid powers are tools the player brings into raid fights. This guide is the checklist for adding a new one: its design,
-its numbers, its art, its animations and its tests. Read it before touching `src/features/legends/powers.js`.
+Raid powers are tools the player brings into raid fights. This is the checklist for adding one (design, numbers, art,
+animations, tests). Read it before touching `src/features/legends/powers.js`.
 
 ## The owner's rules (do not bend these)
 
@@ -43,7 +43,7 @@ Unlocks are spread across the whole roster: 1, 3, 5, 8, 11, 13, 15, 17, 19, 21, 
 one needs every boss of the roster (`RAID_ORDER.length`). A test keeps unlocks increasing, distinct, gaps of at most
 3, and the last at the roster size. Moving a threshold: see "For good means STORED" above.
 
-Power should grow with the unlock, because late bosses have 2 to 4 times the health of early ones:
+Power grows with the unlock, because late bosses have 2 to 4 times the health of early ones:
 
 | Tier | Unlocks | Shape | Examples |
 |---|---|---|---|
@@ -63,8 +63,8 @@ Sanity limits (tested in `powers.test.js` "balance"):
 - A survival power gives back at most what one bad answer cost (Shield 1 heart, Ward one attack, Second wind 1,
   Siphon at most 1 per clean answer in its window, Steadfast 2 for the fight).
 
-When in doubt, compare a new power with the one unlocked just before it: it should feel like a step up, but not
-replace it. Each power should be the best pick for SOME situation or boss, so the 3-of-12 choice is a real choice.
+Compare a new power with the one unlocked just before it: a step up, not a replacement. Each power should be the best
+pick for SOME situation or boss, so the 3-of-12 choice is real.
 
 ## The kinds
 
@@ -107,7 +107,8 @@ replace it. Each power should be the best pick for SOME situation or boss, so th
    other power (shape, motion, timing, color); `powerfx.test.js` checks they exist and differ. Add its buttons to the
    asset view's Powers demo.
 7. **Tests**: `powers.test.js` (usable conditions, the effect through `raidStep`, spent/count-down, the balance
-   limits), then `npx vitest run src/features/legends src/i18n`.
+   limits; unlock thresholds and the stored high-water mark: `powerUnlocks.test.js`), then
+   `npx vitest run src/features/legends src/i18n`.
 8. **Help**: `helpContext.js` and `siegeRule` (raid.js) list powers from `POWERS`/`unlockedPowers`; reread them so
    Ebi describes the new one right.
 9. **Docs**: this table, CLAUDE.md's Raids > Powers bullet, `NEW-RAID-FEATURES.txt` if the owner tracks it.
@@ -120,7 +121,7 @@ replace it. Each power should be the best pick for SOME situation or boss, so th
 - No `url()`, gradients, filters, `<image>`, `<use>`, scripts or text (letter shapes as paths only). Idle motion with
   `<animateTransform>` only, subtle, `keyTimes` matching `values` and ending at 1, pivots with
   `transform-box:fill-box;transform-origin:center`; the file's own attributes are the finished pose.
-- Rendered with `<img>` (`PowerIcon` in RaidRun), the emoji in `POWERS[id].icon` as the fallback.
+- Rendered with `<img>` (`PowerIcon`, `impact/PowerFx.jsx`), the emoji in `POWERS[id].icon` as the fallback.
 
 ## Animation style
 

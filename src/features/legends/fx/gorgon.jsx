@@ -73,8 +73,19 @@ export default {
 /* the crown, front snakes and wings brush the top of the clip, so they swell DOWN from a pivot near their top */
 .lg-boss[data-motif="gorgon"] .lg-gorgon-crown { transform-origin: 50% 8% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-front, .lg-boss[data-motif="gorgon"] .lg-gorgon-wings { transform-origin: 50% 8% }
-.lg-boss[data-motif="gorgon"] .lg-gorgon-armR { transform-origin: 8% 92% }
-.lg-boss[data-motif="gorgon"] .lg-gorgon-armL { transform-origin: 92% 12% }
+/* each arm group is a forearm and its claw hand, pivoting at the ELBOW (a different pose per phase: P1 the trophy
+   fist up and the hand on her hip, P2 both claws prying her face open, P3 thrown wide) */
+.lg-boss[data-motif="gorgon"] .lg-p1 .lg-gorgon-armR { transform-origin: 77% 90% }
+.lg-boss[data-motif="gorgon"] .lg-p1 .lg-gorgon-armL { transform-origin: 11% 16% }
+.lg-boss[data-motif="gorgon"] .lg-p2 .lg-gorgon-armR { transform-origin: 83% 88% }
+.lg-boss[data-motif="gorgon"] .lg-p2 .lg-gorgon-armL { transform-origin: 17% 88% }
+.lg-boss[data-motif="gorgon"] .lg-p3 .lg-gorgon-armR { transform-origin: 14% 88% }
+.lg-boss[data-motif="gorgon"] .lg-p3 .lg-gorgon-armL { transform-origin: 86% 88% }
+/* phase 3's arms are thrown wide near the clip edge: their slam swings inward and smaller */
+@keyframes lgrGorgonArmSlamR3 { 0% { transform: none } 18% { transform: rotate(14deg) } 40% { transform: rotate(-22deg) } 62% { transform: rotate(-16deg) } 100% { transform: none } }
+@keyframes lgrGorgonArmSlamL3 { 0% { transform: none } 18% { transform: rotate(-14deg) } 40% { transform: rotate(22deg) } 62% { transform: rotate(16deg) } 100% { transform: none } }
+.lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-p3 .lg-gorgon-armR { animation-name: lgrGorgonArmSlamR3 }
+.lg-boss[data-motif="gorgon"][data-moment="hurtBig"] .lg-p3 .lg-gorgon-armL { animation-name: lgrGorgonArmSlamL3 }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-halfL { transform-origin: 100% 100% }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-halfR { transform-origin: 0 100% }
 /* The snake crown, front snakes, wings and the phase 3 heads and knot nearly fill the arena's clip already, so their
@@ -86,10 +97,12 @@ export default {
 .lg-boss[data-motif="gorgon"] .lg-gorgon-wings { --gg: .35 }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-heads3 { --gg: .3 }
 .lg-boss[data-motif="gorgon"] .lg-gorgon-knot3 { --gg: .65 }
+/* phase 2's wings are already flared open as she rears, so they flare a little less again */
+.lg-boss[data-motif="gorgon"] .lg-p2 .lg-gorgon-wings { --gg: .18 }
 /* Her attack on the player (impact/AssaultFx: her gaze travels to your heart as a beam and stone frosts the screen).
    The drawing does it: she rears back and squints (the charge), then thrusts her head at you with her eyes blazing and
-   her jaws wide as the gaze leaves her, holding the glare while it lands. */
-@keyframes lgrGorgonAsHead { 0% { transform: none } 16% { transform: translateY(-16%) rotate(-9deg) scale(.92) } 40% { transform: translateY(12%) rotate(3deg) scale(1.34) } 52% { transform: translateY(9%) scale(1.28) } 80% { transform: translateY(4%) scale(1.12) } 100% { transform: none } }
+   her jaws wide as the gaze leaves her, holding the glare while it lands. The thrust stays on her neck (a smaller lift). */
+@keyframes lgrGorgonAsHead { 0% { transform: none } 16% { transform: translateY(-7%) rotate(-6deg) scale(.95) } 40% { transform: translateY(5%) rotate(2deg) scale(1.2) } 52% { transform: translateY(4%) scale(1.17) } 80% { transform: translateY(1.8%) scale(1.07) } 100% { transform: none } }
 @keyframes lgrGorgonAsEyes { 0% { transform: none; filter: none } 16% { transform: scaleY(.2) scaleX(1.15); filter: brightness(1.4) } 34% { transform: scale(2.3); filter: brightness(3) saturate(1.5) drop-shadow(0 0 3px #5dff9a) } 70% { transform: scale(1.8); filter: brightness(2.2) drop-shadow(0 0 3px #5dff9a) } 100% { transform: none; filter: none } }
 @keyframes lgrGorgonAsMaw { 0% { transform: none } 16% { transform: scaleY(.5) } 38% { transform: scaleY(2.4) scaleX(1.15) } 75% { transform: scaleY(1.9) } 100% { transform: none } }
 @keyframes lgrGorgonAsEye3 { 0% { transform: none; filter: none } 16% { transform: scale(.7) scaleY(.3); filter: brightness(1.3) } 36% { transform: scale(1.6); filter: brightness(2.8) saturate(1.5) } 72% { transform: scale(1.35); filter: brightness(1.8) } 100% { transform: none; filter: none } }
@@ -97,6 +110,23 @@ export default {
 .lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-eye { animation: lgrGorgonAsEyes 800ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-maw { animation: lgrGorgonAsMaw 800ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="gorgon"][data-assault-on] .lg-gorgon-eye3 { animation: lgrGorgonAsEye3 800ms cubic-bezier(.4,0,.2,1) both }
+/* phase 3: her head keeps her body (the great eye stares out of her unhinged mouth), so the thrust is a short lunge on
+   the neck, never the head leaving her shoulders; the jaw gapes wider as the gaze leaves */
+@keyframes lgrGorgonAsHead3 { 0% { transform: none } 16% { transform: translateY(-3%) rotate(-4deg) scale(.97) } 40% { transform: translateY(2%) rotate(1deg) scale(1.1) } 52% { transform: translateY(1.5%) scale(1.08) } 80% { transform: translateY(.6%) scale(1.03) } 100% { transform: none } }
+.lg-boss[data-motif="gorgon"][data-assault-on] .lg-p3.lg-gorgon-face { animation-name: lgrGorgonAsHead3 }
+.lg-boss[data-motif="gorgon"] .lg-p3.lg-gorgon-face { transform-origin: 50% 64% }
+/* ...and every strike moment moves that head at about half the phase 1 swing, pivoting on the neck (its box is taller:
+   the jaw hangs to her chest, so the same percentages would tear it off her shoulders) */
+@keyframes lgrGorgonRecoil3 { 0% { transform: none } 12% { transform: translateY(-5%) rotate(-6deg) scale(.95) } 30% { transform: translateY(1.2%) rotate(3deg) } 55% { transform: rotate(-1.4deg) } 100% { transform: none } }
+@keyframes lgrGorgonWhip3 { 0% { transform: none } 10% { transform: translate(-6%, -2%) rotate(-10deg) scale(.94) } 26% { transform: translate(2.5%, 0) rotate(5deg) } 44% { transform: rotate(-2.6deg) } 66% { transform: rotate(1.3deg) } 100% { transform: none } }
+@keyframes lgrGorgonSliced3 { 0% { transform: none } 8% { transform: translateX(4%) rotate(4.5deg) } 16% { transform: translateX(-4%) rotate(-4deg) } 24% { transform: translateX(3%) rotate(2.6deg) } 32% { transform: translateX(-1.6%) rotate(-1.3deg) } 60% { transform: translateY(1.6%) } 100% { transform: none } }
+@keyframes lgrGorgonTurnAway3 { 0% { transform: none } 12% { transform: translateX(5%) rotate(9deg) scaleX(.9) } 50% { transform: translateX(4%) rotate(7deg) scaleX(.92) } 100% { transform: none } }
+@keyframes lgrGorgonReflectFace3 { 0% { transform: none } 14% { transform: translateY(-3%) rotate(-5deg) scale(.95) } 22%, 52% { transform: translateY(-2.6%) rotate(-4deg) scale(.96) } 55% { transform: translateY(-2.6%) rotate(-3deg) translateX(-1.5%) } 58% { transform: translateY(-2.6%) rotate(-5deg) translateX(1.5%) } 62% { transform: translateY(-2%) rotate(-3.5deg) } 80% { transform: translateY(-.5%) rotate(-1deg) } 100% { transform: none } }
+.lg-boss[data-motif="gorgon"][data-moment="hit"] .lg-p3.lg-gorgon-face { animation-name: lgrGorgonRecoil3 }
+.lg-boss[data-motif="gorgon"][data-moment="crit"] .lg-p3.lg-gorgon-face { animation-name: lgrGorgonWhip3 }
+.lg-boss[data-motif="gorgon"][data-moment="sharpen"] .lg-p3.lg-gorgon-face { animation-name: lgrGorgonSliced3 }
+.lg-boss[data-motif="gorgon"][data-moment="block"] .lg-p3.lg-gorgon-face { animation-name: lgrGorgonTurnAway3 }
+.lg-boss.lg-boss[data-fx="reflect"] .lg-p3.lg-gorgon-face { animation-name: lgrGorgonReflectFace3 }
 /* Charge: her eyes swell and burn brighter (the gaze filling). */
 @keyframes lgrGorgonChargeEyes { 0%, 100% { transform: none; filter: none } 40% { transform: scale(1.45); filter: brightness(2.2) drop-shadow(0 0 2px #5dff9a) } }
 .lg-boss.lg-boss[data-fx="charge"] .lg-gorgon-eye, .lg-boss.lg-boss[data-fx="charge"] .lg-gorgon-eye3 { animation: lgrGorgonChargeEyes 340ms cubic-bezier(.22,1,.36,1) both }

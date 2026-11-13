@@ -12,22 +12,22 @@ export const css = `
 @keyframes lgreaperTrail { 0% { opacity: 0; transform: rotate(-150deg) } 30% { opacity: .9 } 55% { opacity: .8; transform: rotate(18deg) } 100% { opacity: 0; transform: rotate(30deg) } }
 
 /* ---- the drawing itself, per moment ---- */
-@keyframes lgreaperJolt { 0% { transform: none } 12% { transform: translateY(-12%) rotate(-10deg) scale(.9) } 34% { transform: translateY(3%) rotate(5deg) } 60% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgreaperJolt { 0% { transform: none } 12% { transform: rotate(-9deg) scale(.95) } 34% { transform: rotate(5deg) } 60% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgreaperLanternSwing { 0%, 100% { transform: none } 14% { transform: rotate(22deg) } 34% { transform: rotate(2deg) } 54% { transform: rotate(11deg) } 74% { transform: rotate(1deg) } }
-@keyframes lgreaperWhiplash { 0% { transform: none } 10% { transform: translateX(-12%) rotate(-22deg) scale(.88) } 28% { transform: translateX(6%) rotate(12deg) } 48% { transform: rotate(-5deg) } 100% { transform: none } }
+@keyframes lgreaperWhiplash { 0% { transform: none } 10% { transform: rotate(-15deg) scale(.94) } 28% { transform: rotate(9deg) } 48% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgreaperJawDrop { 0% { transform: none } 10%, 40% { transform: translateY(24%) rotate(8deg) } 60% { transform: translateY(-4%) } 100% { transform: none } }
 @keyframes lgreaperScytheJerk { 0% { transform: none } 12% { transform: translate(30%, 20%) rotate(-10deg) scale(.94) translate(-30%, -20%) } 34% { transform: rotate(6deg) } 100% { transform: none } }
-@keyframes lgreaperShudder { 0%, 100% { transform: none } 8% { transform: translateX(7%) } 16% { transform: translateX(-7%) } 24% { transform: translateX(5%) } 32% { transform: translateX(-4%) } 44% { transform: translateX(2%) } }
+@keyframes lgreaperShudder { 0%, 100% { transform: none } 8% { transform: rotate(4deg) } 16% { transform: rotate(-4deg) } 24% { transform: rotate(3deg) } 32% { transform: rotate(-2deg) } 44% { transform: rotate(1deg) } }
 @keyframes lgreaperRattle { 0%, 100% { transform: none } 8% { transform: rotate(4deg) } 16% { transform: rotate(-4deg) } 24% { transform: rotate(3deg) } 32% { transform: rotate(-3deg) } 44% { transform: rotate(1deg) } }
 @keyframes lgreaperLanternLunge { 0% { transform: none } 16% { transform: rotate(4deg) scale(.9) } 40% { transform: rotate(34deg) scale(1.2) } 62% { transform: rotate(6deg) } 100% { transform: none } }
 @keyframes lgreaperLanternFlare { 0% { transform: none; filter: none } 16% { transform: rotate(4deg) scale(.88); filter: brightness(1.2) } 40% { transform: rotate(40deg) scale(1.4); filter: brightness(2.2) drop-shadow(0 0 3px #6fe3ff) } 70% { transform: rotate(8deg) scale(1.1); filter: brightness(1.5) } 100% { transform: none; filter: none } }
 @keyframes lgreaperOverreach { 0% { transform: none } 14% { transform: translate(5px, 1px) rotate(-2deg) } 34% { transform: translate(28px, 8px) rotate(26deg) } 46% { transform: translate(29px, 9px) rotate(27deg) } 66% { transform: translate(18px, 6px) rotate(16deg) } 84% { transform: translate(6px, 2px) rotate(5deg) } 100% { transform: none } }
 @keyframes lgreaperBatted { 0% { transform: none } 14% { transform: translate(30%, 20%) rotate(20deg) scale(.9) translate(-30%, -20%) } 26% { transform: translate(30%, 20%) rotate(-30deg) scale(.82) translate(-30%, -20%) } 50% { transform: translate(30%, 20%) rotate(-10deg) scale(.9) translate(-30%, -20%) } 100% { transform: none } }
-@keyframes lgreaperFlinchBack { 0% { transform: none } 18% { transform: translateY(-10%) scale(.88) } 50% { transform: translateY(-3%) scale(.96) } 100% { transform: none } }
+@keyframes lgreaperFlinchBack { 0% { transform: none } 18% { transform: rotate(-8deg) scale(.96) } 50% { transform: rotate(-3deg) } 100% { transform: none } }
 @keyframes lgreaperGlanceOff { 0% { transform: none } 18% { transform: translate(30%, 20%) rotate(26deg) scale(.86) translate(-30%, -20%) } 30% { transform: translate(30%, 20%) rotate(48deg) scale(.78) translate(-30%, -20%) } 46% { transform: translate(30%, 20%) rotate(-8deg) scale(.95) translate(-30%, -20%) } 100% { transform: none } }
 @keyframes lgreaperClack { 0%, 100% { transform: none } 15% { transform: translateY(14%) } 25% { transform: none } 40% { transform: translateY(12%) } 50% { transform: none } }
 @keyframes lgreaperDim { 0% { transform: none; filter: none } 20%, 70% { transform: scale(.88) rotate(4deg); filter: brightness(.35) saturate(.4) } 100% { transform: none; filter: none } }
-@keyframes lgreaperBow { 0% { transform: none } 22%, 70% { transform: translateY(8%) rotate(9deg) scale(.95) } 100% { transform: none } }
+@keyframes lgreaperBow { 0% { transform: none } 22%, 70% { transform: rotate(9deg) scale(.97) } 100% { transform: none } }
 @keyframes lgreaperDroop { 0% { transform: none } 22%, 70% { transform: rotate(8deg) translateY(4%) } 100% { transform: none } }
 
 .lg-boss[data-motif="reaper"][data-moment="hit"] .lg-reaper-head { animation: lgreaperJolt 520ms cubic-bezier(.2,.8,.3,1) both }

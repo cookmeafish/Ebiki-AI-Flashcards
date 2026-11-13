@@ -8,14 +8,23 @@ const IRON = '#ffb347'
 
 // THE DRAWING ACTS EVERY MOMENT (impact/bosses/README.md): the hook classes in raids/titan.svg move with the arena's
 // data-moment (a plain strike moment), data-assault-on (its blow on the player) and data-fx (its ability). Pivots are in
-// the drawing's own units (transform-box: view-box): the furnace head on its neck, the giant right fist at the elbow
-// above it, the left piston-arm at its shoulder, the pauldrons at the collar, the boiler torso from its base. Iron is
-// heavy: slow wind-ups, a dead-stop on impact, a stiff ring-out. Every move ends on the drawn pose.
+// the drawing's own units (transform-box: view-box), per phase because the pose changes: the helm on its chin seam
+// (raised in phase 2, the skull sunk low in phase 3), each arm at its elbow below the frame in phase 1 (fists in guard),
+// at the elbow under the raised fist in phase 2, at the shoulder over the planted fist in phase 3; the pauldrons at the
+// collar, the boiler torso from its base. Iron is heavy: slow wind-ups, a dead-stop on impact, a stiff ring-out. Every
+// move ends on the drawn pose. Phases 2 and 3 have their own arm moves (below): the fists are raised high, then planted
+// on the floor, so the phase 1 moves would throw them out of the frame.
 const P = '.lg-boss[data-motif="titan"]'
 const PARTS_CSS = `
-${P} .lg-titan-head { transform-box: view-box; transform-origin: 60px 70px }
-${P} .lg-titan-armR { transform-box: view-box; transform-origin: 96px 58px }
-${P} .lg-titan-armL { transform-box: view-box; transform-origin: 16px 46px }
+${P} .lg-titan-head { transform-box: view-box; transform-origin: 60px 50px }
+${P}[data-phase="2"] .lg-titan-head { transform-origin: 60px 46px }
+${P}[data-phase="3"] .lg-titan-head { transform-origin: 60px 70px }
+${P} .lg-titan-armR { transform-box: view-box; transform-origin: 113px 120px }
+${P} .lg-titan-armL { transform-box: view-box; transform-origin: 7px 120px }
+${P}[data-phase="2"] .lg-titan-armR { transform-origin: 124px 76px }
+${P}[data-phase="2"] .lg-titan-armL { transform-origin: -4px 76px }
+${P}[data-phase="3"] .lg-titan-armR { transform-origin: 112px 60px }
+${P}[data-phase="3"] .lg-titan-armL { transform-origin: 8px 60px }
 ${P} .lg-titan-shoulders { transform-box: view-box; transform-origin: 60px 44px }
 ${P} .lg-titan-torso { transform-box: view-box; transform-origin: 60px 108px }
 /* HIT: a clang on iron: the head rings in short hard jolts, the pauldrons rattle, the fist twitches. */
@@ -27,7 +36,7 @@ ${P}[data-moment="hit"] .lg-titan-shoulders { animation: lgrTitanMHitRattle 520m
 ${P}[data-moment="hit"] .lg-titan-armR { animation: lgrTitanMHitFist 520ms ease-out both }
 /* CRITICAL: the blow buckles it: the head is wrenched sideways on its neck, the boiler caves, the pauldrons tip, the
    fist jerks up and the piston-arm swings loose. */
-@keyframes lgrTitanMCritHead { 0% { transform: none } 12% { transform: translate(-4px, 2px) rotate(-12deg) } 30% { transform: translate(-3px, 2px) rotate(-10deg) } 46% { transform: rotate(4deg) } 70% { transform: rotate(-1.5deg) } 100% { transform: none } }
+@keyframes lgrTitanMCritHead { 0% { transform: none } 12% { transform: translate(-2px, 5.4px) rotate(-10deg) } 30% { transform: translate(-2px, 3px) rotate(-8deg) } 46% { transform: translateY(-0.6px) rotate(3deg) } 70% { transform: rotate(-1.5deg) } 100% { transform: none } }
 @keyframes lgrTitanMCritTorso { 0%, 100% { transform: none } 12% { transform: scale(1.06, .9) } 34% { transform: scale(.98, 1.03) } 56% { transform: scale(1.01, .99) } }
 @keyframes lgrTitanMCritShoulders { 0%, 100% { transform: none } 12% { transform: rotate(-6deg) translateY(2px) } 40% { transform: rotate(2deg) } }
 @keyframes lgrTitanMCritFist { 0%, 100% { transform: none } 12% { transform: rotate(-14deg) translate(-4px, -4px) } 40% { transform: rotate(6deg) } 64% { transform: rotate(-2deg) } }
@@ -56,13 +65,15 @@ ${P}[data-assault-on] .lg-titan-shoulders { animation: lgrTitanMBlowShoulders 84
 /* ITS STRIKE (hurt, with the punch above): the furnace roars: the boiler heaves and the piston-arm braces back. */
 @keyframes lgrTitanMHeave { 0%, 100% { transform: none } 16% { transform: scale(1.06, .95) } 40% { transform: scale(.98, 1.02) } }
 @keyframes lgrTitanMBrace { 0%, 100% { transform: none } 16%, 46% { transform: rotate(12deg) } }
+@keyframes lgrTitanMHeaveHead { 0%, 100% { transform: none } 16% { transform: translateY(2.8px) } 40% { transform: translateY(-1px) } }
 ${P}[data-moment="hurt"] .lg-titan-torso { animation: lgrTitanMHeave 640ms ease-out both }
+${P}[data-moment="hurt"] .lg-titan-head { animation: lgrTitanMHeaveHead 640ms ease-out both }
 ${P}[data-moment="hurt"] .lg-titan-armL { animation: lgrTitanMBrace 640ms ease-in-out both }
 /* ITS HEAVY BLOW (hurtBig): the crushing hammer-fall: the fist climbs high overhead, the piston-arm rises with it, and
    both come down like a drop hammer, the head ducking into it and the boiler crushed flat under the force. */
 @keyframes lgrTitanMHeavyFist { 0% { transform: none } 22% { transform: rotate(-36deg) translate(-10px, -14px) } 32% { transform: rotate(6deg) translate(-16px, -8px) scale(1.45) } 42% { transform: rotate(5deg) translate(-15px, -7px) scale(1.4) } 66% { transform: rotate(3deg) translate(-9px, -4px) scale(1.22) } 100% { transform: none } }
 @keyframes lgrTitanMHeavyPiston { 0% { transform: none } 22% { transform: rotate(-4deg) translate(4px, -8px) } 32% { transform: rotate(12deg) translateY(3px) } 66% { transform: rotate(6deg) } 100% { transform: none } }
-@keyframes lgrTitanMHeavyHead { 0% { transform: none } 22% { transform: translateY(-4px) rotate(-4deg) } 32% { transform: translateY(5px) scale(1.12) } 60% { transform: translateY(3px) scale(1.06) } 100% { transform: none } }
+@keyframes lgrTitanMHeavyHead { 0% { transform: none } 22% { transform: translateY(-2px) rotate(-4deg) } 32% { transform: translateY(8.6px) scale(1.06) } 46% { transform: translateY(-1.6px) } 60% { transform: translateY(1.2px) scale(1.02) } 100% { transform: none } }
 @keyframes lgrTitanMHeavyTorso { 0%, 22%, 100% { transform: none } 32% { transform: scale(1.12, .84) } 46% { transform: scale(.97, 1.04) } 60% { transform: scale(1.02, .98) } }
 ${P}[data-moment="hurtBig"] .lg-titan-armR, ${P}[data-assault-on][data-moment="hurtBig"] .lg-titan-armR { animation: lgrTitanMHeavyFist 940ms cubic-bezier(.4,.2,.3,1) both }
 ${P}[data-moment="hurtBig"] .lg-titan-armL, ${P}[data-assault-on][data-moment="hurtBig"] .lg-titan-armL { animation: lgrTitanMHeavyPiston 940ms cubic-bezier(.4,.2,.3,1) both }
@@ -113,7 +124,7 @@ ${P}[data-fx="crack"] .lg-titan-head { animation: lgrTitanMCrackHead 320ms ease-
 /* Shatter (the armor bursts): the pauldrons blow outward and drop lower, the head reels back, the fist flails up and the
    piston-arm swings wide, the boiler bulging. */
 @keyframes lgrTitanMShatterShoulders { 0% { transform: none } 12% { transform: scale(1.16) translateY(-3px) } 30% { transform: scale(1.04) translateY(3px) } 52% { transform: translateY(2px) } 100% { transform: none } }
-@keyframes lgrTitanMShatterHead { 0% { transform: none } 12% { transform: translateY(-5px) rotate(-8deg) scale(.94) } 34% { transform: translateY(2px) rotate(4deg) } 60% { transform: rotate(-1deg) } 100% { transform: none } }
+@keyframes lgrTitanMShatterHead { 0% { transform: none } 12% { transform: translateY(5px) rotate(-7deg) scale(.96) } 34% { transform: translateY(-1.5px) rotate(3deg) } 60% { transform: rotate(-1deg) } 100% { transform: none } }
 @keyframes lgrTitanMShatterFist { 0%, 100% { transform: none } 14% { transform: rotate(-14deg) translate(-4px, -5px) } 40% { transform: rotate(6deg) } }
 @keyframes lgrTitanMShatterPiston { 0%, 100% { transform: none } 14% { transform: rotate(-4deg) translate(4px, -8px) } 40% { transform: rotate(6deg) } }
 ${P}[data-fx="shatter"] .lg-titan-shoulders { animation: lgrTitanMShatterShoulders 1000ms cubic-bezier(.2,.9,.3,1) both }
@@ -126,6 +137,67 @@ ${P}[data-fx="shatter"] .lg-titan-torso { animation: lgrTitanMCritTorso 1000ms e
 @keyframes lgrTitanMExposedHead { 0%, 100% { transform: none } 18% { transform: translateY(3px) scale(.95) } 50% { transform: translateY(1px) } }
 ${P}[data-fx="exposedHit"] .lg-titan-torso { animation: lgrTitanMExposedTorso 320ms ease-out both }
 ${P}[data-fx="exposedHit"] .lg-titan-head { animation: lgrTitanMExposedHead 320ms ease-out both }
+/* PHASE 2: both fists raised high to smash, pivoting at the elbow. Inward is a turn toward the head (right arm -, left
+   arm +); nothing moves up or out (the fists sit near the top corners). Its blow on the player is the smash coming DOWN. */
+@keyframes lgrTitanP2HitR { 0%, 100% { transform: none } 12% { transform: rotate(-5deg) } 36% { transform: rotate(2deg) } }
+@keyframes lgrTitanP2CritR { 0% { transform: none } 12% { transform: translateY(3px) rotate(-16deg) } 40% { transform: rotate(3deg) } 64% { transform: rotate(-1deg) } 100% { transform: none } }
+@keyframes lgrTitanP2CritL { 0%, 100% { transform: none } 14% { transform: translateY(3px) rotate(14deg) } 40% { transform: rotate(-1.5deg) } }
+@keyframes lgrTitanP2CutL { 0%, 100% { transform: none } 12% { transform: rotate(10deg) } 46% { transform: rotate(-1.5deg) } }
+@keyframes lgrTitanP2BraceL { 0%, 100% { transform: none } 16%, 46% { transform: translateY(2px) rotate(10deg) } }
+@keyframes lgrTitanP2SmashR { 0% { transform: none } 13% { transform: rotate(3deg) } 22% { transform: translate(-4px, 14px) rotate(-26deg) scale(1.08) } 30% { transform: translate(-4px, 13px) rotate(-25deg) scale(1.06) } 54% { transform: translate(-3px, 9px) rotate(-18deg) } 100% { transform: none } }
+@keyframes lgrTitanP2SmashL { 0% { transform: none } 13% { transform: rotate(0deg) } 22% { transform: translate(4px, 14px) rotate(26deg) scale(1.08) } 30% { transform: translate(4px, 13px) rotate(25deg) scale(1.06) } 54% { transform: translate(3px, 9px) rotate(18deg) } 100% { transform: none } }
+@keyframes lgrTitanP2BlockR { 0% { transform: none } 12% { transform: translate(-4px, 12px) rotate(-22deg) } 16% { transform: translate(-3px, 11px) rotate(-20deg) } 20% { transform: translate(-4px, 12px) rotate(-22deg) } 24% { transform: translate(-3px, 11px) rotate(-20deg) } 40% { transform: rotate(2deg) } 60% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrTitanP2SkidR { 0% { transform: none } 14% { transform: translate(-3px, 10px) rotate(-20deg) } 34% { transform: translate(-2px, 6px) rotate(-8deg) } 54% { transform: rotate(-4deg) } 100% { transform: none } }
+@keyframes lgrTitanP2WindR { 0%, 100% { transform: none } 35%, 70% { transform: translateY(5px) rotate(-6deg) } }
+@keyframes lgrTitanP2KoR { 0%, 50% { transform: none } 10% { transform: rotate(-4deg) } 20% { transform: rotate(2deg) } 66% { transform: translate(-3px, 10px) rotate(-18deg) } 80% { transform: translate(-2px, 8px) rotate(-15deg) } 100% { transform: none } }
+@keyframes lgrTitanP2KoL { 0%, 52% { transform: none } 68% { transform: translate(3px, 10px) rotate(18deg) } 82% { transform: translate(2px, 8px) rotate(15deg) } 100% { transform: none } }
+@keyframes lgrTitanP2ShatterR { 0%, 100% { transform: none } 14% { transform: translateY(2px) rotate(-14deg) } 40% { transform: rotate(3deg) } }
+@keyframes lgrTitanP2ShatterL { 0%, 100% { transform: none } 14% { transform: translateY(2px) rotate(12deg) } 40% { transform: rotate(-1.5deg) } }
+${P}[data-phase="2"][data-moment="hit"] .lg-titan-armR { animation-name: lgrTitanP2HitR }
+${P}[data-phase="2"][data-moment="crit"] .lg-titan-armR { animation-name: lgrTitanP2CritR }
+${P}[data-phase="2"][data-moment="crit"] .lg-titan-armL { animation-name: lgrTitanP2CritL }
+${P}[data-phase="2"][data-moment="sharpen"] .lg-titan-armL { animation-name: lgrTitanP2CutL }
+${P}[data-phase="2"][data-moment="hurt"] .lg-titan-armL { animation-name: lgrTitanP2BraceL }
+${P}[data-phase="2"][data-assault-on] .lg-titan-armR, ${P}[data-phase="2"][data-moment="hurtBig"] .lg-titan-armR, ${P}[data-phase="2"][data-assault-on][data-moment="hurtBig"] .lg-titan-armR { animation-name: lgrTitanP2SmashR }
+${P}[data-phase="2"][data-moment="hurtBig"] .lg-titan-armL, ${P}[data-phase="2"][data-assault-on][data-moment="hurtBig"] .lg-titan-armL { animation-name: lgrTitanP2SmashL }
+${P}[data-phase="2"][data-moment="block"] .lg-titan-armR { animation-name: lgrTitanP2BlockR }
+${P}[data-phase="2"][data-moment="shield"] .lg-titan-armR { animation-name: lgrTitanP2SkidR }
+${P}[data-phase="2"][data-moment="wind"] .lg-titan-armR { animation-name: lgrTitanP2WindR }
+${P}[data-phase="2"][data-moment="ko"] .lg-titan-armR { animation-name: lgrTitanP2KoR }
+${P}[data-phase="2"][data-moment="ko"] .lg-titan-armL { animation-name: lgrTitanP2KoL }
+${P}[data-phase="2"][data-fx="shatter"] .lg-titan-armR { animation-name: lgrTitanP2ShatterR }
+${P}[data-phase="2"][data-fx="shatter"] .lg-titan-armL { animation-name: lgrTitanP2ShatterL }
+/* PHASE 3: the fists are planted on the floor, pivoting at the shoulder. Inward is right arm +, left arm -; nothing moves
+   down or out (the fists sit on the bottom corners). Its blow on the player is a fist torn off the floor and pounded back
+   down into it. */
+@keyframes lgrTitanP3HitR { 0%, 100% { transform: none } 12% { transform: translateY(-2px) rotate(4deg) } 36% { transform: rotate(-0.5deg) } }
+@keyframes lgrTitanP3CritR { 0%, 100% { transform: none } 12% { transform: translate(-2px, -6px) rotate(10deg) } 40% { transform: rotate(-0.5deg) } }
+@keyframes lgrTitanP3CritL { 0%, 100% { transform: none } 14% { transform: translate(2px, -6px) rotate(-10deg) } 40% { transform: rotate(0.5deg) } }
+@keyframes lgrTitanP3CutL { 0%, 100% { transform: none } 12% { transform: translateY(-2px) rotate(-8deg) } 46% { transform: rotate(0.5deg) } }
+@keyframes lgrTitanP3BraceL { 0%, 100% { transform: none } 16%, 46% { transform: translateY(-3px) rotate(-8deg) } }
+@keyframes lgrTitanP3PoundR { 0% { transform: none } 13% { transform: translate(-4px, -14px) rotate(16deg) } 22% { transform: translateY(0.6px) } 26% { transform: translateY(-1.4px) } 34% { transform: none } 100% { transform: none } }
+@keyframes lgrTitanP3PoundL { 0% { transform: none } 13% { transform: translate(4px, -14px) rotate(-16deg) } 22% { transform: translateY(0.6px) } 26% { transform: translateY(-1.4px) } 34% { transform: none } 100% { transform: none } }
+@keyframes lgrTitanP3BlockR { 0% { transform: none } 12% { transform: translate(-4px, -12px) rotate(14deg) } 16% { transform: translate(-3px, -11px) rotate(13deg) } 20% { transform: translate(-4px, -12px) rotate(14deg) } 40% { transform: translateY(-2px) rotate(2deg) } 100% { transform: none } }
+@keyframes lgrTitanP3SkidR { 0% { transform: none } 14% { transform: translate(-4px, -8px) rotate(10deg) } 34% { transform: translate(-2px, -4px) rotate(4deg) } 100% { transform: none } }
+@keyframes lgrTitanP3WindR { 0%, 100% { transform: none } 35%, 70% { transform: translateY(-2px) rotate(3deg) } }
+@keyframes lgrTitanP3KoR { 0%, 50% { transform: none } 10% { transform: rotate(3deg) } 20% { transform: rotate(-0.5deg) } 66% { transform: translate(-3px, -1px) rotate(8deg) } 80% { transform: rotate(6deg) } 100% { transform: none } }
+@keyframes lgrTitanP3KoL { 0%, 52% { transform: none } 68% { transform: translate(3px, -1px) rotate(-8deg) } 82% { transform: rotate(-6deg) } 100% { transform: none } }
+@keyframes lgrTitanP3ShatterR { 0%, 100% { transform: none } 14% { transform: translate(-3px, -6px) rotate(10deg) } 40% { transform: rotate(-0.5deg) } }
+@keyframes lgrTitanP3ShatterL { 0%, 100% { transform: none } 14% { transform: translate(3px, -6px) rotate(-10deg) } 40% { transform: rotate(0.5deg) } }
+${P}[data-phase="3"][data-moment="hit"] .lg-titan-armR { animation-name: lgrTitanP3HitR }
+${P}[data-phase="3"][data-moment="crit"] .lg-titan-armR { animation-name: lgrTitanP3CritR }
+${P}[data-phase="3"][data-moment="crit"] .lg-titan-armL { animation-name: lgrTitanP3CritL }
+${P}[data-phase="3"][data-moment="sharpen"] .lg-titan-armL { animation-name: lgrTitanP3CutL }
+${P}[data-phase="3"][data-moment="hurt"] .lg-titan-armL { animation-name: lgrTitanP3BraceL }
+${P}[data-phase="3"][data-assault-on] .lg-titan-armR, ${P}[data-phase="3"][data-moment="hurtBig"] .lg-titan-armR, ${P}[data-phase="3"][data-assault-on][data-moment="hurtBig"] .lg-titan-armR { animation-name: lgrTitanP3PoundR }
+${P}[data-phase="3"][data-moment="hurtBig"] .lg-titan-armL, ${P}[data-phase="3"][data-assault-on][data-moment="hurtBig"] .lg-titan-armL { animation-name: lgrTitanP3PoundL }
+${P}[data-phase="3"][data-moment="block"] .lg-titan-armR { animation-name: lgrTitanP3BlockR }
+${P}[data-phase="3"][data-moment="shield"] .lg-titan-armR { animation-name: lgrTitanP3SkidR }
+${P}[data-phase="3"][data-moment="wind"] .lg-titan-armR { animation-name: lgrTitanP3WindR }
+${P}[data-phase="3"][data-moment="ko"] .lg-titan-armR { animation-name: lgrTitanP3KoR }
+${P}[data-phase="3"][data-moment="ko"] .lg-titan-armL { animation-name: lgrTitanP3KoL }
+${P}[data-phase="3"][data-fx="shatter"] .lg-titan-armR { animation-name: lgrTitanP3ShatterR }
+${P}[data-phase="3"][data-fx="shatter"] .lg-titan-armL { animation-name: lgrTitanP3ShatterL }
 `
 
 export default {

@@ -81,8 +81,8 @@ export default {
 /* THE DRAWING ACTS IT OUT, MAGIC INCLUDED: his own SVG parts (raids/showman.svg, all three phases; lg-showman-arml = the
    arm on the left of the picture: the levitating glove under Comedy in phase 1, the claw hand flung wide in phase 2, the
    raised arm gripping burning Comedy by the chin in phase 3 (mask and grip ride in the arm group); -armr = the other arm (the fist on his hip with the cane in phase 1, the other claw
-   hand flung wide in phase 2; each arm group in phase 2 also carries its half of the torn cape); -head = hat, hair, face and
-   horns; -comedy and -tragedy = the two living masks; -fan = HIS RING (the gold marquee ring, the violet storm the masks ride,
+   hand flung wide in phase 2, the arm whose big glove drags his own face off in phase 3, the peeled skin riding in it; each arm group in phase 2 also carries its half of the torn cape); -head = hat, hair, face and
+   horns; -comedy and -tragedy = the two living masks (phase 3's -tragedy = his human face mid-peel, inside -armr); -fan = HIS RING (the gold marquee ring, the violet storm the masks ride,
    the flame wings); -shadow = his horns (ghost-fire horns, horns, great horns); -fire = the ghost flame over his
    fingertips, the hellfire pillars from his palms, the violet fire off his askew hat, the crown of fire and the fire wings breaking out of his shoulders; -sigil = the brand on his brow in
    phases 2 and 3) move with every moment, his attack and each ability. Arms pivot at the shoulder (under the epaulette) in
@@ -380,5 +380,36 @@ export default {
 /* phase 1's Tragedy floats at the right edge: knocked out it falls IN, toward the coat */
 @keyframes lgrSmTragedyKoP1 { 0% { transform: none } 44% { transform: rotate(10deg) } 62% { transform: translate(-6px, 30px) rotate(150deg) } 76% { transform: translate(-8px, 56px) rotate(230deg) } 84% { transform: translate(-8px, 52px) rotate(222deg) } 100% { transform: translate(-8px, 56px) rotate(226deg) } }
 .lg-boss[data-motif="showman"][data-moment="ko"] .lg-p1 .lg-showman-tragedy { animation-name: lgrSmTragedyKoP1 }
-.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p1 .lg-showman-tragedy { transform: translate(-8px, 56px) rotate(226deg) }`,
+.lg-boss[data-motif="showman"][data-down]:not([data-moment="ko"]) .lg-p1 .lg-showman-tragedy { transform: translate(-8px, 56px) rotate(226deg) }
+/* PHASE 3, THE UNMASKING: the Tragedy slot is HIS OWN HUMAN FACE caught mid-peel, inside the right arm, dragged off his
+   face by that arm's big glove (pivot at the grip, so it swings and tears from the hand, never leaves it). The head and
+   the right arm play the SAME move about his neck in every fight moment (same keyframes, pivot and timing), so the
+   glove never lets go; each moment its own move: a jerk on a crit, a recoil on a heavy blow, and on his own attack he
+   YANKS, the skin tearing further off (stretched from the grip). These come last and outrank the shared rules above. The
+   knockout keeps its own moves (the arm and the skin fade, the fallen arms come in). */
+.lg-p3 .lg-showman-tragedy { transform-box: view-box; transform-origin: 112.9px 38.7px }
+@keyframes lgrSmP3Yank { 0% { transform: none } 12% { transform: rotate(4deg) } 22% { transform: rotate(5deg) } 36% { transform: rotate(-9deg) scale(1.03) } 52% { transform: rotate(-6deg) scale(1.02) } 74% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrSmP3SkinTear { 0% { transform: none } 22% { transform: rotate(-3deg) } 36% { transform: rotate(9deg) scale(1.12, 1.04) } 52% { transform: rotate(6deg) scale(1.08, 1.03) } 74% { transform: rotate(2deg) scale(1.02) } 100% { transform: none } }
+@keyframes lgrSmP3Hit { 0% { transform: none } 12% { transform: rotate(7deg) } 30% { transform: rotate(-3deg) } 50% { transform: rotate(1.5deg) } 100% { transform: none } }
+@keyframes lgrSmP3Jerk { 0% { transform: none } 7% { transform: rotate(-10deg) scale(.96) } 16% { transform: rotate(8deg) scale(1.02) } 28% { transform: rotate(-5deg) } 44% { transform: rotate(2.5deg) } 64% { transform: rotate(-1deg) } 100% { transform: none } }
+@keyframes lgrSmP3Recoil { 0% { transform: none } 14% { transform: rotate(11deg) scale(.97) } 30% { transform: rotate(9deg) scale(.98) } 52% { transform: rotate(-4deg) } 72% { transform: rotate(1.5deg) } 100% { transform: none } }
+@keyframes lgrSmP3Sharpen { 0% { transform: none } 8% { transform: rotate(6deg) } 20% { transform: none } 30% { transform: rotate(-6deg) } 46% { transform: rotate(2deg) } 100% { transform: none } }
+@keyframes lgrSmP3Guard { 0% { transform: none } 16% { transform: rotate(-5deg) } 34% { transform: rotate(-8deg) } 58% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgrSmP3Shake { 0% { transform: none } 14% { transform: rotate(5deg) } 30% { transform: rotate(-5deg) } 46% { transform: rotate(4deg) } 62% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgrSmP3Nod { 0% { transform: none } 35% { transform: rotate(-5deg) } 70% { transform: rotate(-1deg) } 100% { transform: none } }
+@keyframes lgrSmP3Bow { 0% { transform: none } 18% { transform: rotate(-3deg) } 46% { transform: rotate(5deg) scale(.97) } 66% { transform: rotate(4deg) scale(.97) } 86% { transform: none } 100% { transform: none } }
+@keyframes lgrSmP3Reel { 0% { transform: none } 22% { transform: rotate(8deg) } 44% { transform: rotate(-6deg) } 66% { transform: rotate(3deg) } 100% { transform: none } }
+@keyframes lgrSmP3SkinFlap { 0% { transform: none } 18% { transform: rotate(-4deg) } 40% { transform: rotate(3deg) } 64% { transform: rotate(-1.5deg) } 100% { transform: none } }
+.lg-boss[data-motif="showman"]:is([data-assault-on], [data-moment="hurt"]) .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Yank 900ms cubic-bezier(.3,0,.3,1) both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"][data-moment="hit"] .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Hit 700ms cubic-bezier(.2,.8,.3,1) both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"][data-moment="crit"] .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Jerk 1000ms cubic-bezier(.2,.8,.3,1) both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"][data-moment="hurtBig"] .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Recoil 1150ms cubic-bezier(.3,0,.3,1) both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"][data-moment="sharpen"] .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Sharpen 760ms cubic-bezier(.2,.8,.3,1) both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"]:is([data-moment="block"], [data-moment="shield"]) .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Guard 820ms ease-out both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"][data-moment="wind"] .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Shake 900ms ease-in-out both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"]:is([data-fx="laugh"], [data-fx="tear"]) .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Nod 340ms ease-out both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"][data-fx="encore"] .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Bow 1150ms cubic-bezier(.3,.6,.4,1) both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"][data-fx="twist"] .lg-p3 :is(.lg-showman-head, .lg-showman-armr) { animation: lgrSmP3Reel 780ms cubic-bezier(.22,1,.36,1) both; transform-origin: 60px 78.5px }
+.lg-boss[data-motif="showman"]:is([data-moment="hit"], [data-moment="crit"], [data-moment="hurtBig"], [data-moment="sharpen"], [data-moment="block"], [data-moment="shield"], [data-moment="wind"], [data-fx="twist"]) .lg-p3 .lg-showman-tragedy { animation: lgrSmP3SkinFlap 800ms cubic-bezier(.2,.8,.3,1) both }
+.lg-boss[data-motif="showman"]:is([data-assault-on], [data-moment="hurt"]) .lg-p3 .lg-showman-tragedy { animation: lgrSmP3SkinTear 900ms cubic-bezier(.3,0,.3,1) both }`,
 }

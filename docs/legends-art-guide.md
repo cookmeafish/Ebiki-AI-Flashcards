@@ -1,18 +1,16 @@
 # Legends art: how the assets are made
 
-Read this BEFORE drawing any Legends art (a new motif, a redraw, "make more bosses"): the owner's art direction plus
+Read this BEFORE drawing any Legends art (a new motif, a redraw, "make more bosses"): the owner's art direction and
 the technical rules the app enforces. Files: `public/assets/legends/` (`areas/<motif>.svg` banners,
 `bosses/<motif>.svg`, `raids/<motif>.svg`); `public/assets/legends/README.md` is the short version for hand edits.
-Raid bosses: the RAID BOSSES section first. Every boss: "Rules for every boss and banner". Past mistakes and what they
-taught: `docs/raid-art-lessons.md`.
+Raid bosses: the RAID BOSSES section first. Past mistakes: `docs/raid-art-lessons.md`.
 
 ## ⭐⭐ RAID BOSSES (read before ANY raid boss work, even a one-line edit)
 
 > **⭐⭐⭐ THE BIGGEST RULE: EVERY PHASE IS INTERESTING.** Something HAPPENS in every phase (an action caught mid-way),
 > and P2 and P3 each are a "WTF IS THAT THING" moment (a reveal or transformation nobody saw coming). A phase where
 > nothing happens, or that only adds fire, colour, horns, a crown, a halo or size, FAILS however good it looks. Write
-> each phase's moment in one sentence before drawing; judge it first, before every other check. See "What the owner
-> picks" below.
+> each phase's moment in one sentence before drawing; judge it first, before every other check.
 
 ### The vision
 A raid boss is **a dangerous foe**, bigger than the player, **detailed yet beautiful**, and **easy to see what is going
@@ -23,12 +21,11 @@ limit; "good enough" is a failure; even a one-line edit gets the full process ("
 THE BEST QA").
 
 ### What the owner picks (his verdicts in the version picker, 2026-10-13)
-- **Something HAPPENS in every phase.** A pose with nothing going on is "BORING. NOTHING HAPPENS". Each phase is an
-  ACTION caught mid-way that the eye can follow: the Showman's P2 masks rotating off his face is the model he praised.
-- **P2 and P3 are "WTF IS THAT THING" moments** (his words, Seraph and Showman): a REVEAL or TRANSFORMATION the player
-  did not see coming and has to look at twice: the mask splits open and there is no face inside, he peels off his own
-  face, the true form is wrong in a way that unsettles. Escalation by more fire, a new colour, horns, a crown or a halo
-  is what he calls boring. Be creative; propose the moment in one sentence before drawing it.
+- **Something HAPPENS in every phase** ("BORING. NOTHING HAPPENS" otherwise): an ACTION caught mid-way that the eye
+  can follow. The model he praised: the Showman's P2 masks rotating off his face.
+- **P2 and P3 are "WTF IS THAT THING" moments** (his words, Seraph and Showman): a reveal the player has to look at
+  twice: the mask splits open and there is no face inside, he peels off his own face, the true form is wrong in a way
+  that unsettles. More fire, a new colour, horns, a crown or a halo is what he calls boring.
 - **Busy and badass beats clean and plain.** Given a menacing, busy version and a simpler, cleaner one, he keeps the
   busy one (Gorgon, Chimera) and asks for it ORGANISED: a value hierarchy (the character's face and body brightest and
   sharpest, the lair and props darker and lower in contrast, parts grouped into masses), never fewer parts. Simpler
@@ -71,9 +68,9 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
 4. **DETAILED AND BEAUTIFUL, BETTER THAN THE CHOSEN VERSION**: beside the version the owner picked in the asset view's
    version picker it wins on character, menace, detail and beauty. Detail is intentional and ON the character (simple
    is not plain); path count and visible detail per phase at least the chosen version's unless the owner asked for
-   less, and far past the kitsune's (787 paths, 138 animations) must be justified. Clutter is fixed by ORGANISING
-   detail (focal figure, value contrast, grouping), never by deleting armour, fangs, spikes, texture or the rich
-   palette. One small palette per phase, one accent. Elegant: clean silhouette, graceful shapes.
+   less, and far past the kitsune's (787 paths, 138 animations at the pinned commit e7328b3) must be justified.
+   Clutter is fixed by ORGANISING detail (focal figure, value contrast, grouping), never by deleting
+   armour, fangs, spikes, texture or the rich palette. One small palette per phase, one accent. Elegant: clean silhouette, graceful shapes.
 5. **THREAT**: a dangerous foe bigger than the player in every phase: big in the box, imposing build and pose, a
    confident menacing face (a sly smile counts), never a slim smiling bust; at least as threatening as its previous
    version. Bulk is muscle (V-taper, angular plates), never fat. Personality constant: escalate power, never temper.
@@ -85,7 +82,7 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
 8. **SILHOUETTES**: three clearly different shapes through the boss's own body and aura, told apart at 120 px, measured with the silhouette
    tool: each pair no more alike than the kitsune's same pair; the BODY-ONLY run within 0.05 of hers per pair and its
    P1-P3 pair no higher than hers (no margin).
-9. **NOTHING BROKEN OR STRAY**: every phase looked at, faces and hands zoomed 3 to 4x: each feature once and where it
+9. **NOTHING BROKEN OR STRAY**: every phase looked at, zoomed 4x (faces and hands first): each feature once and where it
    belongs, limbs attached, anatomy connected (shoulder, upper arm, elbow, forearm, a hand gripping what it holds; necks
    from shoulders), no stray lines, holes, doubled, floating or cut parts. Every element nameable in one word; anything
    the owner would ask "what is that?" about goes. HOLES map (page-background pixels painted magenta) and ARM check
@@ -95,16 +92,16 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
     part (held frames = stutter), plus per-frame positions over a second at 1x and 2x density, baked AND
     `__ebikiNoBake`.
 11. **MOTION SENSE**: per moving part, should it move at all? Objects and constructs (metal, stone, wood, clockwork)
-    never breathe, and NO boss's whole figure drifts, bobs or breathes in idle (a few px over seconds steps one pixel
-    every half second: it reads as a low frame rate on any screen). Idle is calm presence in the PARTS (a blink,
-    slow layered sway, small flicker; big motion is for the entrance and fight). Every animation (entrance, nine impact
+    never breathe, and NO boss's whole figure drifts, bobs or breathes in idle; a big part (30%+) moves 3+ px or not
+    at all, and never breathes or bobs slower than 12 px/s (why: "Motion" below). Idle is calm presence in the PARTS
+    (a blink, slow layered sway, small flicker; big motion is for the entrance and fight). Every animation (entrance, nine impact
     moments, attack, knockout, each ability "crazy distinct") has its own feeling and moves the boss's own parts, never
     burying the figure or face; nothing detaches, slides or pops.
 12. **EQUAL TO THE KITSUNE**: would it hang beside her as her equal?
 
 ### How raid art is made
 - Start from the owner's CHOSEN version (version picker; `node dev/legends-gallery/restore-version.mjs <motif>
-  <version>`) and EDIT it; never regenerate a boss from primitives by script; a full redesign only when the owner asks.
+  <sha> [--dry-run]`) and EDIT it; never regenerate a boss from primitives by script; a full redesign only when the owner asks.
 - One boss at a time, no parallel art waves; the owner sees it (panel + previous version) BEFORE it is committed.
 1. Read this section, `src/features/legends/impact/bosses/README.md`, CLAUDE.md's raid notes and the fight vision in
    `docs/raid-bosses-plan.md`; back up the file.
@@ -124,7 +121,7 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
 ### Tools and thresholds (dev server on 3001)
 - Owner view: `node .scratch/raid-kitsune/phasepanel.mjs <motif> <out.png>`.
 - Silhouettes, the ONE measure: `node .scratch/raid-kitsune/silhouettes.mjs <motif>` (frame 0, solid black at 60 px,
-  entrances stripped, IoU per pair against the kitsune pinned at a commit), then again with `--hide=<every aura, halo,
+  entrances stripped, IoU per pair against the kitsune pinned at e7328b3), then again with `--hide=<every aura, halo,
   fan, backdrop selector>` for the body-only run (it hides her tails and foxfire too).
 - Paths: `grep -o '<path' file | wc -l`.
 - `node dev/legends-gallery/check-art.mjs` (`EBIKI_ONLY=raids/<motif>`), 0 failures. It runs the clip check (nothing
@@ -132,8 +129,8 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
   animation, over 2.5 units fails `STRICT` bosses: pivot heads at the chin, give every head a `lg-<motif>-head`/`face`
   wrapper (`-mask` only for `MASK_FACE`), add the boss to `STRICT` once it passes, look at `--sheet`),
   `check-moment-clip.mjs` (over 0.5 units past the arena box fails), `check-ko-hold.mjs` (held pose moves under 1 unit,
-  boss under 55% lost), `check-idle-breath.mjs` (any whole-figure idle, a big part creeping under 3 px, a
-  one-frame speed jump all fail), `check-smooth.mjs` (every part composited, same look).
+  boss under 55% lost), `check-idle-breath.mjs` (any whole-figure idle, a big part moving under 3 px or breathing or
+  bobbing under 12 px/s, a one-frame speed jump all fail), `check-smooth.mjs` (every part composited, same look).
 
 **Phase layers** (the arena's `data-phase`): `lg-p1` phase 1 only, `lg-p2` / `lg-p3` from that phase on (start
 `style="display:none"`), `lg-p12` gone in phase 3; a shared layer hidden in some phases is copied into `lg-p1` and
@@ -380,23 +377,21 @@ uses.
 ## Motion
 
 Motion is SVG animation inside the file. The sanitizer keeps only `<animateTransform>` and `<animateMotion>`
-(`<animate>` and `<set>` are dropped) and drops `calcMode` from the FILE. So animate `translate`, `scale` and `rotate`
-only. **The app eases every animateTransform itself** (`easeMotion.js`, run by `art.jsx` after sanitizing): the speed
-comes to rest at every turn (a bob's top and bottom, a sway's ends, a hold) and carries through a keyframe where the
-motion goes on, so never hand-sample a sine into many keyframes to fake easing, and never write `calcMode` in a file.
-Linear playback looks choppy (`__ebikiNoEase = true` in the console shows it, to compare). No fade: hide by scaling to 0.02, or move far off the canvas
-(`translate 0 -200`).
+(`<animate>` and `<set>` are dropped) and drops `calcMode`. **The app eases every animateTransform itself**
+(`easeMotion.js`, run by `art.jsx` after sanitizing): the speed comes to rest at every turn (a bob's top and bottom, a
+sway's ends, a hold) and carries through a keyframe where the motion goes on, so never hand-sample a sine into many
+keyframes to fake easing, and never write `calcMode` in a file. Linear playback looks choppy (`__ebikiNoEase = true` in
+the console shows it). No fade: hide by scaling to 0.02, or move far off the canvas (`translate 0 -200`).
 
-**The app does not PLAY the SMIL: it plays it COMPOSITED** (`src/features/legends/motion/plan.js` + `web.js`, run by
-`art.jsx` on every live drawing). SMIL runs on the main thread and drops frames on a busy page, so slow or small
-motion holds its position and reads as low frame rate. Each animation becomes a Web Animation on the same element
-(same values, keyTimes, eased keySplines, begin, dur, freeze; a motion path sampled along its length), which the GPU
-compositor plays at the display's rate with no main-thread work, even under CPU throttling. So in a file: keep to `translate`/`scale`/`rotate`/`skewX`/`skewY` with plain `values`, `keyTimes`,
-seconds and `repeatCount="indefinite"` (anything else stays SMIL and brings the stutter back: check-smooth fails it),
-and never rely on page CSS overriding an element's own idle animation (an element the page's CSS reaches, `lg-<motif>-*`,
-keeps its transform for that CSS and its idle moves on a wrapper inside it). `node dev/legends-gallery/check-smooth.mjs
-<motif>` (also run by check-art) proves every part composited and the look identical to the SMIL;
-`__ebikiNoComposite = true` in the console plays the old SMIL, to compare.
+**The app plays the SMIL COMPOSITED** (`src/features/legends/motion/plan.js` + `web.js`, run by `art.jsx` on every
+live drawing): each animation becomes a Web Animation on the same element (same values, keyTimes, eased keySplines,
+begin, dur, freeze; a motion path sampled along its length) that the GPU compositor plays at the display's rate with no
+main-thread work (SMIL on the main thread dropped frames on a busy page). So in a file: only `translate`, `scale`,
+`rotate`, `skewX`, `skewY` with plain `values`, `keyTimes`, seconds and `repeatCount="indefinite"` (anything else stays
+SMIL and brings the stutter back: check-smooth fails it). Never rely on page CSS overriding an element's own idle
+animation (an element the page's CSS reaches, `lg-<motif>-*`, keeps its transform for that CSS and its idle moves on a
+wrapper inside it). `node dev/legends-gallery/check-smooth.mjs <motif>` (also run by check-art) proves every part
+composited and the look identical to the SMIL; `__ebikiNoComposite = true` in the console plays the old SMIL.
 
 - **`keyTimes` must have exactly as many entries as `values`, start at 0 and END AT 1**, or the browser silently drops
   the animation. Tested.
@@ -412,8 +407,10 @@ keeps its transform for that CSS and its idle moves on a wrapper inside it). `no
   second, which reads as a low frame rate however smooth the playback (measured on the presented frames). Idle life
   goes in the PARTS: hair, cloth, hands, fire, eyes, a blink; a machine gets a mechanical idle (hands tick, a gear
   turns, a lens glints). A BIG part (30% or more of the figure) moves clearly, 3+ screen px at panel size (the
-  kitsune's hair sways 4 to 7), or not at all. `check-idle-breath.mjs` (run by check-art) FAILS any whole-figure idle
-  (drift), a big part under 3 px (creep), and any idle loop whose speed jumps in one frame as the app plays it.
+  kitsune's hair sways 4 to 7), or not at all, and never breathes or bobs (scale, translate) slower than 12 px/s at
+  its peak (the Berserker's chest at 4.5 px/s read as the same stutter). `check-idle-breath.mjs` (run by check-art)
+  FAILS any whole-figure idle (drift), a big part under 3 px (creep) or under 12 px/s (breathe), and any idle loop
+  whose speed jumps in one frame as the app plays it (judder).
 - **The file's own attributes are the resting pose.** The app strips animation where motion is not wanted; what remains
   must be the finished boss. Never rely on an animation to put a part in its place.
 - **Scaling around a point**: `scale` scales around (0,0). Wrap:
@@ -437,8 +434,8 @@ keeps its transform for that CSS and its idle moves on a wrapper inside it). `no
   and shockwave hit. Every motif and raid boss gets its own keyframe (tested).
 
 Where each mode plays (`art.jsx`, `animated` prop): boss intro card = `'intro'` (entrance + loops); fight arena =
-`'idle'` (loops); map boss icons and the result screen = still; area banners on the map = `'idle'`. Reduced motion or
-a locked area = still.
+`'idle'` (loops; still once knocked out); map boss icons and a won raid's result = still; a lost raid's result and
+area banners on the map = `'idle'`. Reduced motion or a locked area = still.
 
 ## How to make and check a new asset
 
@@ -454,8 +451,8 @@ a locked area = still.
 
 ## Review gallery (where the owner looks at the set)
 
-All Legends art is reviewed in ONE place: `npm run dev`, then `http://localhost:3000/dev/legends-gallery/` (agents: 3001)
-(`dev/legends-gallery/`, not part of the build). Every motif shows its real intro entrance (Replay), the idle boss, the
+All Legends art is reviewed in ONE place: `npm run dev`, then `http://localhost:3000/dev/legends-gallery/` (agents:
+`npm run dev:agent`, port 3001; `dev/legends-gallery/`, not part of the build). Every motif shows its real intro entrance (Replay), the idle boss, the
 map icon, the locked icon, the banner at its true map size and the whole drawing, in light or dark and any palette.
 Each card has Good / Change / Bad plus a note (kept in that browser); "Copy my feedback" copies the notes to paste
 back. When the owner pastes feedback, fix exactly what it names, then re-check in the gallery.

@@ -1,8 +1,7 @@
 # Raid and Legends art: past mistakes and what they taught
 
-The vision and the rules are in `docs/legends-art-guide.md` (raid bosses) and CLAUDE.md "RAID BOSS CHECKMARKS". This
-file keeps the concrete cases behind them, one line each, so a rule can be traced to what went wrong. Read the guide
-first; come here when a rule needs an example.
+The rules are in `docs/legends-art-guide.md` and CLAUDE.md "RAID BOSS CHECKMARKS"; read them first. This file keeps
+the concrete case behind each rule, one line each.
 
 ## Anatomy and broken parts
 - Rat King P3 shipped with yellow eyes plus a tiny pair of shades on its snout, gold lines across its face, box hands
@@ -107,7 +106,7 @@ first; come here when a rule needs an example.
 - Headless Horseman: fire is several tongues, never one teardrop (reads as a tulip).
 - Lunar Strix (moonmaw): a loved theme on a weak creature became a creature whose signature part IS the theme (the
   moon as an owl's facial disc). An owl reads from a two-lobed disc, two big forward eyes, a short hooked beak, tufts.
-- Rounded teeth were reverted; a design made only of spikes reads "too pointy" (the spiky lion head).
+- Rounded teeth were reverted; a design made only of spikes reads "too pointy" (savanna, below).
 - Thin brow wedges with a line through them read as eyelashes; small round mouths read as EYES at game size.
 - A phase 3 with fewer teeth than phase 2 was caught; a phase 2 hourglass needed more cracks.
 - Rat King minions: stand on something, few and posed, never a mass.
@@ -127,6 +126,9 @@ first; come here when a rule needs an example.
   The 2 px minimum had blessed exactly that range. Whole-figure idle motion is now banned and big parts must move 3+
   px (`check-idle-breath.mjs` drift/creep). Lesson: when a pipeline fix does not change what the owner sees, question
   the content, and measure what reaches the screen, not the animation's maths.
+- The same stutter came back from big parts breathing or bobbing slowly (the Berserker's chest 5 px over 3.6 s, 4.5
+  px/s; also the Lich's hood, Tempest's beast, Sugar Queen's arms, Ophanim's wheel): a big part breathes or bobs at
+  12+ px/s or not at all (`check-idle-breath.mjs` breathe).
 - A keyTimes list ending at `.46` left a boss's eyes shut forever.
 - The rex's twitchy idle arm was rejected: idle is slow and small.
 
@@ -142,8 +144,8 @@ first; come here when a rule needs an example.
 ## Legends bosses and banners (rejected designs)
 - mountains: a rock-golem face block with a crystal crown ("cartoon rock mask", no body); a serene old man with a moss
   beard (too close to forest).
-- forest: "evil", "goofy", "hippie" faces on a tree, a trunk "tiki mask", a stag skull in a hollow with root-claw hands,
-  a creepy winged stag (skull face, fangs, tear streaks, glowing ribs, bone spikes, green bat wings: "make him less
+- forest: "evil", "goofy", "hippie" faces on a tree (a fierce boss must not read soft or flowery), a trunk "tiki
+  mask", a stag skull in a hollow with root-claw hands, a creepy winged stag (skull face, fangs, tear streaks, glowing ribs, bone spikes, green bat wings: "make him less
   creepy"); bat wings recolored instead of bird wings ("make this more like bird wings").
 - garden: the round flytrap with eye stalks "looks like a big ball".
 - arena: a holy paladin "too skinny" with armor "like a flag", a noble one "ugly af", a muscular one without nobility;
@@ -157,5 +159,4 @@ first; come here when a rule needs an example.
 - stage: a unibrow ("get rid of the unibrow").
 - Fire out of the eyes was removed from the frontier rider and the inferno (it worked rooted IN the titan's and castle
   knight's visor slit).
-- A tree spirit went "goofy", then "hippie": a fierce boss must not read soft or flowery.
 - Ebi drafts "way too different" or "a shitty low quality version": variations are polished and only a little different.

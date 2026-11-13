@@ -4,12 +4,12 @@ Local-first AI flashcard/study app (React + Vite), grown out of "ScreenLens". Ma
 Brand color **#DF2540**. Themes **Ocean Light** + **Dark**. Fonts Baloo 2 (display) + Nunito (body).
 
 ## ⭐ THE QA RULE: TRIPLE CHECK EVERYTHING (the owner: "triple check for everything to ensure quality", "the QA must be amazing")
-**QA ALWAYS HAPPENS, unasked: it is part of every change, never a step the owner has to request.** "QA" means THIS
-WHOLE SECTION (plus, for anything raid boss, even a one-line edit, the full "RAID BOSSES" process in
+**QA ALWAYS HAPPENS, unasked: part of every change, never a step the owner requests.** "QA" means THIS WHOLE
+SECTION (plus, for anything raid boss, even a one-line edit, the full "RAID BOSSES" process in
 `docs/legends-art-guide.md`). **When the owner SAYS "QA", it means QA FAILED** (the owner: "QA should always happen.
-but when i mention it its because QA failed"): something broken reached him. Then: find what slipped through and
-why, fix it, re-run the whole QA on it, and tighten the process (a new check, a rule here) so that kind of miss can
-not happen again; say what failed and what changed.
+but when i mention it its because QA failed"): something broken reached him. Find what slipped through and why, fix
+it, re-run the whole QA on it, and tighten the process (a new check, a rule here) so that miss can't recur; say what
+failed and what changed.
 Nothing reaches the owner (or a commit) on one look. Every change, code or art, gets three independent checks:
 1. **Automated**: the tests for what changed (add them for pure logic), `npx vitest run` green, `npx vite build` ok,
    `check-art.mjs` 0 failures for any art.
@@ -68,15 +68,16 @@ item, before anything reaches the owner or a commit; any FAIL = not done, howeve
    and 2x, baked and `__ebikiNoBake`). **The WHOLE figure never drifts, bobs or breathes in idle** (the owner, in
    capitals: "THE SLOW STUTTERING BOBBING/WEIRD BREATHING ... ITS LOW FRAMERATE AND CHOPPY"): a figure moving a few px
    over seconds steps one pixel about every half second, which reads as a low frame rate on ANY screen however smooth
-   the playback (measured 2026-10-13); idle life goes in the PARTS, and a big part (30%+) moves 3+ px or not at all, and never breathes or bobs (scale,
-   translate) slower than 12 px/s (the Berserker's chest at 4.5 px/s read the same way).
-   `check-idle-breath.mjs` fails both (drift, creep).
+   the playback (measured 2026-10-13); idle life goes in the PARTS, and a big part (30%+) moves 3+ px or not at all,
+   and never breathes or bobs (scale, translate) slower than 12 px/s (the Berserker's chest at 4.5 px/s read the same
+   way). `check-idle-breath.mjs` fails all three (drift, creep, breathe).
 **How raid art is made**: start from the owner's CHOSEN version and EDIT it (never regenerate from primitives by
 script; a full redesign only when asked); ONE boss at a time; the owner sees it (panel + previous version) BEFORE it is
 committed; an independent review asks "better than the chosen version, equal to the kitsune?" first. The coordinator
-checks every item on its own owner-view panel (`phasepanel.mjs`, colour AND greyscale) and idle frames, and puts the
-checkmarks in EVERY artist and reviewer brief. Full criteria, process and tools (silhouettes, check-art and the checks
-it runs): `docs/legends-art-guide.md` "RAID BOSSES". Past mistakes and what they taught: `docs/raid-art-lessons.md`.
+checks every item on its own owner-view panel (`.scratch/raid-kitsune/phasepanel.mjs`, colour AND greyscale) and idle
+frames, and puts the checkmarks in EVERY artist and reviewer brief. Full criteria, process and tools (silhouettes,
+check-art and the checks it runs): `docs/legends-art-guide.md` "RAID BOSSES". Past mistakes and what they taught:
+`docs/raid-art-lessons.md`.
 
 ## ⭐ THE VISION: runs well on ANY computer, device, screen and platform
 The owner's standing rule for EVERY change, not only art: Ebiki must feel smooth on a weak laptop with an integrated
@@ -100,7 +101,8 @@ whatever comes next. Optimize everything, never at the cost of the look.
 
 ## Design system (never hardcode colors)
 - `src/config/tokens.js` (`C` = `var(--c-*)`, `FONT`, `RADIUS`, `SHADOW`) is the single source of truth. Palettes:
-  CSS variables in App.jsx's global `<style>` (`:root` light, `[data-theme="dark"]`); `appTheme` → `<html
+  CSS variables in `src/config/palette.js` (`PALETTE_CSS`, rendered in App.jsx's `<style>`; `:root` light,
+  `[data-theme="dark"]`); `appTheme` → `<html
   data-theme>` (config + localStorage; pre-paint script in `index.html`). `src/styles/theme.js`: `S.*` styles.
   Primary CTAs `btn-press`, tabs `ui-tab`. **Look and feel: `docs/ui-overhaul.md`** (palette roles, `SHADOW.card/
   glow`, `TYPE`/`MOTION`, `.ui-card`/`.ui-lift`/`.ui-hero`/`.ui-halo`, `S.screenTitle`/`S.panel`, how to revert).
@@ -113,7 +115,7 @@ whatever comes next. Optimize everything, never at the cost of the look.
   info `#2670A8`, purple `#7847EE`) so green and amber stay distinct at small sizes.
 - **Contrast is tested** (`src/config/contrast.js` + test, palettes in `src/config/palette.js`): every text token is
   WCAG AA (4.5:1) on every surface, hover and its own chip tint, both themes; brand `#DF2540` is AA on cards, 4.2 on the
-  page. **White text sits on a `*Fill` token** (`C.brandFill`/`successFill`/`dangerFill`/`warningFill`/`purpleFill`;
+  page. **White text sits on a `*Fill` token** (`C.brandFill`/`successFill`/`dangerFill`/`warningFill`/`purpleFill`/`infoFill`;
   `fillFor(color)`, used by `ChunkyButton`), never on the plain token: dark mode's bright text colors gave white 2 to 3.2:1.
   **Brand-colored TEXT on a brand tint** (a selected tab, tile, pill) uses `C.brandText` (light `#BE0E2B`), never
   `C.brand` (4.2:1 there); `S.*` brand-tint styles already do. Teal is a text token too (light `#0A716C`). A provider's
@@ -134,7 +136,7 @@ One modal, `src/components/SettingsModal.jsx`. Rule of thumb: can differ per mod
 - **PER-MODE** (`modes/<name>/config.json`, `updateActiveMode`): `modes`, `study` (`studyRules`: questionsPerCard,
   cardsAtOnce; **studyLanguage** = the LEARNED language (answers + cards), **quizLanguage** = "Ebi speaks"
   (phrasing; '' = learned), hookLanguage, dialect, grammarFeedback, **wordHints**, questionPreferences, Advanced
-  questionPrompt/ratingRules), `cards` (`activeMode.ankiDeck`, fields/templates, tagRules), `knowledge`.
+  questionPrompt; ratingRules shown as fixed), `cards` (`activeMode.ankiDeck`, fields/templates, tagRules), `knowledge`.
 - `PANE_ALIAS` maps old pane ids. Small number inputs override `S.keyInput` with `flex: 'none', minWidth: 0`.
 - **Async writers use `updateModeById(modeId, …)` with the id pinned when the task STARTS.** Never
   `updateActiveMode`/`saveModes` from an async completion: `saveModes` re-asserts `activeModeId`, so a stale closure
@@ -159,15 +161,16 @@ One modal, `src/components/SettingsModal.jsx`. Rule of thumb: can differ per mod
 
 ## i18n
 - **All UI text lives in `src/i18n/`**: `locales/<code>.js` (app AND features, feature sections use their key
-  prefix), `languages.js` = THE language list (`code`, `label`, English `name`, `pickerName`, `ocr`), `index.js` =
-  engine (`t`/`makeT`, `APP_LANGUAGES`, `langMeta`). **Never hardcode a language map elsewhere** (read
+  prefix), `catalog.js` = THE language list (`code`, `label`, English `name`, `pickerName`, `ocr`) + loaders,
+  `languages.js` = every language with its strings (tests, launcher build; the app never imports it), `index.js` =
+  engine (`makeT`, `APP_LANGUAGES`, `langMeta`, `LANGUAGES`). **Never hardcode a language map elsewhere** (read
   `LANGUAGES`). Features carry NO strings (`features.test.js`).
-- **Locales load ON DEMAND** (only the active one + English): `catalog.js` = list + loaders (the app imports only it
-  and `en.js`), `loadLocale`/`useLocale` (keeps the old language up until the new one arrives); the first paint waits
-  for the UI language once. Tests register all via `src/i18n/testSetup.js`.
+- **Locales load ON DEMAND** (only the active one + English; the app imports only `catalog.js` and `en.js`):
+  `loadLocale`/`useLocale` (keeps the old language up until the new one arrives); the first paint waits for the UI
+  language once. Tests register all via `src/i18n/testSetup.js`.
 - **Adding a language**: copy `locales/en.js`, translate, add a catalog entry + loader in `catalog.js`, then the import
-  + one entry in `languages.js`. `locales.test.js`
-  checks keys, `{placeholders}` (zh/ja singular may keep `{n}`), no dashes, no duplicate keys, count pairs.
+  + one `STRINGS` entry in `languages.js`. `locales.test.js` checks keys, `{placeholders}` (zh/ja singular may keep
+  `{n}`), no dashes, no duplicate keys, count pairs.
 - **Launcher, installer, splash, app window** use the `ln_*` keys: `npm run i18n:launcher`
   (`scripts/build-launcher-strings.mjs`) copies them to `scripts/launcher-strings.json` (`locales.test.js` fails
   while stale). Readers: `scripts/launcher-i18n.ps1` (`Tr 'key' @{…}`), `scripts/launcher-i18n.cjs` (main.cjs; `t
@@ -181,8 +184,8 @@ One modal, `src/components/SettingsModal.jsx`. Rule of thumb: can differ per mod
   tooltips) goes through `t()`. In memoized callbacks use `tLiveRef.current` (else the old render's `t`).
 
 ## Data folder (optional shared data directory)
-All user data (`DATA_ENTRIES`: config.json, ankiformat.json, modes/, decks/, chats/, discover/, cache/, keys.json)
-resolves through `DATA_DIR` (`vite.config.js`). **New server data paths MUST use `dataPath()`**, never
+All user data (`DATA_ENTRIES`: config.json, ankiformat.json, modes/, decks/, chats/, discover/, cache/, keys.json,
+plus feature `dataEntries`) resolves through `DATA_DIR` (`vite.config.js`). **New server data paths MUST use `dataPath()`**, never
 `path.resolve`. Default = app root; overridden by machine-local `datadir.json` or `EBIKI_DATA_DIR` so computers can
 share one folder (SMB). `/api/datadir` switches live. **The app folder is this computer's HOME.** Either direction
 may answer `{needsChoice, context:'join'|'return', sourceOnly}`; the client re-POSTs `merge:bool`.
@@ -234,15 +237,16 @@ folder while the old share is dead creates `modes/` so it counts as reachable.
 ### Unreachable-source guard (anti-clobber) - DO NOT REMOVE
 A dead mapped drive reads as EMPTY (autosave wrote defaults back; onboarding reappeared) and THROWS on touch (an
 unwrapped `mkdirSync` became Vite's error overlay). One guard fronts `DATA_ROUTES` (config, ankiformat, modes,
-knowledge-sections, deck-progress, discover-store, question-bank, chats, chat-load) via `dataMode()`: **`down`** →
+knowledge-sections, deck-progress, discover-store, question-bank, chats, chat-load, feature `dataRoutes`) via
+`dataMode()`: **`down`** →
 503 `{unreachable:true}`; **`offline`** → local copy + `X-Ebiki-Offline: 1`; **`online`** → pass. NOT guarded:
 datadir, keys, log, anki, update, web-search, tts. The `mkdirSync`s in `/api/modes` + `/api/chats` are wrapped.
 **A WRITE to a shared folder gets a FRESH probe** (`guardMode`, `src/server/dataGuard.js`): on the 3s cached answer a
 save right after the share vanished re-created its folder (`mkdirSync` recursive), and that one entry hid the outage
 for good. **`limitBody` (`src/server/bodyLimit.js`) never attaches a `data` listener of its own**: it counts inside
 the handler's, else the body flowed past every route behind the guard's await (every data-route save read `{}`).
-Caps per route (largest path match; 413 `{error:'too large', limit}`): 64 MB chats/knowledge/anki, 32 MB
-discover-store, 16 MB modes, 8 MB default, 1 MB usage, 256 KB keys, 64 KB web-search.
+Caps per route (`BODY_CAPS`, longest prefix match; 413 `{error:'too large', limit}`): 64 MB chats/knowledge/anki,
+32 MB discover-store, 16 MB modes, 8 MB feature-data and default, 1 MB usage, 256 KB keys, 64 KB web-search.
 Client: a failed config fetch sets `dataUnreachable`, keeps `configHealthyRef` false, shows a red banner instead of
 onboarding.
 
@@ -315,10 +319,11 @@ an empty payload.
 - **Config**: a failed save retries (`cfgSaveRetry`). "Run setup again" is LOCAL (`rerunSetup`), never
   `onboarded:false` in the shared config. **The autosave posts only CHANGED keys** (`lastSentCfgRef`; a failed save
   un-marks only its keys): a whole post reverted another computer's settings. `writeConfig` re-reads ~1.2s later and
-  re-applies only entries back at their OLD value (up to 3x; simultaneous saves on two computers lost one side). `NESTED_CONFIG_KEYS` (aiModels,
-  modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, availableModels, pronunciation) diff TWO
-  levels down (`src/utils/configDiff.js`, shared with `writeConfig`); removals go in `__unset`. The load SEEDS
-  `lastSentCfgRef` from the file. An entry under a vanished map is returned in `paths` (not `__unset`) so the App
+  re-applies only entries back at their OLD value (up to 3x, `CONFIG_RECHECKS`; simultaneous saves on two computers
+  lost one side). `NESTED_CONFIG_KEYS` (aiModels, modelPresets, rejectedModels, modelPlans, modelCards,
+  modelAvailability, availableModels, pronunciation) diff TWO levels down (`src/utils/configDiff.js`, shared with
+  `writeConfig`); removals go in `__unset`. The load SEEDS `lastSentCfgRef` from the file. An entry under a vanished map
+  is returned in `paths` (not `__unset`) so the App
   forgets it (else re-picking it posted an empty map). An entry that CHANGED TYPE (map ↔ value) is never also put in
   `__unset` (the server applies removals last: it vanished). `/api/config` POST refuses a non-object body (400) and
   `writeConfig` throws on one (a string merged in as keys "0", "1"...). An unknown `intelligence` preset from a newer
@@ -379,8 +384,8 @@ Share unreachable → the app runs from `.local-offline/` (gitignored, watch-ign
 **Three folders, three jobs, don't collapse them:** `DATA_DIR` = shared truth (written only by explicit user action),
 `.local-sync/` = BASE (never written offline), `.local-offline/` = working copy. The pristine base makes reconnect a
 real 3-way merge.
-- `dataPath()` routes through `.local-offline` while `offlineActive`. `dataMode()` runs per request with a 3s
-  `shareReachable()` cache (dead SMB probes block); a probe finishing after `DATA_DIR` changed isn't cached. A
+- `dataPath()` routes through `.local-offline` while `offlineActive`. `dataMode()` runs per request with a
+  `shareReachable()` cache (3s online, 15s offline; dead SMB probes block); a probe finishing after `DATA_DIR` changed isn't cached. A
   returning share ends offline mode without a restart. `enterOffline()` returns false with no snapshot (= `down`).
 - **Reconcile** (`/api/offline`: GET `{offline, pending, since, changes}`, POST merges, POST `{discard:true}`): only
   files differing from base; share unchanged/missing → fast-forward; share also moved → `deepMergeInto(..., basePath)`
@@ -452,14 +457,15 @@ passes). `will-navigate` follows only `isAppPage` (root or `?overlay=true`). The
 on `before-quit`), else it blocks quit, SIGTERM and Windows shutdown.
 
 **Overlay**: a HEADLESS page never launches it (`navigator.webdriver` skips the auto-launch; `/api/launch-overlay`
-POST refuses a Headless user agent): an agent's test page started the real Electron app. Its global Esc is held only while visible AND focused (`registerOverlayEsc`, dropped on `blur`; else it
-swallowed other apps' Esc). A failed `Alt+Q` registration exits it (`app.exit(2)`); a failed page load
-(`overlayPageOk`) makes Alt+Q reload, not show an invisible full-screen window. It runs on its OWN profile
-(`userData/overlay`: Chromium locks a profile's storage to one process). No server = a capture shows nothing. Captures
+POST refuses a Headless user agent): an agent's test page started the real Electron app. Its global Esc is held
+only while visible AND focused (`registerOverlayEsc`, dropped on `blur`; else it swallowed other apps' Esc). A failed
+`Alt+Q` registration exits it (`app.exit(2)`); a failed page load (`overlayPageOk`) makes Alt+Q reload, not show an
+invisible full-screen window. It runs on its OWN profile (`userData/overlay`: Chromium locks a profile's storage to one
+process). No server = a capture shows nothing. Captures
 use the PRIMARY display (`primaryScreenSource`, by `display_id`), never `sources[0]`.
 
-**Smooth scrolling in the app window (a 480 Hz + 60 Hz two-GPU PC scrolled at 60 fps; Firefox at 480)**: `main.cjs` sets
-`enable-prefer-compositing-to-lcd-text` (at 100% scaling Chromium otherwise repaints every scroll frame) and
+**Smooth scrolling in the app window (a 480 Hz + 60 Hz two-GPU PC scrolled at 60 fps; Firefox at 480)**: `main.cjs`
+sets `enable-prefer-compositing-to-lcd-text` (at 100% scaling Chromium otherwise repaints every scroll frame) and
 `force_high_performance_gpu`; `S.main` is OPAQUE (`background: C.bg`, only opaque scrollers composite). Never disable
 vsync/frame-rate limits (`disable-gpu-vsync`, `disable-frame-rate-limit`): faster numbers, worse judder (owner). The
 window writes `logs/app-window-gpu.json` once per launch (GPU status, displays, fps).
@@ -665,8 +671,8 @@ restarts), so a forgotten server serves stale config. SHORTCUT launches only:
   `-WindowStyle Normal` on the already-running branch's `Start-Process 'http://localhost:3000'`).
 - **Boot watcher** (App.jsx): while `ankiConnected === false`, ping every 4s for a minute, then 20s;
   `refreshAnkiConnection` on answer; re-fetches `/api/ankiconnect` every other tick (not in the overlay) so the
-  banner follows fixes. Guard is a ref (`reconnectPingBusyRef`; the effect re-runs per card). Separate from the study
-  reconnect watcher (unsynced ratings, clears `studySyncError`).
+  banner follows fixes. Separate from the study reconnect watcher (unsynced ratings, pings every 10s, clears
+  `studySyncError`), whose one-ping-at-a-time guard is a ref (`reconnectPingBusyRef`; the effect re-runs per card).
 
 ## Anki + AnkiConnect install (setup, fail-soft, never throws)
 - `winget install -e --id Anki.Anki`. "Installed?" (`Test-AnkiInstalled`, Uninstall `DisplayName`) and "where?"
@@ -702,8 +708,8 @@ detached, never while `ankiAwaitingInput`; `focus-anki.ps1` raises the first dia
 - **Duplicate checks scoped to the deck** (`duplicateScope: 'deck'` + `checkChildren` in `ankiAddNote`/
   `ankiCanAddNote`). `ankiSetNoteTags` escapes `\ * _` in removals (patterns). The audio embed uses the name
   `storeMediaFile` RETURNS.
-- **`/api/anki` times out** (2 min; `sync` 15): a modal dialog in Anki means no answer ever. A timed-out CHANGE may
-  still apply (`timedOut: true`). Errors carry `code` (`notRunning`/`timeout`/`timeoutChange`/`closed`), translated by
+- **`/api/anki` times out** (`src/server/ankiProxy.js`: 2 min; `sync` 15 min): a modal dialog in Anki means no
+  answer ever. A timed-out CHANGE may still apply (`timedOut: true`). Errors carry `code` (`notRunning`/`timeout`/`timeoutChange`/`closed`), translated by
   `ankiRequest` (`anki_err*`, failed fetch `anki_errNoServer`; non-JSON reply made readable); Quick Add stops and
   unticks on `timeoutChange`; Copy/Move shows it. A failed `ankiGetDecks` leaves `ankiDecks` (null, never []).
 
@@ -751,7 +757,7 @@ AND AnkiConnect's `sync` (upstream `ankitects/anki#4188`, no setting; the 5-min 
 ## Ebi Studio (conversational mode create / edit / deck prompt)
 `src/components/ModeStudio.jsx`, via SettingsModal's `openModeStudio(cfg)` (App holds `modeStudio`):
 `kind:'create'`, or `kind:'edit'` with `focus:'all'|'cards'|'study'`.
-- `askAI` = `aiCall(..., resolveModel('chat'), {maxTokens:2000})`: 1-3 follow-ups, then a summary + hidden
+- `askAI` = `aiCall(..., resolveJobModel('modes.studio'), {maxTokens:4000})`: 1-3 follow-ups, then a summary + hidden
   `<mode>{json}</mode>` (`parseAiJson`) as a review card. Only **Apply** persists (`applyStudioSpec`).
 - `buildModeFromSpec(spec, existing)` mirrors `createMode`'s fallbacks, merges per field: EDIT keeps unchanged values,
   never flips `type`, keeps the name unless the spec names another (`modeNameKey`); `updateModeById` +
@@ -854,12 +860,12 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
   `.disabled` copy; a case-different old copy is removed only if another inode. Settings > Knowledge open:
   `handleDrop` → `handleKnowledgeDrop`. UTF-16 decoded by BOM.
 - **App-wide**: `modeKnowledge` + `knowledgeBlock(cap)` feed Chat, `generateCards`, `evaluateCardAnswers`, Discover,
-  Help (6k, `HELP_KNOWLEDGE_CAP`), Picture explain (4k); `KNOWLEDGE_CAP` 60,000 chars. An `activeModeId` change clears it at once. GET
-  skips ENOENT mid-read, else 500; the client keeps its copy on non-OK.
+  Help (6k, `HELP_KNOWLEDGE_CAP`), Picture explain (4k); `KNOWLEDGE_CAP` 60,000 chars. An `activeModeId` change
+  clears it at once. GET skips ENOENT mid-read, else 500; the client keeps its copy on non-OK.
 - **Big KBs: TOC-guided retrieval.** Above the cap the server builds an `outline` (markdown headings, "Chapter N",
   "1.2 Title", or a file named like a TOC: `toc.txt`, "table of contents.md"); sections via
   `/api/knowledge-sections?sections=i,j`. `getKnowledgeContext(task, cap, cacheKey)` picks 1-4 sections
-  (`resolveModel('general')`), cached per whole task in `knowledgeSelectRef` (`card:<front>` shared by generation
+  (`resolveJobModel('modes.knowledgePick')`), cached per whole task in `knowledgeSelectRef` (`card:<front>` shared by generation
   and grading); empty pick → re-read outline; `titles` mismatch → re-read. Sync callers
   (`knowledgeBlock`/`knowledgeRaw`) get the TOC text; TOC-less big KBs truncate with a ⚠️
   (`knowledgeBigNoToc`/`knowledgeBigToc`).
@@ -921,8 +927,8 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
 - Poses in `public/assets/shrimp/`, registered in `src/config/shrimp.js` (`SHRIMP`); `DEFAULT_SHRIMP` (the AI's
   `"default"`), `IDLE_SHRIMP` (Help's resting pose).
 - **`choosePose(text)` (App.jsx) is the ONLY thing that sets a pose**, once per call (no flicker): with a key the
-  `resolveModel('pose')` role names one, else `pickShrimp(text)` (whole-word keywords, never substrings). Ebi reacts
-  only to ASSISTANT messages. Study poses are precomputed per question (`q.pose`).
+  `resolveJobModel('mascot.pose')` model names one, else `pickShrimp(text)` (whole-word keywords, never substrings).
+  Ebi reacts only to ASSISTANT messages. Study poses are precomputed per question (`q.pose`).
 - Empty states use bare `poseFile('…')` PNGs, no glow. **`helpMascot` is independent of `studyMascot`.**
 
 ## Ebi's Help chat (`src/components/HelpChat.jsx`)
@@ -1015,9 +1021,10 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
 ## Picture tab (vision OCR, Tesseract for boxes)
 - **No key = local OCR, never a dead end**: `analyzeImage` runs `analyzeImageTesseract` (own scan generation), words get
   boxes untranslated (`untranslatedOcrWords`), a hint + "Add a key" button; `lazyTranslate` returns early without a key.
-- With a key: `analyzeImageVision`, one `aiCall` with `resolveModel('picture')`, `images`, `maxTokens: 8000`, returns
-  words with in-context meaning, reading-order `line` and a box. No key: `analyzeImageTesseract`. `aiCall` passes
-  `opts.images` to every provider (`src/utils/image.js`: `dataUrlToImagePart`, `downscaleDataUrl`, which paints white before JPEG: transparent PNGs turned black).
+- With a key: `analyzeImageVision`, one `aiCall` with `resolveJobModel('picture.scan')`, `images`, `maxTokens: 8000`,
+  returns words with in-context meaning, reading-order `line` and a box. `aiCall` passes `opts.images` to every
+  provider (`src/utils/image.js`: `dataUrlToImagePart`, `downscaleDataUrl`, which paints white before JPEG: transparent
+  PNGs turned black).
 - **Boxes come from Tesseract** (`getTesseractBoxes`, parallel): vision words snap to the nearest matching box; the
   rest get `_approxBox`, not drawn by `renderWordOverlays` (still in the reading panel), skipped by the overlap clamp.
   A word also matches a RUN of neighbouring boxes on one line ("por favor") or a character-count slice of one wide box
@@ -1037,8 +1044,9 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
   `resetPinBusy()`**; word actions clear their busy flag only while their pin is current. Overlay auto-analyze timers
   are gated on `scanGenRef`; `overlay-reset` clears `window.__autoAnalyze`. Progress text (`pic_prog*`) goes through
   `tLiveRef` (memoized callbacks hold an old `t`). "Add to Anki" and Refine use the open EDITOR's text.
-- **OCR input is opaque**: `preprocessForOCR` (`src/utils/ocr.js`, tested, with `tidyOcrWords`) paints a black or white backdrop picked from the content + alpha 255 (transparent read as black; white text on white vanished)
-  and resolves the ORIGINAL when the canvas can't be read (else it hung). The clean fast path needs few words under
+- **OCR input is opaque**: `preprocessForOCR` (`src/utils/ocr.js`, tested, with `tidyOcrWords`) paints a black or
+  white backdrop picked from the content + alpha 255 (transparent read as black; white text on white vanished) and
+  resolves the ORIGINAL when the canvas can't be read (else it hung). The clean fast path needs few words under
   70% confidence (else they were silently dropped).
 - **Tesseract fallback translation** checks `stale()` around every chunk; `imageLoadSeqRef` = newest picture wins; a
   refine lands only if `ankiCardVerRef` is unchanged. `loadImageFromDataUrl` retires the running scan only in
@@ -1182,8 +1190,8 @@ mud": LatAm says "lodo"). Distinct from usage tags (where) and dialect (which va
 
 ## Chat
 - **"+" menu**: photo, web search, per-mode Focus/Level/Explain-in (`activeMode.chatPrefs` via `setChatPref`, into
-  the system prompt in `sendChatTabMessage`), Chat model (writes `aiModels[provider].chat`, same override as
-  Settings). Closes on Esc and tab change.
+  the system prompt in `sendChatTabMessage`), Chat model (writes `aiModels[provider]['job:chat.reply']`, the
+  same pick as Settings > Models per job). Closes on Esc and tab change.
 - **Images**: `chatTabImage`; photos from the last 4 USER messages ride along as `opts.images`. Every attach goes
   through `attachChatImage` (refuses HEIC/TIFF); the send drops parts outside `PORTABLE_IMAGE_TYPES` (JPEG/PNG only:
   one bad image failed every later message; `downscaleDataUrl` re-encodes others). Last pick wins
@@ -1240,11 +1248,11 @@ logic through App.jsx**; App only provides context, renders slots, emits facts.
   `tCount`, `depthBorder` (never mix `border` with `borderBottomWidth`). Tunables are named constants at module top.
 - `features.test.js`: no own strings, labels translated, slot components, known events, distinct data entries, NO
   imports of App internals (`App`, `components/`, `shell/`, `dev/`; listed exceptions in the test).
-- **Heavy screens load ON DEMAND** (`lazyComponent(loader, { prefetchMs })`, registry.jsx; the prefetch waits for an
-  idle moment after `prefetchMs`, at most 5 s more: still a plain function for
-  the slot contract, own Suspense, renders direct once loaded, a null `Comp` after Fast Refresh falls back to
-  Suspense): Legends, raid run/hero, asset view, Ebi Call, Roleplay, Scenes, Listen & Speak, Leech Doctor; feature ids
-  live in small `featureId.js` files. App lazy-loads SettingsModal/OnboardingWizard/ModeStudio the same way.
+- **Heavy screens load ON DEMAND** (`lazyComponent(loader, { prefetchMs })`, registry.jsx: prefetch at the first idle
+  moment after `prefetchMs`, at most 5 s more; still a plain function for the slot contract, own Suspense, renders
+  direct once loaded, a null `Comp` after Fast Refresh falls back to Suspense): Legends, raid run/hero, asset view, Ebi
+  Call, Roleplay, Scenes, Listen & Speak, Leech Doctor; feature ids live in small `featureId.js` files. App lazy-loads
+  SettingsModal/OnboardingWizard/ModeStudio the same way.
 - **`useActivityBusy(true)` also holds celebrations** (game `celebrateWait`: shown only after 1.5s free), so the streak
   modal never covers a raid, quiz or activity.
 - **AI errors: ONE classifier** (`kit/aiError.js`: `aiErrorInfo`/`describeAiError`/`aiErrorText`, `ctxErrorText`);
@@ -1367,22 +1375,24 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   keeps only `history`, fed back as `avoid`), pushed to the limit but never unfair.
 - **Legendary** (a cleared area's challenge, `{kind: 'legendary'}`, not a map node): 20 fresh typed questions, 90% to
   win (`PASS.legendary`), no bonus life; `applyLegendaryResult` marks `area.legendary` (🏅).
-- **The question ladder in fights and quizzes** (the SAME `utils/questionTier.js` as Study; `studyRules.questionLadder`,
-  default on, `ladderOn`/`fightRules.questionLadder`, in `generationKey` and a FightSettings toggle): raids tier each card
-  with `tierOf` (cardsInfo), Legends each item with `legendsItemTier` (codex tier, boss +1, Legendary +2); prompts list
+- **The question ladder in fights and quizzes** (the SAME `utils/questionTier.js` as Study;
+  `studyRules.questionLadder`, default on, `ladderOn`/`fightRules.questionLadder`, in `generationKey` and a
+  FightSettings toggle): raids tier each card with `tierOf` (cardsInfo), Legends each item with `legendsItemTier`
+  (codex tier, boss +1, Legendary +2); prompts list
   tiers + `ladderBlock` + `CLEAR_ANSWER_RULE` + `ambiguityRule`; `parseQuestions({ tierFor })` sets `q.tier` (never the
   model's), `sanitizeQuestions` lets only TIER 0 show its answer; `TierChip` above every QuizRunner question; graders
   get `tierJudgeLine` (an open tier is judged on use/understanding). Off = no tiers (Legends lessons: the old split).
   Lessons are dual too (typed default, `qt_showChoices`/`qt_typeInstead`); saved lesson sets carry `ladder` (tier sig)
   and are rewritten when an item changes tier. Review pass calls use role `qcheck` (`ROLE.quizCheck`).
-- **Raids are reviewed too** (`raidQuestions.js`, pure + `ladder.test.js`): the batch is reviewed in the BACKGROUND while
-  the intro shows; rejected or dropped cards are rewritten ONCE (`buildRaidPrompt({ redo })`) and reviewed again, still
-  bad = not asked. Fight waits at most `REVIEW.waitMs` (`startOrder`), later questions resolve through `finalQuestion`
-  in `resolveQuestion`; Continue batches the same.
+- **Raids are reviewed too** (`raidQuestions.js`, pure + `ladder.test.js`): the batch is reviewed in the BACKGROUND
+  while the intro shows; rejected or dropped cards are rewritten ONCE (`buildRaidPrompt({ redo })`) and reviewed
+  again, still bad = not asked. Fight waits at most `REVIEW.waitMs` (4 s, `startOrder`), later questions resolve
+  through `finalQuestion` in `resolveQuestion`; Continue batches the same.
 - **The question KIND keeps the screen's promise** (`fitQuestionsToKind`, prompt.js, inside `makeQuizNow`'s ask, before
   the taught-items filter): boss, Legendary and raid convert a choice-only question to typed (choices become its
   `alt`) or DROP it when it can't stand without options ("which of these", true/false, all/none of the above, any of 4
-  languages) or gives itself away; top-up refills. Every fight prompt asks 4 choices on EVERY question. A stricter retry MERGES with the first ask (`mergeQuestionSets`), never replaces it.
+  languages) or gives itself away; top-up refills. Every fight prompt asks 4 choices on EVERY question. A stricter
+  retry MERGES with the first ask (`mergeQuestionSets`), never replaces it.
 - **Quizzes ask ONLY about what the step taught.** `buildQuizPrompt` sends the items' text as the one source, the
   knowledge base only as background, at most `QUIZ_PER_ITEM_MAX` per item. `makeQuiz` drops questions whose `target`
   is not a taught item (`itemIdFor`) and asks once more (`strict`) under `QUIZ_MIN_KEPT`. The mode DESCRIPTION (the
@@ -1409,12 +1419,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   edit: `public/assets/legends/README.md`. Palette CSS: `src/config/palette.js` (`PALETTE_CSS`, App + gallery).
 - **Making or redrawing Legends art (boss, RAID boss, banner) or a raid boss voice/lore? Read
   `docs/legends-art-guide.md` FIRST and follow it** (a raid boss also: "The owner's vision for the FIGHT" in
-  `docs/raid-bosses-plan.md`: nine unique impact moments, a dramatic themed knockout, fair profile, the checklist). Hard rules: every new or redrawn asset gets the
-  guide's TRIPLE CHECK (each alone, the set side by side, real app screens + tests + check-art) before the owner sees
-  it; every boss and banner truly unique (not a recolor), each banner its boss's lair with the boss present; each
-  boss its OWN entrance MOVEMENT (`ENTRANCES`, optional pivot `origin`); everything has idle life.
-  `dev/legends-gallery/catalog.js` is the one motif list (a test keeps it equal to `MOTIFS`); the owner reviews all art
-  at `/dev/legends-gallery/` (dev server only).
+  `docs/raid-bosses-plan.md`: nine unique impact moments, a dramatic themed knockout, fair profile, the checklist). Hard
+  rules: every new or redrawn asset gets the guide's TRIPLE CHECK (each alone, the set side by side, real app screens +
+  tests + check-art) before the owner sees it; every boss and banner truly unique (not a recolor), each banner its
+  boss's lair with the boss present; each boss its OWN entrance MOVEMENT (`ENTRANCES`, optional pivot `origin`);
+  everything has idle life. `dev/legends-gallery/catalog.js` is the one motif list (a test keeps it equal to `MOTIFS`);
+  the owner reviews all art at `/dev/legends-gallery/` (dev server only).
 - **⭐⭐ RAID BOSSES: the kitsune is the gold standard (the owner: "super crucial").** Any raid boss work, even a
   one-line edit ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST QA"): read `docs/legends-art-guide.md` "RAID
   BOSSES" FIRST and follow every line, and pass the RAID BOSS CHECKMARKS at the top of this file. In short: "go all
@@ -1441,8 +1451,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   say, never the learned-language words; `hintGivesAway` rejects one quoting a practice phrase (retry once, then
   `lg_hintFallback`); hints used go to the score prompt.
 - **Ebi's words are tappable like Study** (`ctx.words.tappable(text, source)` + `ctx.words.popup(source)`): Talk
-  messages, Scene lines (replay is a separate 🔊 button). Sources unique per chat/story (`sid`); only 'question'/'hint'
-  are guarded as a live answer. Language modes only.
+  messages, Scene lines (replay is a separate 🔊 button). Sources unique per chat/story (`sid`); only
+  'question'/'hint' are guarded as a live answer. Language modes only.
 - **Fight settings + Study formatting in every quiz** (owner: the user may want full immersion).
   `legends/FightSettings.jsx` = one collapsible row under a raid/boss/Legendary intro (deck, learned language, "Ebi
   speaks", word hints, grammar feedback, strict accents, Learn it, answer style). Values ARE the mode's studyRules
@@ -1454,8 +1464,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   grammar outside the tested word never makes a strike glancing. **Every typed language question in QuizRunner shows
   its PREFIX HINT** (`ensurePrefixHint`, the one engine `utils/prefixHint.js`, see "Hints and choices"); answered with
   choices every hint goes (`stripLetterHints`), and a meaning-form `alt` shows its own `alt.prompt` with no "Type it
-  instead". Raids (`RaidRun` `poolChoices`) and Legends (`makeQuiz` → `legendsPool`) replace each typed question's `alt`
-  through `kit/fightChoices.js` `withPoolChoices`.
+  instead". Raids (`RaidRun` `poolChoices`) and Legends (`makeQuiz` → `legendsPool`) replace each typed question's
+  `alt` through `kit/fightChoices.js` `withPoolChoices`.
   **`ctx.words.tappable(text, source, sentence, opts)`** (`opts` = { answers, glosses, lang }) = Study's question
   formatting for any text (muted cues, word-hint slot, answer words untappable), tappable when `tapAllowed` (language
   mode, or text not in the app language). `src/utils/tapTokens.js` is the ONE tap tokenizer (Intl.Segmenter,
@@ -1466,8 +1476,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   question on its choices. Taunts, raid debrief, all-answers list and Learn-it panel are tappable too. General-mode
   lookups explain in the app language, no card or hook.
 - **Warning bands** (`RaidBand.jsx`, `BAND_STYLE` 'line'; the owner found the chevrons ugly, the other looks stay as
-  alternatives): a title rule, no strip behind it: glowing lines fade out from the label with a glint, in the boss's colors (raid boss: `impactFor(motif)` color/accent; Legends boss: its
-  palette `paletteTint`; Legendary: warning gold; else danger), and the stage light + aura take the same color. Used
+  alternatives): a title rule, no strip behind it: glowing lines fade out from the label with a glint, in the boss's
+  colors (raid boss: `impactFor(motif)` color/accent; Legends boss: its palette `paletteTint`; Legendary: warning
+  gold; else danger), and the stage light + aura take the same color. Used
   by BossIntro and the Practice raid hero. Loops move strips by a PERCENTAGE (exact at any zoom). Preview all looks:
   `dev/raid-band/harness.jsx`.
 - **The boss is a fight** (`BossArena.jsx`): entrance (`BossIntro`, timings in `ENTRANCE`; static under reduced
@@ -1481,11 +1492,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   and a cleanup-only flag paired with a run-once guard (`opened`/`ran`) dropped the only answer (Talk stuck on "Ebi is
   thinking"). Never pair a one-shot guard with a cleanup-only flag.
 - **`/features/` (data folder) is GITIGNORED**: maps, saved questions, levels, practice log are personal.
-- **Cheat mode (hidden, testing)**: 7 quick clicks on the map title OR the Legends heading in Settings > General (reachable with no key and no map: the asset view must be showable on a fresh install; `useCheatToggle`, `CheatUI.jsx`) flip
-  `features.legends.cheats`; ⚡ buttons complete/reset/unlock/regenerate areas and steps (`cheats.js`), open locked
-  steps (a win records via `cheatCompleteNode`), set the level (`updateLearner(..., { quiet: true })`: no LEVEL_UP XP),
-  retake placement; "Win now"/"Fail now" finish a step through the NORMAL path (rewards included). Map cheats pay
-  nothing. `CheatSettingsCard` (Settings > General) shows only while on. `ctx.prompt` (= `promptDialog`) exists for it.
+- **Cheat mode (hidden, testing)**: 7 quick clicks on the map title OR the Legends heading in Settings > General
+  (reachable with no key and no map: the asset view must be showable on a fresh install; `useCheatToggle`,
+  `CheatUI.jsx`) flip `features.legends.cheats`; ⚡ buttons complete/reset/unlock/regenerate areas and steps
+  (`cheats.js`), open locked steps (a win records via `cheatCompleteNode`), set the level (`updateLearner(..., { quiet:
+  true })`: no LEVEL_UP XP), retake placement; "Win now"/"Fail now" finish a step through the NORMAL path (rewards
+  included). Map cheats pay nothing. `CheatSettingsCard` (Settings > General) shows only while on. `ctx.prompt` (=
+  `promptDialog`) exists for it.
 - **Screens**: `LegendsScreen` orchestrates; `Questionnaire`, `PlacementExam` (NOT `Placement.jsx`: Windows resolved
   `./Placement` to `placement.js`), `MapView` (centers the next step inside the screen's scroll box; `scrollIntoView`
   also scrolled the page root), `NodeRun` (everything quiz-like via `QuizRunner`), `Talk`, `EditPanel` (Accept
@@ -1499,7 +1512,6 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
 - **One-time rewards live OUTSIDE the map** (`claimReward(modeId, rewardKeyFor(kind, title))`, key `rewards-<mode>`):
   placement XP and each boss's first win (by island title) pay once per mode, even after Start over. Failed tries and
   Blitz pay `legendsTry` (5 XP, `LEGENDS_TRY_XP_CAP` 6 a day).
-
 - **Guards**: `finishingRef` (a double "See the result" recorded and paid twice), `modeIdRef` (a result after a mode
   switch shows nothing), Help's map edit waits in `pendingEdit` until a map exists and nothing in `BUSY_VIEWS` runs, a
   raid left by navigation saves on unmount, card XP only for cards Anki recorded, one hint scroll per question, Blitz
@@ -1514,12 +1526,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   and `replays` (`replayFactor`); `legendsXp` in game/engine.js.
 - **Fights are strikes** (`fight.js`, pure, `fight.test.js`; boss, Legendary, raids). `judgeStrike` (kit/judge.js):
   CLEAN (tested thing and everything else right) deals 2; GLANCING (tested thing right, something else wrong) deals 1
-  and its slip returns as an attack; MISS costs a life. A choice (the typed question's `alt`, "🛡 Show choices") is a SAFE
-  strike of 1, **ALWAYS offered** (the owner, in capitals: questions can be ambiguous): every phase, attacks and
-  inserted questions keep their `alt`, Legendary too (`canUseChoices = q => !!q.alt`). Every 3rd clean strike in a row crits (+1); `weakTo` items (rule items first) +1. A
-  missed question returns `ATTACK_GAP` questions later as a telegraphed ATTACK (blocked = counter 1, missed = 2 lives;
-  max `MAX_ATTACKS`, never from an attack). Enrage at half health (phase art and abilities; choices stay). A shield absorbs one life. The OUTCOME
-  decides the pass (`fightStars`): questions running out with lives left is a win. Boss/Legendary questions are DUAL
+  and its slip returns as an attack; MISS costs a life. A choice (the typed question's `alt`, "🛡 Show choices") is a
+  SAFE strike of 1, **ALWAYS offered** (the owner, in capitals: questions can be ambiguous): every phase, attacks and
+  inserted questions keep their `alt`, Legendary too (`canUseChoices = q => !!q.alt`). Every 3rd clean strike in a row
+  crits (+1); `weakTo` items (rule items first) +1. A missed question returns `ATTACK_GAP` (3) questions later as a
+  telegraphed ATTACK (blocked = counter 1, missed = 2 lives; max `MAX_ATTACKS` (5), never from an attack). Enrage at
+  half health (phase art and abilities; choices stay). A shield absorbs one life. The OUTCOME decides the pass
+  (`fightStars`): questions running out with lives left is a win. Boss/Legendary questions are DUAL
   (`sanitizeQuestions(..., {dual})`).
 - **Fight grading is FAST, then looked at again** (`kit/fightJudge.js`, `kit/judge.js`, `FightExtras.jsx`
   `useFightCheck`). Decisions (who is re-checked, appeal timing, debrief rows, question resolution, Learn-it items) live
@@ -1530,10 +1543,10 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     the note (into the SAME answer's feedback, `verdictSeq`) and a glancing slip's fix. That attack enters as a
     `_pending` placeholder, skipped if its text is late (`resolveQuestion`). Local matches and choices stay instant; a
     failed verdict call is 'error' (ask again). **NO KEY is never a silent miss**: an unmatched answer is "could not
-    check" (`kit_checkNoKey`: no heart, no Anki Again); non-fight quizzes SELF-GRADE (`selfGraded`, `kit_self*`). Each
-    answer is claimed once synchronously (a failed check releases it). Grader flags read "sí"/"True."/"falso"
-    (`flagOf`); `stripAccents` drops only Latin/Greek/Cyrillic accents + Arabic/Hebrew marks (か ≠ が, क ≠ का);
-    `normalizeAnswer` is NFKC + trims CJK punctuation.
+    check" (`kit_checkNoKey`: no heart, no Anki Again); non-fight quizzes SELF-GRADE (`selfGraded`, `kit_self*`).
+    Each answer is claimed once synchronously (a failed check releases it). Grader flags read "sí"/"True."/"falso"
+    (`flagOf`, kit/fightJudge.js); `stripAccents` (kit/grade.js) drops only Latin/Greek/Cyrillic accents +
+    Arabic/Hebrew marks (か ≠ が, क ≠ का); `normalizeAnswer` (kit/grade.js) is NFKC + trims CJK punctuation.
   - B. Every AI miss/glancing gets a background `recheckStrike`; it only RAISES a verdict. Overturned: `FightNotice`,
     and while the fight runs `refundFor` + `applyRefund` (`refund.test.js`) return the hearts (`strikeCost`) and deal
     the missing damage; `last.kind: 'refund'` (`refundN`) plays a sweat drop and heart flying back, never a hit; its
@@ -1553,29 +1566,31 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     last `RECENT_MAX` lines per device in `platform.kv`, sent as "never repeat"; a reply sharing a 3+ word phrase (4
     chars CJK) is retried once, then NOTHING shown; the persona sample is a fallback only when the model failed, once
     per fight). **What the voice MANDATES is never a repeat** (`tauntRepeats(line, recent, sample, voice)`, RaidRun
-    passes the `RAID_VOICES` entry as `mandated`): a word run touching its opener, signature or nickname, or the
-    first words of a non-English line not starting with the literal opener (its slot, `leadOf`: a translated opener;
-    `tauntTranslated(userLang)`), is left out on both sides; the line's other wording is still checked, and a line
-    whose OWN words equal another's is a repeat (a short line of mandated words had no run left to compare) (without it 24 of 27 bosses' lines matched their own
-    sample and every second line matched the first, so nothing showed). `raidTaunts.test.js` builds a line in every
-    persona's structure. Voices: `RAID_VOICES` (raidVoices.js); Legends bosses `islandVoice` + `RAID_VOICE_RULES`/`STOCK_WORDS`.
-    `TauntBubble` under the arena; a line arriving after the next question is dropped; Help hears it (`boss-taunt`).
+    passes the `RAID_VOICES` entry as `mandated`): a word run touching its opener, signature or nickname, or the first
+    words of a non-English line not starting with the literal opener (its slot, `leadOf`: a translated opener;
+    `tauntTranslated(userLang)`), is left out on both sides (without it 24 of 27 bosses' lines matched their own sample
+    and every second line matched the first, so nothing showed); the line's other wording is still checked, and a line
+    whose OWN words equal another's is a repeat (a short line of mandated words had no run left to compare).
+    `raidTaunts.test.js` builds a line in every persona's structure. Voices: `RAID_VOICES` (raidVoices.js); Legends
+    bosses `islandVoice` + `RAID_VOICE_RULES`/`STOCK_WORDS` (raidVoices.js). `TauntBubble` under the arena; a line
+    arriving after the next question is dropped; Help hears it (`boss-taunt`).
 - **Accent grading is ONE setting** with Study's accent drill (`studyRules.accentDrill`; `subject.strictAccents`,
   `subject.setStrictAccents`), only for languages with accents: fights pass `strictAccents: !!subject.accents && ...`
   (a general mode graded "Quebec" for "Québec" glancing, with an accent attack). Relaxed: a slip counts clean unless it
   makes another word or form (`accentChangesWord`).
-- **Codex** (`Extras.jsx`, `itemTier`/`areaCodex`): an area's items, new → bronze → silver → gold (gold needs Good+ in
-  a fight); tiers are computed, so gold fades. Every Legends answer is graded by the shared rule (NodeRun `record`:
-  `gradeFromStrike` in fights, else `gradeAnswer`; hint scroll = `hintUsed`) → `items[].grade`: Again = miss, Hard
-  right but not toward gold (`bossRight` counts Good+), Good/Easy right. No `grade` (cheats, blitz) counts by
+- **Codex** (`Extras.jsx`; `itemTier`/`areaCodex` in map.js): an area's items, new → bronze → silver → gold (gold needs
+  Good+ in a fight); tiers are computed, so gold fades. Every Legends answer is graded by the shared rule (NodeRun
+  `record`: `gradeFromStrike` in fights, else `gradeAnswer`; hint scroll = `hintUsed`) → `items[].grade`: Again = miss,
+  Hard right but not toward gold (`bossRight` counts Good+), Good/Easy right. No `grade` (cheats, blitz) counts by
   `correct`. `tallyStudiedCard` takes Study's grade from `CARD_GRADED`. **Gold blitz**: timed local recall (no AI).
 - **Area extras** (`parseAreaExtras`): `story` (tappable, until "Got it", `storySeen`), `canDo` (**passport**, stamped
   on clear), `bonus` (**chest**: one right recall opens it, `chestOpened`). One optional **Adventure** step per area
   (`goal` mission in Talk; Ebi ends with `GOAL_TAG`; `ADVENTURE_TURNS`).
-- **Helpers** (`map.helpers`, max `HELPERS_MAX`, never bought): first flawless level = 📜 hint scroll (half of each word),
-  first flawless Weak spots = 🛡 shield (next boss fight). **Nemesis rematch**: a lost boss stores missed items
-  (`area.nemesis`); the next boss asks `NEMESIS_SHARE` % about them; a win clears it. **Journey heatmap** (`map.days`,
-  `logDay`; layout `journeyCells`: one Monday-to-Sunday week per column). **First-miss nudge**: result offers first-time misses (`missNudged`) as cards once; off in Settings.
+- **Helpers** (`map.helpers`, max `HELPERS_MAX` (2), never bought): first flawless level = 📜 hint scroll (half of
+  each word), first flawless Weak spots = 🛡 shield (next boss fight). **Nemesis rematch**: a lost boss stores missed
+  items (`area.nemesis`); the next boss asks `NEMESIS_SHARE` (30) % about them; a win clears it. **Journey heatmap**
+  (`map.days`, `logDay`; layout `journeyCells`: one Monday-to-Sunday week per column). **First-miss nudge**: result
+  offers first-time misses (`missNudged`) as cards once; off in Settings.
 - **Focus mode** (`features.legends.focus`, questionnaire + `SettingsCard.jsx`): no entrance cinematic
   (`BossIntro calm`), floaters or combo flair; same rules.
 - **Boss motion switches** (art.jsx): system reduce-motion stills every drawing ("no boss animates"). **Always animate
@@ -1596,14 +1611,17 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     `POWER_DEFAULTS` in powers.js = the old constants: `window`, `sharpen`, `fury`, `momentumCrit`, `siphon`, `wind`,
     `steadfast`, `shield`, `bandage`, `loadoutMax`; floors `POWER_FLOORS`): a variant layer may weaken or strengthen
     them (`powers: { window: { add: -1 } }`). The engine reads `powersOf(fight)`; RaidRun, `siegeRule(powers)`
-    (Help) and `powerVars(id, powers, damage)` (every `lg_pow*`/`lg_fx*` number) read the profile's. **Fairness is the owner's rule**: a
-    bigger boss gets more hearts or an ability that protects the player; no boss needs near-perfect play.
+    (Help) and `powerVars(id, powers, damage)` (every `lg_pow*`/`lg_fx*` number) read the profile's. **Fairness is
+    the owner's rule**: a bigger boss gets more hearts or an ability that protects the player; no boss needs
+    near-perfect play.
     `profiles.test.js` simulates every boss with its own ability (65% beats each in a handful of runs, 60% beats all,
     later bosses take longer; `PROFILES=1` prints the table). Tune there, never by feel.
   - **Run size is a setting** (`features.legends.raidRunSize`, `RAID.runSizes`, `raidRunSize`; Fight settings on the
     raid intro + Settings > General > Legends), separate from health: it only decides how many runs a boss takes.
-  - **A SIEGE**: wounds stay until the boss is beaten; lost hearts stay lost for the day; a run that loses EVERY heart makes the boss RALLY (heals back `RAID.rallyShare`, half, of that run's damage) and refills the hearts at once (no lockout; the owner: "why stop them?"). Each new local day the hearts
-    are full again and the boss heals its profile `heal`, applied lazily per elapsed day, ONLY FORWARD (`regenSiege`,
+  - **A SIEGE**: wounds stay until the boss is beaten; lost hearts stay lost for the day; a run that loses EVERY heart
+    makes the boss RALLY (heals back `RAID.rallyShare`, default half, of that run's damage; a profile may override it)
+    and refills the hearts at once (no lockout; the owner: "why stop them?"). Each new local day the hearts are full
+    again and the boss heals its profile `heal`, applied lazily per elapsed day, ONLY FORWARD (`regenSiege`,
     idempotent: two computers never heal twice). Stored
     `siege: {boss, hp, damage, hearts, date, bandage?}`; a siege saved by an older build keeps its health until beaten;
     `day.hp/damage` written in step for older builds; a state without `siege` restarts from `day` (`siegeOf`).
@@ -1654,8 +1672,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     to update Ebiki (`lg_raidNewerBoss`). Tests: `raidNewerBoss.test.js`.
   - **Raid art**: `public/assets/legends/raids/<motif>.svg`, phase layers `lg-p2`/`lg-p3` (start
     `style="display:none"`), `lg-p1` (phase 1 only), `lg-p12` (gone in phase 3), switched by the arena's `data-phase`.
-    Art rules: the guide's RAID BOSSES section (no clutter: a simple fitting background or none, the character evolves per phase, phase 3 clearest). Plan and direction:
-    `docs/raid-bosses-plan.md`, `docs/legends-art-guide.md` (read first). Edit the SVGs directly (generator scripts are
+    Art rules: the guide's RAID BOSSES section (no clutter: a simple fitting background or none, the character
+    evolves per phase, phase 3 clearest). Plan and direction: `docs/raid-bosses-plan.md`, `docs/legends-art-guide.md`
+    (read first). Edit the SVGs directly (generator scripts are
     outside the repo). Phase change: `usePhaseShift` (rises only) flashes/shakes (`lgPhaseShift`) and fades "PHASE N"
     UNDER the boss (`lgPhaseTag`; a stamp over it hid the change); focus mode skips it, and so does a knockout (never
     while `down`: it sat over the falling boss; any non-rise ends the stamp at once).
@@ -1666,10 +1685,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     `lg-photo-*` groups after sanitizing (the file holds no URL), ONE FILE PER CELL: `raids/ophanim/<sprite>-<n>.webp`
     (`PHOTO_CELLS`, `photoCellUrl`, cut from the `raids/ophanim-*.webp` sheets) as plain `<image>`, never a nested
     `<svg viewBox>` window onto a sheet (rendered jumbled and misplaced on Linux); used only if every cell loads
-    (`checkPhotoSprites`), else the painted file shows; painted parts it replaces are `lg-photo-hide`. Sky and light are HTML layers (art.jsx PHOTO LIGHT,
-    `mix-blend-mode: screen` + `blur`). The great eye is MASKED to an almond (no plate or bezel: owner rejected one).
-    Revert = delete both blocks + their uses (loadArt call, `photo` in LegendsArt) + the five webps and `raids/ophanim/`, restore
-    `ophanim.svg` from the painted backup (ophanim-backup-before-photo-eye).
+    (`checkPhotoSprites`), else the painted file shows; painted parts it replaces are `lg-photo-hide`. Sky and light
+    are HTML layers (art.jsx PHOTO LIGHT, `mix-blend-mode: screen` + `blur`). The great eye is MASKED to an almond (no
+    plate or bezel: owner rejected one). Revert = delete both blocks + their uses (loadArt call, `photo` in
+    LegendsArt) + the five webps and `raids/ophanim/`, restore `ophanim.svg` from the painted backup
+    (ophanim-backup-before-photo-eye).
 - **Raid abilities (v2.1)** (owner: they change how the FIGHT plays, never how a question is asked: no timers, nothing
   hidden, a right answer never marked wrong). ONE module per boss, `abilities/<motif>.js`, whose header comment is the
   spec (mechanic, numbers in `K`, why); hooks contract `_contract.js`, shared limits `_rules.js`; `RAID_ABILITY`
@@ -1697,12 +1717,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     `impact/styles.js` (pure data) says how THAT boss plays it: two fixed colors, its own glyph
     (`impact/glyphs.jsx`), parts for hit / crit / strike / ko (`impact/parts.jsx`: CSS + inline SVG in container
     units, deterministic) and body moves (`impact/body.js`: lgBodyHit_/Strike_/KO_ keyframes on the boss box; a
-    knockout never fades below 0.2, the result screen keeps the boss in frame). `StrikeFxLayer.jsx` composes them
+    knockout never fades below 0.25, the result screen keeps the boss in frame). `StrikeFxLayer.jsx` composes them
     (`momentParts`: a white flash on every hit, the strike smaller behind a parry or a shield bubble, bigger with a
     red crack on a heavy blow) and adds the labels. `impact.test.js`: every RAID_ORDER boss has a style, no two
     share a glyph, a strike or a knockout, only known parts/glyphs/moves, fixed hex colors. A new raid boss needs its
     `impact/bosses/` files (below). Played by the SAME `useJuice` (`moment`, `STRIKE_FX` juice), so every juice limit
-    applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 27:
+    applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc
+    (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 27:
     `/dev/raid-impact/?moment=hurt` (dev only; `freeze(ms)` in the console). Asset view: "Impact moments" and
     "Powers" buttons under the phase demo.
   - **ONE FOLDER PER BOSS: `impact/bosses/<motif>.js` + `<motif>.parts.jsx`** (README there): `style` (what was
@@ -1733,10 +1754,10 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     Review: `/dev/raid-impact/?moment=ko&times=peak` (all 27) and `?arena=<motif>`.
   - **Powers animate in the LOWER HALF of the boss box, never over the face** (the owner: best mix of visibility and
     position; `impact/PowerFx.jsx`): a cast (`power` {id, n}) and a power hit (`proc`) play in BossArena's POWER STAGE
-    (`POWER_STAGE` share of the box height, `data-power-stage`; labels must never clip); armed powers are pills in the hearts row (`PowerBadges`: icon in
-    its own moving look + pips), Shield rings the hearts, Steadfast shows gold hearts. Nothing power-related renders
-    in the boss box (`powerfx.test.js` / the asset view check it). QuizRunner pops the two 50:50 tiles in and slides a
-    hint in (`data-quiz-pop`, none under reduced motion).
+    (`POWER_STAGE` share of the box height, `data-power-stage`; labels must never clip); armed powers are pills in the
+    hearts row (`PowerBadges`: icon in its own moving look + pips), Shield rings the hearts, Steadfast shows gold
+    hearts. Nothing power-related renders in the boss box (`powerfx.test.js` / the asset view check it). QuizRunner pops
+    the two 50:50 tiles in and slides a hint in (`data-quiz-pop`, none under reduced motion).
 - **Asset view** (cheat mode only: `AssetView.jsx`, map header ⚡, sidebar entry `assets` via `AssetScreen.jsx`; a
   `navItems` entry may carry `visible({ registry, featureSettings })`): tabs **Legends**, **Raid bosses** (phases via the
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the
@@ -1758,11 +1779,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   or parse, the vector never enters the page; an image runs no script and loads nothing), painted on a canvas and
   encoded by the worker pool: **never `canvas.toBlob` on a busy page** (it waits for an idle moment, about 1.2 s per
   tile while bosses animate). Art files must be well-formed XML for this (no attribute twice in a tag: the test checks
-  every file; the HTML parser had hidden it). Colors resolved from the box, kept in Cache Storage `ebiki-art-snap-v2` keyed by the
-  file's ETag (a HEAD), size and colors; a theme change re-keys (`useThemeTick`). The SVG file is read only on a miss.
-  **Shown first, checked after**: a layout effect puts up this page life's snapshot before the first paint
-  (`peekSnap`), else the one the localStorage index (`ebiki-art-snap-index`, base → newest key) names; the HEAD runs
-  AFTER and only replaces a snapshot whose file changed (the tab switch waited on 26 HEADs). Size from the box's
+  every file; the HTML parser had hidden it). Colors resolved from the box, kept in Cache Storage `ebiki-art-snap-v3`
+  keyed by the file's ETag (a HEAD), size and colors; a theme change re-keys (`useThemeTick`). The SVG file is read
+  only on a miss. **Shown first, checked after**: a layout effect puts up this page life's snapshot before the first
+  paint (`peekSnap`), else the one the localStorage index (`ebiki-art-snap-index-v3`, base → newest key) names; the
+  HEAD runs AFTER and only replaces a snapshot whose file changed (the tab switch waited on 26 HEADs). Size from the box's
   LAYOUT width x `currentCSSZoom` x dpr, never its rect (a tile mid-animation missed its snapshot).
   **Warming**: every small still drawing shown is remembered (`noteSnapUse`, `ebiki-art-snap-used`, CSS size); 20 s
   after start, at idle moments, `warmSnaps` redraws the ones whose file or zoom/density changed, so no screen waits.
@@ -1773,10 +1794,10 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   `__ebikiNoSnap` (and `__ebikiArtEager`/`__ebikiNoBake`) turn it off.
 - **Art loads near the screen and pauses off it** (`useArtInView`: comes in within `ART_NEAR` (1) screens, leaves past
   `ART_FAR` (3), measured against the nearest VERTICAL scroller (`scrollRootOf`), never the window: <main> clipped it,
-  so art arrived on screen empty and popped in;
-  drawings sit on their own layer (`will-change`); NEVER pause them for scrolling (the owner: looks broken); `sanitizeQueue` one file per task,
-  `pauseAnimations` off screen): mounting every raid boss at once lagged the owner's computer. The dev gallery sets
-  `window.__ebikiArtEager = true` (check-art needs it); keep that line.
+  so art arrived on screen empty and popped in; drawings sit on their own layer (`will-change`); NEVER pause them for
+  scrolling (the owner: looks broken); `sanitizeQueue` one file per task, `pauseAnimations` off screen): mounting
+  every raid boss at once lagged the owner's computer. The dev gallery sets `window.__ebikiArtEager = true` (check-art
+  needs it); keep that line.
 - **A still drawing in the page is its idle animation FROZEN at frame 0** (`__lgFrozen`, paused + `setCurrentTime(0)`;
   sleep/wake never unfreezes it), not the file stripped of motion: parts rest elsewhere than where their loop starts
   (bats, a tilted scythe), so a hover copy or switching motion on popped (measured up to 11% of pixels on the reaper;
@@ -1801,14 +1822,14 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   (display none: an ability layer, a missing Hydra head) stays pending and asks for a main frame every frame: it is
   cancelled while hidden and rejoins the drawing's time when shown (a MutationObserver on the SVG's ancestors' attributes
   re-looks). A CSS animation moving an element's transform (fight moves, `.lgfa-vampire-orbit > g`) WINS as it did over
-  SMIL: ours steps aside while it runs (animation events + a 500 ms re-look while anything has stepped aside). Eager pages (gallery,
-  check-art) keep SMIL. `node dev/legends-gallery/check-smooth.mjs` (in check-art) fails a leftover SMIL, a refused
-  composite, main-thread frames while only a drawing plays, and any look difference from the SMIL;
-  `__ebikiNoComposite = true` compares. **The SVG's clock follows what is ON SCREEN** (`syncClock`, re-armed on every play and seek): a Web Animation starts
-  only once the compositor takes it (70 ms to a few hundred while the page loads) and every re-sync read the SVG clock, so a
-  baked rig swapping in jumped ahead by that gap (the owner: animations "bug out and jump a little but then fix themselves",
-  while loading); a replaced drawing hands on `shownTime`, and the live effect is a LAYOUT effect (a new SVG painted one frame
-  at time 0 first).
+  SMIL: ours steps aside while it runs (animation events + a 500 ms re-look while anything has stepped aside). Eager
+  pages (gallery, check-art) keep SMIL. `node dev/legends-gallery/check-smooth.mjs` (in check-art) fails a leftover
+  SMIL, a refused composite, main-thread frames while only a drawing plays, and any look difference from the SMIL;
+  `__ebikiNoComposite = true` compares. **The SVG's clock follows what is ON SCREEN** (`syncClock`, re-armed on every
+  play and seek): a Web Animation starts only once the compositor takes it (70 ms to a few hundred while the page
+  loads) and every re-sync read the SVG clock, so a baked rig swapping in jumped ahead by that gap (the owner:
+  animations "bug out and jump a little but then fix themselves", while loading); a replaced drawing hands on
+  `shownTime`, and the live effect is a LAYOUT effect (a new SVG painted one frame at time 0 first).
 - **The art clock is OFF (`ART_CLOCK = false`, art.jsx)**: paced at 30 redraws a second under a shared page budget,
   every boss and the whole app looked choppy on the owner's 480 Hz screen. Drawings play NATIVELY at the display's rate;
   `keepTimeline` only keeps continuity (a baked rig or phase swap carries on at the old SVG's time); the bake keeps that
@@ -1862,21 +1883,20 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   `coverage.mjs`, `perf.mjs` (OLD raw SMIL vs CLOCK vs NOW). Run them after any change to the bake or the art.
 - **Diagnostics** (dev tools console): `__ebikiArtPace()` (level, budget, fps per drawing), `__ebikiBakeStats`,
   `__ebikiNoBake = true` (vector only, to compare), `__ebikiNoEase = true` (linear SMIL, to compare; set before the
-  art loads), `__ebikiArtFreeze = true` (stop the clock). Gallery/check-art run
-  eager and unbaked.
+  art loads), `__ebikiArtFreeze = true` (stop the clock). Gallery/check-art run eager and unbaked.
 - **Boss figures breathe past their frame** (`BOSS_HEADROOM` 20%): boss SVGs render `overflow="visible"` clipped at
   `inset(-20%)`, so flames/wings aren't sliced flat. **That headroom is real LAYOUT space wherever something sits next
   to a figure** (`room` prop / `headroomPx(size)`: asset view, gallery, intro card, arena, results, raid hall), else
   tags and titles were drawn over (the owner). Banners clip at their own edge; keep their animated parts inside.
 - **Run `node dev/legends-gallery/check-art.mjs` (dev server up) before committing ANY art change.** FAILS on a boss
   part moving past frame + headroom, a raid boss part SITTING past it (`clip`, static parts too: Banshee pipe caps
-  and the Titan's top were sliced flat; FAILS for every raid boss, judged on the real outline, never the rotated box, over each loop's WHOLE period (a
-  220 s ring spin is cut late);
-  only an owner-approved background goes in `CLIP_REVIEWED`; `EBIKI_ONLY=raids/<motif>` checks one) and an idle
-  scale/skew that slides instead of pulsing in place; WARNS on banner
-  parts cut mid-motion and OVERDRAW (a decorative stroke must END inside the fill it decorates). Travellers and
-  deliberate collapses are allowed; lines meant to leave a shape go in `REVIEWED` only after looking. Write edit
-  scripts holding regex backslashes with the Write tool (a heredoc turned `\b` into a backspace, `\s` into `s`).
+  and the Titan's top were sliced flat; FAILS for every raid boss, judged on the real outline, never the rotated box,
+  over each loop's WHOLE period (a 220 s ring spin is cut late); only an owner-approved background goes in
+  `CLIP_REVIEWED`; `EBIKI_ONLY=raids/<motif>` checks one) and an idle scale/skew that slides instead of pulsing in
+  place; WARNS on banner parts cut mid-motion and OVERDRAW (a decorative stroke must END inside the fill it
+  decorates). Travellers and deliberate collapses are allowed; lines meant to leave a shape go in `REVIEWED` only
+  after looking. Write edit scripts holding regex backslashes with the Write tool (a heredoc turned `\b` into a
+  backspace, `\s` into `s`).
   It also runs **`check-joints.mjs`** (JOINT: the kitsune's head "dislocated from her body" in 40 fight animations):
   every moment, ability fx, assault and knockout hold, 3 phases, every 60 ms, three probes on the CHIN SEAM (the head's
   lowest drawn point on the neck axis; a point inside the face, her mouth, let a swinging chin pass) followed through
@@ -1886,21 +1906,23 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   contact sheets). A head moves by TILTING on its chin (pivot at the seam) or rides a bust wrapper.
   And **`check-moment-clip.mjs`** (CUT: a Horseman's lantern and horse muzzle were sliced flat in fight frames every
   check missed): every moment, fx (with its `.lgr-` reaction), fx-pending, assault, knockout, held down pose and
-  `data-ab-*` state layer, again on the MOST VISIBLE ability state (every `data-ab-*` at its max: six Hydra heads), 3 phases,
-  every 60 ms, inside the arena's real `inset(-20%)` art box; a shape partly inside reaching over 0.5 units past it FAILS
-  (real outline + stroke; `<image>` cells, filled as PHOTO LAYERS does, by the corners of their painted alpha box and
-  failing even at rest since check-art never sees them; wholly-outside parked parts ignored; `EBIKI_ONLY`, `--sheet <dir>`, ~100 s for all 27).
+  `data-ab-*` state layer, again on the MOST VISIBLE ability state (every `data-ab-*` at its max: six Hydra heads),
+  3 phases, every 60 ms, inside the arena's real `inset(-20%)` art box; a shape partly inside reaching over 0.5 units
+  past it FAILS (real outline + stroke; `<image>` cells, filled as PHOTO LAYERS does, by the corners of their painted
+  alpha box and failing even at rest since check-art never sees them; wholly-outside parked parts ignored;
+  `EBIKI_ONLY`, `--sheet <dir>`, ~100 s for all 27).
   And **`check-ko-hold.mjs`** (KO: the Showman's arms, head and masks snapped back to idle when the ko moment ended):
   plays the knockout as useJuice does (data-down, then data-moment="ko" + the strike layer's PARTS_CSS, both gone at
-  JUICE.delay + koMs + 250) and FAILS a named part moving over 1 unit or changing opacity from the last cinematic frame to
-  the held pose 300 ms / 2 s later. The hold must come from `[data-down]` rules in fx/<motif>.jsx. It also plays the REAL
-  arena (dev/raid-impact ?arena=, full AND compact layout) and FAILS a held boss with over 55% of its painted pixels lost
-  (outside the card or under the DEFEATED tag; the Horseman sank off the compact card). `CLIP_OVERRIDE`/`CLIP_SVG_DIR` work.
-  And **`check-idle-breath.mjs`** (BREATH/JUDDER: Chronos, "a hunk of metal", breathed so slowly and subtly "it looks like
-  he's glitching up and down"; then "THE SLOW STUTTERING BOBBING ... LOW FRAMERATE" on 17 bosses): FAILS ANY idle loop
-  moving half the figure or more (drift), a big part (30%+) moving under 3 px at panel size (creep) or breathing/bobbing
-  under 12 px/s (breathe), and any idle loop
-  whose speed jumps in one frame as the app plays it (eased); `BREATH_TABLE=1` prints every whole-figure loop, `BREATH_NOEASE=1` measures linear playback.
+  JUICE.delay + koMs + 250) and FAILS a named part moving over 1 unit or changing opacity over 0.15 from the last
+  cinematic frame to the held pose 300 ms / 2 s later. The hold must come from `[data-down]` rules in fx/<motif>.jsx.
+  It also plays the REAL arena (dev/raid-impact ?arena=, full AND compact layout) and FAILS a held boss with over 55%
+  of its painted pixels lost (outside the card or under the DEFEATED tag; the Horseman sank off the compact card).
+  `CLIP_OVERRIDE`/`CLIP_SVG_DIR` work. And **`check-idle-breath.mjs`** (BREATH/JUDDER: Chronos, "a hunk of metal",
+  breathed so slowly and subtly "it looks like he's glitching up and down"; then "THE SLOW STUTTERING BOBBING ... LOW
+  FRAMERATE" on 17 bosses): FAILS ANY idle loop moving half the figure or more (drift), a big part (30%+) moving under
+  3 px at panel size (creep) or breathing/bobbing under 12 px/s (breathe), and any idle loop whose speed jumps in one
+  frame as the app plays it (eased); `BREATH_TABLE=1` prints every whole-figure loop, `BREATH_NOEASE=1` measures
+  linear playback.
 - **SVG pivots and loops** (fill-box origins, flame/drip/cape pivots, additive loops, entrances ending on the file's
   pose, never forced `opacity`): `docs/legends-art-guide.md` "Motion". Check with measured centre drift.
 - **Help** can open a map edit: `legends_edit` action (capability text only when `appContext.legendsAvailable`),
@@ -1922,10 +1944,10 @@ Capacitor (web UI in a WebView) or React Native (UI rebuilt, logic reused). Both
 - **Routes an on-device router must answer**: `config`, `modes`, `modes/knowledge`, `knowledge-sections`,
   `ankiformat`, `deck-progress`, `discover-store`, `question-bank`, `chats`, `chat-load`, `keys`, `players`,
   `player-local`, `feature-data`, `usage`, `log`, `web-search` (CORS-free), `tts`, `anki` (AnkiConnect-like backend
-  only). **Desktop-only** ("not available"): `alive`, `alive-ws` (WebSocket), `bye`, `datadir`, `offline`, `sync-backup`, `update`,
-  `launchmode`, `launch-overlay`, `overlay-hide`, `overlay-screenshot`, `game-inbox` (the overlay's XP relay),
-  `ankiconnect`, `anki-focus`, `anki-start`.
-  Keep this list current when adding a route. Electron, launchers, Alt+Q overlay and the Anki updater are desktop-only.
+  only). **Desktop-only** ("not available"): `alive`, `alive-ws` (WebSocket), `bye`, `datadir`, `offline`,
+  `sync-backup`, `update`, `launchmode`, `launch-overlay`, `overlay-hide`, `overlay-screenshot`, `game-inbox` (the
+  overlay's XP relay), `ankiconnect`, `anki-focus`, `anki-start`. Keep this list current when adding a route.
+  Electron, launchers, Alt+Q overlay and the Anki updater are desktop-only.
 
 ## Card backend: Anki is swappable (`src/cards/`)
 App code reaches cards ONLY through `srs.*` from `src/cards`. `src/cards/anki` (AnkiConnect via `/api/anki`) is one
@@ -1946,8 +1968,8 @@ backend; `contract.js` is the interface (methods, shapes, at-most-once rules); s
 - The contract also owns error codes (`STORE_DOWN_CODES`, `CHANGE_MAYBE_APPLIED` = may still land, `isStoreDown`),
   blob names (`blobFileName`/`legacyBlobFileName`), the field format (HTML, `[sound:<file>]`). Content safety
   (`sanitizeCardHtml`, `escapeStrayLt`) is backend-agnostic (`html.js`); errors translated via `setTranslator`.
-- Deliberately Anki-named: `ankiConnected`, `ankiDeck`, `activeMode.ankiDeck`, i18n text. `ankiAddNote` etc. in this
-  file are adapter internals behind `srs.addNote`....
+- Deliberately Anki-named: `ankiConnected`, `ankiDeck`, `activeMode.ankiDeck`, i18n text. `ankiAddNote` etc.
+  (`src/cards/anki/index.js`) are adapter internals behind `srs.addNote`....
 - **A replacement backend** = `src/cards/<id>/index.js` (from `template.js`) with every `REQUIRED_METHODS` entry plus
   its capabilities' optional methods, registered in `src/cards/index.js` in place of Anki, plus a server half only if
   needed. Anki-only leftovers (`/api/anki*` routes, `scripts/*anki*`, setup UI, AnkiWeb banner) are harmless.
@@ -2008,7 +2030,7 @@ The owner: Anki's spacing replaces the old three questions per card. Every flash
 whose KIND climbs with the card's maturity (`tierOf(card)` from Anki: 0 Meet = never reviewed, 1 Recognize = learning,
 relearning or due within 2 days, 2 Recall 3-6 days, 3 Use 7-20, 4 Produce 21-89 (Anki's mature), 5 Master 90+).
 Struggling cards drop on their own: Anki shrinks a lapsed card's interval. Legends items: `tierOfItem(codex, {kind})`.
-- **Tier 0 TEACHES**: answerable correctly first try from what it shows (exempt from the leak guard, `tierTeaches`).
+- **Tier 0 TEACHES**: answerable first try from what it shows (exempt from the leak guard, `tierTeaches`).
   Open tiers (`tierOpen`) get no prefix hint and are graded on USE (`openTierGradingRule`; fights `tierJudgeLine`).
 - **Same features everywhere** (Study, raids, Legends lessons/boss/Legendary): `TierChip` above the question, typed by
   default with a PER-QUESTION "🛡 Show choices" / "⌨ Type it instead" toggle (`qt_*`; a choice rates at most Good,
@@ -2029,9 +2051,10 @@ SURE THE USER UNDERSTANDS IT ... DIFFERENT CARDS AND SUBJECT MIGHT NEED A DIFFER
 QUESTION OR LEARNING EXPERIENCE IT SHOULD GIVE BASED ON THE GOAL IS REQUIRED." A CompTIA learner who can type "secure
 enclave" may still not know what it is.
 - **Before a question is written, the card's GOAL is decided** (`cardGoal`, memoized per card): language `word` (recall,
-  then use) / `phrase` (any 2+ words past a leading article or particle, "buenos días": say it, know when) / `rule` (apply it, never recite it); general `concept` (understand: what it
-  is, what for, when, how it differs, applied; the default) / `fact` (exact, then its context) / `procedure` (steps in
-  order, what breaks) / `formula` (apply, then each part). From what the app knows: mode kind, card shape, a Legends
+  then use) / `phrase` (any 2+ words past a leading article or particle, "buenos días": say it, know when) / `rule`
+  (apply it, never recite it); general `concept` (understand: what it is, what for, when, how it differs, applied; the
+  default) / `fact` (exact, then its context) / `procedure` (steps in order, what breaks) / `formula` (apply, then each
+  part). From what the app knows: mode kind, card shape, a Legends
   item's kind. The writer may state its own `goal` in the JSON (`shapeGoal` keeps a valid one).
 - **The goal travels with the question**: `tierInstruction(tier, { goal })` and `goalLine(goal, tier)` in Study's prompt,
   `goalsBlock` + `GOAL <id>` per card/item in raid and Legends prompts. The ladder climbs toward FULL understanding per
@@ -2040,23 +2063,25 @@ enclave" may still not know what it is.
 - **The review pass judges it** (`GOAL_CHECK_RULES` inside `QUESTION_CHECK_RULES`; `buildQuestionReviewPrompt({ goal })`
   shows each question's goal at its tier): a question that does not serve the goal at its tier is rejected, and so is a
   letter or prefix hint on a non-language card.
-- In a general mode the goal is part of the question-reuse signature (`style` gets `|goal:<id>`): it changes the questions.
+- In a general mode the goal is part of the question-reuse signature (`style` gets `|goal:<id>`).
 - **A new question surface states the goal and lets the review judge it.** Never a template that only asks for the
   name of a thing.
 
-### Hints and choices (the owner, 2026-10-10: "the first letter basically gives it away and also the fact that the user knows that the card is in the deck gives it away")
-- **THE PREFIX HINT, never a letter count** (no length anywhere, retry hints and the raid Hint power included). One engine, `utils/prefixHint.js` (tested), used by Study
-  (`utils/letterCue.js`) and fights (`kit/fightSettings.js`): one word = its first ~20% of letters, at least 1, never
-  leaving under 2 hidden (perro "(p…)", sombrero "(so…)", pantalones "(pa…)"); several words = each word's first letter
-  ("(b… d…)"), a SHORT word (1 to 2 letters) only "…" ("a veces" "(… v…)"), all-short phrases none; an ELISION shows
-  the word after it ("l'eau" "(l'e…)", `splitElision`), a number "…" ("3 años" "(… a…)"). A word of 1 or 2 letters
-  ("yo") and a Hangul word under 4 syllables get none (one letter would be half of it). Han/kana-first answers get none (only Han/kana
-  ask the model for the reading's first sound in quotes, `needsReadingCue`). LANGUAGE modes only, typed
-  recall/fill_blank only, never an open tier, never while choices show (`choicePromptText` / `stripLetterCues`;
-  `stripPrefixHint(text, answers)` strips only THOSE answers' group, a bare "(…)" never). `typedPrompt` puts it after
-  the blank or before the closing punctuation, idempotent; prefix tokens are never tappable. Prompts never ask the
-  model for letters. Retry hints after a miss: a LONGER prefix, then the model's clue (`retryHints`; none with
-  `noPrefix`).
+### Hints and choices
+The owner (2026-10-10): "the first letter basically gives it away and also the fact that the user knows that the card
+is in the deck gives it away".
+- **THE PREFIX HINT, never a letter count** (no length anywhere, retry hints and the raid Hint power included). One
+  engine, `utils/prefixHint.js` (tested), used by Study (`utils/letterCue.js`) and fights (`kit/fightSettings.js`): one
+  word = its first ~20% of letters, at least 1, never leaving under 2 hidden (perro "(p…)", sombrero "(so…)", pantalones
+  "(pa…)"); several words = each word's first letter ("(b… d…)"), a SHORT word (1 to 2 letters) only "…" ("a veces"
+  "(… v…)"), all-short phrases none; an ELISION shows the word after it ("l'eau" "(l'e…)", `splitElision`), a number
+  "…" ("3 años" "(… a…)"). A word of 1 or 2 letters ("yo") and a Hangul word under 4 syllables get none (one letter would be
+  half of it). Han/kana-first answers get none (only Han/kana ask the model for the reading's first sound in quotes,
+  `needsReadingCue`). LANGUAGE modes only, typed recall/fill_blank only, never an open tier, never while choices show
+  (`choicePromptText` / `stripLetterCues`; `stripPrefixHint(text, answers)` strips only THOSE answers' group, a bare
+  "(…)" never). `typedPrompt` puts it after the blank or before the closing punctuation, idempotent; prefix tokens are
+  never tappable. Prompts never ask the model for letters. Retry hints after a miss: a LONGER prefix, then the model's
+  clue (`retryHints`; none with `noPrefix`).
 - **THE CHOICE POOL** (`utils/choicePool.js` `planChoices`, tested; `planStudyChoices` in App, `withPoolChoices` in
   fights): distractors are OTHER cards of the same deck the learner has ALREADY STUDIED (never a new card), the same kind
   (part of speech where known, the same number of words) and, in a language mode, SHARING THE SHOWN PREFIX, so neither
@@ -2084,13 +2109,15 @@ enclave" may still not know what it is.
   guard (`fairModelOptions`), never all of them. **Fight choices are ALWAYS offered, so typed only is a last resort**:
   a question left with NO fair wrong option (the guard or the check rejected them all) is marked `needChoices` and
   `checkChoices` asks the model ONCE for fresh wrong options (one call for the batch, `buildFreshOptionsPrompt`: told
-  what was rejected and why, and the prefix hint the learner sees), runs the same guard (`optionGuard`, with the deck meanings the question carries in `_guard`) and check over them (options
-  not sharing the shown prefix: the question shows no hint instead); only nothing fair again = typed only
+  what was rejected and why, and the prefix hint the learner sees), runs the same guard (`optionGuard`, with the deck
+  meanings the question carries in `_guard`) and check over them (options not sharing the shown prefix: the question
+  shows no hint instead); only nothing fair again = typed only
   (`typedOnly`), a Legends choice-only question leaves and the set is TOPPED UP (`applyOptionCheck`,
   `makeQuizNow({ refill })`). `makeQuiz` runs pool + check + refill once per quiz (`quizopts:` in `once`).
   Study HOLDS a question's options until the check answers (`optionHold`, keyed `optionHoldKey`: session, card,
   question, options; tiles disabled at .5, `study_checkingOptions`, at most `OPTION_CHECK_HOLD_MS`; keys 1-4 too).
-  `cardMeaning` also reads "EN → dog", a tag-only line ("n."), "🔊 Audio" and "/ˈpe.ro/ (n.) dog". Gloss words overlap as the same word or a 4+ letter stem (car/card don't).
+  `cardMeaning` also reads "EN → dog", a tag-only line ("n."), "🔊 Audio" and "/ˈpe.ro/ (n.) dog". Gloss words
+  overlap as the same word or a 4+ letter stem (car/card don't).
 - **CHOICES NEVER BEAT THE HINT.** No set keeps to the hint while it is not on screen yet (generation, fights): the
   question shows NO hint (`noHint`, honored by `withLetterCount`, `ensurePrefixHint`, `retryHints`, the Hint power) and
   gets options planned for that. The hint already on screen (Show choices after a re-plan, the background options
@@ -2102,8 +2129,8 @@ enclave" may still not know what it is.
   and lost their hint for good. No "Type it instead" after the meaning form; question reuse never saves its options
   (`storableQuestion`); graded rows show the question as ASKED (`byChoice` → `choiceQuestionText`).
 - `distractorRule` tells every writer the same rules. General modes: deck terms of the same shape when 3 exist AND
-  the answer IS the card's term ("What does TPM stand for?" keeps the model's expansions), else
-  the model's (never a prefix). Legends choice-only questions go through the same pool and guard when their answer is
+  the answer IS the card's term ("What does TPM stand for?" keeps the model's expansions), else the model's (never a
+  prefix). Legends choice-only questions go through the same pool and guard when their answer is
   the item's word. Pools: Study = the session's studied cards + the learner context's studied sample of the same deck
   (its read starts at `beginStudy`); raids = the due cards read + that sample; Legends = the map's taught items
   (`legendsPool`). The raid **Hint power**: language = `powerHint` (`longerPrefix` at half), not on a `noHint`
@@ -2126,10 +2153,10 @@ enclave" may still not know what it is.
 ### Multiple choice (`studyAnswerStyle` = `'typed' | 'choices'`)
 - `ebiki-study-style`; "Record reviews in Anki" (`studyPracticeSync`) defaults CHECKED (`!== '0'`).
 - MC questions: 4 options + `answerIdx`, no "explain" questions, NO letter cues; options by THE CHOICE POOL rule
-  (above). **`buildChoices`** (also Fix
-  question): dedupe with the matcher's `norm()`, SHUFFLE (models bias the correct slot), verify against
-  `acceptedAnswers` (one match beats a wrong `answerIdx`; two that differ only by accents, "él"/"el", keep the model's
-  pick since the accent is the test; two different words → ask typed). Rows without question text are dropped.
+  (above). **`buildChoices`** (also Fix question): dedupe with the matcher's `norm()`, SHUFFLE (models bias the correct
+  slot), verify against `acceptedAnswers` (one match beats a wrong `answerIdx`; two that differ only by accents,
+  "él"/"el", keep the model's pick since the accent is the test; two different words → ask typed). Rows without question
+  text are dropped.
 - Fully-MC cards grade locally (`evaluateCardLocally`). **Synced MC is capped at Good** (recognition < recall).
   **`noSync` cards are excluded from EVERY sync path** (`!cs.noSync`) and show a PRACTICE badge.
 - `submitStudyChoice` advances at once, leaving a frozen `studyChoiceFlash`. Keys 1-4 answer (not while
@@ -2327,12 +2354,11 @@ separate (`pronunciation.defaultRegions`). Help sets it (`set_dialect`).
   "[sound:x]🔊 credit" is restored IN PLACE, untouched fields stay byte-identical, `{oneSound}` collapses to one
   recording (merge). Credit markup matched loosely (`fieldSounds`).
 - **Text vs HTML into Anki** (Anki's parser ate `<stdio.h>`): `ankiAddNote` runs `escapeStrayLt` and hyphenates tag
-  spaces; `ankiUpdateNote`
-  writes AS GIVEN (the audio embed re-sends existing HTML; escaping garbled `<rb>`/SVG), so plain-text callers escape
-  first: editor/bulk/merges `escapePlainHtml` (decoded text), feedback chat `update_card` `escapeStrayLt`, every add
-  path `plainFrontHtml`/`plainBackHtml` (also in `ankiCanAddNote`). **`escapeStrayLt` keeps only a real, CLOSED tag**
-  (known name, attribute-shaped text to `>`; never a lone uppercase letter, `<!` only as a comment; "a<b" is text).
-  Picture stores the deck it added to in `ankiSynced[idx]`.
+  spaces; `ankiUpdateNote` writes AS GIVEN (the audio embed re-sends existing HTML; escaping garbled `<rb>`/SVG), so
+  plain-text callers escape first: editor/bulk/merges `escapePlainHtml` (decoded text), feedback chat `update_card`
+  `escapeStrayLt`, every add path `plainFrontHtml`/`plainBackHtml` (also in `ankiCanAddNote`). **`escapeStrayLt` keeps
+  only a real, CLOSED tag** (known name, attribute-shaped text to `>`; never a lone uppercase letter, `<!` only as a
+  comment; "a<b" is text). Picture stores the deck it added to in `ankiSynced[idx]`.
 - Templates: values via `cardText`, missing `{placeholders}` empty, a `Label: {empty}` line dropped, literal `\n` →
   breaks. `cardBackToHtml` never bolds `[sound:`, cloze, MathJax, a clock time, a URL or a 🔊 credit line.
   `parseAiJson` escapes raw control characters in strings.
@@ -2448,19 +2474,17 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
 ## Notices and dialogs
 - **Toasts** (`modelHealNotice`, `aiErrorNotice`, `successNotice`: reuse it for any "done") share ONE fixed
   bottom-center flex column (z 12001; `pointerEvents:'none'`, toasts `'auto'`): a new toast goes inside it, never its
-  own fixed position (they overlapped). The pose call is `silent`. `createMode` runs on App
-  (closing Settings doesn't cancel it). **Notices go through `raiseNotice(msg, { keepAi })`: the NEWEST wins** (an old
+  own fixed position (they overlapped). The pose call is `silent`. `createMode` runs on App (closing Settings doesn't
+  cancel it). **Notices go through `raiseNotice(msg, { keepAi })`: the NEWEST wins** (an old
   notice never hides a new failure); an AI success clears only the toast an AI call raised (`aiCallErrorRef`). The
   column rises above any `[data-composer]` on screen (`toastClearance.js`), moves bottom-right while Ebi Studio is open,
   and on phones sits above the bottom bar, full width (`.toast-stack-phone`).
 - **Nested Esc handlers call `preventDefault()`; outer ones (SettingsModal) skip `e.defaultPrevented`.**
 - **NEVER `window.confirm`/`alert`/`prompt`** (`prompt` throws in Electron): `await confirmDialog(...)` /
   `alertDialog` / `promptDialog`. **Dialogs QUEUE** (`confirmQueueRef`; a replaced dialog's promise never resolved).
-  z 12002, Esc/Enter in a WINDOW CAPTURE listener (Enter only with focus outside), `data-app-dialog`;
-  Ebi Studio carries `data-top-overlay`;
-  SettingsModal ignores Esc while either exists, Studio under a dialog (and
-  marks its own Esc handled). Enter and Settings' Esc skip IME composition
-  (`isComposing` / keyCode 229).
+  z 12002, Esc/Enter in a WINDOW CAPTURE listener (Enter only with focus outside), `data-app-dialog`; Ebi Studio
+  carries `data-top-overlay`; SettingsModal ignores Esc while either exists, Studio under a dialog (and marks its own
+  Esc handled). Enter and Settings' Esc skip IME composition (`isComposing` / keyCode 229).
 - **Submits are claimed once per question state** (`claimSubmit`, cleared by "Back"; PBQ `pbqSubmittedRef`): a
   double Enter graded twice.
 - **Card adds are double-click-guarded with REFS, not state** (two clicks pass a render-time flag; card paths allow
@@ -2512,7 +2536,7 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
 
 ## AI providers (`src/config/providers.js`): everything works on every provider
 - **Everything routes through `aiCall`** → `PROVIDERS[provider].call(...)` (Help: `askAI` prop = `aiCall(...,
-  resolveModel('help'))`), on Anthropic / OpenAI / Gemini / Grok. No feature hardcodes a provider.
+  resolveJobModel('help.reply'))`), on Anthropic / OpenAI / Gemini / Grok. No feature hardcodes a provider.
 - **Intelligence preset** (global `intelligence` = `optimized` | `normal` | `max`): providers have
   `presets: { cheap, normal, max }` (all vision-capable). `ROLE_DEFAULTS(pc, intel, prov)`: `normal`/`max` put every
   role on that preset (pose always `normal`); `optimized` uses `ROLE_TIER`. Settings per-feature overrides win.
@@ -2521,7 +2545,7 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   `<details>` opens itself only on mount (bound to `hasModelOverrides` it snapped shut). `keyOfOtherProvider` marks a
   key with another provider's longer prefix invalid.
 - **An unknown `config.provider` is ignored** (load + overlay refresh): a newer computer on the share crashed every
-  screen. "Custom" preset = an override on a REAL role (`AI_ROLE_META`), not any key in `aiModels[prov]`.
+  screen. "Custom" preset = an override on a REAL role (`AI_ROLE_META`) or job, not any key in `aiModels[prov]`.
 - **Never read `pc.presets[tier]`; use `presetModel(pc, prov, tier)`** so the live-model layer can shadow it.
   providers.js values are a FLOOR.
 - **`ROLE_TIER` (App.jsx, optimized preset) = stakes × frequency. Keep this table and the code in sync.**
@@ -2539,8 +2563,9 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   | `deck` | max | Cards get MEMORIZED; never cheap out here. |
 
 - **Adding an AI role**: `AI_ROLE_META` (label + hint), `ROLE_DEFAULTS`'s uniform map, a `ROLE_TIER` tier
-  (memorized/graded → `max`, conversational/reviewed → `normal`, trivial/every-message → `cheap`); call
-  `resolveModel('role')` (or `resolveModelFast` for latency-sensitive read/translate).
+  (memorized/graded → `max`, conversational/reviewed → `normal`, trivial/every-message → `cheap`), and jobs with that
+  role as parent (below; base `'fast'` for latency-sensitive read/translate). Calls use `resolveJobModel('<job>')`,
+  never a bare `resolveModel('role')` (`aiJobs.test.js` allows only one, `resolveModel('general')`).
 - **Every AI call names its JOB** (`src/config/aiJobs.js`, tested by `aiJobs.test.js`, which fails an `aiCall` without
   `resolveJobModel(...)` or a feature `ai.call` without `job:`). A job = `{ id, role (parent), group, base
   ('role'|'fast'|'cheap'), vision?, speech? }`; Settings > AI & cost > "Models per job" (`JobModelSettings.jsx`) picks a
@@ -2628,16 +2653,22 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   plus every unpriced or user-priced row (`rowsToShow`).
 
 ## Testing (two halves; `npm test` is only the first)
-- **Dev and agent work runs on PORT 3001, never 3000** (owner 2026-10-10: "use port 3001 for dev stuff ... so i can work on a working build while you operate on the dev port one"). Port 3000 belongs to the owner's own app (the shortcut launch). Start the agent server with `npm run dev:agent` (`vite --port 3001 --strictPort`); every script (`drive.mjs`, `check-art.mjs`, `check-joints.mjs`, `dev/bake-sweep/*`, scratch scripts) points at `localhost:3001` (`EBIKI_URL`/`APP_URL`/`--url` override). Never stop, restart or kill whatever answers on 3000. Both servers read the SAME folder and data, so agent runs stub every data write (Playwright routes), and the owner's app shows uncommitted edits after a reload.
+- **Dev and agent work runs on PORT 3001, never 3000** (owner 2026-10-10: "use port 3001 for dev stuff ... so i can
+  work on a working build while you operate on the dev port one"). Port 3000 is the owner's own app (the shortcut
+  launch): never stop, restart or kill whatever answers there. Start the agent server with `npm run dev:agent`
+  (`vite --port 3001 --strictPort`); every script (`drive.mjs`, `check-art.mjs`, `check-joints.mjs`,
+  `dev/bake-sweep/*`, scratch scripts) points at `localhost:3001` (`EBIKI_URL`/`APP_URL`/`--url` override). Both
+  servers read the SAME folder and data, so agent runs stub every data write (Playwright routes), and the owner's app
+  shows uncommitted edits after a reload.
 - **Browser automation must use Playwright's bundled Chromium. Never set executablePath to the installed Chrome/Edge;
   it causes Windows account lockouts on this machine** (failed logons, event 4625, from chrome.exe). Applies to
-  `drive.mjs`, `check-art.mjs` and every agent or scratch script. **Launch it MUTED** (`args: ['--mute-audio']`, and stub
-  `speechSynthesis.speak` in pages): headless pages still spoke through Windows voices.
+  `drive.mjs`, `check-art.mjs` and every agent or scratch script. **Launch it MUTED** (`args: ['--mute-audio']`, and
+  stub `speechSynthesis.speak` in pages): headless pages still spoke through Windows voices.
 - `npm test` (vitest) covers pure modules and engines (`*.test.js` across `src/`). Nothing about layout or click
   paths.
 - **run-ebiki skill** (`.claude/skills/run-ebiki/`, committed tooling, never bundled): `npm run dev:agent`, then
-  `npm run drive` (Playwright's bundled headless Chromium; screenshots + console errors; no AI calls). `--studio "brief"`
-  exercises Ebi Studio and **spends API credits**. Details and traps: its SKILL.md.
+  `npm run drive` (Playwright's bundled headless Chromium; screenshots + console errors; no AI calls).
+  `--studio "brief"` exercises Ebi Studio and **spends API credits**. Details and traps: its SKILL.md.
 - Verify UI changes THERE, not by reading JSX: the body zoom breaks `position: fixed` boxes, and only measuring
   catches it (`panelBox()` in `drive.mjs`).
 

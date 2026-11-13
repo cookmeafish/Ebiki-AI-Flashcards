@@ -17,16 +17,16 @@ export const css = `
 @keyframes lgchimeraSnapFlash { 0%, 30% { transform: scale(0); opacity: 0 } 36% { transform: scale(1.3); opacity: 1 } 100% { transform: scale(1.9); opacity: 0 } }
 
 /* ---- the drawing itself, per moment ---- */
-@keyframes lgchimeraJolt { 0% { transform: none } 12% { transform: translateY(-12%) rotate(-10deg) scale(.88) } 32% { transform: translateY(3%) rotate(5deg) } 60% { transform: rotate(-2deg) } 100% { transform: none } }
+@keyframes lgchimeraJolt { 0% { transform: none } 12% { transform: rotate(-10deg) scale(.92) } 32% { transform: rotate(5deg) } 60% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgchimeraFlinchR { 0% { transform: none } 14% { transform: rotate(10deg) translate(-3%, 2%) } 45% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgchimeraFlinchL { 0% { transform: none } 14% { transform: rotate(-10deg) translateX(2%) } 45% { transform: rotate(4deg) } 100% { transform: none } }
-@keyframes lgchimeraKnocked { 0% { transform: none } 10% { transform: translate(-10%, -8%) rotate(-22deg) scale(.82) } 28% { transform: translate(5%, 0) rotate(10deg) scale(1.05) } 50% { transform: rotate(-4deg) } 100% { transform: none } }
+@keyframes lgchimeraKnocked { 0% { transform: none } 10% { transform: rotate(-18deg) scale(.88) } 28% { transform: rotate(9deg) scale(1.04) } 50% { transform: rotate(-4deg) } 100% { transform: none } }
 @keyframes lgchimeraJawShut { 0% { transform: none } 10%, 40% { transform: scaleY(.45) } 60% { transform: scaleY(1.2) } 100% { transform: none } }
 @keyframes lgchimeraRearBack { 0% { transform: none } 12% { transform: rotate(14deg) translate(-6%, 4%) } 40% { transform: rotate(6deg) } 100% { transform: none } }
 @keyframes lgchimeraCoil { 0% { transform: none } 12% { transform: scale(.72) rotate(-14deg) } 40% { transform: scale(1.08) rotate(4deg) } 100% { transform: none } }
 @keyframes lgchimeraFold { 0% { transform: none } 12% { transform: scale(.78) } 45% { transform: scale(1.05) } 100% { transform: none } }
 @keyframes lgchimeraCarve { 0% { transform: none } 8% { transform: translateX(-12%) rotate(-12deg) } 16% { transform: translateX(10%) rotate(10deg) } 24% { transform: translateX(-7%) rotate(-6deg) } 34% { transform: translateX(3%) rotate(2deg) } 100% { transform: none } }
-@keyframes lgchimeraShudder { 0%, 100% { transform: none } 10% { transform: translateX(6%) } 20% { transform: translateX(-6%) } 30% { transform: translateX(4%) } 40% { transform: translateX(-3%) } 55% { transform: translateY(3%) } }
+@keyframes lgchimeraShudder { 0%, 100% { transform: none } 10% { transform: rotate(4deg) } 20% { transform: rotate(-4deg) } 30% { transform: rotate(3deg) } 40% { transform: rotate(-2deg) } 55% { transform: scale(.98) } }
 @keyframes lgchimeraGoatLower { 0% { transform: none } 18% { transform: rotate(10deg) translate(-3%, -2%) } 42% { transform: rotate(-22deg) translate(-10%, 6%) } 64% { transform: rotate(-16deg) translate(-7%, 4%) } 100% { transform: none } }
 @keyframes lgchimeraSerpentRise { 0% { transform: none } 16% { transform: scaleY(.84) rotate(-8deg) } 42% { transform: scaleY(1.1) rotate(14deg) translate(8%, 6%) } 64% { transform: scaleY(1.06) rotate(10deg) translateY(4%) } 100% { transform: none } }
 @keyframes lgchimeraWingBeat { 0% { transform: none } 18% { transform: scale(.82) rotate(calc(var(--lgc-turn, -8deg) * -.3)) } 42% { transform: scale(.94, 1.04) rotate(calc(var(--lgc-turn, -8deg) * -.5)) } 70% { transform: scale(.98, 1.02) } 100% { transform: none } }
@@ -36,14 +36,14 @@ export const css = `
 @keyframes lgchimeraPounce { 0% { transform: none } 16% { transform: translateY(6%) scaleY(.9) } 38% { transform: translateY(-8%) scale(1.08) } 60% { transform: translateY(-4%) } 100% { transform: none } }
 @keyframes lgchimeraSlamL { 0% { transform: none } 16% { transform: rotate(-26deg) translateY(-10%) } 38% { transform: rotate(14deg) translateY(10%) } 62% { transform: rotate(8deg) translateY(6%) } 100% { transform: none } }
 @keyframes lgchimeraSlamR { 0% { transform: none } 16% { transform: rotate(26deg) translateY(-10%) } 38% { transform: rotate(-14deg) translateY(10%) } 62% { transform: rotate(-8deg) translateY(6%) } 100% { transform: none } }
-@keyframes lgchimeraBounceOff { 0% { transform: none } 14% { transform: translateY(8%) scale(1.14) } 26% { transform: translateY(-12%) scale(.82) rotate(-6deg) } 52% { transform: translateY(-4%) scale(.94) } 100% { transform: none } }
+@keyframes lgchimeraBounceOff { 0% { transform: none } 14% { transform: scale(1.1) } 26% { transform: scale(.86) rotate(-6deg) } 52% { transform: scale(.95) } 100% { transform: none } }
 @keyframes lgchimeraTuck { 0% { transform: none } 16%, 50% { transform: translateY(-10%) rotate(var(--lgc-tuck, 10deg)) scale(.86) } 100% { transform: none } }
 @keyframes lgchimeraFangGlance { 0% { transform: none } 20% { transform: rotate(30deg) scale(1.25) translateX(12%) } 30% { transform: rotate(-12deg) scale(.86) translateX(-6%) } 52% { transform: rotate(4deg) } 100% { transform: none } }
 @keyframes lgchimeraClamp { 0% { transform: none } 18% { transform: scaleY(1.6) } 28% { transform: scaleY(.35) } 60% { transform: scaleY(.5) } 100% { transform: none } }
 @keyframes lgchimeraBleat { 0% { transform: none } 18% { transform: rotate(-14deg) translate(-6%, 2%) } 34% { transform: rotate(-10deg) translate(-5%, 2%) } 48% { transform: rotate(-14deg) translate(-6%, 2%) } 100% { transform: none } }
 @keyframes lgchimeraHiss { 0%, 100% { transform: none } 12% { transform: rotate(-8deg) scaleY(1.1) } 24% { transform: rotate(6deg) } 36% { transform: rotate(-6deg) } 48% { transform: rotate(5deg) } 64% { transform: rotate(-3deg) } }
 @keyframes lgchimeraRoarGape { 0% { transform: none } 18% { transform: scaleY(1.9) scaleX(1.1) } 70% { transform: scaleY(1.7) } 100% { transform: none } }
-@keyframes lgchimeraRoarRise { 0% { transform: none } 18% { transform: translateY(-8%) rotate(-4deg) } 70% { transform: translateY(-6%) rotate(3deg) } 100% { transform: none } }
+@keyframes lgchimeraRoarRise { 0% { transform: none } 18% { transform: rotate(-4deg) scale(1.04) } 70% { transform: rotate(2.5deg) scale(1.03) } 100% { transform: none } }
 
 .lg-boss[data-motif="chimera"][data-moment="hit"] .lg-chimera-lion { animation: lgchimeraJolt 520ms cubic-bezier(.2,.8,.3,1) both }
 .lg-boss[data-motif="chimera"][data-moment="hit"] .lg-chimera-goat { animation: lgchimeraFlinchR 520ms ease-out both }
@@ -66,7 +66,6 @@ export const css = `
 
 .lg-boss[data-motif="chimera"][data-moment="hurtBig"] .lg-chimera-goat { animation: lgchimeraRam 820ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="chimera"][data-moment="hurtBig"] .lg-chimera-serpent { animation: lgchimeraVenomStrike 820ms cubic-bezier(.4,0,.2,1) both }
-.lg-boss[data-motif="chimera"][data-moment="hurtBig"] .lg-chimera-body { animation: lgchimeraPounce 820ms cubic-bezier(.4,0,.2,1) both }
 .lg-boss[data-motif="chimera"][data-moment="hurtBig"] .lg-chimera-pawL { animation: lgchimeraSlamL 820ms cubic-bezier(.5,0,.2,1) both }
 .lg-boss[data-motif="chimera"][data-moment="hurtBig"] .lg-chimera-wingL { --lgc-turn: -14deg; animation: lgchimeraWingBeat 820ms ease-out both }
 .lg-boss[data-motif="chimera"][data-moment="hurtBig"] .lg-chimera-wingR { --lgc-turn: 14deg; animation: lgchimeraWingBeat 820ms ease-out both }
