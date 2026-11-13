@@ -58,7 +58,7 @@ const hourglass = (glass = '#fff3d0') => (
 // crown, jaw, torso (pivot at its base), armL (the viewer's left arm with the great winding key in phases 1 and 2),
 // armR (the presenting palm under the floating hourglass, the HALT palm, the sand-pouring palm in phase 3), key (pivot: the
 // fist that holds it). Since the 2026-10-10 redraw every phase shares one framing: shoulders (the bell tops) at 28 81 and
-// 92 81 (broadened 2026-10-11), the neck at 60 73.4 (phase 2 sits 2 lower: its stance hunches); only the key's fist moves per phase (PIV, from .scratch/raid-kitsune/chronos/gen.mjs). The
+// 92 81 (broadened 2026-10-11), the neck at 60 73.4 (phase 2 sits 2 lower: its stance hunches); only the key's fist moves per phase (PIV, from the original generator). The
 // brow sits in the head's own space with the hub at 0 0; the crown pivots on its own stem (inline fill-box style).
 // Every move ends on the drawn pose.
 const P = '.lg-boss[data-motif="chronos"]'

@@ -30,7 +30,6 @@
        the coin at you, the coin spray fires down at your hearts and refills, the crown jolts; a crit snuffs the burst to a
        spark and drops the spray; bomb and stolen act on the burst and the spray; knockout: the hoard stays put, he
        slumps, the burst and the spray go dark, the crown tumbles off and lands on his chest, to the left.
-       Built by .scratch/raid-kitsune/ratking/build12.mjs (phases 1 and 2 untouched).
        Face layers (lg-fx-<key> per phase, see fx/ratking.jsx), cool in every phase: stolen = he gloats (shades shoved
        up or a slow wink, a wider grin, the diamond flashing), loot = the grin dips, bomb = a flinch (the
        shades knocked crooked), tail = a cold narrow look. The hoard he sits in shrinks as you rob him (lg-ab-hoard-2/1/0).

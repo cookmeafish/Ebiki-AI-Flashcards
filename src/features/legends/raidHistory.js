@@ -9,7 +9,7 @@ export const RAID_HISTORY_DIR = 'dev/raid-history'
 export const RAID_HISTORY_BASE = `/${RAID_HISTORY_DIR}`
 export const RAID_HISTORY_MANIFEST = `${RAID_HISTORY_BASE}/manifest.json`
 export const REJECTED_ID = 'rejected-2026-10-11'
-export const REJECTED_DIR = '.scratch/restore-1011/now'
+export const REJECTED_DIR = 'dev/raid-rejected-2026-10-11' // committed: never in git history, so every clone needs this copy
 export const NOW_ID = 'now'
 
 const ID_RE = /^(?:[0-9a-f]{7,40}|rejected-\d{4}-\d{2}-\d{2})$/

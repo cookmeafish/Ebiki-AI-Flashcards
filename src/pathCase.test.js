@@ -13,13 +13,16 @@ import { MOTIFS } from './features/legends/map'
 import { RAID_MOTIFS } from './features/legends/raid'
 import { POWER_IDS } from './features/legends/powers'
 import { PHOTO_SPRITES, artUrl } from './features/legends/art'
+import { REJECTED_DIR } from './features/legends/raidHistory'
 
 const ROOT = path.resolve(__dirname, '..')
 const PUBLIC = path.join(ROOT, 'public')
 const SCAN = ['src', 'dev', 'electron', 'scripts']
 const CODE = /\.(m?jsx?|cjs|tsx?)$/
 const HTML = /\.html?$/
-const SKIP_DIR = new Set(['node_modules', '.scratch', 'dist', '.git'])
+// The rejected raid set is a restore source: its files import relative to src/features/legends/, where
+// restore-version.mjs copies them, so their imports do not resolve where they are stored.
+const SKIP_DIR = new Set(['node_modules', '.scratch', 'dist', '.git', path.basename(REJECTED_DIR)])
 const RESOLVE_EXT = ['', '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.json', '/index.js', '/index.jsx', '/index.mjs']
 
 function walk(dir, out = []) {

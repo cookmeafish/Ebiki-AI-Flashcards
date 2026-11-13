@@ -119,8 +119,8 @@ the reviewer and the coordinator, as the owner would, never as the maker; every 
    VISION STILL THERE (re-read the plan, run the checkmarks again).
 
 ### Tools and thresholds (dev server on 3001)
-- Owner view: `node .scratch/raid-kitsune/phasepanel.mjs <motif> <out.png>`.
-- Silhouettes, the ONE measure: `node .scratch/raid-kitsune/silhouettes.mjs <motif>` (frame 0, solid black at 60 px,
+- Owner view: `node dev/legends-gallery/phasepanel.mjs <motif> <out.png>` (cheat mode on).
+- Silhouettes, the ONE measure: `node dev/legends-gallery/silhouettes.mjs <motif>` (frame 0, solid black at 60 px,
   entrances stripped, IoU per pair against the kitsune pinned at e7328b3), then again with `--hide=<every aura, halo,
   fan, backdrop selector>` for the body-only run (it hides her tails and foxfire too).
 - Paths: `grep -o '<path' file | wc -l`.

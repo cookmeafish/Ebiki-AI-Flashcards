@@ -2,7 +2,7 @@
 // its drawing and, when that version had them, its fight files (fx, impact style, impact parts).
 //   node dev/legends-gallery/restore-version.mjs <motif> <sha | rejected-2026-10-11> [--dry-run]
 // Commits are read with `git show` (read-only on git: no checkout, stash or reset); the rejected redesigns come from
-// .scratch/restore-1011/now/. Prints every file it writes. A file the version did not have is left alone and named.
+// dev/raid-rejected-2026-10-11/. Prints every file it writes. A file the version did not have is left alone and named.
 // impact/body.js and art.jsx are shared by every boss: only reported, never written.
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'

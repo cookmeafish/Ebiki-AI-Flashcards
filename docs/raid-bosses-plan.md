@@ -4,7 +4,8 @@ What each raid boss IS. The bosses exist: art in `public/assets/legends/raids/<m
 comment describes it), abilities in `src/features/legends/abilities/<motif>.js` (the module is the truth for numbers),
 lore `lg_raidLore_<motif>`, voices in `raidVoices.js`. Progression order is `RAID_ORDER` in `raid.js`; the stored
 index is into the append-only `RAID_ROSTER`. Numbers below are roster positions. Art direction: read
-`docs/legends-art-guide.md` first.
+`docs/legends-art-guide.md` first. Each boss's SVG is its source of truth: edit it directly (the old generator scripts were
+never in the repo and no longer match the files).
 
 A raid boss is the day's whole due stack in one fight, so it must look like a game's final boss (the first set was
 "super boring, uninspired and weak": small figures lost in their frame; the fix was a BIG figure, not a fuller backdrop).
@@ -189,8 +190,7 @@ moments and knockout in the asset view (light and dark) before the owner looks.
 
 ## 6. Seraph: the Thousand-Eyed Judge
 
-- **Concept** (redrawn 2026-10-10 to the kitsune model, P2/P3 horror pass and the sacred pass 2026-10-13; generator
-  `.scratch/raid-kitsune/seraph/gen.mjs`, or edit the SVG): a bust, face on, NO background (only her wings and halo). A
+- **Concept** (redrawn 2026-10-10 to the kitsune model, P2/P3 horror pass and the sacred pass 2026-10-13): a bust, face on, NO background (only her wings and halo). A
   porcelain MASK-HELM (wide brow, brow ridges over ONE great red eye with a white star pupil, a fine gold inlay inside
   its edge, a single keel to a pointed chin, no mouth) inside a round ivory veil with a crimson lining, an iron crown
   with a red eye-gem, a high collar with a gold eye brooch, porcelain pauldrons, the crimson robe with gold trim, steel
@@ -276,7 +276,7 @@ moments and knockout in the asset view (light and dark) before the owner looks.
   (arrow, viewer right), set as brows just over each eye; the jaw is the lower dial (it opens in phase 2). A small calm
   hourglass in the chest (the Time Loop sand), steel gorget with the time gem, bell pauldrons ON the shoulders that turn
   with the arms (steel upper arm, cog elbow, brass vambrace, gauntlet), THE GREAT WINDING KEY in his left fist in every
-  phase. Generator: `.scratch/raid-kitsune/chronos/gen.mjs`.
+  phase.
 - **Phases** (HE transforms, not only the halo): 1 Time flows: midnight mantle, warm brass, a thin gold clock ring with
   two great hands at ten past ten; key upright, the other hand raised under a small floating hourglass; a curved,
   lopsided sly smirk. 2 Time breaks loose: a new STANCE, hunched with the head dropped and tilted, the key gripped in
@@ -346,7 +346,7 @@ moments and knockout in the asset view (light and dark) before the owner looks.
   raised, thumb across it; the fans flung wide red and cyan. 3 Thousand Reflections: risen into his corona (bust
   smaller, lifted), the horns become a swept crystal crown, the pauldrons grow crystal wings, white plate over a dark
   gorget, the white face in a dark visor frame against a dark field inside the gold ring; open palm with a big star of
-  light; the white-gold corona. Generator: `.scratch/raid-kitsune/kaleido/gen.mjs` (edit it, not the SVG). Silhouettes
+  light; the white-gold corona. Silhouettes
   (silhouettes.mjs): full 0.662 / 0.734 / 0.662, body-only (`--hide=.lg-kaleido-refl,.lg-kaleido-refr,.lg-kaleido-aura`)
   0.665 / 0.611 / 0.669, both PASS. Fight moments stay inside the arena clip (check-moment-clip 0): the helm punches by
   TILTING on its neck (it sits about 3 units under the top clip in P2/P3, so it never grows past 1.04), the mirror fans
@@ -423,8 +423,7 @@ trophies work. Do not recreate it.
   cheekbones, hollow cheeks, sunken sockets with glowing eyes, two heavy V brows, blue-violet lips), long silver hair, a
   black lace mourning veil with a widow's peak, a silver tiara with a teardrop gem, a deep violet mourning gown with a
   lace V neckline, silver funeral lilies and a gem brooch, two cracked bronze bells hanging on chains from the tiara
-  beside her face. Generator: `.scratch/raid-kitsune/banshee/gen.mjs` (or edit the SVG directly; the SVG is the source
-  of truth).
+  beside her face.
 - **Her mouth is a real, expressive human mouth, never a ring**: phase 1 a keening moan (lips parted, corners
   dragged down, a sliver of teeth), phase 2 a raging shriek (upper lip curled up, fangs top and bottom, nose folds),
   phase 3 the killing note (a wide open scream, both rows of teeth, the throat lit with her light). The jaw drops 2 to
@@ -564,8 +563,7 @@ trophies work. Do not recreate it.
   burst. The head never moves on its own in phase 3: every reaction moves `lg-ratking-figure` (pivot at his hem), the
   vest-resting arm (`lg-ratking-arml`) only sways; at the knockout the hoard stays put, he slumps, burst and spray go
   dark and the crown tumbles off to his left onto his chest. Every part holds its fallen pose (`data-down`, all phases);
-  every fight move stays inside the box (check-moment-clip 0). Source: `.scratch/raid-kitsune/ratking/build12.mjs`
-  (keeps phases 1 and 2 byte-identical).
+  every fight move stays inside the box (check-moment-clip 0).
 - **Ability (hoard, decision)**: a right answer takes a coin, a miss loses one; Cheese Bomb (3 coins) deals 3; Lucky
   Tail (2 coins) saves the next heart; at 5 coins the rats throw a bomb for you. Art: `lg-ab-hoard-0..2`.
 - **Tint**: the red velvet. **Card**: `lgCoinToss`.
@@ -588,7 +586,7 @@ trophies work. Do not recreate it.
 
 - **Concept** (REDESIGNED 2026-10-11 after "the showman looks like a weakling and every phase is too similar. make this
   guy look like a bigger threat and also what if the masks were scary and rotated on and off his face the both of them
-  on phase 2"; generator .scratch/raid-kitsune/showman/v2/gen.mjs): a demon ringmaster whose act is real magic, now a
+  on phase 2"): a demon ringmaster whose act is real magic, now a
   BIG man: the face drawn 1.45 to 1.5 times the old size with a heavy scowl and narrow glowing slit eyes, the torso
   1.15 to 1.3 times broader (shoulders past the frame). The anchor stays: handlebar moustache, chin tuft, slick hair,
   navy tailcoat, gold epaulettes and frogging, ember cravat, white gloves (now taloned). Comedy and Tragedy are SCARY:
@@ -624,7 +622,7 @@ trophies work. Do not recreate it.
 
 ## 27. Cerberus: the Hound of the Last Gate
 
-- **Concept** (FULL REDESIGN 2026-10-13; generator `.scratch/cerberus-redesign/tools/gen2.mjs`, outside the build): a
+- **Concept** (FULL REDESIGN 2026-10-13): a
   hellish three-headed war-mastiff, ONE charred body, hellfire behind him as his aura (`lg-cerberus-portal`, the tinted
   part). Three hound heads of one construction (a heavy muzzle, black nose, hanging flews, a hinged lower jaw, ears
   swept back): the WARDEN in the middle (iron plates riveted on his brows, a spiked strap across his muzzle), BRAND on
@@ -657,7 +655,7 @@ trophies work. Do not recreate it.
   hanging below his fist. The lantern and the soulfire are his face. Silent, patient, theatrical: the lantern does the
   grinning. A hushed campfire storyteller's voice ("Listen close, rider").
 - **Phases** (the owner rejected a rider bust: "there is no full horse ... all 3 phases are basically the exact same";
-  the live file is round 9, generator `.scratch/raid-kitsune/horseman/gen-v4.mjs`). NO background. Horse and rider are
+  the live file is round 9). NO background. Horse and rider are
   ONE figure: the WHOLE horse in profile facing left (real leg segments: forearm, knee, cannon, fetlock, pastern and a
   hoof wider than the cannon in front; gaskin and a sharp hock behind; two-value cel shading), the headless rider in the
   saddle turned toward us (a frock coat in four values, broad sloped shoulders tapering straight into a belted waist, a

@@ -1,6 +1,6 @@
 // Writes the VERSION PICKER's files (src/features/legends/raidHistory.js): every distinct version of each raid boss
 // drawing in git history to dev/raid-history/<motif>/<sha>.svg (via `git show`, never the working tree; read-only on
-// git), plus the rejected 2026-10-11 redesigns from .scratch/restore-1011/now/raids/, and manifest.json
+// git), plus the rejected 2026-10-11 redesigns from dev/raid-rejected-2026-10-11/raids/, and manifest.json
 // (motif -> [{ id, date, subject, source }], newest first). Skipped: a content already listed (a newer commit with the
 // same drawing), a version equal to the live file (that is "Now"), and a file failing the safe-SVG check (named).
 // Run again after any art change:  node dev/legends-gallery/raid-history.mjs

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <!-- RAID BOSS: Chronos, the Hourglass Colossus (motif chronos, ability Time Loop). Redrawn 2026-10-10 to the kitsune
-       model (generator: .scratch/raid-kitsune/chronos/gen.mjs; edit there and regenerate). No background, only his own
+       model (this file is the source: edit it directly). No background, only his own
        clock behind him. A tight bust, the same framing in every phase, the face dominant: a big pocket-watch head (brass
        bezel engraved with numerals, a dial with twelve ticks, stem, knurled crown and bow ring, temple bolts) whose brows
        are its own hour hand (spade, viewer left) and minute hand (arrow, viewer right) in a V on the hub over deep-set

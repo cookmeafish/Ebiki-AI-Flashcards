@@ -74,7 +74,7 @@ item, before anything reaches the owner or a commit; any FAIL = not done, howeve
 **How raid art is made**: start from the owner's CHOSEN version and EDIT it (never regenerate from primitives by
 script; a full redesign only when asked); ONE boss at a time; the owner sees it (panel + previous version) BEFORE it is
 committed; an independent review asks "better than the chosen version, equal to the kitsune?" first. The coordinator
-checks every item on its own owner-view panel (`.scratch/raid-kitsune/phasepanel.mjs`, colour AND greyscale) and idle
+checks every item on its own owner-view panel (`dev/legends-gallery/phasepanel.mjs`, colour AND greyscale) and idle
 frames, and puts the checkmarks in EVERY artist and reviewer brief. Full criteria, process and tools (silhouettes,
 check-art and the checks it runs): `docs/legends-art-guide.md` "RAID BOSSES". Past mistakes and what they taught:
 `docs/raid-art-lessons.md`.
@@ -1767,7 +1767,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   drawing of a raid boss (◀ ▶ + a dropdown, "Version 3 of 7 · date · sha", the commit subject; "Now" = the live file,
   first). Files: `dev/raid-history/<motif>/<sha>.svg` + `manifest.json`, GITIGNORED (git holds them; about 50 MB),
   written by `node dev/legends-gallery/raid-history.mjs` (git show, never the working tree; distinct contents only,
-  the live file's twin skipped, the rejected 2026-10-11 redesigns from `.scratch/restore-1011/now/` as
+  the live file's twin skipped, the rejected 2026-10-11 redesigns from `dev/raid-rejected-2026-10-11/` (committed) as
   `rejected-2026-10-11`); rerun it after an art change. Pure parts in `raidHistory.js` (tested, incl. safe SVG and
   byte-identical to git when the files exist). `LegendsArt version` = its own URL (loader, snapshot and bake caches
   never mix); the demo arena and real fights always use `raids/`. Put a version back for good (svg + that commit's fx +
