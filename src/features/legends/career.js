@@ -35,7 +35,7 @@ export const careerHasProgress = (map) => Object.keys(map?.days || {}).length > 
 // Raid art per island, in package order, and the final raid's (raid boss drawings with three phases).
 export const CAREER_RAID_MOTIFS = ['titan', 'hydra', 'chronos', 'vampire', 'seraph']
 export const CAREER_FINAL_MOTIF = 'ophanim'
-// EVERY REGION BOSS IS ITS OWN BOSS (the owner: "make sure that each boss isn't the same boss in the same domain"): a
+// EVERY REGION BOSS IS ITS OWN BOSS (the owner, 2026-11-15: no two bosses of a domain may be the same boss): a
 // Legends boss drawing and a name of its own, per island in package order, region by region. No drawing repeats in the
 // course or matches an island's own. An island with more regions than its list takes the next unused drawing.
 export const CAREER_REGION_BOSSES = [
@@ -121,7 +121,7 @@ export const courseModes = (career, modes) => (Array.isArray(modes) ? modes : []
 
 // The feature context a course runs with: ALWAYS a general subject in the app language, whatever mode holds it. Questions,
 // grading, hints and fights read ctx.subject and ctx.study.rules(); a language mode's learned language, dialect,
-// accents and slips never reach a course (the owner: an English answer was marked wrong for not being Spanish).
+// accents and slips never reach a course (a course held by a language mode graded right answers as wrong-language).
 export function courseCtx(ctx, map) {
   if (!ctx?.subject || !isCareerMap(map)) return ctx
   const s = ctx.subject

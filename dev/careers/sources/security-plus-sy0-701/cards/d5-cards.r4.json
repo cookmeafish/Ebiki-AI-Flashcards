@@ -1266,7 +1266,7 @@
     "definition": "Ongoing checking that the organization stays compliant, using due diligence and due care, attestation and acknowledgement, internal and external monitoring, and automation.",
     "example": "Automated tools check every server daily against the hardening standard, and employees reacknowledge policies yearly.",
     "category": "5.4 Security compliance",
-    "keyPoints": "Compliance is continuous, not a once-a-year event; Four listed: due diligence/care, attestation and acknowledgement, internal and external, automation; Evidence collection supports audits"
+    "keyPoints": "Compliance is continuous, not a once-a-year event; Four parts to know: due diligence and due care, sign-offs (attestation, acknowledgement), checks run by staff or by outsiders, and automated checks; Evidence collection supports audits"
   },
   {
     "obj": "5.4",
@@ -1715,7 +1715,7 @@
     "definition": "Awareness work focused on phishing: running simulated phishing campaigns, teaching users to recognize phishing attempts, and handling suspicious messages users report.",
     "example": "Staff receive a fake package delivery email; those who click get short training, and those who report it are thanked.",
     "category": "5.6 Security awareness",
-    "keyPoints": "Three listed: campaigns, recognizing a phishing attempt, responding to reported suspicious messages; Goal: fewer clicks, more reports; Phishing is one of the most common initial attack vectors"
+    "keyPoints": "Three parts to know: practice campaigns that mimic real lures, spotting the warning signs in a message, and acting on what staff report; Goal: fewer clicks, more reports; Phishing is one of the most common initial attack vectors"
   },
   {
     "obj": "5.6",

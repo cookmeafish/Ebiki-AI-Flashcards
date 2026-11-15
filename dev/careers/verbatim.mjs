@@ -46,6 +46,27 @@ export function courseTexts({ cards = [], chapters = [], pkg = null }) {
   return out
 }
 
+// CLOSER LOOK AT PROSE (the owner, 2026-11-15: course text must not be traceable to a source): a shorter shared run,
+// PROSE_WORDS+ words, counts when it reads as a phrase (2+ small function words), not as a list of the exam's own term
+// names (those are the vocabulary itself). STANDARD_PHRASES are fixed industry wording that must stay as is.
+export const PROSE_WORDS = 8
+// ("and"/"or" are left out: they sit inside term names, "endpoint detection and response".)
+const FUNCTION_WORDS = new Set('the of to a an in for that is are with by from as on be can it its this which when how what into at not but used use uses using such these those their they them than then so if was were has have had does do may should must will would could also each every any all only more most other another one two'.split(' '))
+export const STANDARD_PHRASES = ['something you know something you have something you are']
+export function proseProblems(texts, outlineText, allowed = [], n = PROSE_WORDS) {
+  const grams = outlineGrams(outlineText, n)
+  const skip = [...allowed, ...STANDARD_PHRASES].map((s) => words(s).join(' ')).filter(Boolean)
+  const out = []
+  for (const { where, text } of texts) {
+    let t = ` ${words(text).join(' ')} `
+    for (const a of skip) t = t.split(` ${a} `).join(' | ')
+    for (const r of copiedRuns(t, grams, n)) {
+      if (r.run.split(' ').filter((w) => FUNCTION_WORDS.has(w)).length >= 2) out.push({ where, run: r.run })
+    }
+  }
+  return out
+}
+
 // → [{ where, run }] for every copied run not covered by an allowed text.
 export function verbatimProblems(texts, grams, allowed = []) {
   const ok = new Set(allowed.map((s) => words(s).join(' ')))

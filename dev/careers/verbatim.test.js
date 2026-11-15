@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { outlineGrams, copiedRuns, courseTexts, verbatimProblems, RUN_WORDS } from './verbatim.mjs'
+import { outlineGrams, copiedRuns, courseTexts, verbatimProblems, proseProblems, RUN_WORDS, PROSE_WORDS } from './verbatim.mjs'
 
 const OUTLINE = `# 1.0 General Security Concepts (12%)
 ## 1.1 Compare and contrast various types of security controls.
@@ -30,6 +30,13 @@ describe('the copy check', () => {
     expect(verbatimProblems([{ where: 'x', text: `Objective 1.2: ${title}.` }], grams, [])).toHaveLength(1)
   })
   it('counts words the same way the outline does', () => { expect(RUN_WORDS).toBe(12) })
+  it('a shorter copied PHRASE (8+ words) is caught; a list of term names and standard industry wording are not', () => {
+    const outline = '- Responding to reported suspicious messages and recognizing a phishing attempt\n- Web application firewall unified threat management next-generation firewall'
+    expect(proseProblems([{ where: 'x', text: 'Teach staff about responding to reported suspicious messages and recognizing a phishing attempt early.' }], outline)).toHaveLength(1)
+    expect(proseProblems([{ where: 'x', text: 'Types: web application firewall unified threat management next-generation firewall.' }], outline)).toHaveLength(0)
+    expect(proseProblems([{ where: 'x', text: 'Factors: something you know something you have something you are.' }], 'something you know something you have something you are')).toHaveLength(0)
+    expect(PROSE_WORDS).toBe(8)
+  })
 })
 
 // The shipped courses against their local outlines.
@@ -49,5 +56,12 @@ describe.each(courses)('course %s', (id) => {
     const titles = (pkg?.areas || []).flatMap((a) => (a.sections || []).map((s) => s.title))
     const problems = verbatimProblems(courseTexts({ cards, chapters, pkg }), outlineGrams(outline), titles)
     expect(problems.slice(0, 10), `${problems.length} copied runs`).toEqual([])
+  })
+  it.skipIf(!hasOutline)('the SHIPPED course shares no 8+ word phrase with the vendor outline (not traceable to it)', () => {
+    const outline = fs.readFileSync(path.join(dir, 'outline.md'), 'utf8')
+    const pkg = JSON.parse(fs.readFileSync(path.join(HERE, '..', '..', 'public', 'careers', `${id}.json`), 'utf8'))
+    const titles = pkg.areas.flatMap((a) => a.sections.map((s) => s.title))
+    const problems = proseProblems(courseTexts({ pkg }), outline, titles)
+    expect(problems.slice(0, 10), `${problems.length} copied phrases`).toEqual([])
   })
 })

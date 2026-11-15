@@ -2767,6 +2767,20 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   information. No developer internals (prompt/function names, algorithms, file trees); those live here.
 - Describe each feature once. Keep it accurate (shortcuts, model versions, renamed/removed features).
 
+## The owner's own examples never become the code's examples (owner, 2026-11-15)
+Code, comments, tests, fixtures, prompts and shipped content never reuse the owner's exact examples: their mode names,
+decks, ids, sentences, typed answers or quoted complaints. Write an invented example of the same kind (another
+language, another mode name, other ids) and describe the lesson in general terms. Older notes in this file that
+quote the owner are history, not a model to copy. Check: no test or fixture added after this date names the owner's
+modes, decks or mode ids (a reviewer reads the diff for it; no automated scan can tell an example from a real value).
+
+## Course content is in our own words, never traceable to a source (owner, 2026-11-15)
+Every card, chapter and package text is written so it can't be traced to any source it was checked against, while
+staying accurate, easy to understand and effective. No credit, quote or link to a third-party course or its creator
+(`src/config/bannedNames.test.js` bans the names in every tracked file). Shared wording with a source is measured, not
+assumed: the build refuses 12+ word runs from the exam outline, and a course change runs the overlap check against
+the outline and every cited page.
+
 ## Commits
 - **Bump `package.json` `version` in every commit that changes app behavior** (see Version).
 - **NEVER name the AI assistant that wrote the code anywhere that reaches git or GitHub** (the repo is PUBLIC): not

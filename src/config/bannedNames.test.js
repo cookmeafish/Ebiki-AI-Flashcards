@@ -1,6 +1,6 @@
 // BANNED NAMES: words that must never appear anywhere in this repository (code, course packages and their sources,
-// docs, reviews, tests). The owner, 2026-11-15: a third-party course creator's name and site are not to be used in
-// the app ("if you used it in the code i need you to wipe it"). Course content keeps its facts in our own words and
+// docs, reviews, tests). The owner (2026-11-15) ruled that a third-party course creator's name and site are never used
+// in the app, and asked for every existing mention to be removed. Course content keeps its facts in our own words and
 // never credits, quotes or links that creator. Add a name here to ban it; the pattern itself lives only in this file.
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'child_process'

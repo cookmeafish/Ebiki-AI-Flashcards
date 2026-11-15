@@ -25,44 +25,44 @@ beforeEach(() => disk.clear())
 
 describe('a course and an adventure in one mode', () => {
   it('switching parks the course whole and brings it back', async () => {
-    disk.set('map-11', course(11))
-    expect(await switchMapKind(11, 'adventure')).toBe(true)
-    expect(disk.has('map-11')).toBe(false) // the start screen: build the adventure
-    expect(disk.get('park-11-course').career.id).toBe('security-plus-sy0-701')
-    disk.set('map-11', adventure(11)) // the adventure got built
-    expect(await switchMapKind(11, 'course')).toBe(true)
-    expect(disk.get('map-11').career.id).toBe('security-plus-sy0-701')
-    expect(disk.get('map-11').areas[0].nodes[0].status).toBe('done') // progress kept
-    expect(disk.get('park-11-adventure').areas[0].id).toBe('a1')
-    expect(disk.has('park-11-course')).toBe(false)
+    disk.set('map-31', course(31))
+    expect(await switchMapKind(31, 'adventure')).toBe(true)
+    expect(disk.has('map-31')).toBe(false) // the start screen: build the adventure
+    expect(disk.get('park-31-course').career.id).toBe('security-plus-sy0-701')
+    disk.set('map-31', adventure(31)) // the adventure got built
+    expect(await switchMapKind(31, 'course')).toBe(true)
+    expect(disk.get('map-31').career.id).toBe('security-plus-sy0-701')
+    expect(disk.get('map-31').areas[0].nodes[0].status).toBe('done') // progress kept
+    expect(disk.get('park-31-adventure').areas[0].id).toBe('a1')
+    expect(disk.has('park-31-course')).toBe(false)
   })
 })
 
 describe('a course in a language mode moves to its own mode', () => {
   it('moves with its progress and leaves the language mode on its start screen', async () => {
-    disk.set('map-13', course(13))
-    expect(await moveCourse(13, 11)).toBe(true)
-    expect(disk.get('map-11')).toMatchObject({ modeId: 11, career: { id: 'security-plus-sy0-701' } })
-    expect(disk.get('map-11').areas[0].nodes[0].status).toBe('done')
-    expect(disk.has('map-13')).toBe(false)
-    expect((await loadMap(13)).value).toBe(null)
+    disk.set('map-33', course(33))
+    expect(await moveCourse(33, 31)).toBe(true)
+    expect(disk.get('map-31')).toMatchObject({ modeId: 31, career: { id: 'security-plus-sy0-701' } })
+    expect(disk.get('map-31').areas[0].nodes[0].status).toBe('done')
+    expect(disk.has('map-33')).toBe(false)
+    expect((await loadMap(33)).value).toBe(null)
   })
   it('an adventure already in the target mode is parked, never lost', async () => {
-    disk.set('map-13', course(13)); disk.set('map-11', adventure(11))
-    expect(await moveCourse(13, 11)).toBe(true)
-    expect(disk.get('map-11').career.id).toBe('security-plus-sy0-701')
-    expect(disk.get('park-11-adventure').areas[0].id).toBe('a1')
+    disk.set('map-33', course(33)); disk.set('map-31', adventure(31))
+    expect(await moveCourse(33, 31)).toBe(true)
+    expect(disk.get('map-31').career.id).toBe('security-plus-sy0-701')
+    expect(disk.get('park-31-adventure').areas[0].id).toBe('a1')
   })
   it('a course already in the target mode wins; the moved copy waits parked there', async () => {
-    disk.set('map-13', course(13)); disk.set('map-11', { ...course(11), areas: [area('d1')] })
-    expect(await moveCourse(13, 11)).toBe(true)
-    expect(disk.get('map-11').areas[0].nodes[0].status).toBe('open')
-    expect(disk.get('park-11-course').areas[0].nodes[0].status).toBe('done')
-    expect(disk.has('map-13')).toBe(false)
+    disk.set('map-33', course(33)); disk.set('map-31', { ...course(31), areas: [area('d1')] })
+    expect(await moveCourse(33, 31)).toBe(true)
+    expect(disk.get('map-31').areas[0].nodes[0].status).toBe('open')
+    expect(disk.get('park-31-course').areas[0].nodes[0].status).toBe('done')
+    expect(disk.has('map-33')).toBe(false)
   })
   it('an adventure is never moved as a course', async () => {
-    disk.set('map-13', adventure(13))
-    expect(await moveCourse(13, 11)).toBe(false)
-    expect(disk.get('map-13').areas[0].id).toBe('a1')
+    disk.set('map-33', adventure(33))
+    expect(await moveCourse(33, 31)).toBe(false)
+    expect(disk.get('map-33').areas[0].id).toBe('a1')
   })
 })

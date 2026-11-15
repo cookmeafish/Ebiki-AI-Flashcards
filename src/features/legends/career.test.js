@@ -45,27 +45,27 @@ describe('career package', () => {
   })
   it('a course never fits a language mode, even one that names it', () => {
     const sec = CAREERS.find((c) => c.id === 'security-plus-sy0-701')
-    expect(careerMatches(sec, { name: 'Spanish (LatAm)', type: 'language', isLanguage: true, description: 'Security+ vocab in Spanish' })).toBe(false)
+    expect(careerMatches(sec, { name: 'Portuguese (Brazil)', type: 'language', isLanguage: true, description: 'Security+ terms in Portuguese' })).toBe(false)
     const modes = [
-      { id: 13, name: 'Spanish (LatAm)', type: 'language', ankiDeck: 'Español' },
-      { id: 10, name: 'General Study', type: 'general', description: 'Comptia Security+ Test', ankiDeck: 'Comptia Security+ Test' },
-      { id: 11, name: 'Security+', type: 'general', ankiDeck: 'Security+' },
+      { id: 41, name: 'Portuguese (Brazil)', type: 'language', ankiDeck: 'Português' },
+      { id: 42, name: 'Cert prep', type: 'general', description: 'my sy0-701 notes', ankiDeck: 'Cert prep' },
+      { id: 43, name: 'Security+', type: 'general', ankiDeck: 'Security+' },
     ]
-    expect(courseModes(sec, modes).map((m) => m.id)).toEqual([11, 10]) // the mode on the course's own deck first
+    expect(courseModes(sec, modes).map((m) => m.id)).toEqual([43, 42]) // the mode on the course's own deck first
   })
   it('a course runs as a general subject in the app language, whatever mode holds it', () => {
     const map = { career: { id: 'security-plus-sy0-701', title: 'CompTIA Security+ SY0-701' } }
     const ctx = {
       lang: 'en',
-      subject: { modeId: 13, name: 'Spanish (LatAm)', type: 'language', isLanguage: true, learnLang: 'Spanish', learnLangIso: 'es', userLang: 'English', rules: 'dialect: LatAm', accents: true, grammarSlips: () => 'slips', grammarSlipList: () => [{ text: 'x' }] },
-      study: { rules: () => ({ studyLanguage: 'Spanish', quizLanguage: 'Spanish', dialect: 'LatAm', wordHints: true, accentDrill: true, questionLadder: true }), setRules: () => true },
+      subject: { modeId: 41, name: 'Portuguese (Brazil)', type: 'language', isLanguage: true, learnLang: 'Portuguese', learnLangIso: 'pt', userLang: 'English', rules: 'dialect: Brazil', accents: true, grammarSlips: () => 'slips', grammarSlipList: () => [{ text: 'x' }] },
+      study: { rules: () => ({ studyLanguage: 'Portuguese', quizLanguage: 'Portuguese', dialect: 'Brazil', wordHints: true, accentDrill: true, questionLadder: true }), setRules: () => true },
     }
     const c = courseCtx(ctx, map)
-    expect(c.subject).toMatchObject({ modeId: 13, isLanguage: false, type: 'general', learnLang: 'English', learnLangIso: 'en', rules: '', accents: false, name: 'CompTIA Security+ SY0-701' })
+    expect(c.subject).toMatchObject({ modeId: 41, isLanguage: false, type: 'general', learnLang: 'English', learnLangIso: 'en', rules: '', accents: false, name: 'CompTIA Security+ SY0-701' })
     expect(c.subject.grammarSlips()).toBe('')
     expect(c.subject.grammarSlipList()).toEqual([])
     expect(c.study.rules()).toMatchObject({ studyLanguage: '', quizLanguage: '', dialect: '', wordHints: false, accentDrill: false, questionLadder: true })
-    expect(c.study.setRules({ studyLanguage: 'Spanish' })).toBe(false) // a course never writes the mode's language settings
+    expect(c.study.setRules({ studyLanguage: 'Portuguese' })).toBe(false) // a course never writes the mode's language settings
     expect(courseCtx(ctx, { areas: [] })).toBe(ctx) // an adventure map keeps the mode as it is
   })
 })

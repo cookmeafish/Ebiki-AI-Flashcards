@@ -21,7 +21,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import { fileURLToPath } from 'url'
-import { outlineGrams, courseTexts, verbatimProblems, RUN_WORDS } from './verbatim.mjs'
+import { outlineGrams, courseTexts, verbatimProblems, proseProblems, RUN_WORDS, PROSE_WORDS } from './verbatim.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const id = process.argv[2]
@@ -154,6 +154,9 @@ const chapterFiles = latest(path.join(SRC, 'knowledge'), /^(\w+)-knowledge(?:\.r
 const copied = verbatimProblems(courseTexts({ cards: [...cards, ...extras], pkg, chapters: chapterFiles.map((x) => ({ name: path.basename(x.file), text: fs.readFileSync(x.file, 'utf8') })) }),
   outlineGrams(fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8')), areas.flatMap((a) => a.sections.map((s) => s.title)))
 for (const c of copied) problems.push(`copied from the outline (${RUN_WORDS}+ words), rewrite in our own words: ${c.where}: "${c.run}"`)
+// Not traceable either: no shorter shared PHRASE (PROSE_WORDS+ words that read as a sentence, not a list of term names).
+for (const c of proseProblems(courseTexts({ pkg }), fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8'), areas.flatMap((a) => a.sections.map((s) => s.title))))
+  problems.push(`shares a ${PROSE_WORDS}+ word phrase with the outline, reword it: ${c.where}: "${c.run}"`)
 
 // ── acronym cards (Anki only; not on the map) ──
 const acr = new Map()
