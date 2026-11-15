@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseModelId, compareModels, pickUpgrade, pickNewest } from './modelVersions'
+import { parseModelId, compareModels, pickUpgrade, pickNewest, freshenPlanId } from './modelVersions'
 
 // A realistic Anthropic /v1/models payload: current models, an older generation, a sibling
 // family, and a preview build that must never be auto-adopted.
@@ -170,5 +170,20 @@ describe('current id shapes (2026)', () => {
     expect(pickUpgrade('gemini-2.5-pro', ['gemini-3-pro', 'gemini-3-pro-preview', 'gemini-3-flash'])).toBe('gemini-3-pro')
     expect(pickUpgrade('grok-4', ['grok-4-0709', 'grok-4.1', 'grok-4-1-fast-reasoning'])).toBe('grok-4.1')
     expect(pickUpgrade('grok-4-fast-reasoning', ['grok-4-1-fast-reasoning', 'grok-4.1'])).toBe('grok-4-1-fast-reasoning')
+  })
+})
+
+describe('freshenPlanId: a saved plan never keeps a role on an older model of a family the presets moved past', () => {
+  const presets = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
+  it('moves an older model of the same family up to the preset', () => {
+    expect(freshenPlanId('claude-haiku-4-5-20251001', presets)).toBe('claude-haiku-5-5')
+    expect(freshenPlanId('claude-sonnet-4-6', presets)).toBe('claude-sonnet-5-5')
+    expect(freshenPlanId('claude-opus-4-6', presets)).toBe('claude-opus-5-5')
+  })
+  it('keeps a current model, another family and anything unparseable', () => {
+    expect(freshenPlanId('claude-opus-5-5', presets)).toBe('claude-opus-5-5')
+    expect(freshenPlanId('claude-fable-5-2', presets)).toBe('claude-fable-5-2')
+    expect(freshenPlanId('gpt-5', presets)).toBe('gpt-5')
+    expect(freshenPlanId('', presets)).toBe('')
   })
 })

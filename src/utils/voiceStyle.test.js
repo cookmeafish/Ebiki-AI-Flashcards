@@ -45,6 +45,14 @@ describe('a spoken reply is checked in code', () => {
     expect(spokenReplyProblems('That sounds rough. ¿Seguimos en español?', { spanishTalk: true })).toEqual([])
     expect(spokenReplyProblems('Qué bien. ¿Y tu primo te llamó otra vez?')).toEqual([])
   })
+  it('a bare praise opener is caught, a short verdict beat does not use a sentence slot, quoted Spanish is not an invite', () => {
+    expect(spokenReplyProblems('¡Excelente! Los dibujos son muy bonitos.')).toContain('it opens with praise or filler')
+    expect(spokenReplyProblems('Not quite. A worm spreads by itself across a network. A virus needs a host file to run.')).toEqual([])
+    const t = trimSpoken('¡Genial! Las fotos quedaron muy bonitas. ¿Dónde las tomaste? Seguro fue un día largo.')
+    expect(t).toBe('Las fotos quedaron muy bonitas. ¿Dónde las tomaste?')
+    expect(spokenReplyProblems('That takes time. Pick one pattern, like "espero que...".', { spanishTalk: true }).join(' ')).toMatch(/in Spanish/)
+    expect(sentencesOf('Try one pattern, like "espero que...", and use it daily.')).toHaveLength(1)
+  })
   it('the learner\'s form of address is kept (no switch to vos when they use tú)', () => {
     expect(spokenReplyProblems('Bien. ¿Y vos, qué tal?', { learnerVoseo: false }).join(' ')).toMatch(/vos/)
     expect(spokenReplyProblems('Dale. Contame más del viaje.', { learnerVoseo: false }).join(' ')).toMatch(/vos/)

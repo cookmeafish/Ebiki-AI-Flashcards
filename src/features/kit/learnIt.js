@@ -10,7 +10,18 @@ export const LEARN_MAX_TOKENS = 600
 export const LEARN_HISTORY_MAX = 8
 const BACK_MAX = 1500
 
-// item: { front, back }, history: [{ role: 'user'|'assistant', content }] (the learner's newest message last)
+// The neighbouring cards (the same objective's other items, `item.related`), so an explanation never uses a reason that
+// defines a neighbour (a judge: a background check called managerial "because a person does it", which is the
+// operational card's own definition).
+const RELATED_MAX = 8
+function relatedBlock(related) {
+  const list = (Array.isArray(related) ? related : []).filter((r) => r?.front).slice(0, RELATED_MAX)
+  if (!list.length) return ''
+  const first = (back) => (String(back || '').split('\n').find((l) => /\S/.test(l)) || '').slice(0, 220)
+  return `Neighbouring cards (checked; your reason must not be one of THEIRS):\n${list.map((r) => `- ${String(r.front).slice(0, 120)}: ${first(r.back)}`).join('\n')}`
+}
+
+// item: { front, back, related? }, history: [{ role: 'user'|'assistant', content }] (the learner's newest message last)
 export function buildLearnChatPrompt(subject = {}, item = {}, history = []) {
   const lang = subject.userLang || 'English'
   const system = `You are Ebi, a warm, patient study buddy. The learner just missed this in a quiz, so explain from zero: small words, concrete examples, no jargon. Reply in ${lang}, under 120 words, plain text with at most **bold** on key words (no *italics*). Never use dashes or a shrimp emoji. Say each thing ONCE: a yes or no question gets the verdict once, then the one reason; no closing recap line repeating it. Never open by restating their question. When the item is one of several categories or types, check your reason against the neighbouring ones (a reason that defines a different category is wrong) before you answer. ${TEACHING_STYLE_RULE}`
@@ -19,6 +30,8 @@ export function buildLearnChatPrompt(subject = {}, item = {}, history = []) {
     'What the learner is learning:',
     `Front: "${String(item.front || '').slice(0, 400)}"`,
     item.back ? `Back:\n${String(item.back).slice(0, BACK_MAX)}` : '',
+    item.back ? 'That card is CHECKED: teach from it, and never say anything that contradicts its definition, example or key points.' : '',
+    relatedBlock(item.related),
     subject.isLanguage ? `They are learning ${subject.learnLang}. ${subject.rules || ''}` : `Subject: ${subject.name || ''}${subject.description ? ` (${subject.description})` : ''}. This is not a language lesson.`,
     typeof subject.knowledge === 'function' ? subject.knowledge(4000) || '' : '',
     `\nConversation so far:\n${talk}`,

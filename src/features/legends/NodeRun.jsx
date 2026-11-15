@@ -20,7 +20,7 @@ import { addItemsToDeck, liveItems, isAdding } from './deck'
 import Talk from './Talk'
 import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
 import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
-import { raidLook } from './career'
+import { raidLook, learnNeighbours } from './career'
 import { powerHint } from './powers'
 import { DAMAGE } from './abilities/_rules'
 import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundRunningFight, strikeCost } from './fight'
@@ -86,7 +86,7 @@ function AddOne({ ctx, modeId, areaId, it }) {
 // bullets, the category as a small tag. Buttons: 📖 Learn it (the Learn-it panel: the card, a memory hook, a chat with
 // Ebi, before any quiz), 🧠 Memory hook (made here, saved like every other hook) and Add to deck.
 // COLLAPSED by default (the owner): the title shows, a click opens the rest.
-export function ItemCard({ it, t, ctx, modeId, areaId, startOpen = false }) {
+export function ItemCard({ it, t, ctx, modeId, areaId, startOpen = false, related = [] }) {
   const [open, setOpen] = useState(startOpen)
   const [learnOpen, setLearnOpen] = useState(false)
   const [hooks, setHooks] = useState(() => { try { return ctx?.learn?.savedHooks?.(it.cardNoteId || null, it.front) || [] } catch { return [] } })
@@ -142,7 +142,7 @@ export function ItemCard({ it, t, ctx, modeId, areaId, startOpen = false }) {
             : it.cardNoteId && <span style={{ fontSize: 11.5, fontWeight: 800, color: C.success }}>✓ {t('lg_inDeck')}</span>}
         </span>
       </div>}
-      {learnOpen && ctx && <LearnItPanel ctx={ctx} item={{ front: it.front, back: it.back, noteId: it.cardNoteId || null }} onClose={() => setLearnOpen(false)} />}
+      {learnOpen && ctx && <LearnItPanel ctx={ctx} item={{ front: it.front, back: it.back, noteId: it.cardNoteId || null, related }} onClose={() => setLearnOpen(false)} />}
     </div>
   )
 }
@@ -482,7 +482,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'grid', gap: 14 }}>
         <button onClick={onQuit} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>← {t('lg_toMap')}</button>
         <EbiSays pose={poseFile(node.kind === 'rule' ? 'science' : 'book')}>{node.kind === 'rule' ? t('lg_teachRule') : tCount(t, 'lg_teachLearn', teachItems.length)}</EbiSays>
-        <div style={{ display: 'grid', gap: 10 }}>{liveItems(modeId, area.id, teachItems.map((it) => it.id)).map((it) => <ItemCard key={it.id} it={it} t={t} ctx={ctx} modeId={modeId} areaId={area.id} />)}</div>
+        <div style={{ display: 'grid', gap: 10 }}>{liveItems(modeId, area.id, teachItems.map((it) => it.id)).map((it) => <ItemCard key={it.id} it={it} t={t} ctx={ctx} modeId={modeId} areaId={area.id} related={learnNeighbours(area, it)} />)}</div>
         <details style={{ fontSize: 13, color: C.inkDim }}>
           <summary style={{ cursor: 'pointer', fontWeight: 700 }}>➕ {t('lg_addCardsLater')}</summary>
           <div style={{ marginTop: 8 }}><AddToDeck ctx={ctx} modeId={modeId} areaId={area.id} itemIds={teachItems.map((it) => it.id)} /></div>

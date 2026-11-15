@@ -1599,7 +1599,7 @@ export default {
   vm_pushToTalk: "点击“我说完了”时",
   vm_listeningPush: "正在听。说完后点击“我说完了”。",
   vm_recap: "总结",
-  vm_recapAsk: "用{lang}简单总结一下这整段对话。",
+  vm_recapAsk: "用{lang}简单总结一下这整段对话：我做得好的地方、最重要的一个错误（我怎么说的、正确怎么说）和下一步。",
   vm_otherWindow: "语音模式在另一个窗口打开了，所以这里已暂停。",
   vm_hiddenPaused: "窗口隐藏时已暂停。点击说话继续。",
   lg_careerLoadFailed: "无法加载课程，请重试。",

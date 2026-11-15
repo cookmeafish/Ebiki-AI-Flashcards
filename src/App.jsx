@@ -16,7 +16,7 @@ import { editorTagTarget } from './utils/deckTags'
 import { shapeHistory, studyStreak, todayNumbers, chartDays as statsChartDays, groupSessions, deckBreakdown, localDay, ankiDayOf } from './utils/studyStats'
 import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendingRatings, hadProgress, STUDY_SESSION_MAX_AGE_MS } from './utils/studySession'
 import TokenUsageMeter from './components/TokenUsageMeter'
-import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
+import { pickUpgrade, pickNewest, parseModelId, compareModels, freshenPlanId } from './config/modelVersions'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
 import { resolveJob, pinnedTierFor, speechJobModel } from './config/aiJobs'
 import { MODELS as SPEECH_MODELS } from './speech/engines'
@@ -1763,9 +1763,11 @@ export default function App() {
     // non-empty string ids apply, so a bad/partial plan can never blank a role (it falls back to base).
     const plan = aiStateRef.current.modelPlans?.[prov]?.[intel]?.plan
     if (plan && typeof plan === 'object') {
+      // An older model of a family the presets now carry in a newer version moves up to it (freshenPlanId).
+      const presetIds = ['cheap', 'normal', 'max'].map((tier) => presetModel(pc, prov, tier)).filter(Boolean)
       for (const role of Object.keys(base)) {
         const id = plan[role]
-        if (typeof id === 'string' && id.trim()) base[role] = id
+        if (typeof id === 'string' && id.trim()) base[role] = freshenPlanId(id, presetIds)
       }
     }
     return base
@@ -11839,7 +11841,8 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid.`, prompt, resolveJobModel('study.hooks'))
     // Em dashes are banned in user-facing text — the prompt forbids them, the strip guarantees it.
     // An en dash between digits is a RANGE ("2–4", "1990–2000"): a hyphen, not a comma that changed the meaning.
-    const deDash = (s) => String(s || '').replace(/(\d)\s*–\s*(\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ').trim()
+    // Also drops a stage direction left in the text ("[IMAGE: a firewall slamming doors]": a judge saw one shown).
+    const deDash = (s) => String(s || '').replace(/\s*\[(?:image|picture|img|visual|scene|illustration)\b[^\]]*\]\s*/gi, ' ').replace(/(\d)\s*–\s*(\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ').trim()
     const draft = deDash(text)
     if (!draft) return draft
     // VERIFY-AND-IMPROVE pass (hooks get MEMORIZED, like cards → same guardrail as verifyCards):

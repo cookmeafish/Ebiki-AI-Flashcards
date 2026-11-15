@@ -17,6 +17,8 @@ export const VOICE_TURN_RULE = [
   '- Mistakes: EVERY time their sentence has a grammar mistake (agreement, gender, a verb form), your reply MUST use the corrected words once, naturally inside it (a recast: if they say "a mí me gusta los perros", you answer "¿Ah, te gustan los perros? ¿Cuál es tu favorito?"), never a grammar lecture. Let small slips go. Your own grammar must be flawless.',
   '- Their words come from speech recognition and may be misheard: read a garbled term by how it SOUNDS ("sea surf" is CSRF, "sock" is SOC, "sass" is SaaS, "tea pee em" is TPM). If you really cannot tell, your WHOLE reply is just "Did you say X?".',
   '- Quizzing (when they ask): ONE question in one sentence, under 20 words, then stop. No answer choices unless they ask. When they answer right: "Yes" plus at most one short line, then the next question. When wrong: say so in the first words and give the right answer in one sentence. Judge what they meant, not the exact wording. Use their own cards from the context above.',
+  '- "Next", "next one" or "skip" in a quiz: ask the NEXT question; never answer your own last question for them.',
+  '- Never assume the learner\'s gender: use words that fit anyone ("cuando quieras", never "cuando estés lista").',
   '- "Tell me more", "why" or "give me an example": 2 or 3 sentences for the next layer only, then back to short.',
   '- If they miss the same thing twice, offer once, in one sentence, to make it a card. Make it only when they say yes, and then say it is ready below for them to add (never that it is already saved).',
   '- Never invent what the learner did or felt ("you caught yourself", "you\'ve got it now"): only what they actually said.',
@@ -34,14 +36,18 @@ const DEEPER = /\b(tell me more|more detail|go deeper|explain more|why|example|r
 export const wantsMore = (userText) => DEEPER.test(String(userText || ''))
 
 // The assistant habits a spoken reply must not have (openers, closers, menus). Matched on the start or end.
-const BAD_OPENER = /^\s*(good|great|excellent|nice|interesting) question\b|^\s*(¡?buena pregunta|¡?excelente pregunta|bonne question|gute frage|ottima domanda)\b|^\s*right on both counts\b/i
+const BAD_OPENER = /^\s*(good|great|excellent|nice|interesting) question\b|^\s*(¡?buena pregunta|¡?excelente pregunta|bonne question|gute frage|ottima domanda)\b|^\s*right on both counts\b|^\s*¡?\s*(?:excelente|genial|perfecto|incre[ií]ble|great|excellent|perfect|awesome|fantastic|amazing|nice job|well done)\s*[!.]/i
 const BAD_CLOSER = /(anything else (i can|you('d| would)? like)|is there anything (else )?(i can|you('d| would)? like)|something else you('d| would) like|(does that|did that) (make sense|land|help)\??|make sense\?|hay algo (más )?en (lo )?que (te )?pueda ayudar|algo m[aá]s (en lo )?que (quieras|te gustar[ií]a)|hay alg[uú]n?[a-z]* (que )?quieras practicar|quieres practicar algo m[aá]s|tiene(s)? (alguna )?(otra )?pregunta|(?:qu[eé]|de qu[eé]|en qu[eé])\s[^?]{0,30}\b(?:practic\w*|habl\w*|repas\w*|estudi\w*|aprend\w*|ayud\w*)\b[^?]{0,20}\?|practicamos algo|what (?:should|shall|do|would|could) (?:we|you)\b[^?]{0,25}\b(?:practice|work on|study|talk about)\b|(?:jump|get|go|come) back (?:in)?to (?:spanish|french|german|italian|portuguese|japanese|chinese|korean|english|practic\w*)|anything (else )?(you want|to practice))/i
 const MENU = /\b(we|you) (can|could)\b[^.?!]*\bor\b[^.?!]*\b((we|you) (can|could)|just)\b|\b(podemos|puedes)\b[^.?!]*\bo\b[^.?!]*\b(podemos|puedes|solo)\b|\bwhat (do|would) you (feel like|like|want) (doing|to do)\b/i
 
 // Text the voice will say: outside the reply's tags (cards, sources...).
 const spokenPart = (text) => String(text || '').replace(/<(anki-card|sources|progress-update|offer-search|mode|action|think)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 const SENTENCE = /[^.!?。！？…]+(?:[.!?。！？…]+["')\]]*|$)/g
-export const sentencesOf = (text) => (spokenPart(text).match(SENTENCE) || []).map((s) => s.trim()).filter((s) => /[\p{L}\p{N}]/u.test(s))
+// An ellipsis inside quotes ('like "espero que..."') never ends a sentence.
+const quietQuotes = (s) => s.replace(/(["“«][^"”»]*?)(?:\.\.\.|…)(["”»])/g, '$1$2')
+export const sentencesOf = (text) => (quietQuotes(spokenPart(text)).match(SENTENCE) || []).map((s) => s.trim()).filter((s) => /[\p{L}\p{N}]/u.test(s))
+// Very short sentences ("Not quite.", "Yes.") are a beat, not a sentence, for the sentence limit.
+const countedSentences = (text) => sentencesOf(text).filter((s) => wordCount(s) > 2).length
 const wordCount = (s) => {
   const t = spokenPart(s)
   const cjk = (t.match(/[぀-ヿ一-鿿가-힯]/g) || []).length
@@ -64,7 +70,7 @@ export function spokenReplyProblems(text, { more = false, learnerVoseo, spanishT
   const said = spokenPart(text)
   if (!said) return out
   const words = wordCount(said)
-  const sents = sentencesOf(said).length
+  const sents = countedSentences(said)
   const maxW = more ? k.moreWords : k.words
   const maxS = more ? k.moreSentences : k.sentences
   if (words > maxW) out.push(`it is ${words} words; the limit is ${maxW}`)
@@ -79,7 +85,8 @@ export function spokenReplyProblems(text, { more = false, learnerVoseo, spanishT
   if (longest > (more ? 28 : 26)) out.push(`one sentence is ${longest} words: split it, keep each sentence short`)
   // A correction said as a correction ("no 'me dice'") instead of a recast inside the talk.
   if (/(?:^|[\s,.;])(?:no|not|instead of|en lugar de|en vez de)\s+["“'«][^"”'»]{1,40}["”'»]/i.test(said) && !more) out.push('it corrects them out loud ("no X"): just use the right words naturally in your reply')
-  if (spanishTalk && !SPANISH_WORDS.test(said)) out.push('it is all in their own language: answer kindly, then end with ONE short line in Spanish inviting them back')
+  // Quoted words don't count as speaking Spanish (a quoted example "espero que..." passed for an invite back).
+  if (spanishTalk && !SPANISH_WORDS.test(said.replace(/["“«][^"”»]*["”»]/g, ' '))) out.push('it is all in their own language: answer kindly, then end with ONE short line in Spanish inviting them back')
   return out
 }
 
@@ -92,7 +99,7 @@ export function trimSpoken(text, { more = false } = {}) {
   const maxS = more ? SPOKEN_LIMITS.moreSentences : SPOKEN_LIMITS.sentences
   const kept = []
   for (const s of sents) {
-    if (kept.length >= maxS) break
+    if (kept.filter((k) => wordCount(k) > 2).length >= maxS) break // a short beat ("Not quite.") does not use a slot
     if (kept.length && wordCount([...kept, s].join(' ')) > (more ? SPOKEN_LIMITS.moreWords : SPOKEN_LIMITS.words)) break
     kept.push(s)
   }

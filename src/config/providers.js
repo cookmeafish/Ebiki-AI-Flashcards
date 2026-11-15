@@ -325,15 +325,15 @@ export const PROVIDERS = {
     url: 'https://console.anthropic.com/settings/keys',
     modelsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview',
     billingUrl: 'https://console.anthropic.com/settings/plans',
-    model: 'claude-haiku-4-5-20251001',
-    questionModel: 'claude-sonnet-5',
+    model: 'claude-haiku-5-5',
+    questionModel: 'claude-sonnet-5-5',
     // Intelligence presets — every feature uses one of these (Normal = balanced, Max = most capable).
     // These are only the FLOOR. modelPresets (App.jsx) overrides them with whatever the provider's
     // live list says is newest in the same family, so a stale constant here can no longer pin the
     // whole app to an old model the way claude-opus-4-8 did after claude-opus-5 shipped.
     // Three tiers. cheap = fast/low-cost (Haiku slot), normal = balanced, max = strongest. The
     // Optimized intelligence preset assigns each role a tier (see ROLE_TIER in App.jsx).
-    presets: { cheap: 'claude-haiku-4-5', normal: 'claude-sonnet-5', max: 'claude-opus-5' },
+    presets: { cheap: 'claude-haiku-5-5', normal: 'claude-sonnet-5-5', max: 'claude-opus-5-5' }, // floors (2026-11-15); the live list replaces them
     // List the model ids currently offered by the provider (newest first).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.anthropic.com/v1/models?limit=1000', {
@@ -362,14 +362,14 @@ export const PROVIDERS = {
             'anthropic-dangerous-direct-browser-access': 'true',
           },
           body: JSON.stringify({
-            model: modelOverride || 'claude-haiku-4-5-20251001',
+            model: modelOverride || 'claude-haiku-5-5',
             max_tokens: budget,
             system: systemPrompt,
             messages: [{ role: 'user', content }],
           }),
         })
         const text = await r.text()
-        if (r.ok) reportUsage('anthropic', modelOverride || 'claude-haiku-4-5-20251001', text)
+        if (r.ok) reportUsage('anthropic', modelOverride || 'claude-haiku-5-5', text)
         return { ok: r.ok, status: r.status, text }
       }
 

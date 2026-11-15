@@ -513,6 +513,27 @@ describe('saves from before career mode', () => {
   })
 })
 
+describe('Learn it sees the neighbouring cards of the same objective', () => {
+  it('same section, never itself, a briefing or an acronym; none without a section', async () => {
+    const { learnNeighbours } = await import('./career')
+    const area = { items: [
+      { id: 'a', section: '2.1', kind: 'term', front: 'Deterrent control', back: 'Discourages an attempt.' },
+      { id: 'b', section: '2.1', kind: 'term', front: 'Corrective control', back: 'Restores after an incident.' },
+      { id: 'c', section: '2.1', kind: 'brief', front: '2.1 overview', back: '...' },
+      { id: 'd', section: '2.2', kind: 'term', front: 'Other', back: '...' },
+      { id: 'e', section: '2.1', kind: 'acronym', front: 'IDS', back: '...' },
+    ] }
+    expect(learnNeighbours(area, area.items[0]).map((x) => x.front)).toEqual(['Corrective control'])
+    expect(learnNeighbours(area, { id: 'z', front: 'No section' })).toEqual([])
+  })
+  it('the Learn it prompt carries the checked card rule and the neighbours', async () => {
+    const { buildLearnChatPrompt } = await import('../kit/learnIt')
+    const p = buildLearnChatPrompt({ name: 'Security' }, { front: 'Deterrent control', back: 'Definition: Discourages an attempt.', related: [{ front: 'Corrective control', back: 'Definition: Restores after an incident.' }] }, [{ role: 'user', content: 'why?' }])
+    expect(p.user).toMatch(/CHECKED/)
+    expect(p.user).toMatch(/Neighbouring cards[\s\S]*Corrective control: Definition: Restores/)
+  })
+})
+
 describe('domain pictures are chosen at render time', () => {
   it('a known course gets its topic per domain; anything else keeps the adventure banner', async () => {
     const { careerTopicArt } = await import('./career')

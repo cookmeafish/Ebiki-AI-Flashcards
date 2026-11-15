@@ -96,6 +96,10 @@ export async function judgeAnswer(ai, subject, q, answer) {
     `Question: ${q.prompt}`,
     tierJudgeLine(q, subject),
     q.accepted?.length ? `Reference answer(s): ${q.accepted.join(' / ')}` : '',
+    // The question's own checked explanation (shown to the learner right under the note): another name it gives for
+    // the answer is correct, and the note never contradicts or repeats it (a judge: "logical controls" marked wrong
+    // and called a "subcategory" while the explanation underneath said "also called logical controls").
+    q.explanation ? `Checked explanation (the learner sees it under your note; any other name it gives for the answer is correct; never contradict it, never repeat it): ${String(q.explanation).slice(0, 600)}` : '',
     `Student answer: ${answer}`,
     q.open
       ? 'This is an open question: mark it correct when the answer shows the understanding the question asks for, in any wording or language. Ignore spelling unless it changes the meaning.'

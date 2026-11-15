@@ -44,6 +44,14 @@ export const CAREER_TOPICS = ['concepts', 'threats', 'architecture', 'operations
 export const CAREER_TOPIC_ART = {
   'security-plus-sy0-701': ['concepts', 'threats', 'architecture', 'operations', 'governance'],
 }
+// LEARN IT's neighbours: the same objective's other taught items (briefings and acronyms left out), so an explanation
+// can be checked against them; [] for an item with no section (adventure maps).
+export function learnNeighbours(area, item, max = 8) {
+  if (!item?.section) return []
+  return (area?.items || []).filter((x) => x && x.id !== item.id && x.section === item.section && x.kind !== 'brief' && x.kind !== 'acronym')
+    .slice(0, max).map((x) => ({ front: x.front, back: x.back }))
+}
+
 // The topic picture's URL for a course map's island ('' = none: keep the adventure banner).
 export function careerTopicArt(map, area) {
   const list = CAREER_TOPIC_ART[map?.career?.id] || []

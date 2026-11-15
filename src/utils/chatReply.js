@@ -60,7 +60,7 @@ export function chatReplyProblems(text, { userText = '' } = {}) {
   const flat = prose.replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, '').replace(/\s+/g, ' ').trim()
   const sentences = (flat.match(/[^.!?。！？]+[.!?。！？]+/g) || []).filter((s) => /[\p{L}\p{N}]/u.test(s)).length
   const words = flat.split(' ').filter((w) => /[\p{L}\p{N}]/u.test(w)).length
-  if (sentences > 6 || words > 130) out.push(`it is ${sentences} sentences and ${words} words; a direct question gets 2 to 5 sentences`)
+  if (sentences > 5 || words > 100) out.push(`it is ${sentences} sentences and ${words} words; a direct question gets 2 to 5 sentences`)
   return out
 }
 

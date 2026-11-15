@@ -152,3 +152,21 @@ export function pickUpgrade(currentId, availableIds, rejectedId = null) {
 export function pickNewest(currentId, availableIds) {
   return pickUpgrade(currentId, availableIds, null)
 }
+
+/**
+ * A model a SAVED plan picked for a role, brought up to date with the provider's current presets: when a preset is a
+ * strictly newer model of the SAME family (claude-haiku-4-5 → claude-haiku-5-5), the preset wins; any other id stays.
+ * A plan decided before a family's new release otherwise kept every role on the old model for weeks (2026-11-15: Chat
+ * ran on claude-haiku-4-5 while the presets held the 5.5 models).
+ */
+export function freshenPlanId(id, presetIds = []) {
+  const p = parseModelId(id)
+  if (!p) return id
+  let best = id
+  for (const cand of presetIds) {
+    const c = parseModelId(cand)
+    if (!c || c.family !== p.family) continue
+    if (compareModels(c, parseModelId(best)) > 0) best = cand
+  }
+  return best
+}

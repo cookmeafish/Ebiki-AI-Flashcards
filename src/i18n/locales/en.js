@@ -1658,7 +1658,7 @@ export default {
   vm_pushToTalk: "When I tap I'm done",
   vm_listeningPush: "Listening. Tap \"I'm done\" when you finish.",
   vm_recap: "Recap",
-  vm_recapAsk: "Give me a quick recap of this whole talk, in {lang}.",
+  vm_recapAsk: "Give me a quick recap of this whole talk, in {lang}: what I did well, my one mistake that matters most (what I said and the right way to say it), and one next step.",
   vm_otherWindow: "Voice mode is open in another window, so this one paused.",
   vm_hiddenPaused: "Paused while the window was hidden. Tap to talk to continue.",
   lg_careerLoadFailed: "The course could not be loaded. Try again.",

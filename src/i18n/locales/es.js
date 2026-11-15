@@ -1599,7 +1599,7 @@ export default {
   vm_pushToTalk: "Al tocar Ya terminé",
   vm_listeningPush: "Escuchando. Toca \"Ya terminé\" cuando acabes.",
   vm_recap: "Resumen",
-  vm_recapAsk: "Dame un resumen rápido de toda esta conversación, en {lang}.",
+  vm_recapAsk: "Dame un resumen rápido de toda esta conversación, en {lang}: lo que hice bien, mi error más importante (lo que dije y cómo se dice bien) y un siguiente paso.",
   vm_otherWindow: "El modo de voz está abierto en otra ventana, así que este se pausó.",
   vm_hiddenPaused: "Pausado mientras la ventana estaba oculta. Toca para hablar y seguir.",
   lg_careerLoadFailed: "No se pudo cargar el curso. Inténtalo de nuevo.",
