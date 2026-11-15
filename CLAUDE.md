@@ -2006,8 +2006,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     name, none repeated in the course nor an island's own (career.test.js "EVERY BOSS IS ITS OWN"); older saves are
     filled in on load (`fillRegionBosses`). A new course needs its own list. An older course with no progress is rebuilt on open (`careerHasProgress`);
     one with progress keeps layout 1 (objectives + checkpoints), which the UI still draws.
-  - **Course cards can't be deleted** (`src/cards/protect.js`: tag `ebiki-course` or a course's own tag): the ONE
-    delete in `srs.deleteNotes` refuses the whole call (code `courseCard`); the Deck tab shows 🔒.
+  - **THE COURSE IS A LIBRARY, THE DECK IS YOURS** (the owner, 2026-11-15): every course card lives in Legends and is
+    learned, practiced and fought there; the deck holds ONLY what the learner adds. "Add to deck" is the one door and
+    recognizes a card already in the mode's deck (`linkExisting` via `ctx.cards.findFronts`, also on lesson open:
+    "In your deck", never a duplicate). Starting a course keeps the mode's deck, or gives one without a deck an EMPTY
+    deck named after the course (`pickCourseDeck`: a same-named deck holding cards gets a "(my cards)" sibling). The
+    map's `LibraryNote` explains the split in two tiles. Nothing pushes a course into Anki (the build's `--anki` and
+    the course delete lock were removed: the learner owns the deck).
   - **Extra cards** (`<prefix>-extras.rN.json`, `extra: true` + sources) cover what a learner needs that no outline
     line names; reviewed twice like every card.
   - **Acronyms per domain** (the owner: learning the acronyms is a big part of the exam): the build assigns each entry of
@@ -2015,6 +2020,14 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     `acronyms`; `withAcronyms` / `addAcronymTrack` (older saved courses get it on open) make an optional, always-open
     track per island (section `acr`, items `kind: 'acronym'`): lessons of `CAREER.acronymLesson` (8) and a drill of
     `CAREER.acronymDrill` (15). It never blocks the region bosses; the `AcronymCard` on the map opens it.
+    **By importance** (the owner: "knowing most of the main ones is most likely enough"): tiers Core / Good to know /
+    Extra (`ACRONYM_TIERS` must/good/rare) from `dev/careers/acronymRank.mjs` (named in the public objectives or used
+    in 3+ cards = Core) plus REVIEWED picks of foundational ones (`dev/careers/acronym-core.json`, a reason each).
+    Words are STUDY PRIORITY, never a claim about what an exam asks. Sets never mix tiers; a core drill and a drill
+    over all; "Core covered" stamp (`mustKnowCovered`). A track with acronym progress is never re-sorted
+    (`acronymProgress`); a newer package's extra acronyms come as new sets (`appendAcronyms`). Where the public list
+    misspells a name (DES "Digital…") the course teaches the standard one and accepts the listed one
+    (`dev/careers/acronym-fixes.json`, `listed`). Design + judge: `docs/plans/2026-11-15-acronym-tiers.md`.
 - Drive it with every AI host stubbed and `/api/feature-data` in memory (the real stores and credits untouched).
 
 ## Porting to phones (iOS / Android): keep these seams clean
@@ -2694,6 +2707,16 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   its parent role's tier (`pinnedTierFor`); the Model Advisor plan stays per role. Speech jobs (`speech.stt/tts`) pick
   the engine model via `ctx.speechModel(kind, engine)` (default `src/speech` `MODELS`). **Adding a job**: one registry
   entry + `aiJob_<id_with_underscores>` / `aiJobHint_<...>` in all four locales + pass it at the call site.
+- **"Ebi's models" card** (Settings > AI & cost, `ModelPlanCard.jsx` + pure `src/config/modelPlan.js`, tested; design
+  `docs/plans/2026-11-15-model-plan-settings.md`): the plan in plain words, one row per TASK (every chat job in exactly
+  one; a new job needs a task), its model as a NAME, Basic/Standard/Best + why, cost per use from the learner's OWN
+  usage (`byJob`, logged per job: aiCall reads `lastJobRef`, set by `resolveJobModel`) else a typical size, never a
+  guessed price. A plan saved before a family's new release resolves to the newer preset (`freshenPlanId`); a HAND
+  pick never does. "Update to the newest models" = `replanNow` (forced, returns a reason, keeps the old plan as
+  `previous` for Undo, never overwrites a plan another computer saved later); it also runs by itself once a day when the
+  list holds a chat model the plan never saw (`autoReplanDue`). **The teaching fact check** (`utils/factCheck.js`,
+  `factCheck` config, ON by default, job `factcheck.reply`): after a Chat (typed or spoken) or Learn it reply is SHOWN,
+  one silent call names up to 2 mistakes that QUOTE the reply; notes live in memory only (`factNotes`, `ctx.ai.factCheck`).
 - **Model Advisor** (`src/config/modelAdvisor.js` + App): `selectIntelligence(preset)` applies a CACHED plan
   (`modelPlans[prov][preset].plan`) at once; `ensurePresetPlan` re-lists models in the background and, only if new
   models appeared or nothing was decided, researches them (`modelCards[id]`), lets the strongest model decide a

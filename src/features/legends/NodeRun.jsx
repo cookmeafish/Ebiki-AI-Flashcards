@@ -16,7 +16,7 @@ import { gradeAnswer, gradeFromStrike } from '../../config/grading'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { makeQuiz, sceneFor, ensureBossName, KNOWLEDGE_CAP } from './generate'
 import { itemIdFor } from './prompt'
-import { addItemsToDeck, liveItems, isAdding } from './deck'
+import { addItemsToDeck, liveItems, isAdding, linkExisting } from './deck'
 import Talk from './Talk'
 import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
 import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
@@ -147,8 +147,29 @@ export function ItemCard({ it, t, ctx, modeId, areaId, startOpen = false, relate
   )
 }
 
+// Items already cards in the mode's deck show "In your deck" without a click (deck.js linkExisting): once per list and
+// deck, in the background; the caller re-renders when something was linked.
+function useLinkExisting(ctx, modeId, areaId, itemIds) {
+  const [, force] = useState(0)
+  const deck = ctx?.subject?.modeDeck
+  const key = `${modeId}|${areaId}|${deck}|${ctx?.ankiConnected}|${(itemIds || []).join(',')}`
+  useEffect(() => {
+    if (!ctx || !deck || ctx.ankiConnected === false) return undefined
+    let live = true
+    linkExisting(ctx, modeId, areaId, liveItems(modeId, areaId, itemIds)).then((n) => { if (live && n) force((x) => x + 1) })
+    return () => { live = false }
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+// A lesson's item cards, with the in-deck check.
+function LessonItems({ ctx, t, modeId, area, ids }) {
+  useLinkExisting(ctx, modeId, area.id, ids)
+  return <div style={{ display: 'grid', gap: 10 }}>{liveItems(modeId, area.id, ids).map((it) => <ItemCard key={it.id} it={it} t={t} ctx={ctx} modeId={modeId} areaId={area.id} related={learnNeighbours(area, it)} />)}</div>
+}
+
 // Every item of a list, each with its own add, then "Add all" for the rest (the boss result's area cards).
 export function ItemAddList({ ctx, modeId, areaId, itemIds }) {
+  useLinkExisting(ctx, modeId, areaId, itemIds)
   const items = liveItems(modeId, areaId, itemIds)
   if (!items.length) return null
   return (
@@ -198,7 +219,8 @@ export function AddToDeck({ ctx, modeId, areaId, itemIds, label }) {
     setBusy(true); setNote('')
     const r = await addItemsToDeck(ctx, modeId, areaId, todo)
     setBusy(false)
-    setNote(r.added ? t('lg_added', { n: r.added, deck: subject.modeDeck }) + (r.failed ? ` ${r.message || ''}` : '') : r.failed || r.message ? r.message || t('lg_addFailed') : '')
+    const linked = r.already ? t('lg_alreadyInDeck', { n: r.already }) : ''
+    setNote(r.added ? [t('lg_added', { n: r.added, deck: subject.modeDeck }), linked, r.failed ? r.message || '' : ''].filter(Boolean).join(' ') : r.failed || r.message ? r.message || t('lg_addFailed') : linked)
     force((n) => n + 1)
   }
   if (!items.length) return null
@@ -482,7 +504,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'grid', gap: 14 }}>
         <button onClick={onQuit} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>← {t('lg_toMap')}</button>
         <EbiSays pose={poseFile(node.kind === 'rule' ? 'science' : 'book')}>{node.kind === 'rule' ? t('lg_teachRule') : tCount(t, 'lg_teachLearn', teachItems.length)}</EbiSays>
-        <div style={{ display: 'grid', gap: 10 }}>{liveItems(modeId, area.id, teachItems.map((it) => it.id)).map((it) => <ItemCard key={it.id} it={it} t={t} ctx={ctx} modeId={modeId} areaId={area.id} related={learnNeighbours(area, it)} />)}</div>
+        <LessonItems ctx={ctx} t={t} modeId={modeId} area={area} ids={teachItems.map((it) => it.id)} />
         <details style={{ fontSize: 13, color: C.inkDim }}>
           <summary style={{ cursor: 'pointer', fontWeight: 700 }}>➕ {t('lg_addCardsLater')}</summary>
           <div style={{ marginTop: 8 }}><AddToDeck ctx={ctx} modeId={modeId} areaId={area.id} itemIds={teachItems.map((it) => it.id)} /></div>

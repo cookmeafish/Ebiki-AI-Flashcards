@@ -17,8 +17,10 @@ import { shapeHistory, studyStreak, todayNumbers, chartDays as statsChartDays, g
 import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendingRatings, hadProgress, STUDY_SESSION_MAX_AGE_MS } from './utils/studySession'
 import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels, freshenPlanId } from './config/modelVersions'
+import { unseenChatModels, autoReplanDue, ROLE_TIER as PLAN_ROLE_TIER, roleDefaults as planRoleDefaults } from './config/modelPlan'
+import { buildFactCheckPrompt, parseFactCheck, shouldFactCheck, FACT_CHECK_MAX_TOKENS } from './utils/factCheck'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
-import { resolveJob, pinnedTierFor, speechJobModel } from './config/aiJobs'
+import { resolveJob, pinnedTierFor, speechJobModel, chatModelsOnly } from './config/aiJobs'
 import { MODELS as SPEECH_MODELS } from './speech/engines'
 import { LANGS, langFromName, isDistinctSpoken, langDisplayName } from './config/languages'
 import { splitTapTokens, tapClean, tapLongEnough, tapAllowed, splitCueParts } from './utils/tapTokens'
@@ -67,7 +69,6 @@ import { buildDistractorCheckPrompt, parseDistractorCheck, swapFlagged } from '.
 import { cardGoal, goalLine, goalField, shapeGoal } from './utils/questionGoal'
 import { prefixHint, hintAnswer, hintTokens, longerPrefix } from './utils/prefixHint'
 import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, cardHtmlForText, setTranslator as setCardTranslator, CHANGE_MAYBE_APPLIED } from './cards'
-import { isCourseNote } from './cards/protect'
 import { flattenConfig, diffConfig } from './utils/configDiff'
 import { modePatch } from './utils/modePatch'
 import { readBlob, readBlobChecked, writeBlob, setBlobWritesPaused, storageKey as blobStoreKey, DEFAULT_LEDGER } from './discover/storage'
@@ -629,6 +630,12 @@ export default function App() {
   // Token and cost counter (Settings > AI & cost). Global, OFF by default. The tracking itself always runs (so the
   // totals are complete when it is switched on); this only shows the counter.
   const [showTokenUsage, setShowTokenUsage] = useState(false)
+  // Double-check Ebi's teaching replies for mistakes (utils/factCheck.js): ON by default, global (config.json).
+  const [factCheck, setFactCheck] = useState(true)
+  const factCheckRef = useRef(true); factCheckRef.current = factCheck
+  // Notes from the check, keyed by the reply text they belong to: in memory only, never saved, never sent back to a model.
+  const [factNotes, setFactNotes] = useState({})
+  const [modelsMoved, setModelsMoved] = useState(false) // the automatic update changed what runs (a toast until read)
   useEffect(() => { setUsageListener(recordUsage); return () => setUsageListener(null) }, [])
   const questionReuseRef = useRef(questionReuse)
   questionReuseRef.current = questionReuse
@@ -1748,7 +1755,7 @@ export default function App() {
   // The presets this build knows. A newer computer on the share may save one this build lacks: it ran every
   // role on the provider's fallback model, and the first autosave posted 'normal' over the other computer's pick.
   const INTELLIGENCE_PRESETS = ['optimized', 'normal', 'max']
-  const ROLE_TIER = { pose: 'cheap',help: 'cheap', discover: 'cheap', chat: 'normal', picture: 'normal', study: 'normal', qcheck: 'normal', general: 'normal', deck: 'max' }
+  const ROLE_TIER = PLAN_ROLE_TIER // src/config/modelPlan.js (Settings' "Ebi's models" card reads the same table)
   const ROLE_DEFAULTS = (pc, intel = 'normal', prov = aiStateRef.current.provider) => {
     const normal = presetModel(pc, prov, 'normal')
     // Tier-based baseline (also the fallback for any role the advisor didn't decide).
@@ -1898,14 +1905,14 @@ export default function App() {
     // Per-provider family preference, ordered best→worst, for the strong vs cheap tier.
     const PREF = normal ? {
       anthropic: ['sonnet', 'opus', 'haiku'],
-      openai:    ['gpt-4o', 'gpt-4.1', 'gpt-4o-mini'],
+      openai:    ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-4o', 'gpt-4.1', 'gpt-4o-mini'],
       gemini:    ['2.5-flash', '2.0-flash', 'flash', 'pro'],
       grok:      ['grok-3', 'grok-4', 'grok-3-mini'],
     } : {
       // Strong tier leads with opus: this list used to start with 'sonnet', so healing the Max
       // slot quietly dropped it to a Sonnet.
       anthropic: strong ? ['opus', 'sonnet', 'haiku'] : ['haiku', 'sonnet', 'opus'],
-      openai:    strong ? ['gpt-4o', 'gpt-4.1', 'gpt-4-turbo', 'gpt-4', 'gpt-4o-mini'] : ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o'],
+      openai:    strong ? ['gpt-6-astra', 'gpt-6.1-sol', 'gpt-4o', 'gpt-4.1', 'gpt-4-turbo', 'gpt-4', 'gpt-4o-mini'] : ['gpt-6-luna', 'gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o'],
       gemini:    strong ? ['2.5-pro', '1.5-pro', 'pro', '2.5-flash', '2.0-flash', 'flash'] : ['2.0-flash', '2.5-flash', 'flash', 'pro'],
       grok:      strong ? ['grok-4', 'grok-3', 'grok-2-vision', 'grok-2'] : ['grok-3-mini', 'grok-4-mini', 'grok-3', 'grok-4'],
     }
@@ -2424,8 +2431,16 @@ export default function App() {
     for (const other of ids) { const o = parseModelId(other); if (o && o.family === p.family && compareModels(o, p) < 0 && (!best || compareModels(o, best) > 0)) best = o }
     return best?.id || null
   }
+  // Why a call failed, for the Update button: a rate limit or no credit STOPS the run (it kept sending: 27 requests
+  // went out on a 429 against the "up to 25" it promised); anything else is one model's failure.
+  const replanStopReason = (e) => {
+    const msg = String(e?.message || '')
+    if (/API 429|rate.?limit|too many requests/i.test(msg)) return 'rateLimited'
+    if (/credit|billing|quota|insufficient|payment/i.test(msg)) return 'noCredit'
+    return ''
+  }
   const researchModelCard = async (prov, id, advisor, ids) => {
-    if (aiStateRef.current.modelCards?.[id]) return
+    if (aiStateRef.current.modelCards?.[id]) return ''
     let results = []
     try { results = ((await (await apiFetch(`/api/web-search?q=${encodeURIComponent(`${id} AI model pricing token usage capabilities`)}`)).json()).results) || [] } catch {}
     try {
@@ -2433,15 +2448,18 @@ export default function App() {
         buildModelResearchPrompt({ modelId: id, provider: prov, priorModelId: priorInFamily(id, ids), searchResults: results.slice(0, 5) }), advisor, { silent: true, provider: prov })
       const card = parseAiJson(txt)
       if (card && typeof card === 'object') setModelCards((p) => ({ ...p, [id]: card }))
-    } catch {}
+      return ''
+    } catch (e) { return replanStopReason(e) }
   }
+  const decideStopRef = useRef('')
+  const REPLAN_RESEARCH_MAX = 16 // models researched per Update (+ 2 decisions + probes: "up to about 25 calls")
   const decidePresetPlan = async (prov, preset, availIds, advisor) => {
     try {
       const txt = await aiCall(aiStateRef.current.apiKeys[prov], 'You choose AI models for app features. Respond with valid JSON only.',
         buildPresetDecisionPrompt({ preset, availableModels: availIds, modelCards: aiStateRef.current.modelCards || {} }), advisor, { silent: true, provider: prov })
       const plan = parseAiJson(txt)
       return (plan && typeof plan === 'object') ? plan : null
-    } catch { return null }
+    } catch (e) { decideStopRef.current = replanStopReason(e); return null }
   }
   const sanitizePlan = (plan, okIds, prov) => {
     if (!plan) return {}
@@ -2466,28 +2484,39 @@ export default function App() {
   // hid the "choosing models" note while the other was still working).
   const planInFlightRef = useRef(new Set())
   const planDecidingCountRef = useRef(0)
-  const ensurePresetPlan = async (prov, preset) => {
+  // Returns what happened ({ ok, reason }), for the Update button: 'busy', 'noKey', 'fixed' (ChatGPT plan), 'listFailed',
+  // 'unchanged' (nothing new, not forced), 'decideFailed', 'superseded' (another computer saved a newer plan), 'saved'.
+  // `force` re-plans even when the saved plan has seen every listed model (the button; the owner's plan was 7 weeks old).
+  const ensurePresetPlan = async (prov, preset, opts = {}) => {
     const flightKey = `${prov}|${preset}`
-    if (planInFlightRef.current.has(flightKey)) return
+    if (planInFlightRef.current.has(flightKey)) return { ok: false, reason: 'busy' }
     planInFlightRef.current.add(flightKey)
-    try { await ensurePresetPlanInner(prov, preset) } finally { planInFlightRef.current.delete(flightKey) }
+    try { return await ensurePresetPlanInner(prov, preset, opts) } finally { planInFlightRef.current.delete(flightKey) }
   }
-  const ensurePresetPlanInner = async (prov, preset) => {
+  const ensurePresetPlanInner = async (prov, preset, { force = false } = {}) => {
     const key = aiStateRef.current.apiKeys[prov]; const pc = PROVIDERS[prov]
-    if (!key || !pc?.listModels || pc.fixedModels) return // the ChatGPT plan: no research or probes spent on the user's plan
+    if (pc?.fixedModels) return { ok: false, reason: 'fixed' } // the ChatGPT plan: no research or probes spent on the user's plan
+    if (!key || !pc?.listModels) return { ok: false, reason: 'noKey' }
     let ids = []
-    try { ids = await pc.listModels(key) } catch { return } // offline: keep cached plan / tier defaults
-    if (!ids.length) return
+    try { ids = await pc.listModels(key) } catch { return { ok: false, reason: 'listFailed' } } // offline: keep cached plan / tier defaults
+    if (!ids.length) return { ok: false, reason: 'listFailed' }
+    setAvailableModels((prev) => ({ ...prev, [prov]: ids })) // a fresh list (an old one hid every newer model)
     const cached = aiStateRef.current.modelPlans?.[prov]?.[preset]
     const newModels = ids.filter((id) => !(cached?.knownModels || []).includes(id))
-    if (cached?.plan && Object.keys(cached.plan).length && newModels.length === 0) return // nothing new + already decided → cached plan already applies (an empty plan saved by an older build is a failed decision)
+    if (!force && cached?.plan && Object.keys(cached.plan).length && newModels.length === 0) return { ok: true, reason: 'unchanged' } // nothing new + already decided → cached plan already applies (an empty plan saved by an older build is a failed decision)
     // A counter, not a flag: two presets picked in a row decide in parallel, and the first to finish
     // hid the "choosing models" note while the other was still working.
     planDecidingCountRef.current += 1; setPlanDeciding(true)
     try {
       const advisor = await getAdvisorModel(prov, ids)
-      for (const id of ids.filter((x) => !aiStateRef.current.modelCards?.[x]).slice(0, 16)) await researchModelCard(prov, id, advisor, ids)
+      // Only CHAT models are researched (a TTS or embedding id is never a pick), at most REPLAN_RESEARCH_MAX.
+      for (const id of chatModelsOnly(ids).filter((x) => !aiStateRef.current.modelCards?.[x]).slice(0, REPLAN_RESEARCH_MAX)) {
+        const stop = await researchModelCard(prov, id, advisor, ids)
+        if (stop) return { ok: false, reason: stop } // cards already researched are kept for the next try
+      }
+      decideStopRef.current = ''
       let plan = await decidePresetPlan(prov, preset, ids, advisor)
+      if (!plan && decideStopRef.current) return { ok: false, reason: decideStopRef.current }
       if (plan) {
         const chosen = [...new Set(Object.values(plan).filter((x) => typeof x === 'string'))]
         const bad = []
@@ -2504,9 +2533,23 @@ export default function App() {
       }
       // A decision that FAILED (network, credits, an unreadable reply) is not saved: stored as an empty
       // plan it counted as "decided", and with no new models listed the advisor never ran again.
-      if (!plan || !Object.keys(plan).length) return
-      setModelPlans((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [preset]: { plan, knownModels: ids, decidedAt: Date.now() } } }))
-    } catch (e) { console.warn('[ModelAdvisor] decide failed:', e?.message) }
+      if (!plan || !Object.keys(plan).length) return { ok: false, reason: 'decideFailed' }
+      // Saved under ITS provider; the plan it replaces is kept once for Undo. A plan another computer saved while this
+      // one was deciding (a later decidedAt than the one this run started from) wins: never overwritten by an older run.
+      const startedFrom = Number(cached?.decidedAt) || 0
+      const liveNow = aiStateRef.current.modelPlans?.[prov]?.[preset]
+      if ((Number(liveNow?.decidedAt) || 0) > startedFrom) return { ok: false, reason: 'superseded' }
+      setModelPlans((prev) => {
+        const live = prev?.[prov]?.[preset]
+        const previous = live?.plan ? { plan: live.plan, knownModels: live.knownModels, decidedAt: live.decidedAt } : undefined
+        return { ...prev, [prov]: { ...(prev[prov] || {}), [preset]: { plan, knownModels: ids, decidedAt: Date.now(), ...(previous ? { previous } : {}) } } }
+      })
+      // Did what RUNS change? (Both plans lifted to today's presets: a new plan naming the same models is no news.)
+      const runs = (p) => planRoleDefaults({ intel: preset, presetModel: (t) => presetModel(pc, prov, t), plan: p, roleTier: ROLE_TIER })
+      const before = runs(cached?.plan), after = runs(plan)
+      const changed = Object.keys(after).some((r) => before[r] !== after[r])
+      return { ok: true, reason: 'saved', changed }
+    } catch (e) { console.warn('[ModelAdvisor] decide failed:', e?.message); return { ok: false, reason: 'decideFailed' } }
     finally { planDecidingCountRef.current -= 1; if (planDecidingCountRef.current <= 0) { planDecidingCountRef.current = 0; setPlanDeciding(false) } }
   }
   // Switch preset: apply the cached plan INSTANTLY (ROLE_DEFAULTS reads it the moment intelligence
@@ -2515,6 +2558,36 @@ export default function App() {
     setIntelligence(preset)
     ensurePresetPlan(aiStateRef.current.provider, preset)
   }
+  // Settings' "Update to the newest models": re-plan the ACTIVE preset now.
+  const replanNow = (prov = aiStateRef.current.provider) => ensurePresetPlan(prov, aiStateRef.current.intelligence || 'normal', { force: true })
+  // Undo the last update: the previous plan comes back, keeping the newer model list (else it re-planned at once).
+  const undoReplan = (prov = aiStateRef.current.provider) => {
+    const preset = aiStateRef.current.intelligence || 'normal'
+    setModelPlans((prev) => {
+      const cur = prev?.[prov]?.[preset]
+      if (!cur?.previous?.plan) return prev
+      // The restored plan keeps ITS date (a fresh stamp said "Planned today" on a September plan) and the newer list.
+      return { ...prev, [prov]: { ...(prev[prov] || {}), [preset]: { plan: cur.previous.plan, knownModels: cur.knownModels, decidedAt: cur.previous.decidedAt || Date.now() } } }
+    })
+  }
+  // The plan follows new models BY ITSELF: when the provider's list holds a chat model the active plan never saw, a
+  // background re-plan runs, at most once a day per computer, never in the overlay, before onboarding, on the ChatGPT
+  // plan or while the data folder is switching; a quiet toast says it happened (Settings shows what changed + Undo).
+  useEffect(() => {
+    if (!configLoaded) return
+    const prov = provider
+    const pc = PROVIDERS[prov]
+    const entry = modelPlans?.[prov]?.[intelligence || 'normal']
+    const unseen = unseenChatModels(entry, availableModels?.[prov])
+    const stampKey = 'ebiki-auto-replan'
+    const lastAutoAt = Number(platform.kv.get(stampKey)) || 0
+    if (!autoReplanDue({ lastAutoAt, unseen, onboarded, overlay: isOverlay, fixedModels: !!pc?.fixedModels, frozen: dataSwitchingRef.current || dataOffline, hasKey: !!apiKeys?.[prov] })) return
+    platform.kv.set(stampKey, String(Date.now()))
+    ensurePresetPlan(prov, intelligence || 'normal').then((r) => {
+      // Only when what RUNS changed; the card then lists the changes and offers Undo (entry.previous).
+      if (r?.ok && r.reason === 'saved' && r.changed) setModelsMoved(true)
+    })
+  }, [availableModels, provider, intelligence, configLoaded, onboarded, dataOffline]) // eslint-disable-line react-hooks/exhaustive-deps
   // Find a working replacement for a model that just failed AT CALL TIME (down/overloaded/forbidden),
   // register a session substitution (keyed by the down model id), and surface a prompt. Returns the
   // alternative id (so the caller retries on it) or null. Never throws.
@@ -2703,6 +2776,7 @@ export default function App() {
       if (Number.isFinite(config.studyAutoSyncMinutes)) setStudyAutoSyncMinutes(config.studyAutoSyncMinutes)
       if (config.questionReuse && typeof config.questionReuse === 'object') setQuestionReuse(reuseSettings(config.questionReuse))
       if (typeof config.showTokenUsage === 'boolean') setShowTokenUsage(config.showTokenUsage)
+      if (typeof config.factCheck === 'boolean') setFactCheck(config.factCheck)
       if (config.overlayEnabled !== undefined) setOverlayEnabled(config.overlayEnabled)
       if (config.pronunciation) setPronunciationCfg((prev) => ({ ...prev, ...config.pronunciation }))
       if (config.onboarded) setOnboarded(true)
@@ -3007,7 +3081,7 @@ export default function App() {
     // One at a time, in order (same reason as postModes): two saves on separate connections could
     // land out of order and the server merges each over the file, so the older one won (a quick
     // theme or tab change reverted).
-    const all = { provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, overlayEnabled, pronunciation: pronunciationCfg, features: featureSettings, onboarded, ...(activeTab ? { activeTab } : {}) }
+    const all = { provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, factCheck, overlayEnabled, pronunciation: pronunciationCfg, features: featureSettings, onboarded, ...(activeTab ? { activeTab } : {}) }
     // Per key, and one level down inside the per-provider / per-model maps (configDiff.js): one change in
     // aiModels used to post this computer's whole stale map, erasing another computer's entries.
     const sent = lastSentCfgRef.current
@@ -3038,7 +3112,7 @@ export default function App() {
       lastSentCfgRef.current = next
       if (++cfgSaveFailsRef.current <= 6) setTimeout(() => setCfgSaveRetry((n) => n + 1), 5000 * cfgSaveFailsRef.current)
     }
-  }, [provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, overlayEnabled, pronunciationCfg, featureSettings, onboarded, activeTab, configLoaded, cfgSaveRetry])
+  }, [provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, factCheck, overlayEnabled, pronunciationCfg, featureSettings, onboarded, activeTab, configLoaded, cfgSaveRetry])
 
   // Auto-launch the overlay once on startup when the persisted preference is ON (default).
   const overlayAutoLaunchedRef = useRef(false)
@@ -10876,6 +10950,36 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  // THE TEACHING FACT CHECK (utils/factCheck.js): after a teaching reply is SHOWN, one background call on the review
+  // model names up to 2 real mistakes, each quoting the reply. Never blocks the reply, never throws, silent on failure;
+  // the note is stored by reply text (`factNotes`), never saved and never sent back to a model as Ebi's words.
+  // `factCheckNotes` resolves to the notes ([] when off, short, failed or clean); features get it as ctx.ai.factCheck.
+  const factCheckNotes = async ({ reply, question = '', context = '' }) => {
+    if (!factCheckRef.current || !apiKey || !shouldFactCheck(reply)) return []
+    const subject = activeMode.type === 'language' ? { language: learnLangName() } : { topic: activeMode.name }
+    const { system, user } = buildFactCheckPrompt({ reply, question, context, subject, userLang: userLangName() })
+    try {
+      const text = await aiCall(apiKey, system, user, resolveJobModel('factcheck.reply'), { silent: true, maxTokens: FACT_CHECK_MAX_TOKENS })
+      return parseFactCheck(text, reply, parseAiJson)
+        .map((n) => ({ quote: n.quote, fix: stripDashes(n.fix).replace(/[🦐🦞🦀]️?/gu, '').trim() }))
+        .filter((n) => n.fix)
+    } catch { return [] } // a failed check shows nothing
+  }
+  const factCheckReply = (opts) => {
+    factCheckNotes(opts).then((notes) => { if (notes.length) setFactNotes((p) => ({ ...p, [opts.reply]: notes })) })
+  }
+  // The quiet note under a checked reply (a render function, called, never a component declared in App).
+  const renderFactNote = (reply) => {
+    const notes = factNotes[reply]
+    if (!notes?.length) return null
+    return (
+      <div data-fact-note="" role="note" style={{ maxWidth: '100%', marginTop: 6, padding: '6px 10px', borderRadius: 8, fontSize: 12, lineHeight: 1.5, color: 'var(--c-ink)', background: 'color-mix(in srgb, var(--c-info) 8%, transparent)', borderLeft: '3px solid var(--c-info)', overflowWrap: 'anywhere' }}>
+        <div style={{ fontWeight: 700, color: 'var(--c-info)', marginBottom: 2 }}>{t('fc_label')}</div>
+        {notes.map((n, i) => <div key={i}><span style={{ color: 'var(--c-ink-dim)' }}>“{n.quote}”</span> {n.fix}</div>)}
+      </div>
+    )
+  }
+
   const sendLearnChat = async () => {
     const lm = studyLearnMoment
     if (!lm || !lm.chatInput.trim() || lm.chatLoading || !apiKey) return
@@ -10891,6 +10995,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const clean = String(text || '').replace(/(\d)\s*–\s*(\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').trim()
       if (!clean) throw new Error('empty reply') // an empty bubble looked like Ebi had nothing to say
       setStudyLearnMoment((p) => (p && p.id === lm.id) ? { ...p, chat: [...p.chat, { role: 'assistant', content: clean }], chatLoading: false } : p) // not into the next card's chat
+      factCheckReply({ reply: clean, question: userMsg, context: `Front: ${lm.front}\nBack:\n${lm.back}` }) // the card is the checked material
     } catch (e) {
       const msg = aiErrMsg(e).replace(/\s*[—–]\s*/g, ', ').slice(0, 160)
       setStudyLearnMoment((p) => (p && p.id === lm.id) ? { ...p, chat: [...p.chat, { role: 'assistant', content: t('chat_replyError', { msg }) }], chatLoading: false } : p)
@@ -13721,7 +13826,6 @@ learner's goals or interests that already exist.`
       pullNewCard()
     } catch (err) {
       console.error('[Study] delete failed:', err.message)
-      if (err?.code === 'courseCard') alertDialog(err.message) // a course card: say why it stayed
       setStudyDeleteConfirm(null)
       studyDeletingRef.current.delete(delKey) // not deleted: a retry is allowed
     }
@@ -14371,6 +14475,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       chatTabMsgsRef.current = updatedMsgs // now, not after the next effect: a card add in between wrote the list back without this reply
       setChatTabMsgs(updatedMsgs)
       sentReply = assistantMsg
+      factCheckReply({ reply: cleanText, question: q }) // typed and spoken turns alike; the note shows under this reply, never spoken
       // Keep the user's message pinned near the top; the reply renders below it (don't jump to bottom).
       setTimeout(scrollChatToLatestTurn, 60)
       // Auto-save to disk after each response
@@ -15558,6 +15663,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       // What to show for a failed call: the app's friendly provider/network text (never "API 500: {...}"), else the
       // error's own message. The same classifier as the app's toast (kit/aiError.js).
       errorText: (e) => aiErrorText(tLiveRef.current, e),
+      // The teaching fact check (Settings, on by default): resolves to [{ quote, fix }] notes, [] when off or clean.
+      factCheck: (opts) => factCheckNotes(opts || {}),
     },
     // The active mode, described for prompts. ANY subject: `isLanguage` only switches wording, never features.
     subject: {
@@ -15587,6 +15694,26 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       decks: Array.isArray(ankiDecks) ? ankiDecks : [], // the collection's decks ([] while Anki is not connected)
       setModeDeck: (deck) => setAnkiDeck(deck), // saves the active mode's deck
       addNew: addNewCard,
+      createDeck: async (deck) => { await srs.createDeck(deck); try { const d = await srs.getDecks(); if (Array.isArray(d)) setAnkiDecks(d) } catch { /* the list refreshes later */ } },
+      // How many notes a deck (and its subdecks) holds; null when the store can't say.
+      deckSize: async (deck) => { try { return (await srs.findNotes({ deck })).length } catch { return null } },
+      // Which of these fronts are already cards in the deck (or its subdecks): Map(front → noteId). Compared on the
+      // first field's plain text, case and spacing folded; accents kept. Throws when the store can't be read.
+      findFronts: async (deck, fronts) => {
+        const key = (s) => String(s || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
+        const want = new Map((fronts || []).map((f) => [key(f), f]))
+        const out = new Map()
+        if (!want.size) return out
+        const ids = await srs.findNotes({ deck })
+        for (let i = 0; i < ids.length && out.size < want.size; i += 200) {
+          for (const n of await srs.notesInfo(ids.slice(i, i + 200))) {
+            const first = Object.values(n?.fields || {}).sort((a, b) => a.order - b.order)[0]
+            const k = key(stripHtml(String(first?.value || '').replace(SOUND_TAG_RE, '')))
+            if (want.has(k) && !out.has(want.get(k))) out.set(want.get(k), n.noteId)
+          }
+        }
+        return out
+      },
       frontHtml: plainFrontHtml,
       backHtml: plainBackHtml,
       // A field rewritten from plain text over its CURRENT html: images and audio (with its credit link) are kept;
@@ -16063,6 +16190,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           refreshModels={refreshModels} checkNewModels={checkNewModels} modelsLoading={modelsLoading} modelsError={modelsError}
           intelligence={intelligence} setIntelligence={selectIntelligence}
           planDeciding={planDeciding} runConnectionTest={runConnectionTest} modelProbe={modelProbe}
+          modelPlans={modelPlans} replanNow={replanNow} undoReplan={undoReplan} factCheck={factCheck} setFactCheck={setFactCheck}
+          textOnlyIds={textOnlyModels(provider)}
           serverDown={serverDown}
           studyAutoSync={studyAutoSync} setStudyAutoSync={setStudyAutoSync}
           renderFeatureSettings={(section, ui) => (<>
@@ -16937,14 +17066,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 setDeckBrowserCopyStatus(null)
                                 setDeckBrowserCopyTarget(ankiDecks.find(d => d !== deckBrowserDeck) || '')
                               }} style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: deckBrowserCopying === note.noteId ? 'var(--c-border)' : 'transparent', color: 'var(--c-ink-dim)' }}>{t('copyTo')}</button>
-                              <button disabled={isCourseNote(note)} data-tip={isCourseNote(note) ? t('card_errCourseCard') : undefined} className={isCourseNote(note) ? 'tip tip-l' : undefined} onClick={async () => {
-                                if (isCourseNote(note) || deletingNotesRef.current.has(note.noteId)) return
+                              <button onClick={async () => {
+                                if (deletingNotesRef.current.has(note.noteId)) return
                                 deletingNotesRef.current.add(note.noteId) // claimed BEFORE the question (see deleteNote)
                                 let ok = false
                                 try { ok = await confirmDialog(t('deck_deleteConfirm', { front })) } finally { deletingNotesRef.current.delete(note.noteId) }
                                 if (ok) deleteNote(note.noteId)
                               }}
-                                style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-danger)', ...(isCourseNote(note) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{isCourseNote(note) ? '🔒 ' : ''}{t('deck_del')}</button>
+                                style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-danger)' }}>{t('deck_del')}</button>
                             </div>
                           </div>
                           {/* Expanded card — the full back with bold labels, tags, and scheduling info */}
@@ -17276,6 +17405,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     {m.image && <img src={m.image} alt={t('img_attached')} style={{ display: 'block', maxWidth: 220, maxHeight: 160, borderRadius: 8, marginBottom: m.content && m.content !== '(image)' ? 8 : 0 }} />}
                     {m.role === 'user' ? (m.content === '(image)' ? '' : m.content) : <Markdown text={m.content} />}
                   </div>
+                  {!isUser && renderFactNote(m.content)}
                   {/* Inline Anki card previews */}
                   {m.cards?.map((card, ci) => (
                     <div key={ci} style={{
@@ -18031,7 +18161,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8, maxHeight: 220, overflowY: 'auto' }}>
                               {lm.chat.map((m, mi) => m.role === 'user'
                                 ? <div key={mi} style={{ alignSelf: 'flex-end', maxWidth: '85%', fontSize: 12, color: 'var(--c-ink)', background: 'rgba(223,37,64,.08)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 8, padding: '6px 10px' }}>{renderTappableRich(m.content, 'learn-chat')}</div>
-                                : <div key={mi} style={{ alignSelf: 'flex-start', maxWidth: '92%', fontSize: 12, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '6px 10px', lineHeight: 1.6 }}>{renderTappableRich(m.content, 'learn-chat')}</div>)}
+                                : <div key={mi} style={{ alignSelf: 'flex-start', maxWidth: '92%' }}>
+                                    <div style={{ fontSize: 12, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '6px 10px', lineHeight: 1.6 }}>{renderTappableRich(m.content, 'learn-chat')}</div>
+                                    {renderFactNote(m.content)}
+                                  </div>)}
                               {lm.chatLoading && <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{t('learnIt_typing')}</span>}
                             </div>
                           )}
@@ -19931,6 +20064,28 @@ ${PALETTE_CSS}
           <span style={{ fontSize: 15 }}>✅</span>
           <span className="toast-msg" style={{ flex: 1, lineHeight: 1.45 }}>{successNotice}</span>
           <button type="button" className="toast-x" aria-label={t('close')} onClick={() => setSuccessNotice(null)} style={{ color: C.success, fontSize: 15, lineHeight: 1 }}>×</button>
+        </div>
+      )}
+
+      {/* The plan moved to newer models by itself: stays until read, and opens the card that lists the changes + Undo. */}
+      {modelsMoved && (
+        <div className="app-toast" role="status" data-models-moved="" style={{
+          pointerEvents: 'auto',
+          background: C.surface, border: `1px solid ${C.info}`, borderRadius: RADIUS.md,
+          padding: '12px 16px', fontSize: 13, color: C.ink, maxWidth: 460, fontWeight: 600,
+          boxShadow: SHADOW.lg, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          animation: 'slideUp .25s ease',
+        }}>
+          <span className="toast-msg" style={{ flex: '1 1 220px', lineHeight: 1.45 }}>{t('mp_autoMoved')}</span>
+          <button type="button" onClick={() => {
+            setModelsMoved(false); setSettingsCategory('models'); setSettingsOpen(true)
+            // Straight to the changes list (the pane opens at its top, the list sat out of view).
+            setTimeout(() => document.querySelector('[data-plan-changes]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 500)
+          }}
+            style={{ ...S.ghostBtn, fontSize: 12, minHeight: 32, color: C.info, borderColor: 'color-mix(in srgb, var(--c-info) 35%, transparent)' }}>{t('mp_seeChanges')}</button>
+          <button type="button" onClick={() => { setModelsMoved(false); undoReplan() }}
+            style={{ ...S.ghostBtn, fontSize: 12, minHeight: 32, color: C.inkDim }}>{t('mp_undo')}</button>
+          <button type="button" className="toast-x" aria-label={t('close')} onClick={() => setModelsMoved(false)} style={{ color: C.inkDim, fontSize: 15, lineHeight: 1 }}>×</button>
         </div>
       )}
 

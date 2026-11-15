@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { AI_JOBS } from './aiJobs'
 import {
   TASKS, taskOfJob, jobsWithoutTask, roleDefaults, resolveRoleModel, levelOf, modelName, costPerUse, costWords,
-  unseenChatModels, planStatus, autoReplanDue, planDiff, newerPlanEntry, AUTO_REPLAN_INTERVAL_MS,
+  unseenChatModels, planStatus, autoReplanDue, planDiff, newerPlanEntry, AUTO_REPLAN_INTERVAL_MS, taskModels, pickerModels, likelyTextOnly, taskSignature,
 } from './modelPlan'
 
 // An invented provider state: presets on a newer release than an old saved plan.
@@ -23,6 +23,7 @@ describe('tasks', () => {
   })
   it('finds a job\'s task', () => {
     expect(taskOfJob('chat.reply').id).toBe('talk')
+    expect(taskOfJob('factcheck.reply').id).toBe('factcheck')
     expect(taskOfJob('nope')).toBeNull()
   })
 })
@@ -50,7 +51,8 @@ describe('roleDefaults and hand picks', () => {
 describe('words', () => {
   it('levels', () => {
     expect(levelOf('claude-opus-5-5', { presetModel })).toBe('max')
-    expect(levelOf('claude-haiku-4-5', { presetModel })).toBe('cheap')
+    expect(levelOf('claude-haiku-4-5', { presetModel })).toBeNull() // older than the cheap preset: no level claimed
+    expect(levelOf('claude-haiku-5-5-20260101', { presetModel })).toBe('cheap')
     expect(levelOf('other-model', { presetModel, fallbackTier: 'normal' })).toBe('normal')
   })
   it('model names', () => {
@@ -68,19 +70,48 @@ describe('words', () => {
     expect(costPerUse({ usage: { calls: 10, input: 20000, output: 2000 }, typical, price: [1, 10] })).toMatchObject({ source: 'measured', usd: 0.004 })
     expect(costPerUse({ usage: null, typical, price: null }).usd).toBeNull()
   })
-  it('cost words', () => {
+  it('cost words never round a fraction of a cent 30% off', () => {
     expect(costWords(null)).toEqual({ kind: 'unknown' })
     expect(costWords(0.00025)).toEqual({ kind: 'perCent', n: 40 })
+    expect(costWords(0.0085)).toEqual({ kind: 'fraction', x: '0.9' })
+    expect(costWords(0.0042)).toEqual({ kind: 'fraction', x: '0.4' })
     expect(costWords(0.034)).toEqual({ kind: 'cents', n: 3 })
+  })
+  it('an unknown family has no level (never a guessed "Standard"), nor an OLDER model of a preset family', () => {
+    expect(levelOf('claude-fable-5-2', { presetModel })).toBeNull()
+    expect(levelOf('claude-opus-4-6', { presetModel })).toBeNull()
+    expect(levelOf('claude-opus-6', { presetModel })).toBe('max')
+  })
+  it('photo tasks never get text-only or coding models', () => {
+    for (const id of ['gpt-3.5-turbo', 'gpt-4', 'o3-mini', 'gpt-5.1-codex', 'grok-3-mini']) expect(likelyTextOnly(id), id).toBe(true)
+    for (const id of ['gpt-4o', 'gpt-4.1', 'claude-haiku-5-5', 'gemini-3.8-flash', 'grok-4']) expect(likelyTextOnly(id), id).toBe(false)
+    expect(pickerModels(['gpt-5', 'gpt-5.1-codex'])).toEqual(['gpt-5'])
+  })
+  it('a task signature names every model', () => {
+    expect(taskSignature([{ model: 'a' }, { model: 'b' }])).toBe('a + b')
+  })
+  it('a task names every model it runs on, the most used first', () => {
+    const task = { jobs: ['a', 'b', 'c'] }
+    expect(taskModels(task, (j) => (j === 'b' ? 'y' : 'x'))).toEqual([{ model: 'x', jobs: ['a', 'c'] }, { model: 'y', jobs: ['b'] }])
+  })
+  it('picker lists: one per visible name, no previews, the current pick kept', () => {
+    const ids = ['gpt-3.5-turbo', 'gpt-3.5-turbo-0125', 'gpt-3.5-turbo-1106', 'gpt-5-preview', 'gpt-5', 'whisper-1']
+    expect(pickerModels(ids)).toEqual(['gpt-3.5-turbo', 'gpt-3.5-turbo-0125', 'gpt-3.5-turbo-1106', 'gpt-5'].filter((x, i, a) => a.findIndex((y) => modelName(y) === modelName(x)) === i))
+    expect(pickerModels(ids, ['gpt-3.5-turbo-1106'])).toContain('gpt-3.5-turbo-1106')
+    expect(pickerModels(ids, ['gpt-5-preview'])).toContain('gpt-5-preview')
   })
 })
 
 describe('plan status and the automatic re-plan', () => {
   const entry = { plan: OLD_PLAN, knownModels: ['claude-haiku-4-5-20251001', 'claude-opus-4-6', 'claude-sonnet-4-6'], decidedAt: 1000 }
-  it('an old plan reads "newer" from the presets alone, even when the list failed', () => {
-    const s = planStatus({ entry, liveIds: null, presetIds: Object.values(PRESETS) })
+  it('an old plan already lifted to the newest family is "freshened", never "newer models came out"', () => {
+    expect(planStatus({ entry, liveIds: null, presetIds: Object.values(PRESETS) }).state).toBe('freshened')
+    expect(planStatus({ entry, liveIds: Object.values(PRESETS), presetIds: Object.values(PRESETS) }).state).toBe('freshened')
+  })
+  it('"newer" only when a model newer than what RUNS is listed', () => {
+    const s = planStatus({ entry, liveIds: [...Object.values(PRESETS), 'claude-opus-6'], presetIds: Object.values(PRESETS) })
     expect(s.state).toBe('newer')
-    expect(s.newer).toContainEqual({ from: 'claude-opus-4-6', to: 'claude-opus-5-5' })
+    expect(s.newer).toContainEqual({ from: 'claude-opus-5-5', to: 'claude-opus-6' })
   })
   it('a current plan with a failed list is "unknown", never "up to date"', () => {
     const cur = { plan: { chat: 'claude-haiku-5-5' }, decidedAt: 5 }

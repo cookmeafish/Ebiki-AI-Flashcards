@@ -13,6 +13,8 @@ import { fileSizeLabel } from '../utils/fileSize'
 import { checkStateFor, updateResultState, verifyOutcome, restartOffered, pollUntilAnswered } from './updatesState'
 import { imeActive } from '../utils/keys'
 import JobModelSettings from './JobModelSettings'
+import ModelPlanCard from './ModelPlanCard'
+import { modelName } from '../config/modelPlan'
 import ChatGptSignIn, { SubscriptionNote, companyTabs, companyOf } from './ChatGptSignIn'
 import { UsageDetails } from './TokenUsageMeter'
 import { jobOverridesOf, chatModelsOnly } from '../config/aiJobs'
@@ -487,7 +489,7 @@ export default function SettingsModal(p) {
     provider, setProvider, apiKeys, apiKey, setCurrentKey, validateKey, providerConfig, chatgpt,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, allModels, presetModel,
     refreshModels, checkNewModels, modelsLoading, modelsError, intelligence, setIntelligence,
-    planDeciding, runConnectionTest, modelProbe,
+    planDeciding, runConnectionTest, modelProbe, modelPlans, replanNow, undoReplan, factCheck, setFactCheck, textOnlyIds,
     serverDown,
     studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes, renderFeatureSettings,
     questionReuse, setQuestionReuse, clearSavedQuestions, getActiveModeId, getActiveMode,
@@ -842,8 +844,9 @@ export default function SettingsModal(p) {
             const activeKey = hasModelOverrides ? 'custom' : (intelligence || 'normal')
             return [
               { key: 'optimized', title: t('set_intelOptimized'), desc: t('set_intelOptimizedDesc') },
-              { key: 'normal', title: t('set_intelNormal'), desc: t('set_intelNormalDesc', { model: presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel }) },
-              { key: 'max', title: t('set_intelMax'), desc: t('set_intelMaxDesc', { model: presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel }) },
+              // Model NAMES, never raw ids ("claude-sonnet-5-5" read like an error to a newcomer).
+              { key: 'normal', title: t('set_intelNormal'), desc: t('set_intelNormalDesc', { model: modelName(presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel) || presetModel?.('normal') }) },
+              { key: 'max', title: t('set_intelMax'), desc: t('set_intelMaxDesc', { model: modelName(presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel) || presetModel?.('max') }) },
               { key: 'custom', title: t('set_intelCustom'), desc: t('set_intelCustomDesc') },
             ].map((opt) => {
               const active = activeKey === opt.key
@@ -867,6 +870,17 @@ export default function SettingsModal(p) {
         {planDeciding && <div style={{ fontSize: 10, color: C.brand, marginTop: 8 }}>{t('set_deciding')}</div>}
       </div>
 
+      {/* Ebi's models in plain words: what each task is for, its model, level, cost per use, a picker, Update. */}
+      <ModelPlanCard t={t} card={card} hint={hint} provider={provider} providerConfig={providerConfig} apiKey={apiKey}
+        intelligence={intelligence} aiModels={aiModels} setAiModels={setAiModels}
+        roleDefaults={ROLE_DEFAULTS(providerConfig, intelligence, provider)} presetModel={presetModel} provModels={provModels}
+        modelPlans={modelPlans} planDeciding={planDeciding} replanNow={replanNow} undoReplan={undoReplan} locale={appLanguage}
+        factCheck={factCheck} setFactCheck={setFactCheck} textOnlyIds={textOnlyIds} refreshModels={refreshModels} modelsError={modelsError} />
+
+      {/* The two fine-tuning pickers fold under ONE "Advanced" toggle (four model controls on one page left people
+          unsure which wins); it opens by itself while a pick exists in either. */}
+      <details data-advanced-models="" key={`adv-${provider}`} ref={(el) => { if (el && !el.dataset.init) { el.dataset.init = '1'; if (hasModelOverrides) el.open = true } }}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 800, color: C.inkDim, listStyle: 'revert', padding: '4px 2px', marginBottom: 8 }}>{t('mp_advancedTitle')}</summary>
       {/* Per-feature models (advanced). */}
       {/* Opens itself when an override exists, but only on mount: bound to it, the section snapped shut
           under the pointer when the last override was reset. */}
@@ -948,6 +962,7 @@ export default function SettingsModal(p) {
       <JobModelSettings t={t} provider={provider} providerConfig={providerConfig} aiModels={aiModels} setAiModels={setAiModels}
         provModels={provModels} allModels={allModels?.[provider] || []} roleDefaults={ROLE_DEFAULTS(providerConfig, intelligence, provider)} presetModel={presetModel} planDeciding={planDeciding}
         card={card} hint={hint} />
+      </details>
       {/* Question reuse: OFF unless the user turns it on here (or ticks it in onboarding). */}
       <div style={card}>
         {cardTitle(t('reuse_title'))}

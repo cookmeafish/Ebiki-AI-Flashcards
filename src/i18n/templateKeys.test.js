@@ -11,6 +11,7 @@ import { RAID_ORDER, RAID_ABILITY } from '../features/legends/raid'
 import { POWER_IDS, POWERS } from '../features/legends/powers'
 import { POWER_FX, POWER_PROC } from '../features/legends/impact/PowerFx'
 import { NODE_KINDS, CODEX_TIERS } from '../features/legends/map'
+import { ACRONYM_TIERS } from '../features/legends/career'
 import { HEADS } from '../features/legends/abilities/chimera'
 import { REASON_KEYS, GOAL_KEYS } from '../features/legends/Questionnaire'
 import { LANGUAGE_BANDS, GENERAL_BANDS } from '../features/kit/learner'
@@ -23,6 +24,7 @@ import { ROLE_STAKES } from '../config/modelAdvisor'
 import { POS_COLORS } from '../config/prompts'
 import { CORE_NAV } from '../shell/layout'
 import { AI_JOBS, JOB_GROUPS, jobLabelKey, jobHintKey, jobGroupKey } from '../config/aiJobs'
+import { TASKS, LEVEL_WORD } from '../config/modelPlan'
 
 const en = LANGUAGES.find((l) => l.code === 'en').strings
 const SRC = path.resolve(__dirname, '..')
@@ -43,6 +45,13 @@ const FULL_SNAPSHOT = {
 
 const FAMILIES = {
   'AI jobs (Settings > Models per job)': [...AI_JOBS.flatMap((j) => [jobLabelKey(j.id), jobHintKey(j.id)]), ...JOB_GROUPS.map(jobGroupKey)],
+  // Ebi's models card (ModelPlanCard): each task's name, when it runs and why; levels; plan states; Update failures.
+  "Ebi's models (tasks, levels, states, failures)": [
+    ...TASKS.flatMap((x) => [`mp_task_${x.id}`, `mp_when_${x.id}`, `mp_why_${x.id}`]),
+    ...Object.values(LEVEL_WORD).map((w) => `mp_level_${w}`),
+    ...['unknown', 'current', 'freshened'].map((s) => `mp_state_${s}`),
+    ...['busy', 'noKey', 'fixed', 'listFailed', 'decideFailed', 'superseded', 'rateLimited', 'noCredit'].map((r) => `mp_fail_${r}`),
+  ],
   'raid boss names and lore': RAID_ORDER.flatMap((m) => [`lg_raidBoss_${m}`, `lg_raidLore_${m}`]),
   'raid abilities': abilities.flatMap((a) => [`lg_ability_${a}`, `lg_abilityDesc_${a}`, `lg_abilityLine_${a}`]),
   'power names and tips': POWER_IDS.flatMap((id) => [`lg_pow_${id}`, `lg_powDesc_${id}`]),
@@ -51,7 +60,8 @@ const FAMILIES = {
   'power cast and hit labels': [...Object.values(POWER_FX).map((s) => s.label), ...Object.values(POWER_PROC).map((s) => s.label)].filter(Boolean),
   'Chimera head buttons and bars': HEADS.flatMap((h) => [`lg_act_aim_${h}`, `lg_hud_head_${h}`]),
   'map step kinds': [...NODE_KINDS, 'weak'].map((k) => `lg_kind_${k}`),
-  'codex tiers': CODEX_TIERS.map((k) => `lg_tier_${k}`),
+  'course acronym tiers': ACRONYM_TIERS.flatMap((k) => [`lg_acrTier_${k}`, `lg_acrTierHint_${k}`]),
+  'codex tiers':CODEX_TIERS.map((k) => `lg_tier_${k}`),
   'learner bands': [...LANGUAGE_BANDS, ...GENERAL_BANDS].map((b) => `lg_band_${b.key}`),
   'evidence sources': contextSources(FULL_SNAPSHOT).map((id) => `lg_src_${id}`),
   'questionnaire answers': [...REASON_KEYS.map((r) => `lg_reason_${r.key}`), ...GOAL_KEYS.flatMap((g) => [`game_goal_${g.key}`, `lg_goalDesc_${g.key}`])],

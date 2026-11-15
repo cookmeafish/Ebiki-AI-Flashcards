@@ -45,7 +45,12 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
       const { system, user } = buildLearnChatPrompt(subject, item, history)
       const reply = ai.clean(String(await ai.call(system, user, { role: LEARN_ROLE, job: LEARN_JOB, maxTokens: LEARN_MAX_TOKENS }) || ''))
       if (!reply) throw new Error('empty')
-      if (alive.current) setChat((c) => [...c, { role: 'assistant', content: reply }])
+      const said = { role: 'assistant', content: reply }
+      if (alive.current) setChat((c) => [...c, said])
+      // The background double check: a note lands only on THIS reply while the panel is open.
+      ai.factCheck?.({ reply, question: msg, context: `${item.front || ''}\n${item.back || ''}` }).then((notes) => {
+        if (alive.current && notes?.length) setChat((c) => c.map((m) => (m === said ? { ...m, notes } : m)))
+      })
     } catch {
       if (alive.current) setChat((c) => [...c, { role: 'assistant', content: t('kit_learnChatFailed'), error: true }])
     } finally { if (alive.current) setChatBusy(false) }
@@ -91,6 +96,12 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
               <div key={i} dir="auto" style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', fontSize: 13, lineHeight: 1.55, color: m.error ? C.danger : C.ink, whiteSpace: 'pre-wrap',
                 background: m.role === 'user' ? `color-mix(in srgb, ${C.brand} 8%, ${C.surface})` : C.surfaceAlt, border: `1px solid ${m.role === 'user' ? `color-mix(in srgb, ${C.brand} 25%, transparent)` : C.border}`, borderRadius: RADIUS.sm, padding: '6px 10px' }}>
                 {m.role === 'assistant' && !m.error ? <><Rich text={m.content} tap={tappable} k={`m${i}`} />{popup(`m${i}`)}</> : <Rich text={m.content} />}
+                {m.notes?.length > 0 && (
+                  <div data-fact-note="" role="note" style={{ marginTop: 6, paddingLeft: 8, borderLeft: `3px solid ${C.info}`, fontSize: 12, whiteSpace: 'normal' }}>
+                    <div style={{ fontWeight: 700, color: C.info }}>{t('fc_label')}</div>
+                    {m.notes.map((n, ni) => <div key={ni}><span style={{ color: C.inkDim }}>“{n.quote}”</span> {n.fix}</div>)}
+                  </div>
+                )}
               </div>
             ))}
             {chatBusy && <span style={{ fontSize: 12, color: C.inkDim }}>{t('kit_learnTyping')}</span>}

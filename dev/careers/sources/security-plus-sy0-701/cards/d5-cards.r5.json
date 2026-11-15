@@ -1,0 +1,1967 @@
+[
+  {
+    "obj": "5.0",
+    "path": [],
+    "term": "SY0-701 Domain 5.0: Security Program Management and Oversight (20%)",
+    "definition": "The domain covering how a security program is governed, how risk is managed, how vendors are assessed, how compliance is proven, how audits and penetration tests work, and how users are trained. It is 20% of the SY0-701 exam.",
+    "example": "A CISO writes policies, keeps a risk register, signs an SLA with a cloud provider, reports compliance to a regulator, hires a pen test firm, and runs phishing simulations: all Domain 5 work.",
+    "category": "5.0 Security Program Management and Oversight",
+    "keyPoints": "Six objectives: 5.1 governance, 5.2 risk management, 5.3 third-party risk, 5.4 compliance, 5.5 audits and assessments, 5.6 security awareness; Heavy on definitions and look-alikes (RTO vs RPO, MOU vs MOA, controller vs processor); Expect SLE/ALE math"
+  },
+  {
+    "obj": "5.1",
+    "path": [],
+    "term": "SY0-701 5.1: Summarize elements of effective security governance",
+    "definition": "Security governance is the framework of documents, structures and roles that directs and controls security: guidelines, policies, standards and procedures, external considerations, monitoring and revision, governance structures, and data roles.",
+    "example": "A company board approves an information security policy, a committee sets password standards, and IT writes the onboarding procedure that follows them.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Know the document hierarchy: policy (why, mandatory) > standard (what, mandatory, specific) > procedure (how, step by step), with guidelines optional; Know data roles: owner, controller, processor, custodian/steward; External drivers: regulatory, legal, industry, local to global"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Guidelines"
+    ],
+    "term": "Guidelines (security governance)",
+    "definition": "Recommended practices and advice that help people meet policies and standards. Guidelines are optional and flexible, not mandatory.",
+    "example": "A guideline suggests using a passphrase of four random words, while the password standard only requires 14 characters minimum.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Guidelines = recommended, not required; Standards and policies are mandatory, guidelines are not; Common mix-up: a document saying \"should\" is a guideline, \"must\" is a policy or standard"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies"
+    ],
+    "term": "Policies (security governance)",
+    "definition": "High-level, management-approved statements of what the organization requires and why. Policies are mandatory and broad; standards and procedures put them into practice.",
+    "example": "An information security policy states that all company data must be protected according to its classification.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Policies set intent and direction, not technical detail; Approved by senior management; Listed policy types: AUP, information security, business continuity, disaster recovery, incident response, SDLC, change management; Writing a policy does not enforce it: the organization has to apply and check it"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies",
+      "Acceptable use policy (AUP)"
+    ],
+    "term": "Acceptable use policy (AUP)",
+    "definition": "A policy defining what users may and may not do with the organization's systems, networks and data. Users typically sign or acknowledge it, which gives a basis for discipline if it is violated.",
+    "example": "An AUP forbids using company laptops for cryptocurrency mining and personal file sharing; an employee caught doing so is disciplined under it.",
+    "category": "5.1 Security governance > Policies",
+    "keyPoints": "AUP = rules of behavior for users; Usually acknowledged at onboarding; Supports legal and HR action after misuse"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies",
+      "Information security policies"
+    ],
+    "term": "Information security policies",
+    "definition": "The core policies that state how the organization protects the confidentiality, integrity and availability of its information, including roles, data classification and the authority of the security team.",
+    "example": "The information security policy names the CISO as responsible for the program and requires all data to be classified as public, internal or confidential.",
+    "category": "5.1 Security governance > Policies",
+    "keyPoints": "Top of the policy set; other policies and standards flow from it; Defines responsibilities and authority; Big picture, not technical settings"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies",
+      "Business continuity"
+    ],
+    "term": "Business continuity (policy)",
+    "definition": "A policy that sets how the organization keeps critical business functions running during and after a disruption, including alternate processes when technology is unavailable.",
+    "example": "During a payment system outage, the business continuity policy lets stores take manual card imprints so sales continue.",
+    "category": "5.1 Security governance > Policies",
+    "keyPoints": "Business continuity = keep the business operating; Disaster recovery = restore IT systems; BCP is broader and includes non-technical workarounds; The plan is written and tested before a disruption, not improvised during one"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies",
+      "Disaster recovery"
+    ],
+    "term": "Disaster recovery (policy)",
+    "definition": "A policy that sets how IT systems and data are restored after a major disruption such as a natural disaster, fire or large cyberattack, often by switching to a recovery site.",
+    "example": "After a flood destroys the data center, the disaster recovery plan moves operations to a warm site and restores from offsite backups.",
+    "category": "5.1 Security governance > Policies",
+    "keyPoints": "DR is a subset of business continuity focused on technology recovery; Tied to RTO and RPO from the BIA; Tested with tabletop exercises and failover tests"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies",
+      "Incident response"
+    ],
+    "term": "Incident response (policy)",
+    "definition": "A policy that defines how the organization prepares for, detects, contains, eradicates and recovers from security incidents, and who is on the response team.",
+    "example": "The incident response policy requires suspected ransomware to be reported to the security team within 15 minutes and names who may isolate systems.",
+    "category": "5.1 Security governance > Policies",
+    "keyPoints": "Policy level: who, authority, reporting duties; Detailed steps live in procedures and playbooks; Phases (4.8): preparation, detection, analysis, containment, eradication, recovery, lessons learned; NIST SP 800-61 Rev. 2 grouped these into four phases (preparation; detection and analysis; containment, eradication and recovery; post-incident activity); Rev. 3 (April 2025) replaced it and maps response onto the CSF 2.0 functions, but the objectives use the seven-step list"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies",
+      "Software development lifecycle (SDLC)"
+    ],
+    "term": "Software development lifecycle (SDLC) policy",
+    "definition": "A policy that requires security to be built into every stage of software development, from requirements and design through coding, testing, deployment and maintenance.",
+    "example": "The SDLC policy requires code review and a static analysis scan before any code reaches production.",
+    "category": "5.1 Security governance > Policies",
+    "keyPoints": "SDLC = Software Development Lifecycle in the acronym list; Security from the start costs less than fixing later; Covers testing, environments (dev, test, staging, production) and secure coding; Two common models: waterfall (one pass in order: requirements, build, test, deploy, maintain) and agile (short repeated cycles of design, build, test, release and review)"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Policies",
+      "Change management"
+    ],
+    "term": "Change management (policy)",
+    "definition": "A policy requiring that changes to systems are requested, reviewed, approved, tested and documented before they are made, to avoid outages and security gaps.",
+    "example": "The change management policy says no firewall rule may be changed without approval from the change advisory board.",
+    "category": "5.1 Security governance > Policies",
+    "keyPoints": "Policy = the requirement that changes are controlled; Procedure = the actual steps to submit and implement a change; Links to 1.3 change management processes"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Standards"
+    ],
+    "term": "Standards (security governance)",
+    "definition": "Mandatory, specific requirements that make policies measurable, such as exact settings, technologies or levels. Standards can be internal or come from bodies such as NIST or ISO.",
+    "example": "A standard requires AES-256 for data at rest and TLS 1.2 or higher for data in transit.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Standards = mandatory and specific; More detailed than policies, less step by step than procedures; Listed standards: password, access control, physical security, encryption"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Standards",
+      "Password"
+    ],
+    "term": "Password standard",
+    "definition": "A standard defining password requirements, such as minimum length, complexity, reuse limits, storage (hashing) and when MFA is required.",
+    "example": "The password standard requires at least 14 characters, blocks known breached passwords, and requires hashing with salt.",
+    "category": "5.1 Security governance > Standards",
+    "keyPoints": "Specific numbers live in the standard, not the policy; Modern guidance favors length and breached password checks over forced frequent changes; Pairs with password management training (5.6); NIST SP 800-63B-4 (2025): at least 15 characters when a password is the only factor, at least 8 when it is part of MFA, no composition rules, no forced periodic changes (only after a compromise), and every new password checked against a blocklist of breached and common passwords; Can require network devices to sign in against a central directory rather than local accounts"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Standards",
+      "Access control"
+    ],
+    "term": "Access control standard",
+    "definition": "A standard defining how access is granted, reviewed and removed, which access control model is used, and requirements such as least privilege and periodic access reviews.",
+    "example": "The access control standard requires role-based access, quarterly access reviews and removal of access within 24 hours of termination.",
+    "category": "5.1 Security governance > Standards",
+    "keyPoints": "Covers models (RBAC, MAC, DAC, ABAC, rule-based); Least privilege and separation of duties; Access reviews catch privilege creep; Can also set the conditions for getting access (manager sign-off, a completed training course) and for removing it (job change, departure, contract end, security issue)"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Standards",
+      "Physical security"
+    ],
+    "term": "Physical security standard",
+    "definition": "A standard defining required physical protections for facilities and equipment, such as badge access, visitor logs, cameras, locks and secure areas.",
+    "example": "The physical security standard requires badge plus PIN for the server room and visitor escorts at all times.",
+    "category": "5.1 Security governance > Standards",
+    "keyPoints": "Physical controls protect the people, buildings and hardware; Examples: bollards, access control vestibules, guards, cameras; Do not confuse with physical penetration testing (5.5); Can set different rules for employees, contractors and guests, and the lock type required (for example a biometric reader)"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Standards",
+      "Encryption"
+    ],
+    "term": "Encryption standard",
+    "definition": "A standard defining which encryption algorithms, key lengths, protocols and key management practices are approved for data at rest, in transit and in use.",
+    "example": "The encryption standard approves AES-256 and TLS 1.3, bans DES and SSL, and requires keys to be stored in an HSM.",
+    "category": "5.1 Security governance > Standards",
+    "keyPoints": "Names approved and banned algorithms; Covers key management and rotation; Helps meet regulations that require encryption; Also sets how passwords are stored, for example as salted hashes with a named algorithm"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Procedures"
+    ],
+    "term": "Procedures (security governance)",
+    "definition": "Detailed, step-by-step instructions for carrying out a task in line with policies and standards, so it is done the same way every time.",
+    "example": "A procedure lists the exact steps to create a new user account, assign groups and enable MFA.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Procedures = how; Most detailed governance document; Listed procedures: change management, onboarding/offboarding, playbooks"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Procedures",
+      "Change management"
+    ],
+    "term": "Change management (procedure)",
+    "definition": "The step-by-step process for making a change: submit a request, assess impact and risk, get approval, test, schedule a maintenance window, implement, have a backout plan, and document.",
+    "example": "An admin submits a change ticket to patch a database server, the CAB approves it for Saturday 2 a.m., and a rollback plan is attached.",
+    "category": "5.1 Security governance > Procedures",
+    "keyPoints": "Procedure = the operational steps; the policy only requires change control; Key parts: approval, impact analysis, testing, backout plan, maintenance window, documentation; Starts by defining scope and risk level; the affected system or business owner signs off before the change"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Procedures",
+      "Onboarding/offboarding"
+    ],
+    "term": "Onboarding/offboarding (procedure)",
+    "definition": "Procedures for bringing a person into the organization (accounts, equipment, AUP and training) and for removing them (disable accounts, collect devices and badges, revoke access) when they leave.",
+    "example": "When an employee is terminated, offboarding disables the account immediately, collects the laptop and badge, and transfers their files to the manager.",
+    "category": "5.1 Security governance > Procedures",
+    "keyPoints": "Offboarding failures leave orphaned accounts that attackers can use; Onboarding includes signing the AUP and NDA and initial training; Timely deprovisioning is the main point; Disable departing accounts rather than delete them at once, so encrypted files and keys can still be recovered; Onboarding also applies to staff moving in from another department"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Procedures",
+      "Playbooks"
+    ],
+    "term": "Playbooks (security procedure)",
+    "definition": "Documented, step-by-step responses to a specific type of event or incident, so responders act quickly and consistently. They are often automated in a SOAR platform.",
+    "example": "A phishing playbook says: pull the email from all mailboxes, block the sender domain, reset credentials of users who clicked, and notify the users.",
+    "category": "5.1 Security governance > Procedures",
+    "keyPoints": "Playbook = procedure for one specific scenario; Used in incident response and automated with SOAR; A runbook is similar and often more technical or automated"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "External considerations"
+    ],
+    "term": "External considerations (security governance)",
+    "definition": "Outside factors that shape security governance: regulations, laws, industry requirements, and rules at the local or regional, national and global level.",
+    "example": "A hospital in California must follow HIPAA (national) and California's Confidentiality of Medical Information Act (regional); if it also offers telehealth to patients located in the EU, GDPR (global) applies to that service.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Six listed: regulatory, legal, industry, local/regional, national, global; Laws and regulations are mandatory; industry standards may be contractual; Scope depends on where data subjects and operations are"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "External considerations",
+      "Regulatory"
+    ],
+    "term": "Regulatory (external consideration)",
+    "definition": "Requirements set by government agencies or regulators that an organization must follow, with penalties for non-compliance.",
+    "example": "A US healthcare provider must protect patient records under HIPAA; a public company must keep financial controls under SOX.",
+    "category": "5.1 Security governance > External considerations",
+    "keyPoints": "Regulations come from government bodies and are enforceable; Examples: HIPAA, SOX, GDPR; Do not confuse with industry standards like PCI DSS, which is enforced by card brands through contracts; GDPR is a regulation too; GLBA covers customer data at US financial institutions"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "External considerations",
+      "Legal"
+    ],
+    "term": "Legal (external consideration)",
+    "definition": "Legal factors that affect security, such as laws, contracts, liability, e-discovery and legal holds, and breach notification duties.",
+    "example": "A legal hold requires the company to preserve all emails related to a lawsuit, overriding the normal deletion schedule.",
+    "category": "5.1 Security governance > External considerations",
+    "keyPoints": "Includes contracts and liability, not only statutes; Legal hold overrides data retention schedules; Breach notification laws set deadlines to inform people; Data sovereignty: some countries require data about their people to stay inside their borders, which matters when choosing cloud regions; Breach notification deadlines differ by jurisdiction"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "External considerations",
+      "Industry"
+    ],
+    "term": "Industry (external consideration)",
+    "definition": "Requirements and best practices that come from a specific industry rather than from government, often enforced through contracts or certification.",
+    "example": "Any merchant that stores, processes or transmits payment card data must meet PCI DSS, required by the card brands.",
+    "category": "5.1 Security governance > External considerations",
+    "keyPoints": "PCI DSS is an industry standard, not a law; Industry frameworks can also be voluntary best practice; Different sectors (finance, healthcare, energy) have their own expectations; Examples of sector practice: power utilities often keep control systems air-gapped; healthcare must keep records available to clinicians but private from everyone else"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "External considerations",
+      "Local/regional"
+    ],
+    "term": "Local/regional (external consideration)",
+    "definition": "Rules that apply in a specific city, state, province or region and add to national requirements.",
+    "example": "A company with California customers must follow the California Consumer Privacy Act (CCPA) even though there is no equivalent federal law.",
+    "category": "5.1 Security governance > External considerations",
+    "keyPoints": "State and provincial laws can be stricter than national ones; Example: CCPA in California; Organizations must track rules everywhere they operate or have customers"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "External considerations",
+      "National"
+    ],
+    "term": "National (external consideration)",
+    "definition": "Laws and regulations that apply across an entire country.",
+    "example": "HIPAA applies to covered health care providers, health plans and clearinghouses in every US state, wherever they are located.",
+    "category": "5.1 Security governance > External considerations",
+    "keyPoints": "Apply countrywide; Examples: HIPAA and SOX in the US; Can conflict with or overlap local and global requirements"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "External considerations",
+      "Global"
+    ],
+    "term": "Global (external consideration)",
+    "definition": "Requirements that reach across borders, applying to organizations based on whose data they handle or where they do business, not only where they are located.",
+    "example": "A US online store selling to customers in France must comply with GDPR for those customers' data.",
+    "category": "5.1 Security governance > External considerations",
+    "keyPoints": "GDPR is the classic global example: it reaches organizations outside the EU that offer goods or services to, or monitor, people located in the EU (Article 3); Multinationals must reconcile different countries' rules; Data sovereignty and cross-border transfer rules matter"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Monitoring and revision"
+    ],
+    "term": "Monitoring and revision (governance documents)",
+    "definition": "Governance documents are regularly reviewed, checked for effectiveness and updated when laws, technology, threats or the business change, or after an incident.",
+    "example": "After a breach shows the remote access policy did not cover personal devices, the policy is revised and re-approved.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Governance is a continuous cycle, not a one-time document; Triggers: scheduled review, new regulation, incident, audit finding, business change; Version control and re-acknowledgement by users"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Types of governance structures"
+    ],
+    "term": "Types of governance structures",
+    "definition": "The bodies and models through which security decisions are made and overseen: boards, committees, government entities, and centralized or decentralized models.",
+    "example": "A board of directors sets risk appetite, a security steering committee sets priorities, and business units run their own controls in a decentralized model.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Four listed: boards, committees, government entities, centralized/decentralized; Boards provide top-level oversight, committees focus on specific topics; Centralized = consistent, decentralized = flexible"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Types of governance structures",
+      "Boards"
+    ],
+    "term": "Boards (governance structure)",
+    "definition": "A board of directors or similar body that provides top-level oversight of the organization, including approving strategy and risk appetite and holding executives accountable for security.",
+    "example": "The board reviews quarterly cyber risk reports from the CISO and approves the security budget.",
+    "category": "5.1 Security governance > Types of governance structures",
+    "keyPoints": "Highest oversight level; Sets direction and risk appetite, does not run daily operations; Often delegates to committees such as an audit committee; The board sets the goals; committees work out how to meet them"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Types of governance structures",
+      "Committees"
+    ],
+    "term": "Committees (governance structure)",
+    "definition": "Groups of people, often from several departments, that oversee a specific area such as security, risk, audit or change, and make recommendations or decisions.",
+    "example": "A security steering committee with IT, legal, HR and finance meets monthly to approve new security policies.",
+    "category": "5.1 Security governance > Types of governance structures",
+    "keyPoints": "Bring cross-functional input; Examples: security steering committee, audit committee, change advisory board; Usually report to the board or executives; Usually subject matter experts, sometimes with a board member; they take direction from the board and bring results back for approval"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Types of governance structures",
+      "Government entities"
+    ],
+    "term": "Government entities (governance structure)",
+    "definition": "Public sector bodies that govern security either for themselves (agencies with their own structures) or for others by setting and enforcing laws, regulations and frameworks.",
+    "example": "A national agency publishes required controls that all federal contractors must follow.",
+    "category": "5.1 Security governance > Types of governance structures",
+    "keyPoints": "Government entities have public accountability and often strict, formal structures; They also act as regulators for private organizations; Example: NIST publishes frameworks used by US agencies; Driven by legal, administrative and political concerns; their meetings and records are often open to the public"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Types of governance structures",
+      "Centralized/decentralized"
+    ],
+    "term": "Centralized vs decentralized governance",
+    "definition": "Centralized governance puts security decisions in one central group for consistency and control. Decentralized governance spreads decisions to business units or regions for flexibility and speed.",
+    "example": "A bank uses centralized governance so every branch follows identical controls; a conglomerate lets each subsidiary set its own security program (decentralized).",
+    "category": "5.1 Security governance > Types of governance structures",
+    "keyPoints": "Centralized: consistent, easier to enforce, can be slow and a bottleneck; Decentralized: flexible and local, risk of inconsistency and gaps; Many organizations use a hybrid; Neither is right in general: the best fit depends on the organization"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Roles and responsibilities for systems and data"
+    ],
+    "term": "Roles and responsibilities for systems and data",
+    "definition": "The defined roles that decide about, process and look after data and systems: owners, controllers, processors and custodians/stewards.",
+    "example": "The VP of Sales owns customer data, the company is the GDPR controller, a cloud payroll firm is a processor, and IT admins are custodians who run the backups.",
+    "category": "5.1 Security governance",
+    "keyPoints": "Owner = accountable and classifies; Controller = decides why and how personal data is processed; Processor = processes on the controller's behalf; Custodian/steward = handles day-to-day care"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Roles and responsibilities for systems and data",
+      "Owners"
+    ],
+    "term": "Owners (data and system roles)",
+    "definition": "The person, usually a senior manager, who is ultimately accountable for a data set or system. The owner classifies the data, decides who may access it, and approves how it is protected.",
+    "example": "The head of HR is the data owner for employee records and approves who in the company may view salaries.",
+    "category": "5.1 Security governance > Roles and responsibilities for systems and data",
+    "keyPoints": "Accountable, not hands-on; Sets classification and access rules; Delegates daily work to custodians; Common mix-up: the owner is not the IT admin"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Roles and responsibilities for systems and data",
+      "Controllers"
+    ],
+    "term": "Controllers (data and system roles)",
+    "definition": "The entity that decides the purposes and means of processing personal data (the why and how). Under GDPR the controller carries primary legal responsibility.",
+    "example": "An online retailer decides to collect customer addresses for shipping, so it is the controller of that data.",
+    "category": "5.1 Security governance > Roles and responsibilities for systems and data",
+    "keyPoints": "Controller decides; processor acts on instructions; Controller remains responsible even when it outsources processing; GDPR term; Inside one company the same split is often explained with departments: the payroll department decides pay amounts and dates (controller) and an outside payroll firm runs the paychecks (processor)"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Roles and responsibilities for systems and data",
+      "Processors"
+    ],
+    "term": "Processors (data and system roles)",
+    "definition": "An entity that processes personal data on behalf of a controller and only according to the controller's instructions.",
+    "example": "A payroll service company processes employee salary data for its client company, which remains the controller.",
+    "category": "5.1 Security governance > Roles and responsibilities for systems and data",
+    "keyPoints": "Processor does not decide purposes; Often a third party (cloud, payroll, marketing service); Has its own GDPR obligations, such as security and breach notification to the controller; Must work under a written contract with the controller (GDPR Article 28); a processor that starts deciding purposes and means is treated as a controller for that processing (Article 28(10))"
+  },
+  {
+    "obj": "5.1",
+    "path": [
+      "Roles and responsibilities for systems and data",
+      "Custodians/stewards"
+    ],
+    "term": "Custodians/stewards (data and system roles)",
+    "definition": "Custodians are the people who handle the day-to-day protection of data, such as applying access controls, backups and patching. Data stewards focus on data quality, labeling, metadata and proper use, often making sure owner decisions are followed.",
+    "example": "A database administrator (custodian) applies the access rights the owner approved and runs nightly backups.",
+    "category": "5.1 Security governance > Roles and responsibilities for systems and data",
+    "keyPoints": "Custodian = hands-on technical care; Steward = data quality and correct handling; Both act for the owner and do not set policy; Some study sources describe the steward as also applying sensitivity labels and managing who gets access, always within the rules the owner set"
+  },
+  {
+    "obj": "5.2",
+    "path": [],
+    "term": "SY0-701 5.2: Explain elements of the risk management process",
+    "definition": "Risk management identifies risks, assesses and analyzes them, records them in a register, compares them to appetite and tolerance, chooses a strategy (transfer, accept, avoid, mitigate), reports on them, and uses a business impact analysis to set recovery targets.",
+    "example": "A company lists ransomware as a risk, calculates an ALE of $50,000, buys cyber insurance (transfer) and adds EDR (mitigate), then reports to the board.",
+    "category": "5.2 Risk management",
+    "keyPoints": "Know SLE = AV x EF and ALE = SLE x ARO; Know the four strategies and exemption vs exception; Know RTO vs RPO and MTTR vs MTBF; Appetite vs tolerance vs threshold"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk identification"
+    ],
+    "term": "Risk identification",
+    "definition": "The first step of risk management: finding and listing the threats, vulnerabilities and assets that could lead to harm.",
+    "example": "A workshop with IT and business leaders lists risks such as ransomware, insider data theft, a key vendor failing, and floods at the data center.",
+    "category": "5.2 Risk management",
+    "keyPoints": "Comes before assessment and analysis; Sources: vulnerability scans, threat intelligence, audits, interviews, past incidents; Output feeds the risk register"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk assessment"
+    ],
+    "term": "Risk assessment",
+    "definition": "The process of evaluating identified risks to determine their likelihood and impact. The objectives describe it by how often it is done: ad hoc, recurring, one-time or continuous.",
+    "example": "The security team assesses each identified risk annually and whenever a major new system is added.",
+    "category": "5.2 Risk management",
+    "keyPoints": "Four frequencies: ad hoc, recurring, one-time, continuous; Assessment results feed risk analysis and the register; NIST SP 800-30 is the US guide for risk assessments"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk assessment",
+      "Ad hoc"
+    ],
+    "term": "Ad hoc risk assessment",
+    "definition": "A risk assessment done as needed, in response to a specific event or question, rather than on a schedule.",
+    "example": "After news of a new zero-day in the company's VPN product, the team runs an ad hoc assessment of its exposure.",
+    "category": "5.2 Risk management > Risk assessment",
+    "keyPoints": "Triggered by an event, not a calendar; Unplanned; Compare: recurring = scheduled, one-time = single project, continuous = always running; Ad hoc is Latin for \"for this\": run for one purpose when the need comes up, not as part of a schedule"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk assessment",
+      "Recurring"
+    ],
+    "term": "Recurring risk assessment",
+    "definition": "A risk assessment repeated at regular, planned intervals, such as quarterly or annually.",
+    "example": "The organization reassesses all its top risks every year before budget planning, as required by its compliance program.",
+    "category": "5.2 Risk management > Risk assessment",
+    "keyPoints": "Scheduled and repeated; Often required by regulation or policy; Different from continuous, which is ongoing and often automated; Typical intervals: every 3, 6 or 12 months; can be run by an internal team without outside help"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk assessment",
+      "One-time"
+    ],
+    "term": "One-time risk assessment",
+    "definition": "A risk assessment done once for a specific purpose, such as a new project, merger or system purchase.",
+    "example": "Before acquiring a smaller company, the security team performs a one-time assessment of its network and data practices.",
+    "category": "5.2 Risk management > Risk assessment",
+    "keyPoints": "Single event tied to a project or decision; Not repeated on a schedule; Compare with ad hoc, which reacts to an unexpected event"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk assessment",
+      "Continuous"
+    ],
+    "term": "Continuous risk assessment",
+    "definition": "Ongoing, usually automated assessment of risk in near real time, using monitoring, scanning and metrics.",
+    "example": "A platform continuously scans cloud resources and raises the risk score immediately when a storage bucket becomes public.",
+    "category": "5.2 Risk management > Risk assessment",
+    "keyPoints": "Always running, often tool-driven; Supports continuous monitoring and KRIs; Catches changes between scheduled assessments; A change control process that includes a risk step also assesses risk continuously: every change gets one"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis"
+    ],
+    "term": "Risk analysis",
+    "definition": "Working out how big each risk is, either qualitatively (ratings such as high, medium, low) or quantitatively (money and numbers such as SLE, ALE and ARO), based on likelihood and impact.",
+    "example": "The team calculates that a database breach has an ALE of $40,000 and rates insider fraud as medium likelihood and high impact.",
+    "category": "5.2 Risk management",
+    "keyPoints": "Qualitative = categories and judgment; quantitative = monetary values; Formulas: SLE = asset value x EF, ALE = SLE x ARO; Risk = likelihood x impact"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Qualitative"
+    ],
+    "term": "Qualitative risk analysis",
+    "definition": "Risk analysis that uses descriptive categories or scores, such as low, medium and high, often shown in a heat map, rather than exact monetary values.",
+    "example": "A risk matrix rates phishing as high likelihood and medium impact, placing it in the orange zone.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "Subjective but quick and easy to communicate; Uses likelihood and impact ratings; Common mix-up: anything with dollar figures is quantitative"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Quantitative"
+    ],
+    "term": "Quantitative risk analysis",
+    "definition": "Risk analysis that assigns numeric and monetary values to risk using measures such as asset value, exposure factor, SLE, ARO and ALE.",
+    "example": "Asset value $100,000, EF 50% gives SLE $50,000; with ARO 0.2 the ALE is $10,000 per year.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "Objective numbers support cost-benefit decisions; A control is worth it if it costs less per year than the ALE reduction it brings; Needs reliable data, which can be hard to get"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Single loss expectancy (SLE)"
+    ],
+    "term": "Single loss expectancy (SLE)",
+    "definition": "The expected monetary loss from one occurrence of a risk event. SLE = asset value (AV) x exposure factor (EF).",
+    "example": "A $200,000 server room loses 25% of its value in a fire: SLE = $200,000 x 0.25 = $50,000.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "SLE = AV x EF; Loss per single event, not per year; Then ALE = SLE x ARO"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Annualized loss expectancy (ALE)"
+    ],
+    "term": "Annualized loss expectancy (ALE)",
+    "definition": "The expected monetary loss from a risk over one year. ALE = SLE x ARO.",
+    "example": "SLE $50,000 and the event happens once every 5 years (ARO 0.2): ALE = $50,000 x 0.2 = $10,000 per year.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "ALE = SLE x ARO = AV x EF x ARO; Used to justify control spending: spend less per year than the loss avoided; Common mistake: do not multiply ALE by ARO again"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Annualized rate of occurrence (ARO)"
+    ],
+    "term": "Annualized rate of occurrence (ARO)",
+    "definition": "How many times a risk event is expected to happen in one year. Once every 10 years is 0.1; four times a year is 4.",
+    "example": "Floods hit the site once every 20 years, so the ARO is 1/20 = 0.05.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "Frequency per year, can be below 1; Once every N years = 1/N; Used in ALE = SLE x ARO"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Probability"
+    ],
+    "term": "Probability (risk analysis)",
+    "definition": "A measurable, numeric chance that a risk event will happen, usually based on statistics or historical data, expressed as a percentage or decimal.",
+    "example": "Historical data shows a 10% chance per year that a major vendor outage will occur.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "Probability = numeric, statistical (quantitative); Likelihood = rating such as high, medium, low (qualitative); Both describe how likely a risk is to happen"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Likelihood"
+    ],
+    "term": "Likelihood (risk analysis)",
+    "definition": "How likely a risk event is to occur, usually expressed as a qualitative rating such as rare, possible or almost certain.",
+    "example": "The team rates the likelihood of a phishing attack succeeding as high because staff training is overdue.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "Often qualitative, used in risk matrices; Combined with impact to rank risks; Compare with probability, which is numeric"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Exposure factor"
+    ],
+    "term": "Exposure factor (risk analysis)",
+    "definition": "The percentage of an asset's value that would be lost in one occurrence of a risk event, from 0% to 100% (0 to 1).",
+    "example": "A flood would destroy 40% of the warehouse inventory value, so the EF is 0.4.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "EF is a percentage of the asset value; SLE = AV x EF; Total loss = EF of 100%"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk analysis",
+      "Impact"
+    ],
+    "term": "Impact (risk analysis)",
+    "definition": "The size of the consequence if a risk event happens, such as financial loss, downtime, safety harm, legal penalties or reputational damage.",
+    "example": "A breach of customer card data would have high impact: fines, card replacement costs and lost customers.",
+    "category": "5.2 Risk management > Risk analysis",
+    "keyPoints": "Risk = likelihood x impact; Impact can be quantitative (dollars) or qualitative (high, medium, low); Includes life and safety, property, finance and reputation"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk register"
+    ],
+    "term": "Risk register",
+    "definition": "A central document or tool that lists identified risks with details such as description, likelihood, impact, score, owner, key risk indicators, threshold, chosen strategy and status.",
+    "example": "A risk register row: \"Ransomware, likelihood high, impact high, owner IT director, strategy mitigate with EDR and offline backups, status in progress.\"",
+    "category": "5.2 Risk management",
+    "keyPoints": "Also called a risk log; Living document updated over time; Listed parts: key risk indicators, risk owners, risk threshold"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk register",
+      "Key risk indicators"
+    ],
+    "term": "Key risk indicators (KRIs)",
+    "definition": "Metrics that give early warning that a risk is rising or close to its threshold, so action can be taken before an incident.",
+    "example": "A KRI tracks the number of unpatched critical vulnerabilities; when it rises above 20, the risk is escalated.",
+    "category": "5.2 Risk management > Risk register",
+    "keyPoints": "KRIs are forward-looking warning signs; Compare with KPIs, which measure performance; Each KRI should have a threshold that triggers action"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk register",
+      "Risk owners"
+    ],
+    "term": "Risk owners",
+    "definition": "The person accountable for managing a specific risk, including making sure the chosen response is carried out and monitored.",
+    "example": "The head of finance is the risk owner for payment fraud and must approve and track the controls.",
+    "category": "5.2 Risk management > Risk register",
+    "keyPoints": "Every risk in the register needs a named owner; Usually a manager with authority and budget; Accountability, not necessarily hands-on work"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk register",
+      "Risk threshold"
+    ],
+    "term": "Risk threshold",
+    "definition": "The defined level of risk or KRI value at which a risk is no longer acceptable and must be escalated or acted on.",
+    "example": "If expected yearly loss from a risk goes above $25,000, the threshold is crossed and it goes to the steering committee.",
+    "category": "5.2 Risk management > Risk register",
+    "keyPoints": "A trigger point for action; Set based on appetite and tolerance; Common mix-up: appetite is the overall attitude, the threshold is the specific trigger line"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk tolerance"
+    ],
+    "term": "Risk tolerance",
+    "definition": "The amount of deviation from the risk appetite an organization can accept for a specific risk or objective; the practical limit of risk it can handle.",
+    "example": "Appetite: the hospital takes little risk with patient data. Tolerance: the patient portal may be down at most 4 hours a month; beyond that, leadership must act.",
+    "category": "5.2 Risk management",
+    "keyPoints": "Tolerance = specific acceptable variation, often measurable; Appetite = broad willingness to take risk; Tolerance is more specific and concrete than appetite, and it marks the outer edge of acceptable deviation, so it is often a wider band than the appetite target itself; in vulnerability management (4.3) the same tolerance becomes patch deadlines and exception rules"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk appetite"
+    ],
+    "term": "Risk appetite",
+    "definition": "The overall amount and type of risk an organization is willing to pursue or accept to achieve its goals, usually set by leadership. The objectives list three postures: expansionary, conservative and neutral.",
+    "example": "A startup chasing growth has a high risk appetite; a bank holding savings deposits has a low one.",
+    "category": "5.2 Risk management",
+    "keyPoints": "Set at the top (board, executives); Appetite = willingness, tolerance = acceptable deviation, threshold = trigger point; Three types: expansionary, conservative, neutral"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk appetite",
+      "Expansionary"
+    ],
+    "term": "Expansionary risk appetite",
+    "definition": "A posture willing to accept higher risk in exchange for growth, innovation or new opportunities.",
+    "example": "A tech company launches a new cloud product quickly, accepting some security risk to beat competitors to market.",
+    "category": "5.2 Risk management > Risk appetite",
+    "keyPoints": "Higher risk taking for higher reward; Common in startups and growth phases; Opposite of conservative"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk appetite",
+      "Conservative"
+    ],
+    "term": "Conservative risk appetite",
+    "definition": "A posture that avoids risk and prefers safety and stability, even at the cost of slower growth.",
+    "example": "A hospital refuses to adopt a new unproven medical app until it is fully tested and certified.",
+    "category": "5.2 Risk management > Risk appetite",
+    "keyPoints": "Low willingness to take risk; Common in regulated sectors such as finance, healthcare and government; Favors avoid and mitigate strategies"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk appetite",
+      "Neutral"
+    ],
+    "term": "Neutral risk appetite",
+    "definition": "A balanced posture that weighs risk and reward evenly, taking risks only when the expected benefit justifies them.",
+    "example": "A retailer approves a new payment option only after a cost-benefit analysis shows the added revenue outweighs the added fraud risk.",
+    "category": "5.2 Risk management > Risk appetite",
+    "keyPoints": "Balanced between expansionary and conservative; Decisions driven by cost-benefit analysis; Neither seeks nor strongly avoids risk"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk management strategies"
+    ],
+    "term": "Risk management strategies",
+    "definition": "The four ways to respond to a risk: transfer it to someone else, accept it, avoid it by stopping the activity, or mitigate it with controls.",
+    "example": "For ransomware a company buys cyber insurance (transfer), adds backups and EDR (mitigate) and accepts the small remaining residual risk (accept).",
+    "category": "5.2 Risk management",
+    "keyPoints": "Transfer, accept, avoid, mitigate; Acceptance includes exemption and exception; Residual risk = what is left after controls; Strategies are often combined"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk management strategies",
+      "Transfer"
+    ],
+    "term": "Transfer (risk strategy)",
+    "definition": "Shifting the financial impact of a risk to another party, most often through insurance or by outsourcing under a contract.",
+    "example": "A company buys cybersecurity insurance to cover breach response costs.",
+    "category": "5.2 Risk management > Risk management strategies",
+    "keyPoints": "Also called sharing; Insurance is the classic example; Common mix-up: accountability and reputational damage are not transferred, only the financial burden"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk management strategies",
+      "Accept"
+    ],
+    "term": "Accept (risk strategy)",
+    "definition": "Choosing to take no further action on a risk because it is within appetite or because the cost of controls is higher than the expected loss. The objectives list two forms: exemption and exception.",
+    "example": "A small office accepts the risk of a two-hour internet outage because a backup line would cost more than the lost sales.",
+    "category": "5.2 Risk management > Risk management strategies",
+    "keyPoints": "Used when the cost of controls exceeds the ALE; Must be documented and approved by the risk owner; Accepting is a decision, ignoring a risk is not"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk management strategies",
+      "Accept",
+      "Exemption"
+    ],
+    "term": "Exemption (risk acceptance)",
+    "definition": "A formal approval that releases a system, group or situation from having to meet a specific requirement, so the requirement does not apply to it.",
+    "example": "A legacy lab system that cannot run the required endpoint agent is formally exempted from the EDR standard, with the risk accepted by its owner.",
+    "category": "5.2 Risk management > Risk management strategies > Accept",
+    "keyPoints": "Exemption = the rule does not apply to this case; Exception = the rule applies but a temporary deviation is allowed; Both must be documented, approved and reviewed; Scope decides it, not duration alone; Study shorthand: exemption when the requirement cannot be met at all (a device the vendor will not let you patch, kept off the network)"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk management strategies",
+      "Accept",
+      "Exception"
+    ],
+    "term": "Exception (risk acceptance)",
+    "definition": "An approved, usually temporary deviation from a policy or standard that still applies, often with compensating controls and an end date.",
+    "example": "A server is allowed to miss the 30-day patch requirement for 60 days while a vendor certifies the patch, with extra network isolation in place.",
+    "category": "5.2 Risk management > Risk management strategies > Accept",
+    "keyPoints": "Temporary and time-limited, with a review or expiry date; Often requires compensating controls; Compare exemption, which removes the requirement for that case; Study shorthand: exception when the requirement could be met but clashes with a business need (a patch that breaks a critical app gets extra time)"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk management strategies",
+      "Avoid"
+    ],
+    "term": "Avoid (risk strategy)",
+    "definition": "Eliminating a risk by not doing, or by stopping, the activity that creates it.",
+    "example": "A company drops a planned feature that would let customers upload files, because hosting user files is too risky; the risk never exists because the activity never starts.",
+    "category": "5.2 Risk management > Risk management strategies",
+    "keyPoints": "Stop or never start the risky activity; Removes the risk but also its benefits; Common mix-up: paying another party to carry the risk (insurance, outsourcing) is transfer, stopping the activity is avoid"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk management strategies",
+      "Mitigate"
+    ],
+    "term": "Mitigate (risk strategy)",
+    "definition": "Reducing the likelihood or impact of a risk by applying controls, leaving some residual risk.",
+    "example": "Installing a firewall, enabling MFA and patching reduce the risk of an external breach.",
+    "category": "5.2 Risk management > Risk management strategies",
+    "keyPoints": "Also called reduction; Controls such as firewalls, MFA and patching are the classic mitigation; Residual risk remains and is then accepted or transferred"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Risk reporting"
+    ],
+    "term": "Risk reporting",
+    "definition": "Communicating the organization's risks, their status, trends and treatment to stakeholders such as executives, the board and regulators, in a form they can act on.",
+    "example": "The CISO gives the board a quarterly report showing the top 10 risks, KRI trends, and which mitigations are behind schedule.",
+    "category": "5.2 Risk management",
+    "keyPoints": "Audience-appropriate: executives want business impact, technical teams want detail; Often built from the risk register; Supports decisions and compliance"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Business impact analysis"
+    ],
+    "term": "Business impact analysis (BIA)",
+    "definition": "An analysis that identifies critical business functions and the impact of losing them over time, and sets recovery targets such as RTO and RPO, using reliability measures such as MTTR and MTBF.",
+    "example": "The BIA finds online ordering loses $20,000 per hour when down, so it gets an RTO of 2 hours and an RPO of 15 minutes.",
+    "category": "5.2 Risk management",
+    "keyPoints": "BIA drives business continuity and DR planning; Identifies critical functions, dependencies and impact; Key metrics: RTO, RPO, MTTR, MTBF"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Business impact analysis",
+      "Recovery time objective (RTO)"
+    ],
+    "term": "Recovery time objective (RTO)",
+    "definition": "The maximum acceptable amount of time a system or process can be down before it must be restored and running again after a disruption.",
+    "example": "The RTO for the email system is 4 hours: it must be back online within 4 hours of an outage.",
+    "category": "5.2 Risk management > Business impact analysis",
+    "keyPoints": "RTO = time to get back up (downtime limit); RPO = how much data you can lose (measured back in time); Shorter RTO needs faster recovery options such as hot sites"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Business impact analysis",
+      "Recovery point objective (RPO)"
+    ],
+    "term": "Recovery point objective (RPO)",
+    "definition": "The maximum acceptable amount of data loss measured in time: how far back the last good copy of data may be when restoring.",
+    "example": "An RPO of 1 hour means backups or replication must happen at least every hour, so no more than 1 hour of transactions is lost.",
+    "category": "5.2 Risk management > Business impact analysis",
+    "keyPoints": "RPO drives backup frequency; RPO looks backward (data lost), RTO looks forward (time to restore); Common mix-up: RPO is not about how long recovery takes"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Business impact analysis",
+      "Mean time to repair (MTTR)"
+    ],
+    "term": "Mean time to repair (MTTR)",
+    "definition": "The average time it takes to repair a failed component or system and return it to service. Objective 5.2 says mean time to repair; the SY0-701 acronym list expands MTTR as mean time to recover.",
+    "example": "Over a year, a router failed 3 times and repairs took 2, 3 and 4 hours, so MTTR = 3 hours.",
+    "category": "5.2 Risk management > Business impact analysis",
+    "keyPoints": "Lower MTTR is better; MTTR = time to fix, MTBF = time between failures; MTTR should fit within the RTO"
+  },
+  {
+    "obj": "5.2",
+    "path": [
+      "Business impact analysis",
+      "Mean time between failures (MTBF)"
+    ],
+    "term": "Mean time between failures (MTBF)",
+    "definition": "The average time a repairable system operates between one failure and the next, a measure of reliability.",
+    "example": "A disk array ran 9,000 hours in total and failed 3 times, so MTBF = 3,000 hours.",
+    "category": "5.2 Risk management > Business impact analysis",
+    "keyPoints": "Higher MTBF is better (more reliable); For repairable items; MTTF (mean time to failure) is for items replaced, not repaired; Compare MTTR = average repair time; Simple calculation: total uptime divided by the number of failures; Availability is roughly MTBF / (MTBF + MTTR)"
+  },
+  {
+    "obj": "5.3",
+    "path": [],
+    "term": "SY0-701 5.3: Explain the processes associated with third-party risk assessment and management",
+    "definition": "Third-party risk management assesses, selects, contracts with and monitors vendors and partners, because their weaknesses become yours. It covers vendor assessment, vendor selection, agreement types, monitoring, questionnaires and rules of engagement.",
+    "example": "Before hiring a cloud payroll provider, a company reviews its SOC 2 report, signs an MSA, SLA and NDA, and sends a yearly security questionnaire.",
+    "category": "5.3 Third-party risk",
+    "keyPoints": "Know agreement types: SLA, MOA, MOU, MSA, WO/SOW, NDA, BPA; Right-to-audit clause and independent assessments give assurance; Supply chain attacks make vendor risk a high priority"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor assessment"
+    ],
+    "term": "Vendor assessment",
+    "definition": "Evaluating a vendor's security posture and risk before and during the relationship, using pen tests, right-to-audit clauses, evidence of internal audits, independent assessments and supply chain analysis.",
+    "example": "A bank reviews a software vendor's ISO 27001 certificate, audit reports and pen test results before allowing it to connect to the network.",
+    "category": "5.3 Third-party risk",
+    "keyPoints": "Five methods: ask for their own audit results (evidence of internal audits), bring in outsiders (independent assessments, penetration testing), keep the right to check them yourself (right-to-audit clause), and look past them to their suppliers (supply chain analysis); Assessment is ongoing, not one-time; Higher-risk vendors get deeper assessment"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor assessment",
+      "Penetration testing"
+    ],
+    "term": "Penetration testing (vendor assessment)",
+    "definition": "Testing a vendor's systems or the products and services it provides by simulating real attacks, either by the customer with permission or by reviewing the vendor's own pen test results.",
+    "example": "Before integration, a company gets permission and scope from a SaaS vendor and hires testers to attack the vendor's API.",
+    "category": "5.3 Third-party risk > Vendor assessment",
+    "keyPoints": "Requires explicit written permission and rules of engagement from the vendor; Often the vendor shares a third-party pen test summary instead; Different from 5.5 pen testing types (known, unknown environment); The contract can require the vendor to be pen tested at a set interval"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor assessment",
+      "Right-to-audit clause"
+    ],
+    "term": "Right-to-audit clause",
+    "definition": "A contract clause that gives the customer the right to audit the vendor's security controls, records or facilities, or to have a third party do so.",
+    "example": "After a vendor breach, the customer uses its right-to-audit clause to inspect the vendor's access logs and controls.",
+    "category": "5.3 Third-party risk > Vendor assessment",
+    "keyPoints": "Must be negotiated into the contract up front; Gives direct verification rather than trusting the vendor's word; Often allows a third-party auditor to act for the customer; Audits should recur through a long relationship; typical focus: access management, offboarding, password storage, VPN access"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor assessment",
+      "Evidence of internal audits"
+    ],
+    "term": "Evidence of internal audits (vendor assessment)",
+    "definition": "Documentation showing that the vendor regularly audits itself, such as internal audit reports, findings and remediation status.",
+    "example": "A customer asks a vendor for its latest internal audit report and proof that last year's findings were fixed.",
+    "category": "5.3 Third-party risk > Vendor assessment",
+    "keyPoints": "Shows the vendor checks itself; Less independent than an external audit; Look for findings and how they were remediated"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor assessment",
+      "Independent assessments"
+    ],
+    "term": "Independent assessments (vendor assessment)",
+    "definition": "Reviews of a vendor by an impartial outside party, such as SOC 2 reports, ISO 27001 certification or third-party audits, giving more trustworthy assurance than the vendor's own claims.",
+    "example": "A cloud provider shares its SOC 2 Type II report, prepared by an independent audit firm, with prospective customers.",
+    "category": "5.3 Third-party risk > Vendor assessment",
+    "keyPoints": "Independent = no conflict of interest; More credible than self-reporting; Examples: SOC 2 Type II (controls over a period), ISO 27001 certificate; Outside assessors have seen many organizations, so they spot blind spots insiders miss"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor assessment",
+      "Supply chain analysis"
+    ],
+    "term": "Supply chain analysis",
+    "definition": "Examining the vendor's own suppliers and components (hardware, software, services) to find risks that come in through the supply chain.",
+    "example": "A company checks where its network switches are manufactured and reviews the software bill of materials (SBOM) of a vendor's product for vulnerable libraries.",
+    "category": "5.3 Third-party risk > Vendor assessment",
+    "keyPoints": "Your vendor's vendors are also your risk; SBOMs help reveal software components; Supply chain attacks insert malicious code or hardware upstream; SolarWinds (disclosed December 2020): attackers planted a backdoor in the Orion build process, and the signed update reached thousands of customers"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor selection"
+    ],
+    "term": "Vendor selection",
+    "definition": "Choosing vendors with security in mind, including due diligence on their background and security and checking for conflicts of interest.",
+    "example": "A hospital compares three EHR vendors on security certifications, breach history, financial stability and data handling before choosing one.",
+    "category": "5.3 Third-party risk",
+    "keyPoints": "Two listed parts: due diligence and conflict of interest; Security requirements should be part of the selection criteria; Decisions should be documented"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor selection",
+      "Due diligence"
+    ],
+    "term": "Due diligence (vendor selection)",
+    "definition": "Investigating a potential vendor before signing, including its security practices, financial health, reputation, legal history and compliance, to confirm it can be trusted.",
+    "example": "Before outsourcing, the company checks the vendor's breach history, financial statements, references and certifications.",
+    "category": "5.3 Third-party risk > Vendor selection",
+    "keyPoints": "Done before the contract; Shows the organization acted responsibly; Compare due care (5.4), the ongoing actions taken to protect; Can include verifying the vendor claims (revenue, customer count), background checks and interviews with its staff"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor selection",
+      "Conflict of interest"
+    ],
+    "term": "Conflict of interest (vendor selection)",
+    "definition": "A situation where a person involved in selecting a vendor has a personal or financial interest that could bias the decision.",
+    "example": "The IT manager choosing a managed service provider owns shares in one of the bidders and must disclose it and step aside.",
+    "category": "5.3 Third-party risk > Vendor selection",
+    "keyPoints": "Conflicts must be disclosed and managed; Can lead to choosing an unsuitable or insecure vendor; Also applies to auditors, who must be independent; Can sit on the vendor side too: a vendor that serves your biggest competitor, employs an executive relative, or offers gifts for signing"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types"
+    ],
+    "term": "Agreement types (third-party)",
+    "definition": "The documents that set out relationships with vendors and partners: SLA (service levels), MOA and MOU (cooperation, MOA more formal), MSA (general terms), WO/SOW (specific work), NDA (confidentiality) and BPA (business partnership).",
+    "example": "A company signs an MSA with a consulting firm, then a SOW for each project, an NDA covering secrets, and an SLA defining support response times.",
+    "category": "5.3 Third-party risk",
+    "keyPoints": "MSA = umbrella terms, SOW = specific project under it; MOU = informal intent, MOA = more formal, defined responsibilities; SLA = measurable service levels and penalties; NDA = confidentiality, BPA = partner relationship"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types",
+      "Service-level agreement (SLA)"
+    ],
+    "term": "Service-level agreement (SLA)",
+    "definition": "A contract that defines the minimum level of service a provider must deliver, with measurable metrics such as uptime, response time and resolution time, and penalties if they are missed.",
+    "example": "An SLA promises 99.9% uptime and a 4-hour response to critical tickets, with service credits if either is missed.",
+    "category": "5.3 Third-party risk > Agreement types",
+    "keyPoints": "Measurable performance terms; Common with ISPs, cloud and managed service providers; Common mix-up: the SLA is about service levels, not confidentiality (NDA) or project scope (SOW)"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types",
+      "Memorandum of agreement (MOA)"
+    ],
+    "term": "Memorandum of agreement (MOA)",
+    "definition": "A document in which two or more parties agree to cooperate toward a shared goal, setting out each party's responsibilities. It is more formal and specific than an MOU and can be binding, but is less detailed than a full contract.",
+    "example": "Two universities sign an MOA stating which one provides the servers and which one manages the shared research data.",
+    "category": "5.3 Third-party risk > Agreement types",
+    "keyPoints": "MOA is more formal than an MOU, with defined responsibilities and conditions; MOU is a statement of intent, usually not legally binding; Neither is a full commercial contract like an MSA"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types",
+      "Memorandum of understanding (MOU)"
+    ],
+    "term": "Memorandum of understanding (MOU)",
+    "definition": "An informal document stating that parties intend to work together and describing their shared understanding. It is usually not legally binding.",
+    "example": "Two government agencies sign an MOU saying they intend to share threat intelligence.",
+    "category": "5.3 Third-party risk > Agreement types",
+    "keyPoints": "Least formal agreement: a letter of intent; Usually not legally enforceable; Often precedes a more formal MOA or contract"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types",
+      "Master service agreement (MSA)"
+    ],
+    "term": "Master service agreement (MSA)",
+    "definition": "A contract that sets the general terms of a long-term relationship (payment, liability, confidentiality, dispute handling), so future work can be added through work orders or statements of work without renegotiating.",
+    "example": "A company signs an MSA with a security consulting firm, then issues a separate SOW for each pen test.",
+    "category": "5.3 Third-party risk > Agreement types",
+    "keyPoints": "Umbrella contract for many future projects; Specific work is defined in WOs or SOWs under it; Saves renegotiating terms each time"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types",
+      "Work order (WO)/statement of work (SOW)"
+    ],
+    "term": "Work order (WO)/statement of work (SOW)",
+    "definition": "A document defining a specific job: scope, deliverables, timeline, location and cost. It usually falls under an MSA.",
+    "example": "A SOW states the pen test will cover 3 web applications, run from March 1 to 15, and deliver a final report for $20,000.",
+    "category": "5.3 Third-party risk > Agreement types",
+    "keyPoints": "Specific and project-level; MSA = general terms, SOW = this job; Clear scope prevents disputes and scope creep"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types",
+      "Non-disclosure agreement (NDA)"
+    ],
+    "term": "Non-disclosure agreement (NDA)",
+    "definition": "A legal contract that requires parties to keep shared confidential information secret and limits how it may be used.",
+    "example": "A pen testing firm signs an NDA before receiving network diagrams and test results.",
+    "category": "5.3 Third-party risk > Agreement types",
+    "keyPoints": "Protects confidentiality; Can be one-way (unilateral) or mutual; Common with employees, contractors and vendors; Multilateral NDAs cover more than two parties"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Agreement types",
+      "Business partners agreement (BPA)"
+    ],
+    "term": "Business partners agreement (BPA)",
+    "definition": "An agreement between business partners describing how they will work together: responsibilities, sharing of profits and losses, decision making, and how shared data and systems are handled.",
+    "example": "Two companies that jointly sell a product sign a BPA defining profit split, who handles customer data, and who secures the shared portal.",
+    "category": "5.3 Third-party risk > Agreement types",
+    "keyPoints": "For an ongoing partnership, not a simple service purchase; Defines ownership, responsibilities and financial terms; Can include security obligations for shared data"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Vendor monitoring"
+    ],
+    "term": "Vendor monitoring",
+    "definition": "Ongoing oversight of vendors after the contract is signed, checking performance against the SLA, security posture, compliance and any incidents or changes.",
+    "example": "Each quarter the company reviews its cloud vendor's uptime reports, new SOC reports and any breach news.",
+    "category": "5.3 Third-party risk",
+    "keyPoints": "Third-party risk does not end at signing; Includes SLA tracking, reassessments and watching for breaches or financial trouble; Frequency based on vendor risk"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Questionnaires"
+    ],
+    "term": "Questionnaires (third-party risk)",
+    "definition": "Standard sets of security questions sent to vendors to learn how they protect data and systems, used during selection and periodically afterward.",
+    "example": "A vendor completes a 200-question security questionnaire covering encryption, access control, incident response and background checks.",
+    "category": "5.3 Third-party risk",
+    "keyPoints": "Cheap and scalable way to assess many vendors; Answers are self-reported, so verify high-risk vendors with audits or evidence; Often repeated yearly; Typical topics: the vendor due diligence and conflict process, disaster recovery plans, how your data is stored and protected"
+  },
+  {
+    "obj": "5.3",
+    "path": [
+      "Rules of engagement"
+    ],
+    "term": "Rules of engagement (third-party and testing)",
+    "definition": "A document that defines the boundaries of an engagement such as a pen test or vendor assessment: scope, allowed techniques, timing, contacts, data handling and how to stop or report problems.",
+    "example": "Rules of engagement allow testing of the web servers only, between 10 p.m. and 4 a.m., with no denial-of-service attacks, and name an emergency contact.",
+    "category": "5.3 Third-party risk",
+    "keyPoints": "Defines what is in and out of scope and what testers may do; Needed before any testing; Protects both parties legally and operationally; Usually lists IP ranges, in-scope and out-of-scope devices, the test type (physical, internal, external) and how sensitive data found during the test is handled"
+  },
+  {
+    "obj": "5.4",
+    "path": [],
+    "term": "SY0-701 5.4: Summarize elements of effective security compliance",
+    "definition": "Security compliance means meeting the laws, regulations, standards and contracts that apply to the organization, and proving it. It covers compliance reporting, consequences of non-compliance, compliance monitoring and privacy.",
+    "example": "A retailer reports PCI DSS compliance yearly, monitors controls with automated tools, has staff acknowledge policies, and honors GDPR erasure requests.",
+    "category": "5.4 Security compliance",
+    "keyPoints": "Consequences: fines, sanctions, reputational damage, loss of license, contractual impacts; Due diligence vs due care; Privacy roles: data subject, controller, processor"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance reporting"
+    ],
+    "term": "Compliance reporting",
+    "definition": "Documenting and communicating the organization's compliance status, either internally to management and the board or externally to regulators, auditors and customers.",
+    "example": "The compliance officer gives the board a monthly status report and submits an annual compliance filing to the regulator.",
+    "category": "5.4 Security compliance",
+    "keyPoints": "Two types: internal and external; Accurate records support audits and defense; False reporting can bring its own penalties"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance reporting",
+      "Internal"
+    ],
+    "term": "Internal (compliance reporting)",
+    "definition": "Compliance reports produced for people inside the organization, such as executives, the board or the audit committee, to track status and fix gaps.",
+    "example": "A monthly dashboard shows the CISO which departments have not finished required security training.",
+    "category": "5.4 Security compliance > Compliance reporting",
+    "keyPoints": "Audience inside the organization; Used to find and fix gaps before external review; Often prepared by a compliance team or officer"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance reporting",
+      "External"
+    ],
+    "term": "External (compliance reporting)",
+    "definition": "Compliance reports sent to outside parties such as regulators, government agencies, auditors, business partners or customers.",
+    "example": "A bank files required reports with its financial regulator, and a payment processor submits its PCI DSS attestation to card brands.",
+    "category": "5.4 Security compliance > Compliance reporting",
+    "keyPoints": "Audience outside the organization; Often mandatory with deadlines and formats; Includes breach notifications required by law"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Consequences of non-compliance"
+    ],
+    "term": "Consequences of non-compliance",
+    "definition": "The penalties and harm that follow failing to comply: fines, sanctions, reputational damage, loss of license and contractual impacts.",
+    "example": "A company that ignores GDPR faces a large fine, bad press, and customers ending contracts.",
+    "category": "5.4 Security compliance",
+    "keyPoints": "Five listed: fines, sanctions, reputational damage, loss of license, contractual impacts; Can be financial, legal, operational and reputational; Often several happen together"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Consequences of non-compliance",
+      "Fines"
+    ],
+    "term": "Fines (non-compliance)",
+    "definition": "Monetary penalties imposed by regulators or courts for failing to follow a law or regulation.",
+    "example": "Under GDPR, the most serious violations can be fined up to 20 million euros or 4% of worldwide annual turnover, whichever is higher.",
+    "category": "5.4 Security compliance > Consequences of non-compliance",
+    "keyPoints": "Direct financial penalty; Amount often based on severity and size of the organization; Distinct from sanctions, which can be non-monetary"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Consequences of non-compliance",
+      "Sanctions"
+    ],
+    "term": "Sanctions (non-compliance)",
+    "definition": "Penalties or restrictions imposed by a government or authority, such as limits on operations, trade or processing, or orders to stop an activity.",
+    "example": "A regulator orders a company to stop processing personal data until it fixes its controls.",
+    "category": "5.4 Security compliance > Consequences of non-compliance",
+    "keyPoints": "Can be restrictions rather than money; Imposed by governments or regulators; May limit doing business in a country or sector"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Consequences of non-compliance",
+      "Reputational damage"
+    ],
+    "term": "Reputational damage (non-compliance)",
+    "definition": "Loss of trust from customers, partners and the public after non-compliance or a breach becomes known, leading to lost business.",
+    "example": "After news of a privacy violation, customers move to a competitor and the stock price falls.",
+    "category": "5.4 Security compliance > Consequences of non-compliance",
+    "keyPoints": "Hard to measure and slow to recover; Cannot be transferred by insurance; Often costs more than the fine itself"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Consequences of non-compliance",
+      "Loss of license"
+    ],
+    "term": "Loss of license (non-compliance)",
+    "definition": "Revocation or suspension of a license, permit or certification needed to operate or provide certain services.",
+    "example": "A bank loses its operating license, or a merchant loses the ability to accept payment cards after repeated PCI DSS failures.",
+    "category": "5.4 Security compliance > Consequences of non-compliance",
+    "keyPoints": "Can stop the business from operating in that area; Applies to regulated industries such as banking, healthcare and payments; Among the most severe consequences"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Consequences of non-compliance",
+      "Contractual impacts"
+    ],
+    "term": "Contractual impacts (non-compliance)",
+    "definition": "Effects on contracts when an organization fails to meet compliance terms: penalties, breach of contract claims, lost contracts or the other party ending the agreement.",
+    "example": "A cloud provider fails the security requirements in its contract, so a major customer ends the contract and claims damages.",
+    "category": "5.4 Security compliance > Consequences of non-compliance",
+    "keyPoints": "Contracts often require compliance with standards (PCI DSS, SOC 2); Breach of contract can bring penalties or termination; Separate from government penalties"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance monitoring"
+    ],
+    "term": "Compliance monitoring",
+    "definition": "Ongoing checking that the organization stays compliant, using due diligence and due care, attestation and acknowledgement, internal and external monitoring, and automation.",
+    "example": "Automated tools check every server daily against the hardening standard, and employees reacknowledge policies yearly.",
+    "category": "5.4 Security compliance",
+    "keyPoints": "Compliance is continuous, not a once-a-year event; Four parts to know: due diligence and due care, sign-offs (attestation, acknowledgement), checks run by staff or by outsiders, and automated checks; Evidence collection supports audits"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance monitoring",
+      "Due diligence/care"
+    ],
+    "term": "Due diligence/due care (compliance monitoring)",
+    "definition": "Due diligence is investigating and understanding risks and requirements (doing your homework). Due care is acting on that knowledge by implementing and maintaining reasonable protections (doing the right thing).",
+    "example": "Due diligence: researching which privacy laws apply. Due care: then actually encrypting data and training staff to meet them.",
+    "category": "5.4 Security compliance > Compliance monitoring",
+    "keyPoints": "Diligence = investigate and know; care = act and maintain; Together they show a prudent person standard and reduce liability; Common mix-up: both are needed, knowing without acting is negligence; Some study sources use another split: due care for actions inside the organization, due diligence for checks on third parties; both mean acting in good faith"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance monitoring",
+      "Attestation and acknowledgement"
+    ],
+    "term": "Attestation and acknowledgement (compliance monitoring)",
+    "definition": "Attestation is a formal statement, by management or an auditor, that controls or compliance are in place. Acknowledgement is people confirming that they have read, understood and will follow policies or requirements.",
+    "example": "Employees acknowledge the AUP each year, and the CEO signs an attestation that financial controls are effective.",
+    "category": "5.4 Security compliance > Compliance monitoring",
+    "keyPoints": "Acknowledgement creates accountability for individuals; Attestation affirms compliance status, often signed and legally significant; See also attestation as an audit type in 5.5; Typically the executive in charge of compliance signs that the program is in good standing"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance monitoring",
+      "Internal and external"
+    ],
+    "term": "Internal and external compliance monitoring",
+    "definition": "Internal monitoring is done by the organization itself (compliance team, internal audit). External monitoring is done by outside parties such as regulators, auditors or customers.",
+    "example": "The internal compliance team reviews controls monthly, and an external auditor tests them once a year.",
+    "category": "5.4 Security compliance > Compliance monitoring",
+    "keyPoints": "Internal = ongoing and self-run; External = independent and more credible; Both together give full coverage; Internal monitoring is often led by a central compliance officer"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Compliance monitoring",
+      "Automation"
+    ],
+    "term": "Automation (compliance monitoring)",
+    "definition": "Using tools to check compliance continuously and collect evidence automatically, such as configuration scanners, SIEM rules and compliance dashboards.",
+    "example": "A cloud security tool automatically flags any storage bucket made public and records the finding for the auditors.",
+    "category": "5.4 Security compliance > Compliance monitoring",
+    "keyPoints": "Faster, more consistent and less error-prone than manual checks; Enables continuous compliance; Automated evidence makes audits easier"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy"
+    ],
+    "term": "Privacy (security compliance)",
+    "definition": "The protection of personal data and the rights of individuals over it, governed by laws at many levels and by roles such as data subject, controller and processor.",
+    "example": "A company maps where customer personal data is stored, sets retention periods, and builds a process to delete data on request.",
+    "category": "5.4 Security compliance",
+    "keyPoints": "Covers who the data is about (the data subject) and their right to be forgotten; who decides and who handles it (controller vs processor) and who owns it; what you hold and how long (data inventory and retention); and the legal implications; GDPR is the main reference law; Privacy is about personal data rights, security is about protecting all data"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Legal implications"
+    ],
+    "term": "Legal implications (privacy)",
+    "definition": "Privacy laws create legal obligations and liability, and they differ by place: local or regional, national and global. Organizations must follow all that apply to the data they handle.",
+    "example": "A US company with customers in California and the EU must follow CCPA and GDPR, as well as any federal sector laws.",
+    "category": "5.4 Security compliance > Privacy",
+    "keyPoints": "Three levels listed: local/regional, national, global; Violations bring fines, lawsuits and notification duties; Applicability depends on where the data subjects are"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Legal implications",
+      "Local/regional"
+    ],
+    "term": "Local/regional (privacy law)",
+    "definition": "Privacy laws that apply only in a state, province or region.",
+    "example": "The California Consumer Privacy Act gives California residents the right to know about and delete personal information businesses hold about them.",
+    "category": "5.4 Security compliance > Privacy > Legal implications",
+    "keyPoints": "Example: CCPA (California); State breach notification laws differ in deadlines; Can be stricter than national law"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Legal implications",
+      "National"
+    ],
+    "term": "National (privacy law)",
+    "definition": "Privacy laws that apply across a whole country.",
+    "example": "HIPAA protects health information held by covered entities (providers, health plans, clearinghouses) and their business associates across the United States; Canada's PIPEDA covers personal data that private sector organizations handle in commercial activity.",
+    "category": "5.4 Security compliance > Privacy > Legal implications",
+    "keyPoints": "Countrywide scope; Examples: HIPAA (US health data), PIPEDA (Canada); May be sector-specific in the US; PIPEDA steps aside inside Alberta, British Columbia and Quebec, which have their own similar private sector laws, except for cross-border data and federally regulated businesses"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Legal implications",
+      "Global"
+    ],
+    "term": "Global (privacy law)",
+    "definition": "Privacy laws that reach beyond their own borders: they apply to organizations located elsewhere when those organizations offer goods or services to, or monitor the behavior of, people located in that jurisdiction.",
+    "example": "GDPR applies to a US website that tracks visitors in Germany.",
+    "category": "5.4 Security compliance > Privacy > Legal implications",
+    "keyPoints": "GDPR is the main example; GDPR Article 3(2): a non-EU organization is covered when it offers goods or services to people in the EU (paid or free) or monitors their behavior there; merely holding some EU residents' data does not by itself trigger it; Affects cross-border data transfers"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Data subject"
+    ],
+    "term": "Data subject (privacy)",
+    "definition": "The identified or identifiable living person that personal data is about.",
+    "example": "A customer whose name, email and purchase history a store holds is the data subject of that data.",
+    "category": "5.4 Security compliance > Privacy",
+    "keyPoints": "GDPR term; Has rights such as access, correction and erasure; The data subject is the person, not the organization; GDPR does not cover deceased people (Recital 27)"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Controller vs. processor"
+    ],
+    "term": "Controller vs. processor (privacy)",
+    "definition": "The controller decides why and how personal data is processed and is primarily responsible for compliance. The processor handles the data on the controller's behalf and only on its instructions.",
+    "example": "A hospital (controller) uses a cloud billing company (processor) to send patient invoices.",
+    "category": "5.4 Security compliance > Privacy",
+    "keyPoints": "Controller = decides purposes and means; processor = follows instructions; Controller stays accountable even when using a processor; A contract (data processing agreement) binds the processor; After a breach the controller notifies the supervisory authority without undue delay and within 72 hours where feasible, unless the breach is unlikely to put people's rights and freedoms at risk; a late notice must explain the delay; the processor must tell the controller without undue delay (GDPR Article 33)"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Ownership"
+    ],
+    "term": "Ownership (privacy and data)",
+    "definition": "Who has rights and accountability over data. In privacy terms, the organization holds and is accountable for personal data, but the data subject keeps rights over data about them; inside the organization a data owner is accountable for it.",
+    "example": "A marketing company holds a customer list but must delete a person's data on request, because that person has rights over it.",
+    "category": "5.4 Security compliance > Privacy",
+    "keyPoints": "Holding data does not mean unlimited rights over it; Data owner role assigns internal accountability; Ownership issues come up with vendors and cloud contracts"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Data inventory and retention"
+    ],
+    "term": "Data inventory and retention",
+    "definition": "A data inventory records what data the organization holds, where it is, what type it is and who is responsible. Retention rules define how long each type is kept before it is securely disposed of.",
+    "example": "The inventory shows customer records in three databases; policy keeps them for 7 years after the last purchase, then deletes them.",
+    "category": "5.4 Security compliance > Privacy",
+    "keyPoints": "You cannot protect or delete data you do not know you have; Keep data only as long as needed or legally required; Legal holds override normal retention; An inventory entry usually also records the data owner, how often the data is updated and its format"
+  },
+  {
+    "obj": "5.4",
+    "path": [
+      "Privacy",
+      "Right to be forgotten"
+    ],
+    "term": "Right to be forgotten (privacy)",
+    "definition": "A data subject's right to have their personal data erased when it is no longer needed or consent is withdrawn, subject to exceptions. In GDPR it is the right to erasure (Article 17).",
+    "example": "A former customer asks an online store to delete their account and data, and the store must do so unless it has a legal reason to keep it.",
+    "category": "5.4 Security compliance > Privacy",
+    "keyPoints": "GDPR right to erasure, Article 17; Not absolute: legal obligations and some other grounds can override it; Requires knowing where all copies are (data inventory); Other grounds besides no longer needed and withdrawn consent: an upheld objection, unlawful processing, a legal duty to erase, and data collected from a child for an online service; exceptions include free expression, a legal obligation or public interest task, public health, archiving and research, and legal claims"
+  },
+  {
+    "obj": "5.5",
+    "path": [],
+    "term": "SY0-701 5.5: Explain types and purposes of audits and assessments",
+    "definition": "Audits and assessments check whether controls exist and work. They include attestation, internal audits, external audits and assessments, and penetration testing with its environments and reconnaissance types.",
+    "example": "An audit committee oversees internal audits, a regulator examines the bank, an independent firm issues a SOC 2 report, and a red team runs an unknown-environment pen test.",
+    "category": "5.5 Audits and assessments",
+    "keyPoints": "Internal vs external; Pen test teams: offensive (red), defensive (blue), integrated (purple); Environments: known, partially known, unknown; Recon: passive vs active"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Attestation"
+    ],
+    "term": "Attestation (audits and assessments)",
+    "definition": "A formal, written statement from an auditor or other qualified party giving an opinion that certain information or controls are accurate and effective.",
+    "example": "An independent auditor issues a SOC 2 Type II report attesting that a cloud provider's controls operated effectively over 12 months.",
+    "category": "5.5 Audits and assessments",
+    "keyPoints": "An attestation is the auditor's formal opinion; Gives customers and regulators assurance; Compare 5.4 attestation and acknowledgement, which includes users confirming policies"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Internal"
+    ],
+    "term": "Internal audits and assessments",
+    "definition": "Audits and assessments performed by the organization's own staff to check compliance and control effectiveness, including compliance checks, audit committee oversight and self-assessments.",
+    "example": "The internal audit team tests whether access reviews really happen every quarter.",
+    "category": "5.5 Audits and assessments",
+    "keyPoints": "Three listed: compliance, audit committee, self-assessments; Cheaper and more frequent but less independent than external; Prepares for external audits"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Internal",
+      "Compliance"
+    ],
+    "term": "Compliance (internal audit)",
+    "definition": "An internal audit that checks whether the organization is following the laws, regulations, standards and its own policies that apply to it.",
+    "example": "The internal compliance team checks that all systems handling card data meet PCI DSS requirements before the external assessment.",
+    "category": "5.5 Audits and assessments > Internal",
+    "keyPoints": "Focus is adherence to requirements; Run by internal staff; Finds gaps before regulators or external auditors do"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Internal",
+      "Audit committee"
+    ],
+    "term": "Audit committee (internal audit)",
+    "definition": "A subcommittee of the board of directors that oversees the audit process, financial reporting and internal controls, and receives audit findings.",
+    "example": "The internal audit team reports findings directly to the audit committee rather than to the IT department being audited.",
+    "category": "5.5 Audits and assessments > Internal",
+    "keyPoints": "Board-level oversight of audits; Helps keep auditors independent of management; Reviews audit plans and results"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Internal",
+      "Self-assessments"
+    ],
+    "term": "Self-assessments (internal audit)",
+    "definition": "Reviews where a team or department evaluates its own controls and compliance, often using a checklist or framework.",
+    "example": "Each department completes a yearly security checklist rating its own controls against the company standards.",
+    "category": "5.5 Audits and assessments > Internal",
+    "keyPoints": "Low cost and quick; Least independent, so results can be biased; Good for preparation and awareness"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "External"
+    ],
+    "term": "External audits and assessments",
+    "definition": "Audits and assessments performed by parties outside the organization, such as regulators, examiners, assessors or independent auditors, giving independent assurance.",
+    "example": "A regulator examines a bank, and an independent firm audits a SaaS company for SOC 2.",
+    "category": "5.5 Audits and assessments",
+    "keyPoints": "Four listed: regulatory, examinations, assessment, independent third-party audit; More independent and credible than internal; Often required by law, contracts or customers"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "External",
+      "Regulatory"
+    ],
+    "term": "Regulatory (external audit)",
+    "definition": "An audit carried out by, or required by, a government regulator to check compliance with laws and regulations in its area.",
+    "example": "A health regulator audits a hospital's protection of patient records under HIPAA.",
+    "category": "5.5 Audits and assessments > External",
+    "keyPoints": "Mandatory, with possible penalties; Done by or for a regulator; Scope set by the regulation"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "External",
+      "Examinations"
+    ],
+    "term": "Examinations (external audit)",
+    "definition": "Formal reviews, usually by regulators or their examiners, that inspect an organization's records, operations and controls in detail.",
+    "example": "Banking examiners spend two weeks on site reviewing a bank's cybersecurity program and records.",
+    "category": "5.5 Audits and assessments > External",
+    "keyPoints": "Formal and detailed inspection; Common in banking and finance; Results can require corrective action"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "External",
+      "Assessment"
+    ],
+    "term": "Assessment (external)",
+    "definition": "An evaluation by an outside party of security posture or risk, measuring controls against a framework, often less formal than an audit and focused on improvement.",
+    "example": "A consulting firm assesses the company's security program against the NIST Cybersecurity Framework and recommends improvements.",
+    "category": "5.5 Audits and assessments > External",
+    "keyPoints": "Assessment = evaluate and recommend; audit = verify against requirements with formal findings; Can be done by consultants or assessors"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "External",
+      "Independent third-party audit"
+    ],
+    "term": "Independent third-party audit",
+    "definition": "An audit by an outside firm with no stake in the outcome, giving an objective opinion on the organization's controls.",
+    "example": "A certified audit firm audits a payroll provider and issues a SOC 2 report its customers can trust.",
+    "category": "5.5 Audits and assessments > External",
+    "keyPoints": "Independence gives credibility; Common for SOC 2, ISO 27001 certification and PCI DSS; Customers often require it from vendors"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing"
+    ],
+    "term": "Penetration testing (audit and assessment)",
+    "definition": "Authorized simulated attacks that try to exploit vulnerabilities to show what a real attacker could do. Types include physical, offensive, defensive and integrated tests, in known, partially known or unknown environments, with passive or active reconnaissance.",
+    "example": "A hired team gets written permission, scans the network, exploits a weak web app and reports how it reached the database.",
+    "category": "5.5 Audits and assessments",
+    "keyPoints": "Pen test exploits; a vulnerability scan only finds; Needs written authorization and rules of engagement; Know team types and environment types"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Physical"
+    ],
+    "term": "Physical (penetration test)",
+    "definition": "A test of physical security controls by trying to get into buildings or secure areas, for example by tailgating, picking locks, cloning badges or posing as a worker.",
+    "example": "A tester dressed as a delivery driver tailgates into the office and plugs a device into a network port.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "Tests locks, guards, badges, cameras and staff behavior; Often combined with social engineering; Needs careful authorization letters"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Offensive"
+    ],
+    "term": "Offensive (penetration testing, red team)",
+    "definition": "Testing from the attacker's side: a red team actively attacks systems to find and exploit weaknesses.",
+    "example": "The red team tries for weeks to gain domain admin access without being detected.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "Offensive = red team = attack; Defensive = blue team = defend; Integrated = purple team = both working together"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Defensive"
+    ],
+    "term": "Defensive (penetration testing, blue team)",
+    "definition": "The defending side of a test: a blue team detects, responds to and blocks simulated attacks, measuring how well defenses and monitoring work.",
+    "example": "During the exercise, the blue team spots the red team's lateral movement in the SIEM and isolates the host.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "Blue team = defenders, the SOC; Tests detection and response, not just prevention; Pairs with red team in exercises"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Integrated"
+    ],
+    "term": "Integrated (penetration testing, purple team)",
+    "definition": "Offensive and defensive teams working together and sharing findings in real time, so defenses improve during the test.",
+    "example": "The red team runs each attack technique while the blue team watches and tunes detection rules immediately.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "Purple team = red + blue cooperating; Goal is improvement, not winning; Faster feedback than separate red and blue exercises"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Known environment"
+    ],
+    "term": "Known environment (penetration testing)",
+    "definition": "A test where the testers get full information about the target in advance, such as network diagrams, source code and credentials. Formerly called white box.",
+    "example": "Testers receive the application's source code and architecture documents to review it thoroughly.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "Known = full knowledge (white box); Most thorough and efficient coverage; Does not simulate an outside attacker's starting point"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Partially known environment"
+    ],
+    "term": "Partially known environment (penetration testing)",
+    "definition": "A test where the testers get some information, such as IP ranges or a normal user account, but not full details. Formerly called gray box.",
+    "example": "Testers get a standard employee login and must find out how far they can escalate privileges.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "Partially known = some knowledge (gray box); Simulates an insider or an attacker who did some research; Balance of realism and efficiency"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Unknown environment"
+    ],
+    "term": "Unknown environment (penetration testing)",
+    "definition": "A test where the testers get no prior information and start like an outside attacker. Formerly called black box.",
+    "example": "Testers get only the company name and must discover its domains, IPs and systems themselves.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "Unknown = no knowledge (black box); Most realistic outsider simulation; Takes longer and may miss areas"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Reconnaissance"
+    ],
+    "term": "Reconnaissance (penetration testing)",
+    "definition": "The information-gathering phase of a pen test, done before attacking, to learn about the target. It can be passive or active.",
+    "example": "Testers search public records and DNS, then scan the discovered IP range for open ports.",
+    "category": "5.5 Audits and assessments > Penetration testing",
+    "keyPoints": "First hands-on phase: it follows planning (rules, approval, goals), as in NIST SP 800-115's four phases: planning, discovery, attack, reporting; Passive = no direct contact with target; Active = interacts with target and can be detected"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Reconnaissance",
+      "Passive"
+    ],
+    "term": "Passive reconnaissance",
+    "definition": "Gathering information without directly interacting with the target's systems, using public sources (OSINT) such as websites, social media, DNS records and search engines.",
+    "example": "A tester collects employee names from a professional networking site and email formats from the company website.",
+    "category": "5.5 Audits and assessments > Penetration testing > Reconnaissance",
+    "keyPoints": "No packets sent to target systems, so hard to detect; Uses OSINT; Common mix-up: a port scan is active, not passive; Some study sources also list dumpster diving and social engineering as passive, because target systems are not touched"
+  },
+  {
+    "obj": "5.5",
+    "path": [
+      "Penetration testing",
+      "Reconnaissance",
+      "Active"
+    ],
+    "term": "Active reconnaissance",
+    "definition": "Gathering information by directly interacting with the target's systems, such as port scans, ping sweeps, banner grabbing and vulnerability scans.",
+    "example": "A tester runs Nmap against the company's public IP addresses to find open ports and services.",
+    "category": "5.5 Audits and assessments > Penetration testing > Reconnaissance",
+    "keyPoints": "Touches target systems, so it can be logged and detected; More detailed than passive; Must be within the rules of engagement"
+  },
+  {
+    "obj": "5.6",
+    "path": [],
+    "term": "SY0-701 5.6: Given a scenario, implement security awareness practices",
+    "definition": "Security awareness turns users into a line of defense: phishing campaigns, recognizing anomalous behavior, user guidance and training on many topics, reporting and monitoring of results, and the development and execution of the program.",
+    "example": "A company runs monthly phishing simulations, trains staff on remote work and removable media, and tracks click rates from an initial baseline over time.",
+    "category": "5.6 Security awareness",
+    "keyPoints": "Scenario objective: pick the right training or response; Anomalous behavior: risky, unexpected, unintentional; Reporting: initial vs recurring; Program: development then execution"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Phishing"
+    ],
+    "term": "Phishing (security awareness)",
+    "definition": "Awareness work focused on phishing: running simulated phishing campaigns, teaching users to recognize phishing attempts, and handling suspicious messages users report.",
+    "example": "Staff receive a fake package delivery email; those who click get short training, and those who report it are thanked.",
+    "category": "5.6 Security awareness",
+    "keyPoints": "Three parts to know: practice campaigns that mimic real lures, spotting the warning signs in a message, and acting on what staff report; Goal: fewer clicks, more reports; Phishing is one of the most common initial attack vectors"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Phishing",
+      "Campaigns"
+    ],
+    "term": "Phishing campaigns (security awareness)",
+    "definition": "Authorized simulated phishing emails sent to employees to test and train them, measuring who clicks, enters credentials or reports.",
+    "example": "IT sends a fake password reset email to all staff; 12% click, and they get immediate training.",
+    "category": "5.6 Security awareness > Phishing",
+    "keyPoints": "Simulated and authorized, not real attacks; Track click rate and report rate over time; Training should be educational, not punishing; Can be built in house or bought from a vendor; a central console tracks opens, clicks and reports"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Phishing",
+      "Recognizing a phishing attempt"
+    ],
+    "term": "Recognizing a phishing attempt",
+    "definition": "Knowing the warning signs of phishing: urgency or threats, unexpected attachments or links, mismatched or look-alike sender domains, requests for credentials or payment, poor spelling, and links that point somewhere other than shown.",
+    "example": "A user notices an email from \"micros0ft-support.com\" demanding a password reset within one hour and does not click.",
+    "category": "5.6 Security awareness > Phishing",
+    "keyPoints": "Check sender domain and hover over links; Urgency and unusual requests are red flags; Verify through a separate known channel"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Phishing",
+      "Responding to reported suspicious messages"
+    ],
+    "term": "Responding to reported suspicious messages",
+    "definition": "The process the security team follows when users report suspicious emails: analyze the message, remove copies from other mailboxes, block senders and links, reset affected credentials, and give feedback to the reporter.",
+    "example": "After three users report the same email, the SOC pulls it from all mailboxes and blocks the malicious URL.",
+    "category": "5.6 Security awareness > Phishing",
+    "keyPoints": "Make reporting easy (a report button); Respond quickly and thank reporters to encourage reporting; Feed findings into phishing playbooks; The user side: someone who clicked a simulated or real phish gets an immediate notice and follow-up training; repeat offenders get more training or tighter settings"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Anomalous behavior recognition"
+    ],
+    "term": "Anomalous behavior recognition",
+    "definition": "Training people to notice and report behavior that differs from normal, whether risky, unexpected or unintentional, by coworkers, accounts or systems.",
+    "example": "An employee notices a colleague copying large amounts of files to a USB drive late at night and reports it.",
+    "category": "5.6 Security awareness",
+    "keyPoints": "Three types: risky, unexpected, unintentional; Users see things tools may miss; Report, do not investigate yourself"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Anomalous behavior recognition",
+      "Risky"
+    ],
+    "term": "Risky behavior (anomalous behavior)",
+    "definition": "Actions that knowingly or carelessly increase risk, such as disabling security software, sharing passwords, installing unapproved software or bypassing controls.",
+    "example": "A user turns off the antivirus because it slows down a game they installed on a work laptop.",
+    "category": "5.6 Security awareness > Anomalous behavior recognition",
+    "keyPoints": "Deliberate or careless choices that raise risk; May violate the AUP; Different from unintentional mistakes; More examples: editing the hosts file, replacing system files, uploading sensitive files to personal storage"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Anomalous behavior recognition",
+      "Unexpected"
+    ],
+    "term": "Unexpected behavior (anomalous behavior)",
+    "definition": "Activity that is out of the ordinary for a user or system, such as logins at odd hours or from unusual places, sudden access to new data, or a system acting strangely.",
+    "example": "An accountant's account logs in at 3 a.m. from another country and starts browsing engineering files.",
+    "category": "5.6 Security awareness > Anomalous behavior recognition",
+    "keyPoints": "Deviation from the normal baseline; Can signal a compromised account or insider threat; Should be reported and investigated"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Anomalous behavior recognition",
+      "Unintentional"
+    ],
+    "term": "Unintentional behavior (anomalous behavior)",
+    "definition": "Honest mistakes that create risk without bad intent, such as sending data to the wrong recipient, misconfiguring a share, or mistyping a website address.",
+    "example": "An employee accidentally emails a spreadsheet of customer data to the wrong external address.",
+    "category": "5.6 Security awareness > Anomalous behavior recognition",
+    "keyPoints": "No malicious intent, but still a risk; Training and controls such as DLP reduce it; Encourage reporting without fear of punishment; More examples: losing a USB drive, misconfiguring a security setting"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training"
+    ],
+    "term": "User guidance and training",
+    "definition": "Teaching users the security knowledge and habits they need, covering policies and handbooks, situational awareness, insider threats, passwords, removable media and cables, social engineering, operational security, and hybrid or remote work.",
+    "example": "New hires get training on the handbook, password managers, phishing and secure home Wi-Fi before receiving system access.",
+    "category": "5.6 Security awareness",
+    "keyPoints": "Eight listed topics; Should be role-based and repeated, not one-time; Measured through reporting and monitoring"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Policy/handbooks"
+    ],
+    "term": "Policy/handbooks (user training)",
+    "definition": "Training users on the organization's security policies and employee handbook so they know the rules and where to find them, often with a signed acknowledgement.",
+    "example": "During onboarding, employees review the handbook's security section and sign that they understand the AUP.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "Users cannot follow rules they do not know; Acknowledgement creates accountability; Update training when policies change; Keep policies easy to find (for example on the intranet) and track who has completed training"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Situational awareness"
+    ],
+    "term": "Situational awareness (user training)",
+    "definition": "Training users to stay alert to their surroundings and to security risks around them, such as shoulder surfing, tailgating, unknown people in secure areas, and suspicious devices.",
+    "example": "An employee notices someone without a badge following them through a secure door and stops to ask for ID.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "Be aware of people and physical surroundings, not just screens; Counters tailgating and shoulder surfing; Report suspicious activity; Applies online too: stay suspicious of unexpected links, attachments and text messages every day, not only during training"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Insider threat"
+    ],
+    "term": "Insider threat (security awareness training)",
+    "definition": "Training users to understand that threats can come from people inside the organization, malicious or careless, and to recognize and report warning signs.",
+    "example": "Staff learn that an unhappy coworker suddenly downloading customer lists before resigning is a warning sign to report.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "Insiders already have access, which makes them dangerous; Signs: unusual access, data hoarding, disgruntlement; Pairs with least privilege and monitoring; Hard to detect, so use layers: multiple approvals for critical changes and file monitoring that alerts on changes"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Password management"
+    ],
+    "term": "Password management (user training)",
+    "definition": "Training users to create strong, unique passwords or passphrases, use a password manager, never share or reuse passwords, and use MFA.",
+    "example": "Users are taught to store unique passwords in the company password manager instead of a sticky note.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "Unique password per site prevents credential stuffing; Password managers and MFA; Never share credentials, even with IT; Rules can also be enforced technically, for example with Windows Group Policy"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Removable media and cables"
+    ],
+    "term": "Removable media and cables (user training)",
+    "definition": "Training users not to plug in unknown USB drives, cables or chargers, because they can carry malware or act as malicious devices, and to follow rules for approved media.",
+    "example": "An employee finds a USB drive labeled \"Salaries\" in the parking lot and hands it to IT instead of plugging it in.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "Baiting with dropped USB drives is a common attack; Malicious cables can act as keyboards or exfiltrate data; Use only approved, encrypted media"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Social engineering"
+    ],
+    "term": "Social engineering (user training)",
+    "definition": "Training users to recognize manipulation tactics such as pretexting, impersonation, phishing, vishing, smishing, tailgating and urgency, and to verify requests before acting.",
+    "example": "A caller claiming to be the CEO asks for an urgent wire transfer; the employee calls the CEO back on a known number to verify.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "Attackers exploit trust, authority and urgency; Verify through a separate trusted channel; Covers email, phone, text and in-person attacks"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Operational security"
+    ],
+    "term": "Operational security (user training)",
+    "definition": "Training users to protect sensitive information in daily activity, such as not posting work details online, keeping a clean desk, and not discussing confidential matters in public.",
+    "example": "An employee avoids posting a photo of their desk because the monitor shows internal project names and a login screen.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "OPSEC = do not leak information through normal behavior; Social media posts can help attackers; Clean desk and screen locking; Think like an attacker: what could someone learn from what I share?"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "User guidance and training",
+      "Hybrid/remote work environments"
+    ],
+    "term": "Hybrid/remote work environments (user training)",
+    "definition": "Training users on working securely outside the office: using the VPN, securing home Wi-Fi, avoiding public networks, protecting devices and screens from others, and keeping work and personal use separate.",
+    "example": "A remote worker connects through the company VPN and uses a privacy screen when working in a coffee shop.",
+    "category": "5.6 Security awareness > User guidance and training",
+    "keyPoints": "Home and public networks are less trusted; Use VPN, updates and strong Wi-Fi security; Watch for shoulder surfing and family use of work devices"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Reporting and monitoring"
+    ],
+    "term": "Reporting and monitoring (security awareness)",
+    "definition": "Measuring and reporting how well the awareness program works, through initial (baseline) and recurring measurements such as phishing click rates, report rates and training completion.",
+    "example": "The program reports a 30% click rate at launch and 8% after a year of training.",
+    "category": "5.6 Security awareness",
+    "keyPoints": "Two listed: initial and recurring; Metrics prove effectiveness and guide changes; Track both failures (clicks) and good behavior (reports)"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Reporting and monitoring",
+      "Initial"
+    ],
+    "term": "Initial (security awareness reporting)",
+    "definition": "The first measurement taken when an awareness program starts, setting a baseline to compare future results against.",
+    "example": "Before any training, a phishing simulation shows 30% of staff click, which becomes the baseline.",
+    "category": "5.6 Security awareness > Reporting and monitoring",
+    "keyPoints": "Baseline = starting point; Needed to show improvement later; Compare recurring = ongoing measurement; Some study sources read \"initial\" at the user level instead: the first time a person does something risky, the response is training"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Reporting and monitoring",
+      "Recurring"
+    ],
+    "term": "Recurring (security awareness reporting)",
+    "definition": "Regular, ongoing measurement and reporting of awareness results over time, such as monthly phishing metrics and training completion rates.",
+    "example": "Each month the security team reports phishing click and report rates to management to track trends.",
+    "category": "5.6 Security awareness > Reporting and monitoring",
+    "keyPoints": "Shows trends and whether training works; Finds departments or users needing more help; Compare initial = one baseline measurement; At the user level, recurring means the same person repeats the behavior, which signals they need more help"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Development"
+    ],
+    "term": "Development (security awareness program)",
+    "definition": "Creating the awareness program: assessing needs, setting goals, identifying audiences and roles, choosing topics and formats, and building the content.",
+    "example": "The team surveys staff, sees remote work risks are high, and builds short monthly videos and a phishing program aimed at each department.",
+    "category": "5.6 Security awareness",
+    "keyPoints": "Development = plan and build; Tailor content to roles and risks; Set measurable goals before launch; Often built by a dedicated awareness team; content can be tailored to job functions and compliance needs"
+  },
+  {
+    "obj": "5.6",
+    "path": [
+      "Execution"
+    ],
+    "term": "Execution (security awareness program)",
+    "definition": "Delivering the awareness program: rolling out training, running campaigns, scheduling sessions, tracking participation and adjusting based on results.",
+    "example": "Training launches company-wide in January, phishing simulations run monthly, and managers get completion reports.",
+    "category": "5.6 Security awareness",
+    "keyPoints": "Execution = deliver and run; Track completion and results; Feeds back into development to improve the program; Delivered online or in person; metrics go to managers and IT to show how controls perform"
+  }
+]

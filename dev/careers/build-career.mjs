@@ -2,7 +2,7 @@
 // and FAILS (exit 1) unless every line of the official outline has exactly one reviewed card.
 // How to make a course: docs/career-mode-guide.md.
 //
-//   node dev/careers/build-career.mjs <course-id> [--anki] [--knowledge "<mode name>"]
+//   node dev/careers/build-career.mjs <course-id> [--knowledge "<mode name>"]
 //
 // Source folder: dev/careers/sources/<course-id>/ (in git, except outline.md and acronyms.txt: the vendor's own text)
 //   course.json    { id, title, version, deck, tagPrefix, areas: [{ number, title, weight, motif, palette, bossName,
@@ -22,10 +22,11 @@ import path from 'path'
 import crypto from 'crypto'
 import { fileURLToPath } from 'url'
 import { outlineGrams, courseTexts, verbatimProblems, proseProblems, RUN_WORDS, PROSE_WORDS } from './verbatim.mjs'
+import { rankAcronyms } from './acronymRank.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const id = process.argv[2]
-if (!id || id.startsWith('--')) { console.error('usage: node dev/careers/build-career.mjs <course-id> [--anki] [--knowledge "<mode name>"]'); process.exit(2) }
+if (!id || id.startsWith('--')) { console.error('usage: node dev/careers/build-career.mjs <course-id> [--knowledge "<mode name>"]'); process.exit(2) }
 const SRC = path.join(ROOT, 'dev', 'careers', 'sources', id)
 const course = JSON.parse(fs.readFileSync(path.join(SRC, 'course.json'), 'utf8').replace(/^﻿/, ''))
 const LESSON_MAX = 4 // keep equal to CAREER.lessonMax (career.js)
@@ -160,6 +161,7 @@ for (const c of proseProblems(courseTexts({ pkg }), fs.readFileSync(path.join(SR
 
 // ── acronym cards (Anki only; not on the map) ──
 const acr = new Map()
+let acronymTierLine = ''
 const acrFile = path.join(SRC, 'acronyms.txt')
 if (fs.existsSync(acrFile)) for (const line of fs.readFileSync(acrFile, 'utf8').split(/\r?\n/)) {
   const i = line.indexOf('|'); if (i < 0) continue
@@ -200,10 +202,34 @@ if (fs.existsSync(acrFile)) for (const line of fs.readFileSync(acrFile, 'utf8').
     const i = l.order.find((k) => byArea[k].length < cap) ?? l.order[0]
     byArea[i].push({ acronym: l.acronym, expansions: l.expansions, at: Infinity })
   }
+  // BY IMPORTANCE (./acronymRank.mjs): Must know (named in the outline or used in 3+ cards), Good to know, then the ones
+  // no lesson uses. Ships only `tier` and `uses`, never outline text.
+  const outlineText = fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8')
+  const allCards = areas.flatMap(textOf)
+  // Foundational acronyms the cards rarely use, judged core by a review (a reason each in the file).
+  const coreFile = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), 'acronym-core.json')
+  const core = fs.existsSync(coreFile) ? Object.keys(JSON.parse(fs.readFileSync(coreFile, 'utf8')).core || {}) : []
+  const unknownCore = core.filter((c) => !byArea.some((list) => list.some((x) => x.acronym === c)))
+  if (unknownCore.length) problems.push(`acronym-core.json names acronyms not on the list: ${unknownCore.join(', ')}`)
+  // The standard name where the list's expansion differs (DES is the Data Encryption Standard); the list's wording is
+  // kept as `listed` so a learner who studied the list is never marked wrong.
+  const fixFile = path.join(path.dirname(coreFile), 'acronym-fixes.json')
+  const fixes = fs.existsSync(fixFile) ? JSON.parse(fs.readFileSync(fixFile, 'utf8')).fixes || {} : {}
+  const fixUsed = new Set()
+  const fixed = (x) => {
+    const f = fixes[x.acronym]
+    if (!f) return {}
+    if (!x.expansions.includes(f.listed)) { problems.push(`acronym-fixes.json: ${x.acronym} is not listed as "${f.listed}"`); return {} }
+    fixUsed.add(x.acronym)
+    return { expansions: x.expansions.map((e) => (e === f.listed ? f.name : e)), listed: [f.listed] }
+  }
   areas.forEach((ar, i) => {
-    ar.acronyms = byArea[i].sort((x, y) => x.at - y.at || x.acronym.localeCompare(y.acronym))
-      .map((x) => ({ id: acronymId(x.acronym), acronym: x.acronym, expansions: x.expansions }))
+    ar.acronyms = rankAcronyms(byArea[i], { outline: outlineText, cards: allCards, core })
+      .map((x) => ({ id: acronymId(x.acronym), acronym: x.acronym, expansions: x.expansions, tier: x.tier, uses: x.uses, ...fixed(x) }))
   })
+  for (const k of Object.keys(fixes)) if (!fixUsed.has(k)) problems.push(`acronym-fixes.json names ${k}, not on the list`)
+  const tierCount = (tier) => areas.reduce((n, ar) => n + ar.acronyms.filter((x) => x.tier === tier).length, 0)
+  acronymTierLine = `acronyms by tier: ${tierCount('must')} core, ${tierCount('good')} good to know, ${tierCount('rare')} extra`
   // Ids are unique across the course (the final raid pools every island): two acronyms differing only in case
   // ("SoC" and "SOC") once shared one id, so only one could ever be asked.
   const ids = areas.flatMap((ar) => ar.acronyms.map((x) => x.id))
@@ -225,6 +251,7 @@ const outDir = path.join(ROOT, 'dev', 'careers', 'out')
 fs.mkdirSync(outDir, { recursive: true })
 const report = [`course ${id}: ${expected.length} outline lines, ${cards.length} cards (${cardFiles.map((x) => path.basename(x.file)).join(', ')}), ${extras.length} extra cards (${extraFiles.map((x) => path.basename(x.file)).join(', ') || 'none'}), ${acronymCards.length} acronym cards`,
   ...areas.map((a) => `  ${a.number} ${a.title}: ${a.sections.length} objectives, ${a.lessons.length} lessons, ${a.items.length} items`),
+  ...(acronymTierLine ? [acronymTierLine] : []),
   problems.length ? `PROBLEMS (${problems.length}):` : 'no problems', ...problems.slice(0, 200).map((p) => `  ${p}`)].join('\n')
 fs.writeFileSync(path.join(outDir, `${id}-report.txt`), report, 'utf8')
 console.log(report)
@@ -262,25 +289,5 @@ if (ki > 0 && process.argv[ki + 1]) {
   }
 }
 
-if (process.argv.includes('--anki')) {
-  const call = async (action, params) => {
-    const r = await fetch('http://127.0.0.1:8765', { method: 'POST', body: JSON.stringify({ action, version: 6, params }) })
-    const j = await r.json(); if (j.error) throw new Error(`${action}: ${j.error}`); return j.result
-  }
-  for (const d of [...new Set(notes.map((n) => n.deck))]) await call('createDeck', { deck: d })
-  // Fronts already anywhere in the deck tree are skipped (a deck may have cards before; a rerun adds nothing twice).
-  const existing = await call('findNotes', { query: `"deck:${DECK}"` })
-  const info = existing.length ? await call('notesInfo', { notes: existing }) : []
-  const plain = (h) => String(h || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim().toLowerCase()
-  const have = new Set(info.map((n) => plain(Object.values(n.fields)[0]?.value)))
-  const todo = notes.filter((n) => !have.has(plain(n.front)))
-  console.log(`already in Anki: ${notes.length - todo.length}; adding ${todo.length}`)
-  let added = 0; let failed = 0
-  for (let i = 0; i < todo.length; i += 50) {
-    const batch = todo.slice(i, i + 50).map((n) => ({ deckName: n.deck, modelName: 'Basic', fields: { Front: n.front, Back: n.back }, tags: n.tags.split(' '),
-      options: { allowDuplicate: false, duplicateScope: 'deck', duplicateScopeOptions: { deckName: DECK, checkChildren: true } } }))
-    const res = await call('addNotes', { notes: batch }).catch((e) => { console.log(e.message); return batch.map(() => null) })
-    for (const r of res) (r ? added++ : failed++)
-  }
-  console.log(`added ${added}, not added ${failed}`)
-}
+// (No option fills a deck: the course is a library in Legends and the learner's deck holds only what they add. The
+// former --anki push was removed on the owner's decision, 2026-11-15.)

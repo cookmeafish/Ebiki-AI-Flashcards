@@ -75,7 +75,7 @@ This is a cautious standard, not legal advice.
    node dev/careers/build-career.mjs <id> --knowledge "<mode name>"
    ```
    - It must print `no problems`. Missing, extra or duplicate cards, a card without a field, dashes, HTML, or a domain not reviewed twice each stop the build.
-   - `--anki` also adds the cards to Anki, a deck per domain plus `::Acronyms`, skipping fronts already in the deck tree. Run it only when the user wants the cards in their Anki.
+   - Nothing pushes the course into Anki: the course is a library inside Legends, and the learner's deck holds only the cards they add with "Add to deck" (which recognizes a card already there). Starting a course gives the mode an EMPTY deck named after the course when it has none (`pickCourseDeck`).
 6. **Register the course.** Add one `CAREERS` entry in `career.js`:
    - `id`, `titleKey`, `url: '/careers/<id>.json'`;
    - `match`: a regex on the mode's name or description, so the welcome screen recommends it.

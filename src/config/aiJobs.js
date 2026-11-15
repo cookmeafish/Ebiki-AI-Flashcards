@@ -73,6 +73,8 @@ export const AI_JOBS = [
   // Chat
   j('chat.reply', 'chat', 'chat', { vision: true }),
   j('chat.suggest', 'general', 'chat'),
+  // The background double check of a teaching reply (Chat typed and spoken, Learn it): utils/factCheck.js
+  j('factcheck.reply', 'qcheck', 'chat'),
   // Help
   j('help.reply', 'help', 'help'),
   // Picture

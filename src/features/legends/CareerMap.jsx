@@ -7,11 +7,11 @@
 // Also `loadCareer` (browser half: fetches a package file).
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
-import { ChunkyButton, ProgressBar, depthBorder, shade } from '../ui'
+import { ChunkyButton, ProgressBar, depthBorder, shade, tCount } from '../ui'
 import { AreaArt, BossArt, LegendsArt, paletteColors } from './art'
 import { AreaExtras } from './Extras'
 import { CheatButton, CheatRow } from './CheatUI'
-import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea, isAcronymTrack, careerTopicArt } from './career'
+import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea, isAcronymTrack, careerTopicArt, ACRONYM_TIERS, mustKnowCovered } from './career'
 import { itemSections } from './itemSections'
 import { QUIZ_SIZE } from './prompt'
 
@@ -325,18 +325,38 @@ function AcronymCard({ t, area, colors, cheat, onOpen }) {
   const [open, setOpen] = useState(false)
   const track = (area.nodes || []).filter(isAcronymTrack)
   const lessons = track.filter((n) => n.kind === 'learn')
-  const drill = track.find((n) => n.kind === 'practice')
+  const drill = track.find((n) => n.kind === 'practice' && n.id.endsWith('acr-drill'))
+  const drillAll = track.find((n) => n.kind === 'practice' && n.id.endsWith('acr-drill-all'))
   if (!lessons.length) return null
   const count = (area.items || []).filter((it) => it.kind === 'acronym').length
   const done = lessons.filter((n) => n.status === 'done').length
+  // By importance (career.js ACRONYM_TIERS): Core open, the other tiers folded but always there. Untiered = one group.
+  const tiers = ACRONYM_TIERS.map((tier) => ({ tier, sets: lessons.filter((n) => n.tier === tier) })).filter((g) => g.sets.length)
+  const coreCount = (area.items || []).filter((it) => it.kind === 'acronym' && it.tier === 'must').length
+  const covered = mustKnowCovered(area)
+  const chips = (sets) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      {sets.map((n) => <StepChip key={n.id} t={t} node={n} area={area} colors={colors} cheat={cheat} onOpen={(node) => onOpen(area, node)} />)}
+    </div>
+  )
+  const tierHead = (g) => {
+    const d = g.sets.filter((n) => n.status === 'done').length
+    return (
+      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <span style={{ fontWeight: 900, color: C.ink, fontSize: 14 }}>{t(`lg_acrTier_${g.tier}`)} <span style={{ fontWeight: 800, color: C.inkDim, fontSize: 12 }}>· {t('lg_acronymsSets', { i: d, n: g.sets.length })}</span></span>
+        <span style={{ fontSize: 12, color: C.inkDim, fontWeight: 600 }}>{t(`lg_acrTierHint_${g.tier}`)}</span>
+      </span>
+    )
+  }
   return (
     <div data-acronyms="" style={{ borderRadius: RADIUS.lg, background: C.surface, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, ...depthBorder(C.info, { bottomColor: shade(C.info, 30) }) }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <span aria-hidden="true" style={{ fontSize: 30 }}>🔤</span>
         <div style={{ flex: '1 1 200px', minWidth: 0 }}>
           <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: C.info }}>{t('lg_acronyms')}</div>
-          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{t('lg_acronymsTitle', { n: count })}</div>
-          <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.4 }}>{t('lg_acronymsDesc', { k: lessons.length })}</div>
+          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{coreCount && coreCount < count ? t('lg_acronymsTitleCore', { n: count, c: coreCount }) : t('lg_acronymsTitle', { n: count })}</div>
+          <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.4 }}>{tiers.length > 1 || tiers[0]?.tier ? t('lg_acronymsDescTiers') : t('lg_acronymsDesc', { k: lessons.length })}</div>
+          {covered && <div data-core-covered="" style={{ marginTop: 6, display: 'inline-block', fontSize: 12.5, fontWeight: 900, color: C.success, background: `color-mix(in srgb, ${C.success} 14%, transparent)`, borderRadius: RADIUS.pill, padding: '3px 10px' }}>✓ {t('lg_acrCoreCovered')}</div>}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
             <span style={{ flex: 1, minWidth: 60 }}><ProgressBar value={done} max={lessons.length} color={C.info} height={7} /></span>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.inkDim, whiteSpace: 'nowrap' }}>{t('lg_acronymsSets', { i: done, n: lessons.length })}</span>
@@ -345,13 +365,21 @@ function AcronymCard({ t, area, colors, cheat, onOpen }) {
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <ChunkyButton color={C.info} onClick={() => setOpen((v) => !v)} aria-expanded={open}>📘 {open ? t('lg_acronymsHide') : t('lg_acronymsLearn')}</ChunkyButton>
-        {drill && <ChunkyButton variant="ghost" color={C.info} onClick={() => onOpen(area, drill)}>🎯 {t('lg_acronymsDrill', { q: drill.count || CAREER.acronymDrill })}</ChunkyButton>}
+        {drill && <ChunkyButton variant="ghost" color={C.info} onClick={() => onOpen(area, drill)}>🎯 {drill.tier === 'must' ? t('lg_acronymsDrillCore', { q: drill.count || CAREER.acronymDrill }) : t('lg_acronymsDrill', { q: drill.count || CAREER.acronymDrill })}</ChunkyButton>}
+        {drillAll && <ChunkyButton variant="ghost" color={C.info} onClick={() => onOpen(area, drillAll)}>🎯 {t('lg_acronymsDrillAll', { q: drillAll.count || CAREER.acronymDrill })}</ChunkyButton>}
       </div>
-      {open && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {lessons.map((n) => <StepChip key={n.id} t={t} node={n} area={area} colors={colors} cheat={cheat} onOpen={(node) => onOpen(area, node)} />)}
+      {open && (!tiers.length || !tiers[0].tier ? chips(lessons) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {tiers.map((g) => g.tier === 'must'
+            ? <div key={g.tier} data-acr-tier={g.tier} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{tierHead(g)}{chips(g.sets)}</div>
+            : (
+              <details key={g.tier} data-acr-tier={g.tier} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <summary style={{ cursor: 'pointer', listStylePosition: 'outside', marginLeft: 16 }}>{tierHead(g)}</summary>
+                <div style={{ marginTop: 8 }}>{chips(g.sets)}</div>
+              </details>
+            ))}
         </div>
-      )}
+      ))}
     </div>
   )
 }
@@ -391,6 +419,28 @@ function BossCard({ t, area, colors, onOpen, onLegendary, ctx, cheat }) {
   )
 }
 
+// THE COURSE IS A LIBRARY, THE DECK IS YOURS (the owner: "make the separation easy to understand"): two tiles side by
+// side, what lives where and who uses it. Counts from the map (cards = taught items, never briefings or acronyms).
+function LibraryNote({ t, map, deck }) {
+  const items = map.areas.flatMap((a) => a.items || []).filter((it) => it.kind !== 'brief')
+  const inDeck = items.filter((it) => it.cardNoteId).length
+  const tile = (icon, title, body, color) => (
+    <div style={{ flex: '1 1 220px', minWidth: 0, display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${color} 9%, ${C.surface})`, border: `1px solid color-mix(in srgb, ${color} 30%, transparent)` }}>
+      <span aria-hidden="true" style={{ fontSize: 22, lineHeight: 1.1 }}>{icon}</span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontWeight: 900, color: C.ink, fontSize: 14, overflowWrap: 'anywhere' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 12.5, color: C.inkDim, fontWeight: 600, lineHeight: 1.4 }}>{body}</span>
+      </span>
+    </div>
+  )
+  return (
+    <div data-library-note="" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      {tile('📚', t('lg_libraryTitle', { n: items.length }), t('lg_libraryBody'), C.info)}
+      {tile('🃏', deck ? t('lg_yourDeckTitle', { deck }) : t('lg_yourDeckNone'), tCount(t, 'lg_yourDeckBody', inDeck), C.success)}
+    </div>
+  )
+}
+
 export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
   const { t } = ctx
   const [islandId, setIslandId] = useState(() => startIsland(map.areas))
@@ -423,6 +473,7 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 0 24px' }}>
       <ContinueCard t={t} map={map} onOpen={onOpen} onShow={(id) => setIslandId(id)} />
+      <LibraryNote t={t} map={map} deck={ctx.subject?.modeDeck} />
       <div>
         <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase', marginBottom: 8 }}>🏝️ {t('lg_careerIslands', { course: map.career?.title || '' })}</div>
         <div role="group" aria-label={t('lg_careerIslandsAria')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>

@@ -10,6 +10,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { parseAiJson, canonKeys, pickObject, pickList, asList } from './aiJson'
 import { parseQuestionReview, parseOpenChoices } from './questionTier'
 import { parseDistractorCheck } from './distractorCheck'
+import { parseFactCheck } from './factCheck'
 import { parseVerdict, parseExplain, parseRecheck, gradeObject } from '../features/kit/fightJudge'
 import { parseQuestions, parseQuizCheck, parseTalkScore, parseBossName } from '../features/legends/prompt'
 import { parseRaidQuestions } from '../features/legends/raidQuestions'
@@ -289,5 +290,22 @@ describe('tagged JSON inside free text (Ebi Studio <mode>, Help <action>)', () =
     processHelpReply('<action>{"type":"set_dialect","dialect":"Andaluz",}</action>', { parse, run })
     processHelpReply('<action>```json\n{"type":"set_dialect","dialect":"Chileno"}\n```</action>', { parse, run })
     expect(seen).toEqual(['Rioplatense', 'Andaluz', 'Chileno'])
+  })
+})
+
+describe('the teaching fact check reads every dressing of its reply', () => {
+  const reply = 'Photosynthesis happens in the mitochondria, where light becomes sugar.'
+  const clean = [{ quote: 'happens in the mitochondria', fix: 'It happens in the chloroplasts.' }]
+  it('fenced, prefaced, single quotes, a trailing comma, a bare list, a thinking block', () => {
+    for (const text of [
+      '```json\n{"mistakes":[{"quote":"happens in the mitochondria","fix":"It happens in the chloroplasts."}]}\n```',
+      'Here is my check: {"mistakes":[{"quote":"happens in the mitochondria","fix":"It happens in the chloroplasts."},]}',
+      "{'mistakes': [{'quote': 'happens in the mitochondria', 'fix': 'It happens in the chloroplasts.'}]}",
+      '[{"quote":"happens in the mitochondria","fix":"It happens in the chloroplasts."}]',
+      '<thinking>check biology</thinking>{"mistakes":[{"quote":"happens in the mitochondria","fix":"It happens in the chloroplasts."}]}',
+    ]) expect(parseFactCheck(text, reply, parseAiJson), text).toEqual(clean)
+  })
+  it('an empty verdict in any dressing is no note', () => {
+    for (const text of ['{"mistakes": []}', '```json\n{"mistakes":[]}\n```', 'No mistakes found.', '']) expect(parseFactCheck(text, reply, parseAiJson), text).toEqual([])
   })
 })

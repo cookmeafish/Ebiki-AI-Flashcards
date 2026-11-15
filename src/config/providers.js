@@ -441,9 +441,12 @@ export const PROVIDERS = {
     url: 'https://platform.openai.com/api-keys',
     modelsUrl: 'https://platform.openai.com/docs/models',
     billingUrl: 'https://platform.openai.com/settings/organization/billing',
-    model: 'gpt-4o-mini',       // cheap/fast tier (vision-capable) — matches Claude's Haiku slot
-    questionModel: 'gpt-4o',    // strong tier (vision-capable) — matches Claude's Sonnet slot
-    presets: { cheap: 'gpt-4o-mini', normal: 'gpt-4o', max: 'gpt-4.1' }, // all vision-capable
+    // Floors (2026-11-15, OpenAI's models page: "All latest OpenAI models support text and image input"): its efficient,
+    // balanced and flagship models. The gpt-4o / 4.1 snapshots are deprecated (shut down 2027-01-14). The live list
+    // replaces these once a key is set.
+    model: 'gpt-6-luna',        // cheap/fast tier: Haiku slot
+    questionModel: 'gpt-6.1-sol', // strong tier: Sonnet slot
+    presets: { cheap: 'gpt-6-luna', normal: 'gpt-6.1-sol', max: 'gpt-6-astra' },
     // Only chat-capable models (skip embeddings, tts, whisper, image, moderation).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.openai.com/v1/models', {
@@ -460,7 +463,7 @@ export const PROVIDERS = {
       openAiCompatibleCall({
         endpoint: 'https://api.openai.com/v1/chat/completions',
         apiKey, systemPrompt, userContent, images, maxTokens, tag,
-        model: modelOverride || 'gpt-4o-mini',
+        model: modelOverride || 'gpt-6-luna',
       }),
   },
   // ChatGPT PLAN USAGE ("Sign in with ChatGPT", OpenAI's official flow for open-source, locally run apps): no API key.

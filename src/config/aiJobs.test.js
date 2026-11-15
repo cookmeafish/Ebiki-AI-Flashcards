@@ -11,12 +11,14 @@ import {
 import { LANGUAGES } from '../i18n/languages'
 import { flattenConfig, diffConfig, mergeConfigPatch } from '../utils/configDiff'
 import { MODELS } from '../speech/engines'
+import { ROLE_TIER as PLAN_ROLE_TIER } from './modelPlan'
 
 const SRC = path.resolve(__dirname, '..')
 const read = (rel) => fs.readFileSync(path.join(SRC, rel), 'utf8')
 const APP = read('App.jsx')
-// The real roles, read from App.jsx's ROLE_TIER so this test can't drift from it.
-const ROLE_TIER = Object.fromEntries([...APP.match(/const ROLE_TIER = \{([^}]*)\}/)[1].matchAll(/(\w+):\s*'(\w+)'/g)].map((m) => [m[1], m[2]]))
+// The real roles: the one ROLE_TIER table (modelPlan.js), which App.jsx uses as is.
+const ROLE_TIER = PLAN_ROLE_TIER
+if (!/const ROLE_TIER = PLAN_ROLE_TIER\b/.test(APP)) throw new Error('App.jsx must use modelPlan.js ROLE_TIER')
 const ROLES = Object.keys(ROLE_TIER)
 
 describe('registry', () => {

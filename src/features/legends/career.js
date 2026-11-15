@@ -27,7 +27,7 @@ export const CAREER = {
   regionItems: 36, regionQuestions: 15,
   raidItems: 60, raidQuestions: 25,
   finalItems: 90, finalQuestions: 30,
-  acronymLesson: 8, acronymDrill: 15, // the acronym track: lessons of 8, a drill of 15 questions over them all
+  acronymLesson: 8, acronymDrill: 15, acronymDrillAll: 25, // the acronym track: lessons of 8, a core drill of 15, a drill of 25 over all
 }
 // Has the learner played any step of this course (a finished step, or any attempt)? A course without is safe to rebuild.
 export const careerHasProgress = (map) => Object.keys(map?.days || {}).length > 0 || (map?.helpers?.scroll || 0) > 0 || (map?.helpers?.shield || 0) > 0
@@ -178,7 +178,13 @@ export function shapePackage(raw) {
       canDo: (a?.canDo || []).map((s) => str(s, 140)).filter(Boolean).slice(0, 4), sections, items, lessons,
       ...(a?.brief && ids.has(String(a.brief)) ? { brief: String(a.brief) } : {}),
       acronyms: (Array.isArray(a?.acronyms) ? a.acronyms : []).filter((x) => x?.id && x.acronym && Array.isArray(x.expansions) && x.expansions.length)
-        .map((x) => ({ id: String(x.id), acronym: str(x.acronym, 30), expansions: x.expansions.map((e) => str(e, 160)).filter(Boolean).slice(0, 4) })),
+        .map((x) => ({
+          id: String(x.id), acronym: str(x.acronym, 30), expansions: x.expansions.map((e) => str(e, 160)).filter(Boolean).slice(0, 4),
+          // Importance (dev/careers/acronymRank.mjs); an older package has none and keeps the single-order track.
+          ...(ACRONYM_TIERS.includes(x.tier) ? { tier: x.tier, uses: Math.max(0, Math.round(Number(x.uses) || 0)) } : {}),
+          // How the public list writes a name that differs from the standard one (taught, and accepted, as well).
+          ...(Array.isArray(x.listed) && x.listed.length ? { listed: x.listed.map((e) => str(e, 160)).filter(Boolean).slice(0, 2) } : {}),
+        })),
     }
   }).filter((a) => a.id && a.title && a.items.length && a.sections.length && a.lessons.length)
   if (areas.length !== raw.areas.length) return null
@@ -196,36 +202,122 @@ export const isAcronymTrack = (n) => n?.track === ACRONYM_SECTION
 const acronymBack = (x, where) => [
   `Definition: ${x.acronym} stands for ${x.expansions.length > 1 ? x.expansions.map((e, i) => `(${i + 1}) ${e}`).join(', ') : x.expansions[0]}.`,
   'Category: Acronyms',
-  `Key Points: ${[x.expansions.length > 1 ? 'More than one meaning on the exam list: the question tells you which one' : 'Know both directions: the letters from the name, the name from the letters', where ? `Where it shows up: ${where}` : ''].filter(Boolean).join('; ')}`,
+  `Key Points: ${[x.expansions.length > 1 ? 'More than one meaning on the official acronym list: the question tells you which one' : 'Know both directions: the letters from the name, the name from the letters',
+    x.listed?.length ? `The official acronym list writes it "${x.listed.join('", "')}"; both are accepted` : '', where ? `Where it shows up: ${where}` : ''].filter(Boolean).join('; ')}`,
 ].join('\n')
+// The tiers (dev/careers/acronymRank.mjs; the owner: "order it by most used and known ... knowing most of the main ones
+// is most likely enough"): lessons never mix tiers, Must know first; the main drill asks Must know, a second drill all.
+export const ACRONYM_TIERS = ['must', 'good', 'rare']
+// The track's layout: 2 = by tier. A saved map below it is re-sorted once, only while its track has no progress.
+export const ACRONYM_ORDER = 2
+// Even sets of at most CAREER.acronymLesson (9 makes 5 + 4, never 8 + 1).
+function evenSets(list) {
+  if (!list.length) return []
+  const n = Math.ceil(list.length / CAREER.acronymLesson)
+  const size = Math.ceil(list.length / n)
+  return Array.from({ length: n }, (_, i) => list.slice(i * size, (i + 1) * size)).filter((g) => g.length)
+}
 export function withAcronyms(area, acronyms) {
   const list = (acronyms || []).filter((x) => !(area.items || []).some((it) => it.id === x.id))
   if (!list.length || (area.nodes || []).some(isAcronymTrack)) return area
   const items = list.map((x) => {
     const re = new RegExp(`(^|[^A-Za-z0-9])${x.acronym.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z0-9]|$)`)
     const where = (area.items || []).find((it) => it.kind !== 'brief' && it.kind !== 'acronym' && re.test(`${it.front}\n${it.back}`))?.front || ''
-    return { id: x.id, kind: 'acronym', front: x.acronym, back: acronymBack(x, where), section: ACRONYM_SECTION, cardNoteId: null, seen: 0, right: 0 }
+    return { id: x.id, kind: 'acronym', front: x.acronym, back: acronymBack(x, where), section: ACRONYM_SECTION, cardNoteId: null, seen: 0, right: 0, ...(x.tier ? { tier: x.tier, uses: x.uses || 0 } : {}) }
   })
-  const n = Math.ceil(items.length / CAREER.acronymLesson)
-  const size = Math.ceil(items.length / n)
-  const lessons = Array.from({ length: n }, (_, i) => items.slice(i * size, (i + 1) * size)).filter((g) => g.length)
-    .map((g, i, all) => node(area.id, `acr-l${i + 1}`, { kind: 'learn', track: ACRONYM_SECTION, optional: true, status: 'open', title: `${g[0].front} to ${g.at(-1).front} (${i + 1}/${all.length})`, itemIds: g.map((it) => it.id) }))
-  const drill = node(area.id, 'acr-drill', { kind: 'practice', track: ACRONYM_SECTION, optional: true, status: 'open', title: '', count: CAREER.acronymDrill, itemIds: items.map((it) => it.id) })
+  const tiered = items.some((it) => it.tier)
+  // Untiered (an older package): one run of sets, as before. Tiered: sets per tier, numbered within the tier.
+  const groups = tiered ? ACRONYM_TIERS.map((tier) => ({ tier, sets: evenSets(items.filter((it) => (it.tier || 'rare') === tier)) })).filter((g) => g.sets.length) : [{ tier: null, sets: evenSets(items) }]
+  let k = 0
+  const lessons = groups.flatMap(({ tier, sets }) => sets.map((g, i) => node(area.id, `acr-l${++k}`, {
+    kind: 'learn', track: ACRONYM_SECTION, optional: true, status: 'open',
+    // The app names a tiered set from its tier ("Must know 2/4"); the letters stay as the title older builds show.
+    // Tiered sets run in importance order, so a "TLS to OCSP" range read like a broken A to Z: show the first few.
+    title: tier ? `${g.slice(0, 3).map((it) => it.front).join(' · ')}${g.length > 3 ? ' …' : ''} (${i + 1}/${sets.length})` : `${g[0].front} to ${g.at(-1).front} (${i + 1}/${sets.length})`,
+    ...(tier ? { tier, part: i + 1, parts: sets.length } : {}),
+    itemIds: g.map((it) => it.id),
+  })))
+  const must = items.filter((it) => it.tier === 'must')
+  const drills = tiered && must.length && must.length < items.length
+    ? [node(area.id, 'acr-drill', { kind: 'practice', track: ACRONYM_SECTION, optional: true, status: 'open', title: '', tier: 'must', count: CAREER.acronymDrill, itemIds: must.map((it) => it.id) }),
+      node(area.id, 'acr-drill-all', { kind: 'practice', track: ACRONYM_SECTION, optional: true, status: 'open', title: '', count: CAREER.acronymDrillAll, itemIds: items.map((it) => it.id) })]
+    : [node(area.id, 'acr-drill', { kind: 'practice', track: ACRONYM_SECTION, optional: true, status: 'open', title: '', count: CAREER.acronymDrill, itemIds: items.map((it) => it.id) })]
   const at = (area.nodes || []).findIndex((x) => x.kind === 'weak')
-  const nodes = at < 0 ? [...(area.nodes || []), ...lessons, drill] : [...area.nodes.slice(0, at), ...lessons, drill, ...area.nodes.slice(at)]
+  const nodes = at < 0 ? [...(area.nodes || []), ...lessons, ...drills] : [...area.nodes.slice(0, at), ...lessons, ...drills, ...area.nodes.slice(at)]
   return { ...area, items: [...(area.items || []), ...items], nodes }
 }
-// A course map saved before the acronym track: add it from the package (nothing else changes). Pure.
+// Any acronym work on an island: a set or drill done or tried, an acronym seen or put in a deck. Only acronym things
+// count (progress elsewhere never blocks a harmless re-sort).
+export function acronymProgress(area) {
+  return (area?.nodes || []).some((n) => isAcronymTrack(n) && (n.status === 'done' || (n.attempts || 0) > 0 || (n.stars || 0) > 0))
+    || (area?.items || []).some((it) => it.kind === 'acronym' && ((it.seen || 0) > 0 || it.cardNoteId))
+}
+// A course map saved before the acronym track gets it; one saved before the TIERS gets its track re-sorted, but only
+// an island whose track has no progress (one with progress keeps its sets exactly: nothing re-taught, nothing lost).
+// Item ids never change. Pure and idempotent (the marker `career.acronymOrder`; `version` stays, older builds read it).
+const pkgAcronymCount = (pkg) => pkg.areas.reduce((n, a) => n + (a.acronyms || []).length, 0)
 export function addAcronymTrack(map, pkg) {
   if (!isCareerMap(map) || !pkg) return map
-  let changed = false
+  const total = pkgAcronymCount(pkg)
+  if (map.career?.acronyms && (map.career.acronymOrder || 0) >= ACRONYM_ORDER && (map.career.acronymCount || 0) >= total) return map
+  const pkgTiered = pkg.areas.some((a) => (a.acronyms || []).some((x) => x.tier))
   const areas = map.areas.map((a) => {
     const src = pkg.areas.find((x) => x.id === a.id)
-    const next = src ? withAcronyms(a, src.acronyms) : a
-    if (next !== a) changed = true
-    return next
+    if (!src) return a
+    const hasTrack = (a.nodes || []).some(isAcronymTrack)
+    if (hasTrack && pkgTiered && !acronymProgress(a)) {
+      const bare = { ...a, items: (a.items || []).filter((it) => it.kind !== 'acronym'), nodes: (a.nodes || []).filter((n) => !isAcronymTrack(n)) }
+      return withAcronyms(bare, src.acronyms)
+    }
+    return hasTrack ? appendAcronyms(a, src.acronyms) : withAcronyms(a, src.acronyms)
   })
-  return changed ? { ...map, areas, career: { ...map.career, acronyms: true } } : (map.career.acronyms ? map : { ...map, career: { ...map.career, acronyms: true } })
+  return { ...map, areas, career: { ...map.career, acronyms: true, acronymCount: total, ...(pkgTiered ? { acronymOrder: ACRONYM_ORDER } : {}) } }
+}
+// A newer package adds acronyms to an island whose track has progress: they come as NEW sets after the old ones (old
+// sets untouched) and join the drills. Pure; returns the area itself when nothing is new.
+function appendAcronyms(area, acronyms) {
+  const known = new Set((area.items || []).map((it) => it.id))
+  const fresh = (acronyms || []).filter((x) => !known.has(x.id))
+  if (!fresh.length) return area
+  const built = withAcronyms({ ...area, items: [], nodes: [] }, fresh)
+  const used = new Set((area.nodes || []).map((n) => n.id))
+  let k = (area.nodes || []).filter((n) => isAcronymTrack(n) && n.kind === 'learn').length
+  const lessons = built.nodes.filter((n) => n.kind === 'learn').map((n) => {
+    let id; do { id = `${area.id}-acr-l${++k}` } while (used.has(id))
+    return { ...n, id }
+  })
+  const newIds = built.items.map((it) => it.id)
+  const mustIds = built.items.filter((it) => it.tier === 'must').map((it) => it.id)
+  const nodes = (area.nodes || []).map((n) => {
+    if (!isAcronymTrack(n) || n.kind !== 'practice') return n
+    const add = n.tier === 'must' ? mustIds : n.tier ? [] : newIds
+    return add.length ? { ...n, itemIds: [...n.itemIds, ...add] } : n
+  })
+  const at = nodes.findIndex((n) => isAcronymTrack(n) && n.kind === 'practice')
+  return { ...area, items: [...area.items, ...built.items], nodes: at < 0 ? [...nodes, ...lessons] : [...nodes.slice(0, at), ...lessons, ...nodes.slice(at)] }
+}
+// THE DECK A COURSE STARTS WITH (the owner: the course is a library in Legends; the deck holds only what the learner
+// adds). Candidates: the course's name, then "<name> (my cards)", "<name> (my cards 2)"... The first that does not exist
+// is created; one that exists AND is empty is used; a deck holding cards (an older build filled it) is never chosen.
+// sizes: { deck: count | null } for candidates that exist (null = unknown: treated as not empty). → { deck, create } | null.
+export const COURSE_DECK_TRIES = 5
+export const courseDeckNames = (name) => [name, ...Array.from({ length: COURSE_DECK_TRIES - 1 }, (_, i) => `${name} (my cards${i ? ` ${i + 1}` : ''})`)]
+export function pickCourseDeck(name, { decks = [], sizes = {} } = {}) {
+  if (!name) return null
+  const has = (d) => decks.some((x) => x.toLowerCase() === d.toLowerCase())
+  for (const d of courseDeckNames(name)) {
+    if (!has(d)) return { deck: d, create: true }
+    if (sizes[d] === 0) return { deck: decks.find((x) => x.toLowerCase() === d.toLowerCase()), create: false }
+  }
+  return null
+}
+
+// "Must know covered" for an island: every must-know set done and the must-know drill passed.
+export function mustKnowCovered(area) {
+  const track = (area?.nodes || []).filter(isAcronymTrack)
+  const sets = track.filter((n) => n.kind === 'learn' && n.tier === 'must')
+  const drill = track.find((n) => n.kind === 'practice' && n.tier === 'must')
+  return !!(sets.length && drill && sets.every((n) => n.status === 'done') && drill.status === 'done')
 }
 
 // The map a career starts with: every island fully built (no AI plan or detail call). Per island: its regions in order
@@ -264,7 +356,7 @@ export function buildCareerMap(pkg, { modeId, subject, start = null }, now = Dat
     nodes: [node(FINAL_AREA_ID, 'raid', { kind: 'boss', stage: 'final', motif: CAREER_FINAL_MOTIF, count: CAREER.finalQuestions, itemIds: [] })],
   }
   return {
-    version: CAREER_MAP_VERSION, modeId, career: { id: pkg.id, title: pkg.title, version: pkg.version, layout: CAREER_LAYOUT, acronyms: true },
+    version: CAREER_MAP_VERSION, modeId, career: { id: pkg.id, title: pkg.title, version: pkg.version, layout: CAREER_LAYOUT, acronyms: true, acronymCount: pkgAcronymCount(pkg), ...(pkg.areas.some((a) => (a.acronyms || []).some((x) => x.tier)) ? { acronymOrder: ACRONYM_ORDER } : {}) },
     subject: { name: String(subject?.name || ''), description: String(subject?.description || '') },
     createdAt: now, updatedAt: now, start, areas: [...areas, final], helpers: { scroll: 0, shield: 0 }, days: {},
   }

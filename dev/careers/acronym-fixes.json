@@ -1,0 +1,26 @@
+{
+  "_about": "Expansions on the public acronym list that differ from the standard name. The course teaches the standard name and says how the list writes it. `listed` must equal the list's expansion exactly (the build fails otherwise). Standard names checked against the issuing body or the protocol's own specification.",
+  "fixes": {
+    "DES": { "name": "Data Encryption Standard", "listed": "Digital Encryption Standard" },
+    "CVE": { "name": "Common Vulnerabilities and Exposures", "listed": "Common Vulnerability Enumeration" },
+    "URL": { "name": "Uniform Resource Locator", "listed": "Universal Resource Locator" },
+    "PHI": { "name": "Protected Health Information", "listed": "Personal Health Information" },
+    "STIX": { "name": "Structured Threat Information Expression", "listed": "Structured Threat Information eXchange" },
+    "SFTP": { "name": "SSH File Transfer Protocol", "listed": "Secured File Transfer Protocol" },
+    "FTPS": { "name": "File Transfer Protocol Secure (FTP over TLS)", "listed": "Secured File Transfer Protocol" },
+    "ISO": { "name": "International Organization for Standardization", "listed": "International Standards Organization" },
+    "DPO": { "name": "Data Protection Officer", "listed": "Data Privacy Officer" },
+    "VBA": { "name": "Visual Basic for Applications", "listed": "Visual Basic" },
+    "SHA": { "name": "Secure Hash Algorithm", "listed": "Secure Hashing Algorithm" },
+    "ESP": { "name": "Encapsulating Security Payload", "listed": "Encapsulated Security Payload" },
+    "RFID": { "name": "Radio Frequency Identification", "listed": "Radio Frequency Identifier" },
+    "FIM": { "name": "File Integrity Monitoring", "listed": "File Integrity Management" },
+    "SRTP": { "name": "Secure Real-time Transport Protocol", "listed": "Secure Real-Time Protocol" },
+    "CRC": { "name": "Cyclic Redundancy Check", "listed": "Cyclical Redundancy Check" },
+    "SAML": { "name": "Security Assertion Markup Language", "listed": "Security Assertions Markup Language" },
+    "HMAC": { "name": "Hash-based Message Authentication Code", "listed": "Hashed Message Authentication Code" },
+    "RAID": { "name": "Redundant Array of Independent Disks", "listed": "Redundant Array of Inexpensive Disks" },
+    "TACACS+": { "name": "Terminal Access Controller Access-Control System Plus", "listed": "Terminal Access Controller Access Control System" },
+    "CTM": { "name": "Counter Mode (usually written CTR)", "listed": "Counter Mode" }
+  }
+}

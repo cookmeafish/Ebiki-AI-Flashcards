@@ -1,0 +1,1373 @@
+[
+  {
+    "obj": "1.0",
+    "path": [],
+    "term": "SY0-701 Domain 1.0: General Security Concepts (12%)",
+    "definition": "The first and smallest Security+ SY0-701 domain, about 12% of the exam. It covers the building blocks the other domains rely on: security control categories and types, core concepts such as CIA, AAA and Zero Trust, change management, and cryptographic solutions.",
+    "example": "A company protects its server room with a badge reader (physical, preventive control), reviews firewall changes through a change board, and encrypts laptops with keys held in each TPM: controls, change management and cryptography working together.",
+    "category": "1.0 General Security Concepts",
+    "keyPoints": "Four objectives: 1.1 security controls, 1.2 fundamental concepts, 1.3 change management, 1.4 cryptographic solutions; weighted 12%, the lowest of the five domains; its vocabulary is reused in every other domain"
+  },
+  {
+    "obj": "1.1",
+    "path": [],
+    "term": "SY0-701 1.1: Compare and contrast various types of security controls",
+    "definition": "Objective 1.1 asks you to classify any security control two ways: by category (how it is implemented: technical, managerial, operational, physical) and by type (what it is meant to do: preventive, deterrent, detective, corrective, compensating, directive).",
+    "example": "A security guard is a physical category control that can be preventive, deterrent and detective at the same time.",
+    "category": "1.1 Security controls",
+    "keyPoints": "Category answers 'how is it implemented'; type answers 'what goal does it serve'; one control can have several types; look at what the control is meant to achieve"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Categories"
+    ],
+    "term": "Security control categories",
+    "definition": "The four ways SY0-701 groups controls by how they are implemented: technical (enforced by systems), managerial (policies and risk decisions), operational (carried out by people day to day) and physical (protect tangible spaces and assets).",
+    "example": "A firewall is technical, a security policy is managerial, security awareness training is operational, and a fence is physical.",
+    "category": "1.1 Security controls > Categories",
+    "keyPoints": "Technical, managerial, operational, physical; managerial is also called administrative; operational means people do it, technical means a system does it"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Categories",
+      "Technical"
+    ],
+    "term": "Technical control (control category)",
+    "definition": "A control implemented with technology such as hardware, software or firmware, so the system enforces it rather than a person. Also called a logical control.",
+    "example": "Operating system permissions, antivirus software, firewall rules and full-disk encryption.",
+    "category": "1.1 Security controls > Categories",
+    "keyPoints": "Enforced by a system; firewalls and antivirus are classic examples; contrast with operational, where a person performs the task"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Categories",
+      "Managerial"
+    ],
+    "term": "Managerial control (control category)",
+    "definition": "An administrative control focused on the design and oversight of security: policies, standards, risk assessments and procedures that guide how the organization manages security.",
+    "example": "A written information security policy, a risk assessment, or onboarding and offboarding policies approved by leadership.",
+    "category": "1.1 Security controls > Categories",
+    "keyPoints": "Also called administrative; documents and decisions, not technology; policies and risk assessments are typical examples"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Categories",
+      "Operational"
+    ],
+    "term": "Operational control (control category)",
+    "definition": "A control carried out by people rather than by systems, as part of daily operations.",
+    "example": "Security guards checking IDs, security awareness training, and staff performing regular log reviews.",
+    "category": "1.1 Security controls > Categories",
+    "keyPoints": "Implemented by people; awareness training is the classic example; a common mix-up is confusing it with managerial (managerial sets the policy, operational is people doing the work)"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Categories",
+      "Physical"
+    ],
+    "term": "Physical control (control category)",
+    "definition": "A control that limits physical access to buildings, rooms or equipment, or protects tangible assets.",
+    "example": "Fences, door locks, bollards, access badges and guard shacks.",
+    "category": "1.1 Security controls > Categories",
+    "keyPoints": "Protects the physical environment; locks, fences and badge readers; a guard can be counted as physical or operational depending on whether you focus on the barrier or the person doing the work"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Control types"
+    ],
+    "term": "Security control types",
+    "definition": "The six goals a control can serve: preventive (stop it), deterrent (discourage it), detective (identify it), corrective (fix it after), compensating (substitute when the primary control is not possible) and directive (tell people what to do).",
+    "example": "A lock prevents, a warning sign deters, a motion sensor detects, restoring from backup corrects, isolating an unpatchable server compensates, and a policy directs.",
+    "category": "1.1 Security controls > Control types",
+    "keyPoints": "Preventive, deterrent, detective, corrective, compensating, directive; one control can serve several types; deterrent discourages but does not physically stop, preventive stops"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Control types",
+      "Preventive"
+    ],
+    "term": "Preventive control (control type)",
+    "definition": "A control that blocks an incident from happening in the first place by restricting access or actions.",
+    "example": "A firewall rule blocking inbound traffic, a door lock, or account lockout policies.",
+    "category": "1.1 Security controls > Control types",
+    "keyPoints": "Stops the event before it occurs; deterrent only discourages, preventive actually blocks; firewalls and locks are the standard answers"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Control types",
+      "Deterrent"
+    ],
+    "term": "Deterrent control (control type)",
+    "definition": "A control that discourages an attacker or user from trying something, without physically or technically stopping them.",
+    "example": "A login banner warning that misuse will be prosecuted, a visible guard at reception, or threat of demotion for policy violations.",
+    "category": "1.1 Security controls > Control types",
+    "keyPoints": "Psychological effect only; a determined attacker can ignore it; contrast with preventive, which actually blocks the action"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Control types",
+      "Detective"
+    ],
+    "term": "Detective control (control type)",
+    "definition": "A control that identifies and records an event while it happens or after, so it can be investigated, without stopping it.",
+    "example": "Reviewing system logs, an intrusion detection system raising an alert, or a motion sensor tripping an alarm.",
+    "category": "1.1 Security controls > Control types",
+    "keyPoints": "Identifies and alerts, does not block; IDS is detective, IPS is preventive; logs and cameras that are reviewed are detective"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Control types",
+      "Corrective"
+    ],
+    "term": "Corrective control (control type)",
+    "definition": "A control applied after an event to limit damage and restore systems or operations to normal.",
+    "example": "Restoring data from backups after ransomware, or an incident response process that removes malware and patches the hole.",
+    "category": "1.1 Security controls > Control types",
+    "keyPoints": "Acts after the event; backups and restoration are classic; contrast with compensating, which substitutes for a control that cannot be used"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Control types",
+      "Compensating"
+    ],
+    "term": "Compensating control (control type)",
+    "definition": "An alternative control used when the primary or required control cannot be implemented, providing similar protection by other means.",
+    "example": "A legacy system that cannot be patched is placed on an isolated network segment with strict firewall rules until it can be replaced.",
+    "category": "1.1 Security controls > Control types",
+    "keyPoints": "A substitute, often temporary, when the ideal control is not feasible; it usually comes up when a system cannot take the ideal control, such as legacy equipment; not the same as corrective"
+  },
+  {
+    "obj": "1.1",
+    "path": [
+      "Control types",
+      "Directive"
+    ],
+    "term": "Directive control (control type)",
+    "definition": "A control that tells people what they should or should not do, relying on them to comply rather than enforcing it.",
+    "example": "A policy requiring sensitive files to be stored in a protected folder, or a sign reading 'Authorized personnel only'.",
+    "category": "1.1 Security controls > Control types",
+    "keyPoints": "Instructs, does not enforce, so it is a relatively weak type; policies and instructional signage; a warning of consequences leans deterrent instead"
+  },
+  {
+    "obj": "1.2",
+    "path": [],
+    "term": "SY0-701 1.2: Summarize fundamental security concepts",
+    "definition": "Objective 1.2 covers the core ideas of security: the CIA triad, non-repudiation, AAA, gap analysis, Zero Trust architecture, physical security controls, and deception and disruption technology.",
+    "example": "A hospital keeps patient records available on redundant servers, logs who opened each record, checks every access request against a Zero Trust policy, and plants a fake patient file that alerts security when opened.",
+    "category": "1.2 Fundamental security concepts",
+    "keyPoints": "Zero Trust components and physical sensors are detailed lists worth studying closely; know honeypot vs honeynet vs honeyfile vs honeytoken"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Confidentiality, Integrity, and Availability (CIA)"
+    ],
+    "term": "Confidentiality, Integrity, and Availability (CIA triad)",
+    "definition": "The three core goals of information security. Confidentiality keeps data secret from unauthorized parties, integrity keeps data accurate and unaltered, and availability keeps systems and data accessible to authorized users when needed.",
+    "example": "Encryption protects confidentiality, hashing detects changes to protect integrity, and redundant servers protect availability.",
+    "category": "1.2 Fundamental security concepts > CIA",
+    "keyPoints": "Confidentiality: encryption, access controls; integrity: hashing, digital signatures; availability: redundancy, patching, fault tolerance; a DDoS attack targets availability"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Non-repudiation"
+    ],
+    "term": "Non-repudiation",
+    "definition": "Proof of the origin and integrity of data, so the sender cannot later credibly deny having sent or signed it.",
+    "example": "A contract is digitally signed with the signer's private key; anyone with the public key can verify that only that signer could have created the signature.",
+    "category": "1.2 Fundamental security concepts > Non-repudiation",
+    "keyPoints": "Provided by digital signatures (hash plus private key); a hash alone gives integrity but not non-repudiation; symmetric keys cannot provide it because both parties share the key"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Authentication, Authorization, and Accounting (AAA)"
+    ],
+    "term": "Authentication, Authorization, and Accounting (AAA)",
+    "definition": "A framework for controlling access. Authentication proves who you are, authorization decides what you may do, and accounting records what you did (logins, resources used, time spent).",
+    "example": "A VPN user logs in with credentials verified by a RADIUS server (authentication), is placed in a group allowed to reach file servers (authorization), and the session start, stop and data use are logged (accounting).",
+    "category": "1.2 Fundamental security concepts > AAA",
+    "keyPoints": "Order: identification claim, authentication, authorization, accounting; logging and audit trails are accounting; RADIUS and TACACS+ are common AAA servers"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Authentication, Authorization, and Accounting (AAA)",
+      "Authenticating people"
+    ],
+    "term": "Authenticating people (AAA)",
+    "definition": "Verifying a human user's claimed identity, usually with credentials such as a password, plus other factors like a token, a phone prompt or biometrics.",
+    "example": "An employee enters a username and password and then approves a push notification on a phone (multifactor authentication).",
+    "category": "1.2 Fundamental security concepts > AAA",
+    "keyPoints": "Username is identification, password proves it; factors: something you know, have, are, plus somewhere you are; MFA combines different factor types, two passwords are not MFA"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Authentication, Authorization, and Accounting (AAA)",
+      "Authenticating systems"
+    ],
+    "term": "Authenticating systems (AAA)",
+    "definition": "Verifying that a device or system is the trusted one it claims to be, since a device cannot type a password. Commonly done with digital certificates installed on the device and signed by the organization's certificate authority.",
+    "example": "A company laptop presents its device certificate when connecting to the corporate VPN, and the VPN concentrator only accepts devices with a certificate signed by the internal CA.",
+    "category": "1.2 Fundamental security concepts > AAA",
+    "keyPoints": "Device certificates signed by a trusted CA; used for VPN, Wi-Fi and network access control; answers 'how do we know this device is ours'"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Authentication, Authorization, and Accounting (AAA)",
+      "Authorization models"
+    ],
+    "term": "Authorization models (AAA)",
+    "definition": "Frameworks that map users to permissions through an abstraction such as roles, groups, attributes or rules, instead of assigning rights to each user for each resource individually.",
+    "example": "Rather than granting 500 users access to 40 shares one by one, the admin grants access to a 'Shipping' role and adds staff to that role.",
+    "category": "1.2 Fundamental security concepts > AAA",
+    "keyPoints": "Abstraction scales and is easier to audit; examples: role-based, attribute-based, rule-based, discretionary, mandatory (detailed in 4.6); direct per-user permissions do not scale"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Gap analysis"
+    ],
+    "term": "Gap analysis (security)",
+    "definition": "A study comparing the current security posture with a desired state, often a framework or standard, to find the gaps and plan how to close them.",
+    "example": "A company compares its controls against NIST SP 800-171 requirements, finds no formal incident response plan, and builds a roadmap to add one.",
+    "category": "1.2 Fundamental security concepts > Gap analysis",
+    "keyPoints": "Current state vs target baseline; produces a plan or roadmap; often uses a framework such as NIST or ISO/IEC 27001; can take weeks or months; results are often scored per area (for example green, yellow, red) so the biggest gaps are fixed first"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust"
+    ],
+    "term": "Zero Trust (security model)",
+    "definition": "A security model that trusts nothing by default, even inside the network: every subject and every request is authenticated, authorized and checked before access is granted. It is split into a control plane (decides) and a data plane (enforces and carries traffic).",
+    "example": "An employee already on the office network must still authenticate and have device posture checked before reaching the HR application.",
+    "category": "1.2 Fundamental security concepts > Zero Trust",
+    "keyPoints": "Never trust, always verify; no implicit trust based on network location; control plane decides, data plane enforces; based on NIST SP 800-207"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Control Plane"
+    ],
+    "term": "Control plane (Zero Trust)",
+    "definition": "The part of a Zero Trust architecture that manages and makes access decisions: it defines policy, evaluates requests and configures the enforcement points. It includes the Policy Engine and Policy Administrator.",
+    "example": "A central identity and policy service decides whether a contractor's request to a database is allowed and tells the gateway what to do.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Control plane",
+    "keyPoints": "Decides and manages; contains Policy Engine and Policy Administrator; adaptive identity, threat scope reduction and policy-driven access control are its concepts; data plane does the forwarding"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Control Plane",
+      "Adaptive identity"
+    ],
+    "term": "Adaptive identity (Zero Trust)",
+    "definition": "Evaluating identity using context, not only credentials: location, device, time, behavior and risk signals change how much verification is required.",
+    "example": "A login from a new country on an unknown device triggers an extra MFA prompt, while the usual office laptop does not.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Control plane",
+    "keyPoints": "Context and risk based; can step up authentication; considers relationship to the organization, location, IP, device"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Control Plane",
+      "Threat scope reduction"
+    ],
+    "term": "Threat scope reduction (Zero Trust)",
+    "definition": "Shrinking the possible attack surface by limiting the number of entry points and giving subjects only the access they need.",
+    "example": "Users reach only the specific applications they need through a gateway, instead of having full network access over a VPN.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Control plane",
+    "keyPoints": "Fewer entry points, least privilege; reduces what an attacker can reach after compromise; ties to microsegmentation"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Control Plane",
+      "Policy-driven access control"
+    ],
+    "term": "Policy-driven access control (Zero Trust)",
+    "definition": "Granting or denying access based on defined policies that combine identity, context and rules, rather than on network location.",
+    "example": "A policy says finance staff may reach the payroll system only from managed devices during business hours.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Control plane",
+    "keyPoints": "Rules decide access, evaluated per request; works with adaptive identity; policies are evaluated by the Policy Engine"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Control Plane",
+      "Policy Administrator"
+    ],
+    "term": "Policy Administrator (Zero Trust)",
+    "definition": "The control plane component that carries out the Policy Engine's decision: it communicates with the Policy Enforcement Point to establish or shut down the communication path, for example by issuing session tokens or credentials.",
+    "example": "After the Policy Engine approves a request, the Policy Administrator signals the gateway to open the session and hands it a session token.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Control plane",
+    "keyPoints": "Executes decisions, does not make them; talks to the PEP; Policy Engine decides, Policy Administrator acts, PEP enforces; some products run the Policy Engine and Policy Administrator as one service, but they remain two separate roles"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Control Plane",
+      "Policy Engine"
+    ],
+    "term": "Policy Engine (Zero Trust)",
+    "definition": "The control plane component that makes the actual access decision (grant, deny or revoke) by evaluating the request against policy and other inputs such as threat intelligence and identity data.",
+    "example": "The Policy Engine sees that a device fails its patch posture check and denies access to the source code repository.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Control plane",
+    "keyPoints": "The decision maker; uses policy plus external signals; a common mix-up is naming the Policy Administrator or PEP as the part that decides; NIST SP 800-207 groups the Policy Engine and Policy Administrator together as the Policy Decision Point (PDP); the Policy Engine also logs each decision"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Data Plane"
+    ],
+    "term": "Data plane (Zero Trust)",
+    "definition": "The part of a Zero Trust architecture where traffic actually flows and decisions are enforced. It includes the subject or system, the Policy Enforcement Point and the implicit trust zone behind it.",
+    "example": "A user's traffic passes through a gateway that allows the session only because the control plane approved it.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Data plane",
+    "keyPoints": "Carries and enforces, does not decide; contains subject/system, PEP, implicit trust zones; contrast with control plane"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Data Plane",
+      "Implicit trust zones"
+    ],
+    "term": "Implicit trust zones (Zero Trust)",
+    "definition": "The area behind a Policy Enforcement Point where entities are trusted once they have passed through it. Zero Trust aims to keep these zones as small as possible.",
+    "example": "After the gateway admits a session, traffic between it and the specific application server is in the implicit trust zone.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Data plane",
+    "keyPoints": "Trust only after passing the PEP; keep zones small; a flat internal network is a large implicit trust zone, which Zero Trust avoids; NIST's analogy: once passengers clear airport security, everyone in the boarding area is treated as trusted, so the zone after a checkpoint should be as small as possible"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Data Plane",
+      "Subject/System"
+    ],
+    "term": "Subject/System (Zero Trust)",
+    "definition": "The entity requesting access in a Zero Trust architecture: the subject is the user, application or other non-human entity (such as a process or service), and the system is the device or application it uses.",
+    "example": "A nurse (subject) on a hospital tablet (system) requests access to a patient records application.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Data plane",
+    "keyPoints": "The requester; both the user and the device are evaluated; sits on the untrusted side of the PEP"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Zero Trust",
+      "Data Plane",
+      "Policy Enforcement Point"
+    ],
+    "term": "Policy Enforcement Point (PEP, Zero Trust)",
+    "definition": "The data plane gatekeeper that sits between the subject and the resource; it passes requests to the control plane and then enables, monitors and terminates the connection as instructed.",
+    "example": "An application gateway that holds every connection until the Policy Administrator tells it to allow or drop the session.",
+    "category": "1.2 Fundamental security concepts > Zero Trust > Data plane",
+    "keyPoints": "Enforces, does not decide; all traffic passes through it; Policy Engine decides, Policy Administrator relays, PEP enforces"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security"
+    ],
+    "term": "Physical security (security concepts)",
+    "definition": "Controls that protect buildings, equipment and people from physical access and harm, including barriers, entry controls, surveillance, guards, badges, lighting and sensors.",
+    "example": "A data center uses fencing, bollards, a badge reader, an access control vestibule, cameras and guards in layers.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Layered defense; many physical controls are both preventive and deterrent; sensors and cameras are detective"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Bollards"
+    ],
+    "term": "Bollards (physical security)",
+    "definition": "Short, sturdy posts placed to stop vehicles from reaching a building or area while still letting people on foot pass.",
+    "example": "Concrete bollards in front of a store entrance prevent a car from being driven through the glass doors.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Stop vehicles, not people; preventive physical control; also used to channel foot traffic"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Access control vestibule"
+    ],
+    "term": "Access control vestibule (physical security)",
+    "definition": "A small space with two doors where only one door can be open at a time, so each person can be checked and tailgating is prevented. Formerly called a mantrap.",
+    "example": "At a data center entrance, the inner door stays locked until the outer door closes and the person badges in again.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Two interlocking doors; stops tailgating and piggybacking; old name mantrap"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Fencing"
+    ],
+    "term": "Fencing (physical security)",
+    "definition": "A perimeter barrier that marks a boundary and keeps people out; it can be see-through or opaque and made harder to climb with height or razor wire.",
+    "example": "A tall fence with razor wire surrounds a power substation.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Preventive and deterrent; transparent fences allow visibility, opaque ones hide activity; first layer of perimeter defense"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Video surveillance"
+    ],
+    "term": "Video surveillance (physical security)",
+    "definition": "Cameras (CCTV) that monitor and record areas, often with features such as motion detection, object detection and facial recognition.",
+    "example": "Cameras with motion detection record the loading dock and alert security when someone appears after hours.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Mainly detective, also deterrent when visible; CCTV = closed-circuit television; recordings support investigations; modern cameras can also read license plates and send footage from many cameras to central storage"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Security guard"
+    ],
+    "term": "Security guard (physical security)",
+    "definition": "A person who protects a facility by checking identities, monitoring access, responding to events and verifying visitors. Two-person integrity can require two guards for sensitive areas.",
+    "example": "A guard at reception checks each visitor's ID against the visitor list and issues a temporary badge.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Flexible: preventive, deterrent and detective; can make judgment calls machines cannot; two-person integrity or control reduces insider risk"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Access badge"
+    ],
+    "term": "Access badge (physical security)",
+    "definition": "An identification card, often with a photo and an RFID or NFC chip, used to unlock doors and show who someone is; badge use can be logged.",
+    "example": "Employees tap their badges on a reader to open the office door, and each entry is recorded.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Identification plus electronic entry; usage logs support accounting; risks are lost, shared or cloned badges"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Lighting"
+    ],
+    "term": "Lighting (physical security)",
+    "definition": "Illumination of outdoor and indoor areas to discourage intruders and help cameras and guards see clearly.",
+    "example": "Bright, even lighting around a parking lot removes shadows and lets cameras capture usable footage at night.",
+    "category": "1.2 Fundamental security concepts > Physical security",
+    "keyPoints": "Deterrent; improves camera image quality; avoid shadows and glare; infrared cameras can work in low light"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Sensors"
+    ],
+    "term": "Sensors (physical security)",
+    "definition": "Devices that detect a physical change such as heat, weight, movement or sound and trigger an alert. SY0-701 lists infrared, pressure, microwave and ultrasonic sensors.",
+    "example": "An alarm system uses infrared motion sensors in hallways and pressure mats at doorways.",
+    "category": "1.2 Fundamental security concepts > Physical security > Sensors",
+    "keyPoints": "Detective controls; infrared detects heat, pressure detects weight, microwave and ultrasonic detect movement by reflected waves"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Sensors",
+      "Infrared"
+    ],
+    "term": "Infrared sensor (physical security)",
+    "definition": "A sensor that detects changes in infrared radiation (heat), such as a warm body moving through its field of view.",
+    "example": "A passive infrared motion detector turns on an alarm when a person walks through a closed office at night.",
+    "category": "1.2 Fundamental security concepts > Physical security > Sensors",
+    "keyPoints": "Detects body heat; common in motion detectors; works in the dark"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Sensors",
+      "Pressure"
+    ],
+    "term": "Pressure sensor (physical security)",
+    "definition": "A sensor that detects force or weight applied to a surface.",
+    "example": "A pressure mat under the carpet at a server room door raises an alert when someone steps on it.",
+    "category": "1.2 Fundamental security concepts > Physical security > Sensors",
+    "keyPoints": "Detects weight or force; floor mats and pressure-sensitive surfaces; does not need line of sight"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Sensors",
+      "Microwave"
+    ],
+    "term": "Microwave sensor (physical security)",
+    "definition": "A motion sensor that sends out microwave pulses and detects movement from changes in the reflected signal; it covers larger areas than infrared and can sense through some materials.",
+    "example": "A warehouse uses microwave motion sensors to cover large open floor areas.",
+    "category": "1.2 Fundamental security concepts > Physical security > Sensors",
+    "keyPoints": "Active sensor using reflected microwaves; larger coverage than infrared; more prone to false alarms because it passes through glass, drywall and wood (not metal) and can pick up motion outside the intended area"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Physical security",
+      "Sensors",
+      "Ultrasonic"
+    ],
+    "term": "Ultrasonic sensor (physical security)",
+    "definition": "A motion sensor that emits high-frequency sound beyond human hearing and detects movement from changes in the echoes.",
+    "example": "An ultrasonic sensor in a stockroom triggers an alarm when the echo pattern changes because someone entered.",
+    "category": "1.2 Fundamental security concepts > Physical security > Sensors",
+    "keyPoints": "Uses sound waves, not light or heat; detects motion by echo changes; contrast with microwave, which uses radio waves"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Deception and disruption technology"
+    ],
+    "term": "Deception and disruption technology",
+    "definition": "Decoy systems and data that lure attackers, waste their time and reveal their methods: honeypots, honeynets, honeyfiles and honeytokens.",
+    "example": "A security team deploys a fake file server, fake documents and fake API keys, and watches for anyone who touches them.",
+    "category": "1.2 Fundamental security concepts > Deception and disruption",
+    "keyPoints": "Any interaction with a decoy is suspicious by definition; used to learn attacker techniques and detect intrusions; distinguish pot (system), net (network), file (document), token (traceable data)"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Deception and disruption technology",
+      "Honeypot"
+    ],
+    "term": "Honeypot (deception technology)",
+    "definition": "A single decoy system that looks like a real, valuable target, built to attract attackers so their activity can be watched and studied.",
+    "example": "A fake server exposing what looks like a vulnerable database is placed online to record attackers' tools and commands.",
+    "category": "1.2 Fundamental security concepts > Deception and disruption",
+    "keyPoints": "One decoy system; honeynet is many decoys together; attackers may recognize a poor honeypot"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Deception and disruption technology",
+      "Honeynet"
+    ],
+    "term": "Honeynet (deception technology)",
+    "definition": "A network of multiple honeypots and other decoy resources (servers, workstations, routers) that together imitate a real environment.",
+    "example": "A research team builds a fake small-business network with several servers and workstations to observe how attackers move laterally.",
+    "category": "1.2 Fundamental security concepts > Deception and disruption",
+    "keyPoints": "More than one honeypot, a whole decoy network; more convincing and shows lateral movement; contrast with a single honeypot"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Deception and disruption technology",
+      "Honeyfile"
+    ],
+    "term": "Honeyfile (deception technology)",
+    "definition": "A decoy file with an attractive name and fake contents; any access to it triggers an alert.",
+    "example": "A file named passwords.txt on a file share sends an alert to security whenever someone opens it.",
+    "category": "1.2 Fundamental security concepts > Deception and disruption",
+    "keyPoints": "Bait file, alert on access; contrast with honeytoken, which is traceable data that may be copied elsewhere"
+  },
+  {
+    "obj": "1.2",
+    "path": [
+      "Deception and disruption technology",
+      "Honeytoken"
+    ],
+    "term": "Honeytoken (deception technology)",
+    "definition": "A piece of fake but traceable data, such as a fake credential, API key or email address, that has no legitimate use, so seeing it used or appear somewhere reveals a breach and where data went.",
+    "example": "A fake AWS access key is planted in a code repository; when someone tries to use it, the alert shows the repository was compromised.",
+    "category": "1.2 Fundamental security concepts > Deception and disruption",
+    "keyPoints": "Traceable data, not a whole file or system; detects exfiltration and tracks where data ends up; fake credentials, records or email addresses"
+  },
+  {
+    "obj": "1.3",
+    "path": [],
+    "term": "SY0-701 1.3: Explain the importance of change management processes and the impact to security",
+    "definition": "Objective 1.3 covers how organizations control changes to systems safely: the business process (approval, ownership, stakeholders, impact analysis, testing, backout plans, maintenance windows, SOPs), the technical side effects of changes, documentation and version control.",
+    "example": "Before patching a production firewall, the team files a change request, tests it, gets approval, schedules a maintenance window and prepares a backout plan.",
+    "category": "1.3 Change management",
+    "keyPoints": "Unmanaged changes cause outages and security holes; know each step of the process; technical implications include downtime, restarts, dependencies and legacy apps"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation"
+    ],
+    "term": "Business processes impacting security operation (change management)",
+    "definition": "The formal steps that govern a change before it reaches production: approval, ownership, stakeholders, impact analysis, test results, a backout plan, a maintenance window and standard operating procedures.",
+    "example": "A change advisory board reviews a request to upgrade the email server, checks its impact analysis and test results, and approves it for Saturday night.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "A clear, repeatable process; usually overseen by a change advisory board (CAB); every change needs a way back (backout plan)"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Approval process"
+    ],
+    "term": "Approval process (change management)",
+    "definition": "The formal review and sign-off a change must get before it is made, often by a change advisory board, based on the request's purpose, scope, risk and schedule.",
+    "example": "A change request to open a new firewall port is submitted, reviewed for risk and approved by the CAB before implementation.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "No change without approval; CAB = change advisory board; emergency changes still get approval, sometimes after the fact"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Ownership"
+    ],
+    "term": "Ownership (change management)",
+    "definition": "Assigning the person or group responsible for a change and the affected system; the owner requests and is accountable for the change but does not necessarily perform it.",
+    "example": "The shipping department manager owns the label printing application and requests its upgrade, while IT performs the work.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "Owner is accountable and is kept informed; owner is not always the implementer; makes responsibility clear"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Stakeholders"
+    ],
+    "term": "Stakeholders (change management)",
+    "definition": "The people and groups affected by a change, who should be identified and consulted because the change may impact their work.",
+    "example": "Upgrading the payroll system involves HR, finance, IT and the payroll vendor as stakeholders.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "Anyone impacted; a small change can affect many departments; involve them in planning and communication"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Impact analysis"
+    ],
+    "term": "Impact analysis (change management)",
+    "definition": "Assessing the risks of making a change and of not making it, including possible failures, side effects and the effect on business operations.",
+    "example": "Analysis shows a database patch could break a reporting tool, so the team plans extra testing; it also notes the unpatched flaw is actively exploited.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "Risk of the change and risk of doing nothing; rated high, medium or low; identifies side effects before approval"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Test results"
+    ],
+    "term": "Test results (change management)",
+    "definition": "Evidence from trying the change in a non-production environment (a sandbox or test lab) first, to confirm it works and has no harmful side effects before approval or rollout.",
+    "example": "A patch is applied to a cloned test server, and the results show the application still starts and passes its checks.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "Test in a sandbox or staging environment, not production; results support approval; also test the backout plan"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Backout plan"
+    ],
+    "term": "Backout plan (change management)",
+    "definition": "A documented way to undo a change and return to the previous working state if the change fails or causes problems.",
+    "example": "Before a server OS upgrade, the team takes a full backup and snapshot so they can roll back if the upgrade breaks the application.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "Also called a rollback plan; always required; usually depends on good backups; not every change is easy to reverse"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Maintenance window"
+    ],
+    "term": "Maintenance window (change management)",
+    "definition": "A scheduled period, usually of low business activity, set aside for making changes so disruption is minimized.",
+    "example": "A retailer applies server updates at 2 a.m. on Sundays, but freezes changes during the holiday shopping season.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "Pre-scheduled, low-impact time; often overnight or weekends; change freezes at critical business periods"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Business processes impacting security operation",
+      "Standard operating procedure"
+    ],
+    "term": "Standard operating procedure (SOP, change management)",
+    "definition": "A documented, step-by-step description of how a routine task, including the change process itself, must be performed so it is done consistently.",
+    "example": "The change management SOP describes how to submit a request, who approves it and how to record the outcome.",
+    "category": "1.3 Change management > Business processes",
+    "keyPoints": "Written, repeatable steps; must itself be updated when processes change; SOP = standard operating procedure"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications"
+    ],
+    "term": "Technical implications (change management)",
+    "definition": "The technical side effects to plan for when making a change: allow and deny list updates, restricted activities, downtime, service and application restarts, legacy applications and dependencies.",
+    "example": "Updating an application requires adding its new executable hash to the allow list, a service restart and checking that a dependent service still works.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "Every change can have hidden effects; plan restarts and downtime; check dependencies and legacy systems before approval"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications",
+      "Allow lists/deny lists"
+    ],
+    "term": "Allow lists/deny lists (change management impact)",
+    "definition": "Lists that explicitly permit (allow list) or block (deny list) applications, addresses or traffic. A change may require updating them, or the change may be blocked or create an unintended opening.",
+    "example": "After an application update, the new version is blocked because its hash is not on the application allow list until the list is updated.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "Allow list: only listed items run, everything else is denied; deny list: listed items are blocked, everything else runs; updates can break or open access; antivirus works like a very large deny list"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications",
+      "Restricted activities"
+    ],
+    "term": "Restricted activities (change management)",
+    "definition": "Limits on what may be done during a change: the implementer must stay within the approved scope and not make unapproved extra changes.",
+    "example": "A technician approved to update one router's firmware notices another misconfiguration but may not fix it without a separate approved change.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "Stay inside the approved scope; scope expansion needs new approval; protects against untested side effects; some policies allow a small extra change only when the approved task cannot be finished without it"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications",
+      "Downtime"
+    ],
+    "term": "Downtime (change management)",
+    "definition": "The period when a service is unavailable because of a change. It should be planned, minimized and communicated, for example with a failover system or a maintenance page.",
+    "example": "An e-commerce site shows a maintenance page for 30 minutes while the database is upgraded, during a pre-announced window.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "Affects availability; schedule in maintenance windows; use redundancy or failover to reduce it; notify users"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications",
+      "Service restart"
+    ],
+    "term": "Service restart (change management)",
+    "definition": "Restarting a background service or daemon so a change takes effect, which can interrupt anything using it and may fail to come back cleanly.",
+    "example": "Changing a web server's TLS configuration requires restarting the web service, briefly dropping active connections.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "Brief outage risk; a service may not restart correctly; plan and verify after the restart"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications",
+      "Application restart"
+    ],
+    "term": "Application restart (change management)",
+    "definition": "Closing and reopening an application so an update or configuration change takes effect, which can interrupt users and lose unsaved work.",
+    "example": "A client accounting application must be closed and reopened on every workstation after its update.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "Affects users directly; can lose unsaved data; differs from a service restart, which affects background services"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications",
+      "Legacy applications"
+    ],
+    "term": "Legacy applications (change management)",
+    "definition": "Older applications that may be unsupported, poorly documented or fragile, so changes around them carry extra risk and may require special handling or compensating controls.",
+    "example": "An OS patch is held back on one server because the vendor of its 15-year-old manufacturing app no longer exists and cannot confirm compatibility.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "Often unsupported and fragile; document how they work; may need isolation or compensating controls"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Technical implications",
+      "Dependencies"
+    ],
+    "term": "Dependencies (change management)",
+    "definition": "Relationships where one component relies on another, so changing one may require changing or restarting others, sometimes on different systems.",
+    "example": "Upgrading a database server requires first upgrading the client library used by three applications that connect to it.",
+    "category": "1.3 Change management > Technical implications",
+    "keyPoints": "A change can cascade to other systems; map dependencies before approval; order the steps correctly"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Documentation"
+    ],
+    "term": "Documentation (change management)",
+    "definition": "Keeping records current so they match the environment after every change, mainly by updating network diagrams and policies or procedures.",
+    "example": "After adding a new firewall, the team updates the network diagram and the firewall management procedure.",
+    "category": "1.3 Change management > Documentation",
+    "keyPoints": "Changes happen often, documentation must follow; outdated documents mislead troubleshooting and incident response; include documentation updates in the change process itself"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Documentation",
+      "Updating diagrams"
+    ],
+    "term": "Updating diagrams (change management documentation)",
+    "definition": "Revising network and system diagrams after a change so they show the current architecture.",
+    "example": "A new VLAN for IoT devices is added, so the network diagram is updated to show it and its firewall rules.",
+    "category": "1.3 Change management > Documentation",
+    "keyPoints": "Diagrams must match reality; used in troubleshooting and incident response; easy to forget"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Documentation",
+      "Updating policies/procedures"
+    ],
+    "term": "Updating policies/procedures (change management documentation)",
+    "definition": "Revising written policies and procedures after a change so staff follow steps that fit the new system or process.",
+    "example": "After moving to a new backup product, the backup and restore procedure is rewritten for the new tool.",
+    "category": "1.3 Change management > Documentation",
+    "keyPoints": "New systems often need new procedures; stale procedures cause errors; part of closing a change"
+  },
+  {
+    "obj": "1.3",
+    "path": [
+      "Version control"
+    ],
+    "term": "Version control (change management)",
+    "definition": "Tracking every change to code, configurations or documents over time, with who changed what and when, so earlier versions can be compared or restored.",
+    "example": "Router configurations are stored in a Git repository, so a bad change can be found with a diff and the previous version restored.",
+    "category": "1.3 Change management > Version control",
+    "keyPoints": "History of changes with the ability to roll back; applies to code, configurations and documents; supports backout plans and audits"
+  },
+  {
+    "obj": "1.4",
+    "path": [],
+    "term": "SY0-701 1.4: Explain the importance of using appropriate cryptographic solutions",
+    "definition": "Objective 1.4 covers PKI and keys, encryption levels and types, cryptographic hardware and tools, obfuscation, hashing, salting, digital signatures, key stretching, blockchain and digital certificates.",
+    "example": "A company encrypts its laptops with full-disk encryption, keeps its certificate authority's root key in an HSM, stores passwords as salted hashes, and has browsers check certificate status with OCSP.",
+    "category": "1.4 Cryptographic solutions",
+    "keyPoints": "Largest objective in Domain 1 by item count; symmetric vs asymmetric and hashing vs encryption are core distinctions; know certificate status checking (CRL vs OCSP)"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Public key infrastructure (PKI)"
+    ],
+    "term": "Public key infrastructure (PKI)",
+    "definition": "The policies, roles, hardware, software and procedures used to create, distribute, manage, store and revoke digital certificates that bind public keys to identities.",
+    "example": "A company runs an internal certificate authority that issues certificates to its servers, laptops and users.",
+    "category": "1.4 Cryptographic solutions > PKI",
+    "keyPoints": "Built on asymmetric (public/private) key pairs; certificate authorities vouch for identities; covers the whole certificate lifecycle including revocation"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Public key infrastructure (PKI)",
+      "Public key"
+    ],
+    "term": "Public key (PKI)",
+    "definition": "The half of an asymmetric key pair that is shared openly; it is used to encrypt data for the key owner and to verify the owner's digital signatures.",
+    "example": "A web server's certificate contains its public key, which browsers use during TLS to set up a secure session.",
+    "category": "1.4 Cryptographic solutions > PKI",
+    "keyPoints": "Shared with everyone; encrypt with the recipient's public key; verify signatures with the sender's public key; cannot practically be used to work out the private key"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Public key infrastructure (PKI)",
+      "Private key"
+    ],
+    "term": "Private key (PKI)",
+    "definition": "The half of an asymmetric key pair that only its owner holds and must be kept secret; it decrypts data encrypted with the matching public key and creates digital signatures.",
+    "example": "A user signs an email with their private key; recipients verify it with the user's public key.",
+    "category": "1.4 Cryptographic solutions > PKI",
+    "keyPoints": "Never shared; decrypts what the public key encrypted; signs data; if compromised, the certificate must be revoked"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Public key infrastructure (PKI)",
+      "Key escrow"
+    ],
+    "term": "Key escrow (PKI)",
+    "definition": "Storing a copy of encryption keys with a trusted third party or a protected internal store so data can be recovered if the key is lost or access is legally required.",
+    "example": "A company keeps escrowed copies of employees' encryption keys so it can still decrypt business data after an employee leaves.",
+    "category": "1.4 Cryptographic solutions > PKI",
+    "keyPoints": "Recovery and legal access to encrypted data; the escrow holder must be highly trusted; contrast with key management system, which handles the whole key lifecycle"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption"
+    ],
+    "term": "Encryption (cryptographic solutions)",
+    "definition": "Transforming plaintext into ciphertext with an algorithm and a key so only someone with the right key can read it. SY0-701 covers where it is applied (levels, transport), how (symmetric, asymmetric, key exchange) and its strength (algorithms, key length).",
+    "example": "A laptop uses full-disk encryption at rest, while its web traffic is encrypted in transit with TLS.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": "Protects confidentiality; reversible with the key, unlike hashing; data at rest vs data in transit"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Level"
+    ],
+    "term": "Encryption levels (data at rest)",
+    "definition": "How much data a single encryption mechanism covers: a whole drive (full-disk), part of storage (partition, volume), or specific data (file, database, record).",
+    "example": "A laptop may use full-disk encryption, while a database server encrypts only the column holding credit card numbers.",
+    "category": "1.4 Cryptographic solutions > Encryption > Level",
+    "keyPoints": "The key choice is scope; full-disk protects a lost device, record level protects specific fields; finer levels allow different keys per item"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Level",
+      "Full-disk"
+    ],
+    "term": "Full-disk encryption (encryption level)",
+    "definition": "Encrypting everything on a storage drive, including the operating system, swap and temporary files, so the whole drive is unreadable without the key.",
+    "example": "BitLocker or FileVault on a laptop keeps all data safe if the laptop is stolen.",
+    "category": "1.4 Cryptographic solutions > Encryption > Level",
+    "keyPoints": "FDE protects lost or stolen devices; often paired with a TPM; data is readable once the system is unlocked and running"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Level",
+      "Partition"
+    ],
+    "term": "Partition encryption (encryption level)",
+    "definition": "Encrypting one specific partition of a drive while other partitions may remain unencrypted.",
+    "example": "A drive has an unencrypted system partition and a separately encrypted data partition holding customer files.",
+    "category": "1.4 Cryptographic solutions > Encryption > Level",
+    "keyPoints": "Narrower than full-disk; protects selected partitions only; BitLocker can encrypt a single data partition"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Level",
+      "File"
+    ],
+    "term": "File encryption (encryption level)",
+    "definition": "Encrypting individual files rather than a whole drive or partition, so protection follows those specific files.",
+    "example": "Windows Encrypting File System (EFS) encrypts a single folder of HR documents on an otherwise unencrypted drive.",
+    "category": "1.4 Cryptographic solutions > Encryption > Level",
+    "keyPoints": "Per-file protection; EFS on NTFS is the common example; Microsoft names it Encrypting File System, while CompTIA's acronym list says Encrypted File System, the same feature; a copy moved to a non-NTFS drive (such as FAT32) or sent over the network is no longer EFS-encrypted (Microsoft notes a WebDAV folder as the exception)"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Level",
+      "Volume"
+    ],
+    "term": "Volume encryption (encryption level)",
+    "definition": "Encrypting a logical volume, which may span part of a disk or several physical disks, rather than one physical drive or partition.",
+    "example": "A BitLocker-encrypted removable USB volume (BitLocker To Go) or an encrypted volume spanning two disks.",
+    "category": "1.4 Cryptographic solutions > Encryption > Level",
+    "keyPoints": "Logical storage unit, not a physical disk; common mix-up: a partition is a section of one physical disk, while a volume is a logical storage unit that can be one partition or span several disks"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Level",
+      "Database"
+    ],
+    "term": "Database encryption (encryption level)",
+    "definition": "Encrypting an entire database, including its data files, log files and backups, typically transparently by the database server.",
+    "example": "Transparent Data Encryption (TDE) in Microsoft SQL Server encrypts the database files on disk.",
+    "category": "1.4 Cryptographic solutions > Encryption > Level",
+    "keyPoints": "Whole database at rest; transparent to applications; contrast with record level, which encrypts selected fields; protects data at rest only, not data moving over the network"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Level",
+      "Record"
+    ],
+    "term": "Record encryption (encryption level)",
+    "definition": "Encrypting individual records or fields (columns) inside a database, so only the sensitive parts are encrypted, possibly with different keys.",
+    "example": "Only the Social Security number column in a customer table is encrypted, while names remain readable for searches.",
+    "category": "1.4 Cryptographic solutions > Encryption > Level",
+    "keyPoints": "Most granular level; also called column or field-level encryption; keeps sensitive fields protected even from some database users"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Transport/communication"
+    ],
+    "term": "Transport/communication encryption",
+    "definition": "Encrypting data in transit as it moves across a network, so it cannot be read if intercepted.",
+    "example": "HTTPS uses TLS to protect web traffic, and a site-to-site IPsec VPN protects traffic between two offices.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": "Data in transit, not at rest; TLS, IPsec, SSH, VPNs; protects against eavesdropping and on-path attacks"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Asymmetric"
+    ],
+    "term": "Asymmetric encryption",
+    "definition": "Encryption that uses a mathematically related key pair: data encrypted with the public key can only be decrypted with the private key, and the private key creates signatures the public key verifies. Also called public key cryptography.",
+    "example": "RSA or elliptic curve cryptography (ECC) is used in TLS to authenticate the server and help establish a shared session key.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": "Two keys, public and private; slower than symmetric, so used for key exchange and signatures, not bulk data; RSA and ECC; Diffie-Hellman is asymmetric key agreement, not encryption"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Symmetric"
+    ],
+    "term": "Symmetric encryption",
+    "definition": "Encryption that uses the same shared secret key to encrypt and decrypt. It is fast and suited to large amounts of data, but the key must be shared securely.",
+    "example": "AES encrypts a laptop's drive and the bulk data of a TLS session after the session key is agreed.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": "One shared key; fast, used for bulk data; key distribution is the weakness; AES is the standard; cannot provide non-repudiation"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Key exchange"
+    ],
+    "term": "Key exchange (cryptography)",
+    "definition": "The method used to get a shared symmetric key to both parties securely, either out-of-band (another channel) or in-band (over the same network, protected with asymmetric cryptography or Diffie-Hellman).",
+    "example": "In TLS, the browser and server use Diffie-Hellman to agree on a session key without ever sending the key itself.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": "Solves symmetric key distribution; out-of-band (phone, courier) vs in-band (network); Diffie-Hellman agrees on a key, it does not encrypt data; session keys are temporary; TLS 1.3 dropped static RSA and static Diffie-Hellman key exchange, so every full handshake uses fresh (ephemeral) keys and has forward secrecy: a server key stolen later cannot decrypt old recorded sessions; a resumed session using only a pre-shared key has none"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Algorithms"
+    ],
+    "term": "Encryption algorithms (ciphers)",
+    "definition": "The mathematical procedures used to encrypt and decrypt data. Security depends on a well-known, tested algorithm plus a secret key, not on hiding the algorithm.",
+    "example": "AES is a symmetric algorithm; RSA and ECC are asymmetric; DES and RC4 are outdated and should not be used.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": "Algorithms are public, keys are secret; choose current, vetted algorithms; symmetric: AES; asymmetric: RSA, ECC"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Encryption",
+      "Key length"
+    ],
+    "term": "Key length (encryption)",
+    "definition": "The size of a cryptographic key in bits; longer keys mean far more possible keys and greater resistance to brute force. Symmetric and asymmetric keys are not comparable bit for bit.",
+    "example": "AES-256 uses a 256-bit key, while RSA keys are commonly 2048 bits or more; RSA-2048 is only about as strong as a 112-bit symmetric key.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": "Longer is stronger but slower; asymmetric keys must be much longer than symmetric for similar strength; ECC gives equal strength with shorter keys than RSA; NIST equivalents: AES-128 = RSA-3072 = ECC 256-bit; AES-256 = RSA-15360 = ECC 512-bit or more"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Tools"
+    ],
+    "term": "Cryptographic tools (hardware and key management)",
+    "definition": "Hardware and systems that generate, store and protect keys and perform cryptographic operations: Trusted Platform Module, hardware security module, key management system and secure enclave.",
+    "example": "A laptop's TPM protects its BitLocker key, while a bank's HSM protects payment card keys.",
+    "category": "1.4 Cryptographic solutions > Tools",
+    "keyPoints": "TPM is a chip in one device; HSM is a dedicated, often clustered appliance for many systems; secure enclave is an isolated processor in a chip; KMS manages the key lifecycle"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Tools",
+      "Trusted Platform Module (TPM)"
+    ],
+    "term": "Trusted Platform Module (TPM)",
+    "definition": "A dedicated security chip on a computer's motherboard (or a firmware TPM built into the processor) that provides a hardware root of trust: secure key storage, a random number generator, key generation and measurements of each boot step (measured boot) that can later prove how the system started.",
+    "example": "BitLocker seals its key to the TPM, which releases it only when the boot measurements match, so the drive unlocks only on the original, unmodified computer.",
+    "category": "1.4 Cryptographic solutions > Tools",
+    "keyPoints": "Built into one device; protects keys used by that device, such as full-disk encryption keys; resists dictionary attacks with lockout; contrast with HSM for enterprise scale"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Tools",
+      "Hardware security module (HSM)"
+    ],
+    "term": "Hardware security module (HSM)",
+    "definition": "A dedicated, tamper-resistant hardware device (appliance or plug-in card) that securely generates, stores and uses many keys for servers and applications, often clustered for redundancy and with crypto acceleration.",
+    "example": "A certificate authority keeps its root private key inside an HSM so the key never leaves the hardware.",
+    "category": "1.4 Cryptographic solutions > Tools",
+    "keyPoints": "Enterprise scale, many keys, many systems; high availability and crypto acceleration; TPM is per-device, HSM serves many"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Tools",
+      "Key management system"
+    ],
+    "term": "Key management system (KMS)",
+    "definition": "A centralized system that manages the full lifecycle of cryptographic keys: creation, storage, distribution, rotation, expiration and revocation, often with logging and access control.",
+    "example": "A cloud provider's key management service lets an organization create, rotate and audit the keys used to encrypt its storage buckets.",
+    "category": "1.4 Cryptographic solutions > Tools",
+    "keyPoints": "Lifecycle and central control; keeps keys separate from the data they protect; supports rotation and auditing"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Tools",
+      "Secure enclave"
+    ],
+    "term": "Secure enclave (cryptographic hardware)",
+    "definition": "A hardware-isolated security processor or area inside a system on a chip that handles sensitive data such as keys and biometric data separately from the main processor and operating system.",
+    "example": "On iPhones, Apple's Secure Enclave protects Touch ID and Face ID data and device keys, so even a compromised OS kernel cannot read them.",
+    "category": "1.4 Cryptographic solutions > Tools",
+    "keyPoints": "Isolated from the main OS; protects keys and biometrics; has its own Boot ROM and true random number generator; found in phones and modern CPUs"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Obfuscation"
+    ],
+    "term": "Obfuscation (data protection)",
+    "definition": "Making data hard to understand or find while keeping it usable for some purpose. SY0-701 lists steganography, tokenization and data masking.",
+    "example": "A payment processor replaces card numbers with tokens, and a help desk sees only the last four digits.",
+    "category": "1.4 Cryptographic solutions > Obfuscation",
+    "keyPoints": "Hides meaning or presence of data; not the same as encryption; steganography hides existence, tokenization substitutes, masking hides part"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Obfuscation",
+      "Steganography"
+    ],
+    "term": "Steganography",
+    "definition": "Hiding data inside other, ordinary-looking data (images, audio, video or network traffic) so that the existence of the message is concealed.",
+    "example": "A message is hidden in the least significant bits of a photo's pixels, so the image looks unchanged.",
+    "category": "1.4 Cryptographic solutions > Obfuscation",
+    "keyPoints": "Hides that a message exists, encryption hides what it says; cover image, audio, video or traffic; security through obscurity, not strong protection alone"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Obfuscation",
+      "Tokenization"
+    ],
+    "term": "Tokenization (data obfuscation)",
+    "definition": "Replacing sensitive data with a non-sensitive substitute value (token) that has no mathematical relationship to the original; the real value is stored in a separate, secured token vault.",
+    "example": "A phone wallet pays with a device-specific token (Apple calls it a Device Account Number) plus a one-time security code instead of the real card number; only the card issuer or payment network can map the token back to the card.",
+    "category": "1.4 Cryptographic solutions > Obfuscation",
+    "keyPoints": "Not encryption, the token cannot be decrypted; original kept in a token vault; can reduce PCI DSS scope because fewer systems hold card numbers, but does not remove PCI DSS duties; contrast with masking, which hides part of the real value; study guides often call mobile payment tokens single use; with Apple Pay the token stays the same on a device and the part that changes every purchase is the security code; the form to know first is vault-based tokens with no mathematical link to the original; PCI also describes cryptographic tokens made from the card number with a key"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Obfuscation",
+      "Data masking"
+    ],
+    "term": "Data masking",
+    "definition": "Hiding some or all of a data value from view by replacing characters, so users see only what they need while the real data stays protected.",
+    "example": "A receipt or support screen shows a card number as **** **** **** 4321.",
+    "category": "1.4 Cryptographic solutions > Obfuscation",
+    "keyPoints": "Hides part of the displayed data; often used for non-production copies or limited views; tokenization replaces the whole value with a substitute"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Hashing"
+    ],
+    "term": "Hashing (cryptography)",
+    "definition": "A one-way function that turns input of any size into a fixed-length digest; the same input always gives the same digest, any change gives a different one, and the original cannot be recovered from it.",
+    "example": "A downloaded installer's SHA-256 hash is compared with the hash published by the vendor to confirm the file was not altered.",
+    "category": "1.4 Cryptographic solutions > Hashing",
+    "keyPoints": "One-way, not reversible, unlike encryption; provides integrity; a collision is two inputs with the same hash (MD5 is broken where collision resistance matters); SHA-256 is current for integrity checks, but a fast hash alone is too quick for passwords: store them with a slow password hash (Argon2id, bcrypt, PBKDF2) plus a salt"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Salting"
+    ],
+    "term": "Salting (password hashing)",
+    "definition": "Adding a random value (salt) to each password before hashing it, so identical passwords produce different hashes and precomputed attacks no longer work.",
+    "example": "Two users with the password 'Summer2024' get completely different stored hashes because each has a unique salt.",
+    "category": "1.4 Cryptographic solutions > Salting",
+    "keyPoints": "Defeats rainbow tables; salt is unique per password and stored with the hash, it is not secret; does not slow brute force against a single hash, key stretching does"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Digital signatures"
+    ],
+    "term": "Digital signatures",
+    "definition": "A hash of a message encrypted with the sender's private key; the recipient verifies it with the sender's public key. It proves integrity, authenticity of origin and non-repudiation.",
+    "example": "A software vendor signs its update; the operating system checks the signature with the vendor's public key before installing.",
+    "category": "1.4 Cryptographic solutions > Digital signatures",
+    "keyPoints": "Sign with the sender's private key, verify with the sender's public key; provides integrity, authentication and non-repudiation; does not by itself provide confidentiality; 'encrypt the hash with the private key' is the common simplified picture; NIST describes signing as its own private-key operation rather than encryption"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Key stretching"
+    ],
+    "term": "Key stretching",
+    "definition": "Making a weak key or password stronger against brute force by running it through a hash or key derivation function many times, so each guess takes much longer.",
+    "example": "PBKDF2 runs a password through HMAC-SHA-256 hundreds of thousands of times (OWASP suggests at least 600,000 iterations) and bcrypt uses a tunable cost factor, so an attacker can test far fewer guesses per second.",
+    "category": "1.4 Cryptographic solutions > Key stretching",
+    "keyPoints": "Repeated hashing slows brute force; PBKDF2 and bcrypt are examples; salting stops rainbow tables, stretching slows guessing; both are used together; OWASP's first choice today is Argon2id, which is slow and also needs a lot of memory per guess"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Blockchain"
+    ],
+    "term": "Blockchain",
+    "definition": "A distributed ledger of records (blocks) in which each block contains the hash of the previous block, chaining them so any change to past data is evident; copies are kept by many participants.",
+    "example": "Cryptocurrencies record transactions on a blockchain; supply chain systems use it to track goods.",
+    "category": "1.4 Cryptographic solutions > Blockchain",
+    "keyPoints": "Each block includes the previous block's hash; tampering breaks the chain and is detected; distributed, no single central authority; provides integrity and transparency"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Open public ledger"
+    ],
+    "term": "Open public ledger (blockchain)",
+    "definition": "The shared, publicly viewable record of all transactions in a public blockchain, copied to every participant so anyone can verify it.",
+    "example": "Anyone can look up a Bitcoin transaction on the public ledger, and every node holds a copy.",
+    "category": "1.4 Cryptographic solutions > Open public ledger",
+    "keyPoints": "Distributed to everyone, not held by one party; transparent and verifiable; the ledger is the data, blockchain is the hash-chained technology behind it"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates"
+    ],
+    "term": "Digital certificates (PKI)",
+    "definition": "Digitally signed files that bind a public key to an identity (person, server or device), issued by a certificate authority. The common format is X.509, holding the subject, public key, issuer, serial number and validity dates.",
+    "example": "A website's TLS certificate, signed by a trusted CA, proves the server is really example.com and provides its public key.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "X.509 standard; signed by a CA; contain the public key, never the private key; status checked by CRL or OCSP"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Certificate authorities"
+    ],
+    "term": "Certificates: Certificate authority (CA)",
+    "definition": "A trusted entity that verifies identities and issues, signs and revokes digital certificates. Trust flows from a root CA through intermediate CAs to end-entity certificates (the chain of trust).",
+    "example": "A commercial CA validates a company's domain and issues it a TLS certificate signed by an intermediate CA.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "Issues, signs and revokes certificates; root CA keys are heavily protected, often offline; intermediates issue day-to-day certificates; browsers trust preinstalled root CAs; a registration authority (RA) can check identities for the CA, which still does the signing"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Certificate revocation lists (CRLs)"
+    ],
+    "term": "Certificates: Certificate revocation list (CRL)",
+    "definition": "A list, published and signed by a CA, of certificates revoked before their expiration date (for example because a private key was compromised); clients download it to check status.",
+    "example": "After a server's private key is stolen, its certificate's serial number is added to the CA's CRL.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "Downloaded list, updated periodically, so not real-time; can grow large; OCSP checks a single certificate in real time instead; since March 2024 every public TLS CA must publish CRLs (CA/Browser Forum rules), while OCSP became optional"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Online Certificate Status Protocol (OCSP)"
+    ],
+    "term": "Certificates: Online Certificate Status Protocol (OCSP)",
+    "definition": "A protocol that lets a client ask an OCSP responder for the current status (good, revoked or unknown) of one specific certificate in real time. With OCSP stapling, the server attaches a signed, recent status to the TLS handshake.",
+    "example": "A browser checks a bank site's certificate status through OCSP, or receives a stapled OCSP response from the bank's server.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "Real-time, single-certificate check; lighter than downloading a CRL; stapling moves the check to the server and improves privacy and speed; real-world shift: since March 2024 CA/Browser Forum rules make OCSP optional and CRLs required for public TLS CAs, and Let's Encrypt turned its OCSP service off in August 2025 for privacy reasons; in the SY0-701 objectives OCSP is still the real-time check"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Self-signed"
+    ],
+    "term": "Certificates: Self-signed certificate",
+    "definition": "A certificate signed with its own private key rather than by a trusted CA, so other systems do not trust it unless it is manually installed as trusted.",
+    "example": "An admin creates a self-signed certificate for an internal test web server; browsers show a warning until it is added to the trust store.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "Free and quick; not trusted by default; fine for internal or test use; an internal CA is a better way to manage many internal certificates"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Third-party"
+    ],
+    "term": "Certificates: Third-party certificate",
+    "definition": "A certificate issued and signed by an external, publicly trusted certificate authority, so browsers and devices trust it automatically.",
+    "example": "An online store buys a certificate from a public CA so every customer's browser trusts its HTTPS site without warnings.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "Trusted by default because the CA's root is in browser trust stores; used for public-facing services; contrast with self-signed"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Root of trust"
+    ],
+    "term": "Certificates: Root of trust",
+    "definition": "An inherently trusted component that everything else's trust is built on, such as a root CA certificate in a trust store or a hardware component like a TPM or HSM.",
+    "example": "A browser trusts a website because its certificate chains up to a root CA already in the browser's trust store.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "The foundation of a chain of trust; must be highly protected; can be a root CA or hardware (TPM, HSM, secure enclave)"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Certificate signing request (CSR) generation"
+    ],
+    "term": "Certificates: Certificate signing request (CSR) generation",
+    "definition": "Creating a key pair and a CSR, a file containing the public key and identity details (such as the domain name) signed with the private key, which is sent to a CA to obtain a certificate. The private key stays with the requester.",
+    "example": "A web admin generates a key pair and CSR on the server, submits the CSR to a CA, and installs the signed certificate the CA returns.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "The CSR contains the public key, never the private key; the requester generates the key pair; the CA validates identity before signing"
+  },
+  {
+    "obj": "1.4",
+    "path": [
+      "Certificates",
+      "Wildcard"
+    ],
+    "term": "Certificates: Wildcard certificate",
+    "definition": "A certificate whose name begins with an asterisk (for example *.example.com), so it covers any single-level subdomain of that domain.",
+    "example": "One certificate for *.example.com secures www.example.com, mail.example.com and shop.example.com.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": "Covers one subdomain level only, not a.b.example.com or the bare example.com unless also listed; easier management but one compromised key affects every subdomain; a SAN (Subject Alternative Name) certificate lists specific names instead"
+  }
+]

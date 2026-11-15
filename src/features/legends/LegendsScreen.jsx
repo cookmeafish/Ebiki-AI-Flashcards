@@ -26,7 +26,8 @@ import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
 import { loadCareer, availableCareers, regionBossName } from './CareerMap'
-import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes, clearsIsland, careerFight, careerHasProgress, raidLook, addAcronymTrack, CAREER_LAYOUT } from './career'
+import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes, clearsIsland, careerFight, careerHasProgress, raidLook, addAcronymTrack, CAREER_LAYOUT, ACRONYM_ORDER } from './career'
+import { chooseCourseDeck } from './deck'
 import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
@@ -212,21 +213,31 @@ export default function LegendsScreen() {
   // A course saved in an older layout (objective checkpoints and one boss per island) and never played is rebuilt in
   // the current one (regions with their bosses, island raids, the final raid). One with progress keeps its layout.
   // A course saved before the acronym track gets it added (progress untouched).
+  const careerCheckedRef = useRef(new Set())
   useEffect(() => {
     if (!isCareerMap(map)) return undefined
     const rebuild = (map.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(map)
-    if (!rebuild && map.career?.acronyms) return undefined
+    // An up-to-date map is still checked ONCE per mode and page life against the shipped package (a newer one may add
+    // acronyms: addAcronymTrack appends them); nothing is written when nothing changed.
+    const current = map.career?.acronyms && (map.career.acronymOrder || 0) >= ACRONYM_ORDER && map.career.acronymCount
+    const checkKey = `${modeId}|${map.career?.id}`
+    if (!rebuild && current && careerCheckedRef.current.has(checkKey)) return undefined
+    careerCheckedRef.current.add(checkKey)
     let alive = true
     const pinned = modeId
     loadCareer(map.career.id).then((pkg) => {
-      if (!alive || !pkg) return
+      // A check of an up-to-date map runs once, so it finishes even if the map changed meanwhile (the write below
+      // re-reads); only a mode switch drops it.
+      if ((!alive && !current) || pinned !== modeIdRef.current || !pkg) return
+      const rebuildNow = (m) => (m.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(m)
+      if (!rebuildNow(map) && addAcronymTrack(map, pkg) === map) return // nothing new: no write
       updateMap(pinned, (m) => {
         if (!isCareerMap(m)) return m
-        if ((m.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(m)) return buildCareerMap(pkg, { modeId: pinned, subject: m.subject, start: m.start })
+        if (rebuildNow(m)) return buildCareerMap(pkg, { modeId: pinned, subject: m.subject, start: m.start })
         return addAcronymTrack(m, pkg)
       })
     })
-    return () => { alive = false }
+    return () => { alive = false; if (!current) careerCheckedRef.current.delete(checkKey) }
   }, [map, modeId])
   const { model: learner } = useLearner(modeId)
   const [view, setView] = useState('map') // map | intro | questionnaire | placement | node | result | edit
@@ -369,9 +380,11 @@ export default function LegendsScreen() {
         const pkg = await loadCareer(a.career)
         if (pinned !== modeIdRef.current) return
         if (!pkg) { setError(t('lg_careerLoadFailed')); setView('map'); return } // no map yet: the welcome screen shows it, with the offer to retry
-        // The course's own deck (the owner: the deck used must be the course's default one), when Anki has it.
-        const deck = careerFor(a.career)?.deck
-        if (deck && ctx.cards?.decks?.includes(deck) && subject.modeDeck !== deck) ctx.cards.setModeDeck?.(deck)
+        // THE COURSE IS A LIBRARY, THE DECK IS YOURS (the owner): every course card lives in Legends; the deck holds only
+        // what the learner adds. A mode with a deck keeps it. One without gets an EMPTY deck named after the course
+        // (a deck of that name that already holds cards gets a "(my cards)" sibling instead). Fail soft: no Anki = later.
+        await chooseCourseDeck(ctx, subject, careerFor(a.career)?.deck)
+        if (pinned !== modeIdRef.current) return
         const built = await updateMap(pinned, (m) => (m && m.areas?.length ? m : buildCareerMap(pkg, { modeId: pinned, subject, start })))
         if (pinned !== modeIdRef.current) return
         if (!built) { setError(t('lg_errSave')); setView('map'); return }

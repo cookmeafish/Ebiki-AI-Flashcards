@@ -117,6 +117,18 @@ model).
 The 11 slips in `docs/reviews/2026-11-15-accuracy-regressions.md` replayed through the checker on the owner's real
 provider: each must be flagged, and 11 correct replies must stay unflagged.
 
+### B5. Built so far, and proof (2026-11-15)
+- Wired: typed Chat and voice (a spoken turn goes through Chat, the note shows under that reply and is never spoken),
+  Study's Learn it and the fight-time Learn it panel (`kit/LearnItPanel.jsx`, through `ctx.ai.factCheck`; the card is
+  the checked material in both). Not wired: grading explanations (a correction there could give away a live answer;
+  left for a separate change).
+- The 11 slips + 11 correct replies of the same shapes, on the owner's provider, the review model (Sonnet 5.5), the
+  real prompt and parser: run 1 flagged 9/11, run 2 flagged 10/11 (slip 7 "old data becomes useless" caught in one run
+  of two), 0 false alarms in 22 correct-reply checks. Slip 11 ("name the category", unhelpful but not false) is never a
+  "mistake" by design; the grader code fixed it. Slip 8 needed the card as checked material, as Learn it passes it.
+- In the app (stubbed provider, owner's config, desktop light + phone dark): ON sends one check and shows the note under
+  the reply; OFF sends none.
+
 ## Judge (independent, on the real app with the owner's real config, desktop and phone)
 To be filled in by the judge: one row per item above, pass or fail with the reason, and the question
 "can a non-technical user tell what each model does and change it?"

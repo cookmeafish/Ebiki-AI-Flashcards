@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { shapePackage, buildCareerMap, careerQuizItems, careerMatches, careerSampleMax, CAREERS, CAREER, CAREER_MAP_VERSION, isCareerMap, nextCareerStep, courseCtx, courseModes,
-  cutRegions, careerRegions, currentRegion, regionBossesLeft, careerFight, raidLook, careerHasProgress, addAcronymTrack, CAREER_LAYOUT, CAREER_RAID_MOTIFS, CAREER_FINAL_MOTIF, FINAL_AREA_ID } from './career'
+  cutRegions, careerRegions, currentRegion, regionBossesLeft, careerFight, raidLook, careerHasProgress, addAcronymTrack, ACRONYM_TIERS, ACRONYM_ORDER, acronymProgress, mustKnowCovered, pickCourseDeck, courseDeckNames, CAREER_LAYOUT, CAREER_RAID_MOTIFS, CAREER_FINAL_MOTIF, FINAL_AREA_ID } from './career'
 import { cheatCompleteNode, cheatCompleteArea, cheatResetNode } from './cheats'
 import { normalizeMap, shapeMap, applyNodeResult, needsMoreAreas, needsDetail, passRatio, PASS, MAP_VERSION, MOTIFS } from './map'
 
@@ -465,6 +465,88 @@ describe('the shipped Security+ course', () => {
     expect(m.areas[0].nodes[0]).toMatchObject({ status: 'done', stars: 3 })
     expect(m.areas[0].items.filter((it) => it.kind === 'acronym')).toHaveLength(pkg.areas[0].acronyms.length)
     expect(addAcronymTrack(m, pkg).areas).toBe(m.areas) // a second run changes nothing
+  })
+  it('ACRONYM TIERS: sets never mix tiers, Core first, a core drill and a drill over all', () => {
+    const m = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } })
+    expect(m.career.acronymOrder).toBe(ACRONYM_ORDER)
+    for (const a of m.areas.filter((x) => !x.final)) {
+      const items = new Map(a.items.filter((it) => it.kind === 'acronym').map((it) => [it.id, it]))
+      const sets = a.nodes.filter((n) => n.track === 'acr' && n.kind === 'learn')
+      for (const n of sets) for (const id of n.itemIds) expect(items.get(id).tier).toBe(n.tier)
+      const order = sets.map((n) => ACRONYM_TIERS.indexOf(n.tier))
+      expect(order).toEqual([...order].sort((x, y) => x - y))
+      expect(sets.every((n) => n.itemIds.length <= CAREER.acronymLesson)).toBe(true)
+      const core = [...items.values()].filter((it) => it.tier === 'must')
+      const drill = a.nodes.find((n) => n.id.endsWith('acr-drill'))
+      if (core.length && core.length < items.size) {
+        expect(drill.tier).toBe('must')
+        expect(new Set(drill.itemIds)).toEqual(new Set(core.map((it) => it.id)))
+        expect(a.nodes.find((n) => n.id.endsWith('acr-drill-all')).itemIds).toHaveLength(items.size)
+      }
+    }
+  })
+  it('ACRONYM TIERS: a track saved before them is re-sorted only without progress; ids and stats never change', () => {
+    const tiered = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } })
+    const flatPkg = { ...pkg, areas: pkg.areas.map((a) => ({ ...a, acronyms: a.acronyms.map(({ tier, uses, ...x }) => x) })) }
+    const old = { ...buildCareerMap(flatPkg, { modeId: 1, subject: { name: 'Security+' } }) }
+    expect(old.career.acronymOrder).toBeUndefined()
+    // Island 2 has acronym progress: one set done and an acronym seen.
+    const a2 = old.areas[1]
+    const set = a2.nodes.find((n) => n.track === 'acr' && n.kind === 'learn')
+    old.areas[1] = { ...a2, nodes: a2.nodes.map((n) => (n === set ? { ...n, status: 'done', stars: 3 } : n)), items: a2.items.map((it) => (it.id === set.itemIds[0] ? { ...it, seen: 2, right: 2 } : it)) }
+    expect(acronymProgress(old.areas[1])).toBe(true)
+    expect(acronymProgress(old.areas[0])).toBe(false)
+    const m = addAcronymTrack(old, pkg)
+    expect(m.career.acronymOrder).toBe(ACRONYM_ORDER)
+    expect(m.areas[1]).toBe(old.areas[1]) // kept exactly
+    const ids = (a) => a.items.filter((it) => it.kind === 'acronym').map((it) => it.id).sort()
+    expect(ids(m.areas[0])).toEqual(ids(old.areas[0]))
+    expect(m.areas[0].nodes.filter((n) => n.track === 'acr').map((n) => n.id)).toEqual(tiered.areas[0].nodes.filter((n) => n.track === 'acr').map((n) => n.id))
+    expect(addAcronymTrack(m, pkg)).toBe(m)
+  })
+  it('ACRONYM TIERS: progress that is only a card in the deck or a tried set also keeps the track', () => {
+    const a = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }).areas[0]
+    const acr = a.items.find((it) => it.kind === 'acronym')
+    expect(acronymProgress({ ...a, items: a.items.map((it) => (it === acr ? { ...it, cardNoteId: 5 } : it)) })).toBe(true)
+    expect(acronymProgress({ ...a, nodes: a.nodes.map((n) => (n.track === 'acr' && n.kind === 'learn' ? { ...n, attempts: 1 } : n)) })).toBe(true)
+  })
+  it('a NEWER package adds acronyms to a track with progress as new sets; old sets and stats untouched', () => {
+    const tiered = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } })
+    const fewer = { ...pkg, areas: pkg.areas.map((a, i) => (i ? a : { ...a, acronyms: a.acronyms.slice(0, -5) })) }
+    let m = buildCareerMap(fewer, { modeId: 1, subject: { name: 'Security+' } })
+    const set = m.areas[0].nodes.find((n) => n.track === 'acr' && n.kind === 'learn')
+    m = { ...m, areas: m.areas.map((a, i) => (i ? a : { ...a, nodes: a.nodes.map((n) => (n === set ? { ...n, status: 'done', stars: 2 } : n)) })) }
+    const up = addAcronymTrack(m, pkg)
+    const before = m.areas[0].nodes.filter((n) => n.track === 'acr' && n.kind === 'learn')
+    const after = up.areas[0].nodes.filter((n) => n.track === 'acr' && n.kind === 'learn')
+    expect(after.slice(0, before.length)).toEqual(before)
+    expect(after.length).toBeGreaterThan(before.length)
+    expect(new Set(up.areas[0].nodes.map((n) => n.id)).size).toBe(up.areas[0].nodes.length)
+    expect(up.areas[0].items.filter((it) => it.kind === 'acronym')).toHaveLength(tiered.areas[0].items.filter((it) => it.kind === 'acronym').length)
+    const all = up.areas[0].nodes.find((n) => n.id.endsWith('acr-drill-all'))
+    expect(all.itemIds).toHaveLength(up.areas[0].items.filter((it) => it.kind === 'acronym').length)
+    expect(addAcronymTrack(up, pkg)).toBe(up)
+  })
+  it('an acronym the public list spells differently teaches the standard name and accepts the listed one', () => {
+    const m = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } })
+    const des = m.areas.flatMap((a) => a.items).find((it) => it.kind === 'acronym' && it.front === 'DES')
+    expect(des.back).toContain('Data Encryption Standard')
+    expect(des.back).toMatch(/official acronym list writes it "Digital Encryption Standard"/)
+  })
+  it('THE DECK A COURSE STARTS WITH: a new empty deck, never one holding cards', () => {
+    expect(pickCourseDeck('Course X', { decks: [] })).toEqual({ deck: 'Course X', create: true })
+    expect(pickCourseDeck('Course X', { decks: ['Course X'], sizes: { 'Course X': 0 } })).toEqual({ deck: 'Course X', create: false })
+    expect(pickCourseDeck('Course X', { decks: ['Course X'], sizes: { 'Course X': 40 } })).toEqual({ deck: 'Course X (my cards)', create: true })
+    expect(pickCourseDeck('Course X', { decks: ['Course X', 'Course X (my cards)'], sizes: { 'Course X': 40, 'Course X (my cards)': null } })).toEqual({ deck: 'Course X (my cards 2)', create: true })
+    expect(pickCourseDeck('Course X', { decks: courseDeckNames('Course X'), sizes: Object.fromEntries(courseDeckNames('Course X').map((d) => [d, 3])) })).toBeNull()
+    expect(pickCourseDeck('', {})).toBeNull()
+  })
+  it('MUST KNOW COVERED needs every core set and the core drill', () => {
+    const a = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }).areas[0]
+    const doneCore = (drillToo) => ({ ...a, nodes: a.nodes.map((n) => (n.track === 'acr' && n.tier === 'must' && (n.kind === 'learn' || drillToo) ? { ...n, status: 'done' } : n)) })
+    expect(mustKnowCovered(a)).toBe(false)
+    expect(mustKnowCovered(doneCore(false))).toBe(false)
+    expect(mustKnowCovered(doneCore(true))).toBe(true)
   })
   it('BRIEFINGS: every domain and objective has its overview as a briefing, never in a lesson, a checkpoint, a boss or a quiz sample', () => {
     const m = normalizeMap(buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }))

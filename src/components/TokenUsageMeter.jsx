@@ -18,7 +18,7 @@ const usageHost = () => {
 }
 
 // The server's all-time totals (and the user's own prices). `live`: refetch (throttled) as usage comes in.
-function useUsageTotals(live) {
+export function useUsageTotals(live) {
   const [, setTick] = useState(0)
   const [total, setTotal] = useState(null)
   const lastFetchRef = useRef(0)
