@@ -58,16 +58,26 @@ describe('prices', () => {
     expect(priceFor('grok', 'grok-3-mini-fast')).toEqual([0.6, 4])
   })
   it('an unknown model has NO price (never guessed)', () => {
-    expect(priceFor('anthropic', 'claude-opus-5-5')).toBeNull()
-    expect(priceFor('anthropic', 'claude-opus-4-6')).toBeNull()
+    expect(priceFor('anthropic', 'claude-opus-6')).toBeNull()
+    expect(priceFor('anthropic', 'claude-sonnet-6-1')).toBeNull()
     expect(priceFor('openai', 'gpt-5.4')).toBeNull()
+  })
+  it('the published 5.x and Opus 4.6+ rates', () => {
+    expect(priceFor('anthropic', 'claude-haiku-5-5')).toEqual([0.1, 0.5])
+    expect(priceFor('anthropic', 'claude-sonnet-5-5')).toEqual([2, 10])
+    expect(priceFor('anthropic', 'claude-sonnet-5')).toEqual([2, 10])
+    expect(priceFor('anthropic', 'claude-opus-5-5')).toEqual([4, 20])
+    expect(priceFor('anthropic', 'claude-opus-5')).toEqual([5, 25])
+    expect(priceFor('anthropic', 'claude-opus-4-6')).toEqual([5, 25])
+    expect(priceFor('anthropic', 'claude-fable-5-2')).toEqual([8, 40])
+    expect(priceFor('anthropic', 'claude-fable-5-1')).toEqual([10, 50])
   })
   it('cost and the summary keep unpriced tokens apart', () => {
     expect(costOf('openai', 'gpt-4o', 1e6, 1e6)).toBeCloseTo(12.5)
     const by = {}
     addUsage(by, { provider: 'openai', model: 'gpt-4o', input: 1000, output: 500 })
     addUsage(by, { provider: 'openai', model: 'gpt-4o', input: 1000, output: 500 })
-    addUsage(by, { provider: 'anthropic', model: 'claude-opus-5-5', input: 300, output: 100 })
+    addUsage(by, { provider: 'anthropic', model: 'claude-opus-6', input: 300, output: 100 })
     const s = summarize(by)
     expect(s.calls).toBe(3)
     expect(s.tokens).toBe(3400)
@@ -85,17 +95,17 @@ describe('prices', () => {
 
 describe('prices the user typed', () => {
   it('price a model the table does not know, and win over the table', () => {
-    const prices = { 'anthropic|claude-opus-5-5': [5, 25], 'openai|gpt-4o': [1, 2] }
-    expect(priceFor('anthropic', 'claude-opus-5-5', prices)).toEqual([5, 25])
+    const prices = { 'anthropic|claude-opus-6': [5, 25], 'openai|gpt-4o': [1, 2] }
+    expect(priceFor('anthropic', 'claude-opus-6', prices)).toEqual([5, 25])
     expect(priceFor('openai', 'gpt-4o', prices)).toEqual([1, 2])
-    expect(costOf('anthropic', 'claude-opus-5-5', 1e6, 1e6, prices)).toBe(30)
-    const sum = summarize({ a: { provider: 'anthropic', model: 'claude-opus-5-5', input: 1e6, output: 0, calls: 1 } }, prices)
+    expect(costOf('anthropic', 'claude-opus-6', 1e6, 1e6, prices)).toBe(30)
+    const sum = summarize({ a: { provider: 'anthropic', model: 'claude-opus-6', input: 1e6, output: 0, calls: 1 } }, prices)
     expect(sum.cost).toBe(5)
     expect(sum.unpricedTokens).toBe(0)
     expect(sum.rows[0].ownPrice).toBe(true)
   })
   it('ignores a malformed price', () => {
-    expect(priceFor('anthropic', 'claude-opus-5-5', { 'anthropic|claude-opus-5-5': ['5', 25] })).toBeNull()
+    expect(priceFor('anthropic', 'claude-opus-6', { 'anthropic|claude-opus-6': ['5', 25] })).toBeNull()
     expect(validPrice([1, -1])).toBe(false)
     expect(validPrice([0, 0])).toBe(true)
   })
@@ -130,7 +140,7 @@ describe('prices: snapshots with their own published price, and non-text models'
     expect(priceFor('gemini', 'gemini-1.5-flash-002')).toEqual([0.075, 0.3])
   })
   it('current ids without a published table price stay unpriced', () => {
-    for (const [prov, id] of [['anthropic', 'claude-sonnet-5-5'], ['anthropic', 'claude-fable-5-1'], ['gemini', 'gemini-3-pro-preview'], ['openai', 'gpt-5.1']]) {
+    for (const [prov, id] of [['anthropic', 'claude-sonnet-6'], ['anthropic', 'claude-haiku-6-1'], ['gemini', 'gemini-3-pro-preview'], ['openai', 'gpt-5.1']]) {
       expect(priceFor(prov, id), id).toBeNull()
     }
   })

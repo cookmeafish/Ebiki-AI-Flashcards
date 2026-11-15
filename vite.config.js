@@ -15,6 +15,7 @@ import { limitBody } from './src/server/bodyLimit.js'
 import { guardMode, isDataRoute } from './src/server/dataGuard.js'
 import { createQuestionBankRoute } from './src/server/questionBankRoute.js'
 import { createAnkiProxy } from './src/server/ankiProxy.js'
+import { mergeUsage } from './src/server/usageMerge.js'
 import { createTtsRoute } from './src/server/ttsRoute.js'
 import { createChatgptAuth, createChatgptRoute } from './src/server/chatgptAuth.js'
 import { createWebSearchRoute } from './src/server/webSearchRoute.js'
@@ -2708,16 +2709,8 @@ function apiPlugin() {
               writeFileAtomic(file, JSON.stringify(fresh, null, 2))
               send(200, fresh); return
             }
-            const cur = read()
-            const n = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : 0)
-            for (const u of (Array.isArray(body.add) ? body.add : []).slice(0, 5000)) {
-              if (!u || typeof u.provider !== 'string' || !/^[a-z]{2,20}$/.test(u.provider)) continue
-              const model = String(u.model || '').slice(0, 120)
-              const key = `${u.provider}|${model}`
-              const r = cur.byModel[key] || { provider: u.provider, model, input: 0, output: 0, calls: 0 }
-              // n() on the stored counts too: a hand-edited file holding "5" made "5" + 3 into "53".
-              cur.byModel[key] = { ...r, input: n(r.input) + n(u.input), output: n(r.output) + n(u.output), calls: n(r.calls) + 1 }
-            }
+            // Totals per model, per job and per day (src/server/usageMerge.js, tested); the day is this computer's.
+            const cur = mergeUsage(read(), body.add, { today: new Date().toLocaleDateString('en-CA'), now: Date.now() })
             writeFileAtomic(file, JSON.stringify(cur, null, 2))
             send(200, cur)
           } catch (e) { send(500, { error: e.message }) }

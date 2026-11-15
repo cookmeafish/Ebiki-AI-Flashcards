@@ -11,7 +11,14 @@ import { apiFetch } from '../platform'
 export const PRICE_TABLE = [
   // Anthropic
   // Opus prices changed between versions: only the versions whose price is known (a newer one stays unpriced).
-  { provider: 'anthropic', re: /claude-opus-4-5/, price: [5, 25] },
+  // Published first-party rates (2026-11-03 model table): the 5.x families and the 4.6+ Opus builds.
+  { provider: 'anthropic', re: /claude-fable-5-2/, price: [8, 40] },
+  { provider: 'anthropic', re: /claude-fable-5(-1)?(-\d{8})?$/, price: [10, 50] },
+  { provider: 'anthropic', re: /claude-opus-5-5/, price: [4, 20] },
+  { provider: 'anthropic', re: /claude-opus-5(-\d{8})?$/, price: [5, 25] },
+  { provider: 'anthropic', re: /claude-opus-4-[5-8]/, price: [5, 25] },
+  { provider: 'anthropic', re: /claude-sonnet-5(-5)?(-\d{8})?$/, price: [2, 10] },
+  { provider: 'anthropic', re: /claude-haiku-5-5/, price: [0.1, 0.5] }, // prompts up to 100K tokens (0.50 / 2.50 above)
   { provider: 'anthropic', re: /claude-opus-4-1|claude-opus-4-0|claude-opus-4-2025|claude-opus-4$|claude-3-opus/, price: [15, 75] },
   { provider: 'anthropic', re: /claude-sonnet-4|claude-3-7-sonnet|claude-3-5-sonnet/, price: [3, 15] },
   { provider: 'anthropic', re: /claude-haiku-4/, price: [1, 5] },
@@ -150,7 +157,7 @@ async function flush() {
 export function recordUsage(u) {
   if (!u || !u.provider) return
   addUsage(session, u)
-  pending.push({ provider: u.provider, model: u.model, input: u.input, output: u.output })
+  pending.push({ provider: u.provider, model: u.model, input: u.input, output: u.output, ...(u.job ? { job: u.job } : {}) })
   if (!flushTimer) flushTimer = setTimeout(flush, 3000)
   notify()
 }

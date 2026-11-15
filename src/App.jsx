@@ -1708,6 +1708,7 @@ export default function App() {
   // These helpers are called from memoized callbacks that don't list aiModels as
   // a dependency, so read the live values from a ref rather than a stale closure.
   const aiStateRef = useRef({})
+  const lastJobRef = useRef(null) // { job, model } of the last resolveJobModel (aiCall reads it for usage per task)
   aiStateRef.current = { provider, aiModels, apiKeys, intelligence, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, sessionSubs }
 
   // ─── Staying on current models ─────────────────────────────────────────────
@@ -1803,13 +1804,17 @@ export default function App() {
   // job id is unknown (a feature from a newer build).
   const resolveJobModel = (jobId, prov = aiStateRef.current.provider, fallbackRole = 'general') => {
     const pc = PROVIDERS[prov]
-    return resolveJob(jobId, {
+    const model = resolveJob(jobId, {
       overrides: aiStateRef.current.aiModels[prov] || {},
       resolveRole: (r) => resolveModel(r, prov),
       resolveRoleFast: (r) => resolveModelFast(r, prov),
       cheap: presetModel(pc, prov, 'cheap'),
       fallbackRole,
     })
+    // Every call site passes resolveJobModel(its job) as aiCall's model argument: it is evaluated right before
+    // aiCall starts, so aiCall reads this synchronously to count the call's tokens under its job (usage per task).
+    lastJobRef.current = { job: jobId, model }
+    return model
   }
   // Speech models (speech.stt / speech.tts jobs): per ENGINE provider, the engine's built-in model unless picked.
   const speechModelFor = (kind, engine) => speechJobModel(kind, engine, {
@@ -2233,6 +2238,11 @@ export default function App() {
   }
 
   const aiCall = async (key, systemPrompt, userContent, modelOverride, opts = {}) => {
+    // The job this call is for (usage per task): named in opts, else the resolveJobModel that produced its model.
+    // Read FIRST, before any await, and cleared so a later call with no job never inherits it.
+    const lastJob = lastJobRef.current
+    lastJobRef.current = null
+    const usageTag = { job: opts.job || (lastJob && lastJob.model === modelOverride ? lastJob.job : '') }
     // No em dash reaches a model through a prompt (CLAUDE.md): one in the instructions invites them back in
     // the reply. One funnel instead of 100+ template strings; the user's own content is left as written.
     if (typeof systemPrompt === 'string') systemPrompt = systemPrompt.replace(/(?<!\()[ \t]*—[ \t]*(?!\))/g, ': ') // "(—)" names the banned character
@@ -2289,7 +2299,7 @@ export default function App() {
     const maxTokens = opts.maxTokens
     const finish = (text) => opts.keepDashes ? text : stripAiDashes(text)
     try {
-      const out = await PROVIDERS[prov].call(key, systemPrompt, userContent, model, images, maxTokens)
+      const out = await PROVIDERS[prov].call(key, systemPrompt, userContent, model, images, maxTokens, usageTag)
       // Clear a stale AI error toast on success. Only one an AI call raised: the pose call on every message
       // wiped "mode save failed", "rename failed" and other notices a second after they appeared.
       setAiErrorNotice((prev) => (prev && prev === aiCallErrorRef.current ? null : prev))
@@ -2302,20 +2312,20 @@ export default function App() {
         const pcI = PROVIDERS[prov]
         const vm = presetModel(pcI, prov, pcI?.visionTier || 'normal')
         if (vm && vm !== model) {
-          try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, vm, images, maxTokens)) }
+          try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, vm, images, maxTokens, usageTag)) }
           catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
         }
       }
       const healed = await healRetiredModel(msg, model, role, prov)
       if (healed) {
-        try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, healed, images, maxTokens)) }
+        try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, healed, images, maxTokens, usageTag)) }
         catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
       }
       // RUNTIME FAILOVER: the model worked at plan-time but is down NOW (403/overload/etc). Swap in a
       // working model for the session and retry so the user's action isn't broken; auto-restored later.
       const alt = await tryModelFailover(prov, model, msg, !!images?.length)
       if (alt && alt !== model) {
-        try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, alt, images, maxTokens)) }
+        try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, alt, images, maxTokens, usageTag)) }
         catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
       }
       // Surface out-of-credits / rate-limit / bad-key errors so failures aren't silent.

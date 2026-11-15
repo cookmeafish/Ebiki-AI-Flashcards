@@ -74,9 +74,13 @@ export function readUsage(provider, raw) {
   }
   return input || output ? { input, output } : null
 }
-function reportUsage(provider, model, raw) {
+// `tag` = { job } of the call (aiCall passes it), so the usage log can say WHICH feature spent the tokens.
+function reportUsage(provider, model, raw, tag) {
   if (!usageListener) return
-  try { const u = readUsage(provider, raw); if (u) usageListener({ provider, model: String(model || ''), ...u }) } catch { /* never breaks a call */ }
+  try {
+    const u = readUsage(provider, raw)
+    if (u) usageListener({ provider, model: String(model || ''), ...u, ...(tag?.job ? { job: String(tag.job) } : {}) })
+  } catch { /* never breaks a call */ }
 }
 
 // The reply TEXT of an OpenAI-compatible message. Some compatible endpoints send `content` as a list of parts
@@ -120,7 +124,7 @@ const EMPTY_REPLY = 'API 200: empty (no text in the reply)'
 const responsesOnly = (status, text) => (status === 404 || status === 400)
   && /v1\/responses|responses api|only supported in (?:the )?(?:v1\/)?responses/i.test(String(text || ''))
 
-async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, systemPrompt, userContent, model, images, maxTokens }) {
+async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, systemPrompt, userContent, model, images, maxTokens, tag }) {
   const userMsg = (images && images.length)
     ? [
         { type: 'text', text: userContent },
@@ -147,7 +151,7 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
       body: JSON.stringify({ model, [tokenParam]: budget, messages: messagesFor() }),
     })
     const text = await resp.text()
-    if (resp.ok) reportUsage(provider, model, text)
+    if (resp.ok) reportUsage(provider, model, text, tag)
     return { ok: resp.ok, status: resp.status, text }
   }
 
@@ -158,7 +162,7 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
   let tokenParam = 'max_completion_tokens'
   let r = await post(tokenParam, budget)
   if (!r.ok && responsesOnly(r.status, r.text) && /\/chat\/completions$/.test(endpoint)) {
-    return responsesApiCall({ provider, endpoint: endpoint.replace(/\/chat\/completions$/, '/responses'), apiKey, systemPrompt, userContent, model, images, budget })
+    return responsesApiCall({ provider, endpoint: endpoint.replace(/\/chat\/completions$/, '/responses'), apiKey, systemPrompt, userContent, model, images, budget, tag })
   }
 
   // An endpoint that predates the rename (xAI, a local server) rejects the new name.
@@ -255,7 +259,7 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
 // openAiCompatibleCall: text out, the same budget heal, blocked/empty replies are errors.
 // Reply: { status: 'completed'|'incomplete', incomplete_details: { reason }, output: [{ type: 'reasoning' }, { type:
 // 'message', content: [{ type: 'output_text', text } | { type: 'refusal', refusal }] }], usage: { input_tokens, ... } }.
-async function responsesApiCall({ provider, endpoint, apiKey, systemPrompt, userContent, model, images, budget }) {
+async function responsesApiCall({ provider, endpoint, apiKey, systemPrompt, userContent, model, images, budget, tag }) {
   const content = [
     { type: 'input_text', text: userContent },
     ...((images && images.length) ? images.map((im) => ({ type: 'input_image', image_url: `data:${im.mediaType};base64,${im.base64}` })) : []),
@@ -268,7 +272,7 @@ async function responsesApiCall({ provider, endpoint, apiKey, systemPrompt, user
       body: JSON.stringify({ model, instructions: systemPrompt, input: [{ role: 'user', content }], max_output_tokens: Math.max(16, n) }),
     })
     const text = await resp.text()
-    if (resp.ok) reportUsage(provider, model, text)
+    if (resp.ok) reportUsage(provider, model, text, tag)
     return { ok: resp.ok, status: resp.status, text }
   }
   const read = (raw) => {
@@ -344,7 +348,7 @@ export const PROVIDERS = {
       const data = await resp.json()
       return (data.data || []).map((m) => m.id).filter(Boolean)
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens, tag) => {
       // When images are present, send a multimodal content array (images first, then text).
       const content = (images && images.length)
         ? [
@@ -369,7 +373,7 @@ export const PROVIDERS = {
           }),
         })
         const text = await r.text()
-        if (r.ok) reportUsage('anthropic', modelOverride || 'claude-haiku-5-5', text)
+        if (r.ok) reportUsage('anthropic', modelOverride || 'claude-haiku-5-5', text, tag)
         return { ok: r.ok, status: r.status, text }
       }
 
@@ -452,10 +456,10 @@ export const PROVIDERS = {
         .filter((id) => (/^(gpt|chatgpt|o\d)/.test(id)) && !/(embedding|audio|tts|whisper|image|realtime|moderation|transcribe|search|dall|instruct)/.test(id))
         .sort()
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) =>
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens, tag) =>
       openAiCompatibleCall({
         endpoint: 'https://api.openai.com/v1/chat/completions',
-        apiKey, systemPrompt, userContent, images, maxTokens,
+        apiKey, systemPrompt, userContent, images, maxTokens, tag,
         model: modelOverride || 'gpt-4o-mini',
       }),
   },
@@ -488,7 +492,7 @@ export const PROVIDERS = {
       if (!r.ok) throw new Error(j?.error || `API ${r.status}: ${errText(text)}`)
       return (Array.isArray(j?.models) ? j.models : []).map((m) => m?.id).filter((id) => typeof id === 'string' && id)
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens, tag) => {
       const r = await apiFetch('/api/chatgpt/respond', {
         method: 'POST', signal: timeoutSignal(CALL_TIMEOUT_MS),
         headers: { 'Content-Type': 'application/json' },
@@ -500,7 +504,7 @@ export const PROVIDERS = {
       let j = null
       try { j = JSON.parse(text) } catch { j = null }
       if (!r.ok) throw new Error(j?.error || `API ${r.status}: ${errText(text)}`)
-      if (j?.usage) reportUsage('chatgpt', j.model || modelOverride || 'auto', { usage: j.usage })
+      if (j?.usage) reportUsage('chatgpt', j.model || modelOverride || 'auto', { usage: j.usage }, tag)
       const out = typeof j?.text === 'string' ? j.text : ''
       if (!out && (maxTokens || 4000) >= MIN_CONTENT_BUDGET) throw new Error(EMPTY_REPLY)
       return out
@@ -514,9 +518,12 @@ export const PROVIDERS = {
     url: 'https://aistudio.google.com/apikey',
     modelsUrl: 'https://ai.google.dev/gemini-api/docs/models',
     billingUrl: 'https://aistudio.google.com/apikey',
-    model: 'gemini-2.0-flash',      // cheap/fast tier (vision-capable) — Haiku slot
-    questionModel: 'gemini-2.5-pro', // strong tier (vision-capable) — Sonnet slot
-    presets: { cheap: 'gemini-2.0-flash', normal: 'gemini-2.5-flash', max: 'gemini-2.5-pro' }, // all vision-capable
+    // Floors (2026-11-15, Google's models page): gemini-2.0-flash was shut down 2026-06-01; the 2.5 models are
+    // deprecated, shut down 2026-12-01. No stable Pro is listed, so max keeps 2.5-pro until then (the retirement heal
+    // moves it); the live list replaces every floor once a key is set.
+    model: 'gemini-3.5-flash-lite', // cheap/fast tier: Haiku slot
+    questionModel: 'gemini-3.8-flash', // strong tier: Sonnet slot
+    presets: { cheap: 'gemini-3.5-flash-lite', normal: 'gemini-3.8-flash', max: 'gemini-2.5-pro' },
     // Models that support generateContent; strip the "models/" prefix.
     listModels: async (apiKey) => {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=1000`, { signal: timeoutSignal(LIST_TIMEOUT_MS) })
@@ -528,10 +535,10 @@ export const PROVIDERS = {
         .filter((id) => id.includes('gemini'))
         .sort()
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens, tag) => {
       // An id copied from Google's own list carries a "models/" prefix ("models/gemini-2.5-pro"): sent as is, the URL
       // named models/models/... and every call 404'd (and the retired-model heal replaced a perfectly good pick).
-      const model = String(modelOverride || 'gemini-2.0-flash').trim().replace(/^models\//, '')
+      const model = String(modelOverride || 'gemini-3.5-flash-lite').trim().replace(/^models\//, '')
       const parts = [
         { text: userContent },
         ...((images && images.length) ? images.map((im) => ({ inline_data: { mime_type: im.mediaType, data: im.base64 } })) : []),
@@ -555,7 +562,7 @@ export const PROVIDERS = {
           }
         )
         const text = await r.text()
-        if (r.ok) reportUsage('gemini', model, text)
+        if (r.ok) reportUsage('gemini', model, text, tag)
         return { ok: r.ok, status: r.status, text }
       }
       const read = (raw) => {
@@ -636,11 +643,11 @@ export const PROVIDERS = {
     // Same dialect as OpenAI, so the SAME code path - including the token-parameter
     // fallback, which is what makes this correct whether xAI wants the new name or
     // the old one.
-    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) =>
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens, tag) =>
       openAiCompatibleCall({
         provider: 'grok',
         endpoint: 'https://api.x.ai/v1/chat/completions',
-        apiKey, systemPrompt, userContent, images, maxTokens,
+        apiKey, systemPrompt, userContent, images, maxTokens, tag,
         model: modelOverride || 'grok-3-mini-fast',
       }),
   },
