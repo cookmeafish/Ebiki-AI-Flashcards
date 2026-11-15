@@ -1,0 +1,115 @@
+[
+  {
+    "obj": "2.2",
+    "extra": true,
+    "term": "Drive-by download (drive-by compromise)",
+    "definition": "An attack where simply visiting a web page runs code that probes the browser for flaws and, if it finds one, installs malware on the visitor's device with no file to open and often no click.",
+    "example": "A trusted news site serves a malicious ad; an employee with an unpatched browser loads the page and malware quietly installs on the laptop.",
+    "category": "2.2 Threat vectors and attack surfaces > Vulnerable software",
+    "keyPoints": [
+      "Delivered through compromised legitimate sites, malicious ads (malvertising) or injected scripts",
+      "Targets the client: browser, plugins, their unpatched flaws",
+      "A watering hole attack often uses a drive-by on a site the target group visits",
+      "Defenses: patch browsers, sandboxing and isolation, script and ad blocking, exploit protection",
+      "Differs from phishing: the user is only browsing, not tricked into opening something"
+    ],
+    "sources": [
+      "https://attack.mitre.org/techniques/T1189/"
+    ]
+  },
+  {
+    "obj": "2.4",
+    "extra": true,
+    "term": "Botnet and command and control (C2)",
+    "definition": "A botnet is a group of infected devices (bots) that an attacker controls remotely. The attacker sends them orders through a command and control (C2) channel, and the bots report back the same way.",
+    "example": "The Mirai malware logged in to cameras and routers with default passwords, joined them to a botnet and had them flood targets with traffic on command.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": [
+      "Used for DDoS, spam, credential stuffing and spreading more malware",
+      "C2 traffic tries to look normal: common ports, HTTPS, DNS, legitimate cloud services",
+      "Indicators: regular beaconing to an unknown host, odd outbound traffic, unexplained resource use",
+      "Blocking the C2 domain or address cuts the bots off from orders",
+      "IoT devices with default credentials are common recruits"
+    ],
+    "sources": [
+      "https://www.cisa.gov/news-events/alerts/2016/10/14/heightened-ddos-threat-posed-mirai-and-other-botnets",
+      "https://attack.mitre.org/tactics/TA0011/",
+      "https://csrc.nist.gov/glossary/term/botnet"
+    ]
+  },
+  {
+    "obj": "2.4",
+    "extra": true,
+    "term": "Session hijacking",
+    "definition": "Taking over a user's logged-in session by stealing or guessing the session token (usually a cookie) the server uses to recognize them, so the attacker is treated as that user without needing the password.",
+    "example": "Script injected through an XSS flaw reads a shopper's session cookie and sends it to the attacker, who pastes it into a browser and is inside the shopper's account.",
+    "category": "2.4 Indicators of malicious activity > Application attacks",
+    "keyPoints": [
+      "Token stolen by sniffing unencrypted traffic, XSS, an on-path position or a guessable token",
+      "Bypasses MFA, since the login already happened",
+      "Defenses: HTTPS everywhere, Secure and HttpOnly cookies, random tokens, short timeouts, new token at login",
+      "Replay is the wider idea of resending captured data; hijacking takes over the live session",
+      "Indicator: the same session used from two places at once"
+    ],
+    "sources": [
+      "https://community.owasp.org/attacks/Session_hijacking_attack"
+    ]
+  },
+  {
+    "obj": "2.4",
+    "extra": true,
+    "term": "Evil twin and rogue access point",
+    "definition": "A rogue access point is any wireless access point connected or running without authorization. An evil twin is a rogue access point set up to imitate a legitimate network, using its name, so people connect to it and the attacker sits in the middle of their traffic.",
+    "example": "In an airport, an attacker broadcasts the airport's free Wi-Fi name with a stronger signal and shows a fake login page that collects travelers' email passwords.",
+    "category": "2.4 Indicators of malicious activity > Network attacks",
+    "keyPoints": [
+      "Evil twin copies the SSID and often boosts its signal or knocks clients off the real network",
+      "Leads to sniffing, credential capture through fake portals and on-path attacks",
+      "A rogue AP may be an employee's own router plugged into the office network, with no bad intent",
+      "Detect with a wireless IDS/IPS and site surveys",
+      "Defenses: 802.1X (WPA2 or WPA3 Enterprise) with server certificate checks, users heeding certificate warnings, VPN on public Wi-Fi; a shared Wi-Fi password does not stop a twin run by someone who knows it"
+    ],
+    "sources": [
+      "https://attack.mitre.org/techniques/T1557/004/"
+    ]
+  },
+  {
+    "obj": "2.4",
+    "extra": true,
+    "term": "Fileless malware",
+    "definition": "Malware that runs mainly in memory or through tools already on the system, such as PowerShell, WMI or the registry, instead of a program file on disk, so file scanning antivirus has little or nothing to inspect.",
+    "example": "A macro starts PowerShell, which downloads a script straight into memory and stores a command in a WMI subscription so it runs again after every reboot.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": [
+      "Lives off the land: abuses trusted built-in tools",
+      "Some types leave no file at all; others hide in the registry or WMI repository",
+      "Signature scanning of files misses it; behavior monitoring, memory scanning and EDR find it",
+      "Indicators: unusual PowerShell or script activity, odd parent and child processes, encoded command lines",
+      "Restarting may clear memory-only malware but not its registry or WMI persistence"
+    ],
+    "sources": [
+      "https://learn.microsoft.com/en-us/defender-endpoint/malware/fileless-threats"
+    ]
+  },
+  {
+    "obj": "2.4",
+    "extra": true,
+    "term": "Dictionary, rainbow table and credential stuffing attacks",
+    "definition": "Three password attacks that guess smarter than brute force. A dictionary attack tries a list of likely words and common passwords. A rainbow table attack looks stolen hashes up in a precomputed table of hash to password pairs instead of computing each guess. Credential stuffing replays username and password pairs leaked in one breach against other sites, betting that people reuse passwords.",
+    "example": "After a shopping site's user list leaks, attackers feed its email and password pairs to the login page of a bank and get into every account whose owner used the same password.",
+    "category": "2.4 Indicators of malicious activity > Password attacks",
+    "keyPoints": [
+      "Brute force tries every combination; a dictionary attack tries only likely words, so it is faster but misses truly random passwords",
+      "Rainbow tables work offline on stolen unsalted hashes; a unique random salt per password makes a precomputed table useless",
+      "Credential stuffing uses real pairs from breaches, one known password per account; spraying tries a few common passwords on many accounts",
+      "Indicator of stuffing: many logins for different accounts from many addresses, with a higher than normal success rate",
+      "Defenses: MFA and a unique password per site stop stuffing; long passwords and blocking breached or common ones slow dictionary attacks; salted slow hashes stop rainbow tables"
+    ],
+    "sources": [
+      "https://attack.mitre.org/techniques/T1110/",
+      "https://attack.mitre.org/techniques/T1110/004/",
+      "https://owasp.org/www-community/attacks/Credential_stuffing",
+      "https://pages.nist.gov/800-63-3/sp800-63b.html"
+    ]
+  }
+]

@@ -370,11 +370,11 @@ describe('the shipped Security+ course', () => {
       expect(a.bossName).toBeTruthy()
     }
   })
-  it('holds 853 cards (830, one per outline line, plus 23 extras), every card but a briefing in exactly one lesson of its own objective, no lesson over the limit', () => {
-    expect(pkg.areas.reduce((n, a) => n + a.items.length, 0)).toBe(853)
+  it('holds 855 cards (830, one per outline line, plus 25 extras), every card but a briefing in exactly one lesson of its own objective, no lesson over the limit', () => {
+    expect(pkg.areas.reduce((n, a) => n + a.items.length, 0)).toBe(855)
     // The extras sit in each objective's "Extras" lesson(s), the objective's last lessons (before its checkpoint).
     const extraLessons = pkg.areas.flatMap((a) => a.lessons.filter((l) => /^Extras( \(\d+\/\d+\))?$/.test(l.title)))
-    expect(extraLessons.reduce((n, l) => n + l.itemIds.length, 0)).toBe(23)
+    expect(extraLessons.reduce((n, l) => n + l.itemIds.length, 0)).toBe(25)
     for (const a of pkg.areas) for (const l of a.lessons.filter((x) => x.title.startsWith('Extras'))) {
       const own = a.lessons.filter((x) => x.section === l.section)
       expect(own.slice(own.indexOf(l)).every((x) => x.title.startsWith('Extras'))).toBe(true)
@@ -440,6 +440,8 @@ describe('the shipped Security+ course', () => {
     expect(acr.length).toBe(pkg.areas.reduce((n, a) => n + a.acronyms.length, 0))
     expect(acr.length).toBeGreaterThanOrEqual(300)
     expect(new Set(acr.map((it) => it.front)).size).toBe(acr.length) // one island each
+    // Ids unique across the whole course (the final raid pools every island): "SoC" and "SOC" once shared one.
+    expect(new Set(acr.map((it) => it.id)).size).toBe(acr.length)
     const sizes = islands.map((a) => a.items.filter((it) => it.kind === 'acronym').length)
     expect(Math.max(...sizes)).toBeLessThanOrEqual(Math.ceil((acr.length / islands.length) * 1.3) + 2) // a fair spread
     for (const a of islands) {
@@ -508,5 +510,18 @@ describe('saves from before career mode', () => {
     expect(n['cafe-l2']).toBe('open')
     expect(n['cafe-boss']).toBe('locked')
     expect(passRatio('learn')).toBe(PASS.node)
+  })
+})
+
+describe('domain pictures are chosen at render time', () => {
+  it('a known course gets its topic per domain; anything else keeps the adventure banner', async () => {
+    const { careerTopicArt } = await import('./career')
+    const map = { career: { id: 'security-plus-sy0-701' } }
+    expect(careerTopicArt(map, { number: '1.0' })).toBe('/assets/legends/career/concepts.svg')
+    expect(careerTopicArt(map, { number: 5 })).toBe('/assets/legends/career/governance.svg')
+    expect(careerTopicArt(map, { number: 9 })).toBe('')
+    expect(careerTopicArt(map, { number: 1, final: true })).toBe('')
+    expect(careerTopicArt({ career: { id: 'some-other-course' } }, { number: 1 })).toBe('')
+    expect(careerTopicArt({}, { number: 1 })).toBe('')
   })
 })

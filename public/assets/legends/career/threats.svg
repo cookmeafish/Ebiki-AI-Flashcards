@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" aria-hidden="true">
+  <!-- Threats, vulnerabilities and mitigations: a bug crawls at a crack in a wall, a shield blocks it. -->
+  <g stroke="#0b1220" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="196" y="18" width="88" height="118" rx="4" fill="#8794a6"/>
+    <path d="M196 58 h88 M196 98 h88" stroke="#5d6878" stroke-width="3"/>
+    <circle cx="210" cy="32" r="3" fill="#5d6878" stroke="none"/>
+    <circle cx="270" cy="32" r="3" fill="#5d6878" stroke="none"/>
+    <circle cx="270" cy="122" r="3" fill="#5d6878" stroke="none"/>
+    <circle cx="210" cy="122" r="3" fill="#5d6878" stroke="none"/>
+    <rect x="196" y="18" width="88" height="118" rx="4" fill="none"/>
+    <path d="M232 20 L222 52 L238 70 L220 96 L234 134" fill="none" stroke="#0b1220" stroke-width="8"/>
+    <path d="M222 52 L208 60 M238 70 L252 64" fill="none" stroke="#0b1220" stroke-width="4"/>
+    <g>
+      <path d="M50 70 l-16 -12 M50 84 l-18 0 M50 98 l-16 12 M86 70 l12 -14 M88 84 l16 0 M86 98 l12 14" fill="none" stroke="#0b1220" stroke-width="5"/>
+      <ellipse cx="68" cy="84" rx="26" ry="32" fill="#8bc34a"/>
+      <path d="M68 54 v62" stroke="#0b1220" stroke-width="3"/>
+      <ellipse cx="60" cy="88" rx="7" ry="10" fill="#5c8a26" stroke="none"/>
+      <ellipse cx="76" cy="100" rx="6" ry="8" fill="#5c8a26" stroke="none"/>
+      <circle cx="68" cy="48" r="13" fill="#3d4f2a"/>
+      <circle cx="63" cy="46" r="3.5" fill="#ff5a4e" stroke="none"/>
+      <circle cx="73" cy="46" r="3.5" fill="#ff5a4e" stroke="none"/>
+      <path d="M62 36 l-8 -12 M74 36 l8 -12" fill="none" stroke="#0b1220" stroke-width="4"/>
+    </g>
+    <path d="M146 30 L184 42 V80 C184 108 166 124 146 132 C126 124 108 108 108 80 V42 Z" fill="#3f8de0"/>
+    <path d="M146 30 L184 42 V80 C184 108 166 124 146 132 Z" fill="#2a66ab" stroke="none"/>
+    <path d="M146 30 L184 42 V80 C184 108 166 124 146 132 C126 124 108 108 108 80 V42 Z" fill="none"/>
+    <path d="M130 80 l12 12 l22 -24" fill="none" stroke="#e8f2ff" stroke-width="8"/>
+  </g>
+</svg>

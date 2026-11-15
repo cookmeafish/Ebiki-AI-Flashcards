@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" aria-hidden="true">
+  <!-- Core security concepts: a padlock standing on a triangle of three goals (three coloured nodes), a key beside it. -->
+  <g stroke="#0b1220" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M150 22 L232 128 L68 128 Z" fill="none" stroke="#8fb8e8" stroke-width="7" opacity=".55"/>
+    <circle cx="150" cy="22" r="14" fill="#35c3b4"/>
+    <circle cx="232" cy="128" r="14" fill="#f2b531"/>
+    <circle cx="68" cy="128" r="14" fill="#a77bf0"/>
+    <path d="M128 70 v-14 a22 22 0 0 1 44 0 v14" fill="none" stroke="#0b1220" stroke-width="15"/>
+    <path d="M128 70 v-14 a22 22 0 0 1 44 0 v14" fill="none" stroke="#c9d3df" stroke-width="8"/>
+    <rect x="114" y="68" width="72" height="56" rx="10" fill="#f2b531"/>
+    <rect x="114" y="98" width="72" height="26" rx="10" fill="#c98a12" stroke="none"/>
+    <rect x="114" y="68" width="72" height="56" rx="10" fill="none"/>
+    <path d="M122 76 h56" stroke="#ffe39a" stroke-width="4" opacity=".8"/>
+    <circle cx="150" cy="92" r="7" fill="#0b1220" stroke="none"/>
+    <path d="M150 96 v14" stroke="#0b1220" stroke-width="7"/>
+    <g transform="translate(206 66) rotate(-28)">
+      <circle cx="0" cy="0" r="11" fill="#e3e8ef"/>
+      <circle cx="0" cy="0" r="4" fill="#13243d" stroke="none"/>
+      <path d="M11 0 h30 M33 0 v8 M40 0 v6" fill="none" stroke="#0b1220" stroke-width="11"/>
+      <path d="M11 0 h30 M33 0 v8 M40 0 v6" fill="none" stroke="#e3e8ef" stroke-width="5"/>
+    </g>
+  </g>
+</svg>

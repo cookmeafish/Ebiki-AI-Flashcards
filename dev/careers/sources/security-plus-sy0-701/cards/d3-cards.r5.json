@@ -1,0 +1,1605 @@
+[
+  {
+    "obj": "3.0",
+    "path": [],
+    "term": "SY0-701 Domain 3.0: Security Architecture (18%)",
+    "definition": "The exam domain about designing and securing systems: architecture models (cloud, on-premises, IoT, ICS), secure enterprise network design, data protection, and resilience and recovery. It is 18% of the SY0-701 exam.",
+    "example": "A factory keeps its control network segmented from the office network, runs its web shop in the cloud across two regions, encrypts customer data at rest, and keeps offline backups for recovery.",
+    "category": "3.0 Security architecture",
+    "keyPoints": "Four objectives: 3.1 architecture models, 3.2 securing infrastructure, 3.3 protecting data, 3.4 resilience and recovery; mostly compare and contrast and scenario questions; tests trade-offs, not configuration syntax"
+  },
+  {
+    "obj": "3.1",
+    "path": [],
+    "term": "SY0-701 3.1: Compare and contrast security implications of different architecture models",
+    "definition": "This objective covers the security trade-offs of architecture choices such as cloud, IaC, serverless, microservices, on-premises, containers, virtualization, IoT, ICS/SCADA, RTOS and embedded systems, and the considerations used to choose between them.",
+    "example": "Choosing between running an app on on-premises servers or as serverless functions, weighing patch control, cost and the shared responsibility split.",
+    "category": "3.1 Architecture models",
+    "keyPoints": "Know who is responsible for what in each model; know which systems cannot be patched easily (ICS, RTOS, embedded, IoT); weigh each model on staying up (availability, resilience, ease of recovery), growing and launching (scalability, ease of deployment, responsiveness), money and risk (cost, risk transference) and the hardware it needs (power, compute, patching)"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts"
+    ],
+    "term": "Architecture and infrastructure concepts (SY0-701 3.1)",
+    "definition": "The set of ways a system can be built and hosted: cloud, infrastructure as code, serverless, microservices, network infrastructure, on-premises, centralized or decentralized designs, containers, virtualization, IoT, ICS/SCADA, RTOS, embedded systems and high availability. Each has its own security implications.",
+    "example": "A company compares hosting its customer portal in containers in the cloud versus on virtual machines in its own data center.",
+    "category": "3.1 Architecture models",
+    "keyPoints": "Each model changes who controls and patches what; more distributed models add attack surface (APIs, management interfaces); specialized systems (ICS, RTOS, embedded) trade patchability for reliability"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Cloud"
+    ],
+    "term": "Cloud (architecture model)",
+    "definition": "Computing resources (servers, storage, applications) delivered on demand by a provider over a network, in service models IaaS, PaaS and SaaS and deployment models public, private, community and hybrid. Security is shared between the provider and the customer.",
+    "example": "A startup runs its web servers on a public cloud IaaS platform instead of buying hardware.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Infrastructure as a service (IaaS), platform as a service (PaaS), software as a service (SaaS); misconfiguration (open storage buckets) is a leading cloud risk: the Cloud Security Alliance ranked misconfiguration and inadequate change control first in its 2024 top threats; customer is always responsible for its data and access"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Cloud",
+      "Responsibility matrix"
+    ],
+    "term": "Responsibility matrix (cloud shared responsibility)",
+    "definition": "A table showing which security tasks belong to the cloud provider and which to the customer for each service model. The provider always secures the physical data center; the customer always owns its data, accounts and access.",
+    "example": "In IaaS the customer patches the guest OS; in SaaS the provider patches everything and the customer manages user accounts and data.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts > Cloud",
+    "keyPoints": "Customer responsibility shrinks from IaaS to PaaS to SaaS; data and identity are always the customer's; a breach from a misconfigured bucket is the customer's fault, not the provider's"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Cloud",
+      "Hybrid considerations"
+    ],
+    "term": "Hybrid cloud considerations",
+    "definition": "Security issues when combining on-premises systems with one or more clouds: consistent identity and policy across environments, secure connections between them, data moving between locations, and different tools and logs in each.",
+    "example": "A firm keeps its database on-premises and its web front end in a public cloud, linked by a site-to-site VPN, and must sync user accounts across both.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts > Cloud",
+    "keyPoints": "Hard part is consistency: same authentication, monitoring and policies everywhere; data in transit between sites must be encrypted; more complexity means more chance of misconfiguration"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Cloud",
+      "Third-party vendors"
+    ],
+    "term": "Third-party vendors (cloud consideration)",
+    "definition": "Outside companies that provide or connect to cloud services (the cloud provider, SaaS apps, managed service providers). Their security, access and contracts become part of your risk.",
+    "example": "A managed service provider with admin access to your cloud tenant is breached, and attackers use its access to reach your systems.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts > Cloud",
+    "keyPoints": "Vet vendors and set security requirements in contracts (right to audit, SLAs); limit and monitor vendor access; supply chain risk links to objective 5.3"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Infrastructure as code (IaC)"
+    ],
+    "term": "Infrastructure as code (IaC)",
+    "definition": "Defining servers, networks and other infrastructure in machine-readable template or script files so environments are built automatically and identically every time. The files can be version-controlled, reviewed and tested like software.",
+    "example": "A team deploys the same hardened web tier to test and production from one Terraform template stored in Git.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Benefits: consistency, repeatability, fewer manual errors, easy rebuild; risks: one bad template spreads a misconfiguration everywhere, secrets hard-coded in templates; scan templates before deploying"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Serverless"
+    ],
+    "term": "Serverless architecture",
+    "definition": "A cloud model where code runs as functions triggered by events and the provider manages all servers, operating systems and scaling. The customer only writes and secures the code, its permissions and its data. Also called function as a service (FaaS).",
+    "example": "An image upload triggers a cloud function that creates a thumbnail; no server is ever managed by the company.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "No OS to patch for the customer; security focus moves to function permissions (least privilege), input validation and API/event security; functions are short-lived (ephemeral)"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Microservices"
+    ],
+    "term": "Microservices architecture",
+    "definition": "An application built as many small independent services, each doing one job and talking to others through APIs. Services can be updated, scaled and fail independently.",
+    "example": "An online store splits into separate inventory, payment and shipping services, so a bug in shipping does not take down payments.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "More resilient and scalable than a monolith; many more APIs to authenticate, authorize and monitor; compare with a monolithic app where one flaw or failure affects everything"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Network infrastructure"
+    ],
+    "term": "Network infrastructure (architecture model)",
+    "definition": "How the network that connects systems is built and separated: physically isolated networks (including air gaps), logically segmented networks (VLANs, subnets) and software-defined networking.",
+    "example": "A hospital places medical devices on their own segment, separate from guest Wi-Fi and staff workstations.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Physical isolation is strongest but costly and inflexible; logical segmentation is cheaper and common; SDN separates control from data for central, programmable management"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Network infrastructure",
+      "Physical isolation"
+    ],
+    "term": "Physical isolation (network infrastructure)",
+    "definition": "Keeping networks or devices on completely separate hardware with no shared switches or cables, so traffic cannot cross between them. The most extreme form is an air gap.",
+    "example": "A bank keeps its card-processing systems on separate physical switches from the office network.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts > Network infrastructure",
+    "keyPoints": "Stronger than logical segmentation (no VLAN hopping or misconfiguration crossing); higher cost and harder to manage; contrast with logical segmentation, which shares hardware"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Network infrastructure",
+      "Physical isolation",
+      "Air-gapped"
+    ],
+    "term": "Air-gapped network",
+    "definition": "A system or network with no physical or wireless connection to any other network, especially the internet. Data moves in or out only by hand, usually on removable media.",
+    "example": "A uranium enrichment plant's control systems were air-gapped, yet Stuxnet is believed to have crossed the gap on infected USB drives, which it used to reach machines never connected to any network.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts > Network infrastructure > Physical isolation",
+    "keyPoints": "Protects against network attacks, not against removable media or insiders; updates and data transfer are slow and manual; often used for ICS, military and highly classified systems"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Network infrastructure",
+      "Logical segmentation"
+    ],
+    "term": "Logical segmentation (network infrastructure)",
+    "definition": "Dividing one physical network into separate logical networks using VLANs, subnets, firewall rules or ACLs, so devices on shared hardware cannot talk freely to each other.",
+    "example": "Guest Wi-Fi users are placed on VLAN 50 and blocked by ACLs from reaching the finance VLAN, though both use the same switches.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts > Network infrastructure",
+    "keyPoints": "Cheaper and more flexible than physical isolation; a misconfiguration or VLAN hopping can break it; limits lateral movement and the scope of a breach"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Network infrastructure",
+      "Software-defined networking (SDN)"
+    ],
+    "term": "Software-defined networking (SDN)",
+    "definition": "A network design that separates the control plane (decides where traffic goes) from the data plane (forwards traffic), with a central controller programming the network devices through software. A management plane configures and monitors it.",
+    "example": "An administrator pushes a new segmentation policy to hundreds of switches at once from the SDN controller.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts > Network infrastructure",
+    "keyPoints": "Planes: control, data, management; central, automated, programmable and consistent; the controller is a high-value target and single point of failure, so protect it"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "On-premises"
+    ],
+    "term": "On-premises architecture",
+    "definition": "Systems hosted in the organization's own facilities on hardware it owns and runs. The organization has full control and full responsibility for security, maintenance and costs.",
+    "example": "A defense contractor keeps classified file servers in its own locked data center rather than in a cloud.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Full control over data location, hardware and patching; full responsibility and high upfront cost; scaling and recovery are slower than in the cloud"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Centralized vs. decentralized"
+    ],
+    "term": "Centralized vs. decentralized architecture",
+    "definition": "Centralized architecture puts control, data or processing in one place; decentralized spreads them across many locations or nodes. Centralized is easier to manage and secure consistently; decentralized avoids a single point of failure.",
+    "example": "A single central authentication server (centralized) versus a blockchain ledger copied across many nodes (decentralized).",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Centralized: easier visibility and control, but a single point of failure and an attractive target; decentralized: resilient, but harder to manage and keep consistent"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Containerization"
+    ],
+    "term": "Containerization",
+    "definition": "Packaging an application with its libraries and settings into a container that runs on a shared host operating system kernel through a container engine (for example Docker). Containers are lighter and start faster than virtual machines.",
+    "example": "A team ships its API as a container image that runs the same on a laptop, a test server and a cloud cluster.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Containers share the host kernel (VMs each have their own OS); a kernel flaw or container escape can affect all containers; secure images from trusted sources and scan them; isolate with namespaces (what a container can see) and control groups, cgroups (how much CPU and memory it can use)"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Virtualization"
+    ],
+    "term": "Virtualization",
+    "definition": "Running multiple virtual machines, each with its own operating system, on one physical host through a hypervisor. Type 1 hypervisors run on bare metal; Type 2 run on top of a host OS.",
+    "example": "One physical server hosts separate web, database and mail VMs.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Risks: VM escape (break out to the hypervisor or other VMs), VM sprawl (unmanaged VMs), resource reuse; patch the hypervisor; stronger isolation than containers"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "IoT"
+    ],
+    "term": "Internet of Things (IoT)",
+    "definition": "Everyday network-connected devices and sensors such as smart cameras, thermostats, wearables and building systems. They often have weak default credentials, limited processing power and few or no security updates.",
+    "example": "Hundreds of thousands of IP cameras, video recorders and home routers were taken over by the Mirai botnet in 2016, which simply tried a short list of factory default logins, and used for DDoS attacks.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Change default credentials; put IoT on its own segment; often hard or impossible to patch; large attack surface from many devices"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Industrial control systems (ICS)/supervisory control and data acquisition (SCADA)"
+    ],
+    "term": "Industrial control systems (ICS)/supervisory control and data acquisition (SCADA)",
+    "definition": "Systems that monitor and control physical industrial processes such as power grids, water treatment and manufacturing. SCADA covers large, often geographically spread systems: a central control server talks to field sites where remote terminal units (RTUs) or PLCs run sensors and actuators, and operators watch through HMIs.",
+    "example": "A water utility uses SCADA to control pumps and chemical dosing at stations across a city.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Availability and safety come first (an outage can harm people); often legacy and hard to patch; protect with segmentation or air gaps and strict access; attacks have physical consequences; NIST now groups ICS under operational technology (OT)"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Real-time operating system (RTOS)"
+    ],
+    "term": "Real-time operating system (RTOS)",
+    "definition": "An operating system built to process inputs within guaranteed, deterministic time limits, used where a delay is unacceptable. Found in vehicles, industrial equipment, medical devices and military systems.",
+    "example": "A car's anti-lock braking system runs on an RTOS that must react within milliseconds.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Deterministic timing is the defining feature; security add-ons can break timing, so they are minimal; hard to patch; isolate it from other networks"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "Embedded systems"
+    ],
+    "term": "Embedded systems",
+    "definition": "Computers built into a device to perform one dedicated function, usually with firmware and limited resources. Examples include printers, smart meters, traffic lights and medical pumps.",
+    "example": "A hospital infusion pump runs embedded firmware that the vendor rarely updates.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Limited CPU and memory restrict security features; firmware updates may be rare or unavailable; often long service life; segment and monitor them"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Architecture and infrastructure concepts",
+      "High availability"
+    ],
+    "term": "High availability (architecture concept)",
+    "definition": "Designing a system so it stays running and accessible nearly all the time, using redundancy so that one failed component does not cause an outage. Usually measured as uptime percentage (for example 99.999%).",
+    "example": "A web service runs on two servers behind a load balancer in different zones so one can fail without users noticing.",
+    "category": "3.1 Architecture models > Architecture and infrastructure concepts",
+    "keyPoints": "Achieved through redundancy (servers, power, network, sites); higher availability costs more; differs from fault tolerance, which aims for zero interruption; covered again in 3.4"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations"
+    ],
+    "term": "Architecture considerations (SY0-701 3.1)",
+    "definition": "The factors used to compare architecture models. Staying up: availability, resilience, ease of recovery. Growing and launching: scalability, ease of deployment, responsiveness. Money and risk: cost and risk transference. Upkeep and hardware: patch availability or an inability to patch, power and compute.",
+    "example": "Choosing cloud over on-premises for a seasonal app because of scalability and cost, while accepting less control over patching.",
+    "category": "3.1 Architecture models",
+    "keyPoints": "Every model is a trade-off: no option wins on all factors; exam scenarios name a priority (cost, uptime, patching) and ask which model fits it"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Availability"
+    ],
+    "term": "Availability (architecture consideration)",
+    "definition": "How reliably a system is up and usable when needed. Architecture choices such as redundancy, multiple zones and cloud hosting change how available a system can be.",
+    "example": "An e-commerce site chooses a multi-region cloud deployment because any downtime loses sales.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "The A in the CIA triad; improved by redundancy and failover; balanced against cost; ICS puts availability first"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Resilience"
+    ],
+    "term": "Resilience (architecture consideration)",
+    "definition": "A system's ability to keep working, perhaps in a degraded state, through failures or attacks, and to recover quickly. Built with redundancy, diversity and fault-tolerant design.",
+    "example": "A microservices app keeps taking orders even when its recommendation service crashes.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Resilience is about surviving and bouncing back; availability is the uptime result; microservices and distributed designs usually increase resilience"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Cost"
+    ],
+    "term": "Cost (architecture consideration)",
+    "definition": "The money needed to build and run an architecture, including upfront capital expense, ongoing operating expense, licenses, staff and the cost of security controls.",
+    "example": "A small business picks SaaS email to avoid buying servers and hiring a mail administrator.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "On-premises: high upfront capital cost; cloud: pay-as-you-go operating cost; more availability and redundancy cost more; controls should not cost more than the asset they protect"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Responsiveness"
+    ],
+    "term": "Responsiveness (architecture consideration)",
+    "definition": "How quickly a system reacts to requests and changes in load. Location, design and scaling ability all affect it.",
+    "example": "A trading platform hosts servers near the exchange so orders are processed with minimal delay.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Linked to performance and latency; elastic cloud and load balancing help keep systems responsive under load; heavy security inspection can add latency"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Scalability"
+    ],
+    "term": "Scalability (architecture consideration)",
+    "definition": "The ability to add or remove capacity as demand changes. Elasticity is scaling automatically and quickly, both up and down.",
+    "example": "A ticket site automatically adds cloud servers when concert tickets go on sale and removes them afterward.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Scale up (bigger machine) vs scale out (more machines); cloud, containers and microservices scale easily; on-premises scaling needs hardware purchases"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Ease of deployment"
+    ],
+    "term": "Ease of deployment (architecture consideration)",
+    "definition": "How simply and quickly a system can be set up or changed. Automation, templates and managed services make deployment easier and more consistent.",
+    "example": "With IaC a new branch office network is deployed in minutes from a tested template.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "IaC, containers and cloud services ease deployment; easy deployment can also spread mistakes fast; complex systems (ICS, hybrid) are harder to deploy securely"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Risk transference"
+    ],
+    "term": "Risk transference (architecture consideration)",
+    "definition": "Shifting some of the impact of a risk to another party, such as a cloud provider or an insurer, through contracts and service agreements. Accountability for the data still stays with the organization.",
+    "example": "Moving email to a SaaS provider transfers responsibility for server patching and hardware failure to that provider.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Cloud and outsourcing transfer some operational risk; you cannot transfer accountability for your data; also a risk response strategy in 5.2 (with accept, avoid, mitigate)"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Ease of recovery"
+    ],
+    "term": "Ease of recovery (architecture consideration)",
+    "definition": "How quickly and simply a system can be restored after a failure or attack. Architectures with automation, snapshots and redundancy recover faster.",
+    "example": "A cloud VM rebuilt from an IaC template and restored from a snapshot is back online in minutes.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Supports low RTO; cloud, IaC and containers usually recover easily; ICS and legacy systems can be hard to restore"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Patch availability"
+    ],
+    "term": "Patch availability (architecture consideration)",
+    "definition": "Whether the vendor actually releases security updates for a system and how quickly. Unsupported or end-of-life products get none.",
+    "example": "A vendor stops releasing patches for an old operating system, so a newly found flaw stays open forever.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Check vendor support lifecycle before choosing; end-of-life means no patches; cloud SaaS providers patch for you"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Inability to patch"
+    ],
+    "term": "Inability to patch (architecture consideration)",
+    "definition": "Situations where a system cannot be patched even if fixes exist, because of uptime needs, vendor certification, limited resources or fixed firmware. Compensating controls must cover the gap.",
+    "example": "A hospital imaging system may only run the software build its vendor has validated, and the vendor has not yet validated a new OS patch, so the hospital puts the device on an isolated network and monitors it.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Common with ICS/SCADA, RTOS, embedded, IoT and medical devices; use compensating controls: segmentation, air gap, monitoring, strict access; different from patch availability (patch may exist but cannot be applied)"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Power"
+    ],
+    "term": "Power (architecture consideration)",
+    "definition": "The electrical needs of an architecture: how much power it draws and how dependable its supply is. Data centers need enough capacity and backup power, and small devices may be limited by battery.",
+    "example": "Moving to the cloud removes the need for a company to buy more power capacity and generators for its server room.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "On-premises means you supply and back up power; low-power IoT and embedded devices cannot run heavy security software; power resilience is detailed in 3.4"
+  },
+  {
+    "obj": "3.1",
+    "path": [
+      "Considerations",
+      "Compute"
+    ],
+    "term": "Compute (architecture consideration)",
+    "definition": "The processing power available to a system (CPU, memory). It limits what workloads and security functions can run, and cloud compute can be scaled on demand.",
+    "example": "A small sensor lacks the CPU to perform strong encryption, while a cloud workload can add more virtual CPUs at peak times.",
+    "category": "3.1 Architecture models > Considerations",
+    "keyPoints": "Constrained devices (IoT, embedded) limit encryption and agents; cloud offers elastic compute; affects cost and responsiveness"
+  },
+  {
+    "obj": "3.2",
+    "path": [],
+    "term": "SY0-701 3.2: Given a scenario, apply security principles to secure enterprise infrastructure",
+    "definition": "This objective covers designing a secure network: device placement, zones, attack surface, connectivity, failure modes, device attributes, network appliances, port security, firewall types, secure remote communication and choosing effective controls.",
+    "example": "Deciding where to put a WAF, an IPS and a jump server in a new data center design.",
+    "category": "3.2 Securing enterprise infrastructure",
+    "keyPoints": "Scenario based: pick the right device and where to place it; know fail-open vs fail-closed, inline vs tap, IPS vs IDS, WAF vs NGFW vs UTM, TLS vs IPSec, SD-WAN vs SASE"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations"
+    ],
+    "term": "Infrastructure considerations (SY0-701 3.2)",
+    "definition": "The design decisions that shape network security: where devices go, how the network is split into zones, how large the attack surface is, how sites connect, how devices behave when they fail, how they attach to traffic, which appliances to use, port security and firewall types.",
+    "example": "A network architect plans zones, firewall placement and failure behavior before building a new office network.",
+    "category": "3.2 Securing enterprise infrastructure",
+    "keyPoints": "Defense in depth: layered controls at zone boundaries; reduce attack surface; choose behavior on failure deliberately"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Device placement"
+    ],
+    "term": "Device placement (network security)",
+    "definition": "Choosing where in the network each security device sits so it sees and controls the right traffic, usually at the boundaries between security zones.",
+    "example": "A firewall is placed between the internet and the screened subnet, and another between the screened subnet and the internal network.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Firewalls at zone boundaries; IPS inline where traffic must be blocked; IDS sensors where they can see the traffic of interest; a WAF in front of web servers"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Security zones"
+    ],
+    "term": "Security zones",
+    "definition": "Areas of the network grouped by trust level and purpose, with controls on traffic between them, such as untrusted (internet), screened subnet (DMZ) and trusted (internal) zones.",
+    "example": "Public web servers sit in the screened subnet; the database they use sits in the internal trusted zone, reachable only on one port.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Traffic between zones is filtered by policy; CompTIA calls the DMZ a screened subnet; zones support least privilege and limit lateral movement"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Attack surface"
+    ],
+    "term": "Attack surface (infrastructure)",
+    "definition": "All the points where an attacker could try to enter or extract data: open ports, services, applications, user accounts, devices and connections. Smaller is safer.",
+    "example": "Disabling unused services and closing unused firewall ports on a server reduces its attack surface.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Reduce by hardening, removing unneeded services, segmentation and least privilege; every new device, app or API adds to it; cloud, IoT and remote work enlarge it"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Connectivity"
+    ],
+    "term": "Connectivity (infrastructure consideration)",
+    "definition": "How networks, sites, users and clouds are linked (internet, VPN, leased lines, wireless, SD-WAN) and how those links are secured and kept available.",
+    "example": "Branch offices connect to headquarters over encrypted site-to-site VPN tunnels with a backup cellular link.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Encrypt links over untrusted networks; redundant links improve availability; each connection is part of the attack surface"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Failure modes"
+    ],
+    "term": "Failure modes (security device)",
+    "definition": "How a security device behaves when it fails or loses power: fail-open lets traffic pass, fail-closed blocks it. The choice trades availability against security.",
+    "example": "An inline IPS is configured to fail-open so a crash does not cut off the business website.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Fail-open favors availability; fail-closed favors security (confidentiality and integrity); pick based on what matters more for that link"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Failure modes",
+      "Fail-open"
+    ],
+    "term": "Fail-open",
+    "definition": "A failure mode where a device lets all traffic through when it fails. The network keeps working, but traffic is no longer inspected or filtered.",
+    "example": "An inline IPS fails and switches to pass-through, so the store keeps taking orders but attacks are not blocked.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Failure modes",
+    "keyPoints": "Prioritizes availability; risk: unprotected traffic during the failure; contrast with fail-closed"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Failure modes",
+      "Fail-closed"
+    ],
+    "term": "Fail-closed",
+    "definition": "A failure mode where a device blocks all traffic when it fails. Nothing unsafe gets through, but the connection is down until the device is fixed.",
+    "example": "A firewall protecting a classified network stops all traffic when it crashes.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Failure modes",
+    "keyPoints": "Prioritizes security over availability; causes an outage on failure; contrast with fail-open; do not confuse with door locks: a fail-safe lock unlocks on power loss (for safe exit), a fail-secure lock stays locked"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Device attribute"
+    ],
+    "term": "Device attribute (network security device)",
+    "definition": "Characteristics describing how a security device interacts with traffic: active vs. passive (can it act on traffic) and inline vs. tap/monitor (is traffic going through it or copied to it).",
+    "example": "An IPS is active and inline; an IDS is passive and connected to a tap or SPAN port.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Active usually requires inline to block; passive monitoring cannot stop traffic; inline devices can become a bottleneck or point of failure"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Device attribute",
+      "Active vs. passive"
+    ],
+    "term": "Active vs. passive (device attribute)",
+    "definition": "An active security device can respond to and change traffic, for example by blocking or resetting connections. A passive device only watches and reports, without affecting traffic.",
+    "example": "An active IPS drops a malicious packet; a passive IDS only logs an alert about it.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Device attribute",
+    "keyPoints": "Active can stop attacks but can also block legitimate traffic (false positives); passive has no impact on traffic; IPS = active, IDS = passive"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Device attribute",
+      "Inline vs. tap/monitor"
+    ],
+    "term": "Inline vs. tap/monitor (device attribute)",
+    "definition": "An inline device sits directly in the traffic path, so all traffic passes through it and can be blocked. A tap or monitor device receives a copy of traffic (network tap or switch port mirror/SPAN) and can only observe.",
+    "example": "An IPS is cabled between the router and the core switch (inline); an IDS sensor is plugged into a switch mirror port (tap/monitor).",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Device attribute",
+    "keyPoints": "Inline can block, adds latency and needs a failure mode; tap/monitor cannot block and does not affect traffic; port mirror is also called SPAN"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Network appliances"
+    ],
+    "term": "Network appliances (security)",
+    "definition": "Dedicated devices or virtual appliances that perform a network security job: jump servers, proxy servers, IPS/IDS, load balancers and sensors.",
+    "example": "A data center uses a load balancer for its web servers, an IPS at the edge and a jump server for admin access.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Know each appliance's purpose and placement; many are now virtual or cloud based; firewalls are covered separately under firewall types"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Network appliances",
+      "Jump server"
+    ],
+    "term": "Jump server",
+    "definition": "A hardened, closely monitored host that administrators connect to first and then use to reach systems in a secure zone. It is the single controlled entry point for administration.",
+    "example": "Admins SSH into a jump server in the management zone, then from there into the database servers, which accept admin connections only from it.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Network appliances",
+    "keyPoints": "Also called jump box or bastion host; reduces exposure by funneling admin access through one point; must be hardened, patched and logged, since compromise exposes everything behind it"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Network appliances",
+      "Proxy server"
+    ],
+    "term": "Proxy server",
+    "definition": "A server that makes requests on behalf of clients, so it can filter content, cache, log and hide internal addresses. A forward proxy serves internal users going out; a reverse proxy sits in front of internal servers for incoming requests.",
+    "example": "All employee web traffic goes through a forward proxy that blocks known malicious sites and logs visits.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Network appliances",
+    "keyPoints": "Forward proxy: users out to internet (content filtering, URL filtering); reverse proxy: internet in to servers (protects and load-balances web servers); explicit vs transparent proxies"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Network appliances",
+      "Intrusion prevention system (IPS)/intrusion detection system (IDS)"
+    ],
+    "term": "Intrusion prevention system (IPS)/intrusion detection system (IDS)",
+    "definition": "Systems that inspect traffic for attacks using signatures, anomaly (behavior) detection or both. An IDS alerts only; an IPS sits inline and can block the malicious traffic.",
+    "example": "An IPS drops packets that match a known SQL injection signature; an IDS on a mirror port alerts the SOC about a port scan.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Network appliances",
+    "keyPoints": "IPS: inline and active; IDS: tap/monitor and passive; signature-based misses new (zero-day) attacks, anomaly-based has more false positives; HIDS/HIPS run on hosts, NIDS/NIPS on the network"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Network appliances",
+      "Load balancer"
+    ],
+    "term": "Load balancer",
+    "definition": "A device or service that spreads incoming requests across multiple servers to improve performance and availability, and removes failed servers from the pool. It can also offload TLS and cache content.",
+    "example": "A load balancer sends visitors to whichever of four web servers is least busy and stops using one that fails a health check.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Network appliances",
+    "keyPoints": "Active/active (all serve traffic) vs active/passive (standby takes over); scheduling: round robin, weighted, least connections; affinity keeps a user on one server; supports high availability"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Network appliances",
+      "Sensors"
+    ],
+    "term": "Sensors (network appliance)",
+    "definition": "Devices or software components placed in the network to collect traffic or event data and send it to a monitoring system such as an IDS, SIEM or NDR platform.",
+    "example": "Sensors on each network segment forward traffic metadata to a central console that spots unusual connections.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Network appliances",
+    "keyPoints": "Placement decides visibility: put sensors where the traffic of interest flows; sensors collect, a central system analyzes and correlates; often passive (tap/monitor)"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Port security"
+    ],
+    "term": "Port security (network access control)",
+    "definition": "Protection of individual switch ports and wireless access point connections, so only authenticated devices or users get network access. On SY0-701 this means 802.1X with EAP authentication.",
+    "example": "A visitor plugs a laptop into a wall jack and gets no network access because it cannot authenticate with 802.1X.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "Stops unauthorized devices at the point of connection; 802.1X with EAP is what the exam item lists; switch MAC address limiting is a separate, weaker control because MACs can be spoofed"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Port security",
+      "802.1X"
+    ],
+    "term": "802.1X (port-based network access control)",
+    "definition": "An IEEE standard for port-based network access control: a device gets network access only after authenticating. Roles are the supplicant (client), the authenticator (switch or access point) and the authentication server (usually RADIUS).",
+    "example": "An employee laptop connects to the office Wi-Fi and is authenticated against RADIUS with its certificate before the access point opens the port.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Port security",
+    "keyPoints": "Three roles: supplicant, authenticator, authentication server; uses EAP to carry credentials (EAP over LAN, EAPoL); works for wired and wireless (WPA2/WPA3-Enterprise); until authenticated, only authentication traffic passes"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Port security",
+      "Extensible Authentication Protocol (EAP)"
+    ],
+    "term": "Extensible Authentication Protocol (EAP)",
+    "definition": "An authentication framework that carries many different authentication methods, used by 802.1X and enterprise Wi-Fi. Common methods include EAP-TLS, PEAP, EAP-TTLS and EAP-FAST.",
+    "example": "A company uses EAP-TLS so both the server and each client prove their identity with certificates.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Port security",
+    "keyPoints": "EAP is a framework, not one method; EAP-TLS needs certificates on server and clients (strongest); PEAP and EAP-TTLS need a server certificate and protect a password inside a TLS tunnel; EAP-FAST builds its tunnel with a shared secret called a protected access credential (PAC), so clients need no certificate"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Firewall types"
+    ],
+    "term": "Firewall types (SY0-701)",
+    "definition": "The kinds of firewalls the exam compares: web application firewall (WAF), unified threat management (UTM), next-generation firewall (NGFW) and Layer 4 vs Layer 7 firewalls. They differ in what traffic they understand and what else they do.",
+    "example": "A company uses an NGFW at its internet edge and a WAF in front of its public web application.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations",
+    "keyPoints": "WAF protects web apps (HTTP); NGFW is application-aware with built-in IPS; UTM is an all-in-one box for smaller sites; Layer 4 filters by IP, port and protocol, Layer 7 by application content"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Firewall types",
+      "Web application firewall (WAF)"
+    ],
+    "term": "Web application firewall (WAF)",
+    "definition": "A firewall that inspects HTTP/HTTPS traffic to and from web applications and blocks application attacks such as SQL injection and cross-site scripting. It works at Layer 7 and protects the app rather than the whole network.",
+    "example": "An online store puts a WAF in front of its checkout pages to block SQL injection attempts and meet PCI DSS.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Firewall types",
+    "keyPoints": "Protects web servers and apps, not general network traffic; blocks SQLi, XSS and similar; often required or recommended for PCI DSS; differs from an NGFW, which protects the whole network edge"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Firewall types",
+      "Unified threat management (UTM)"
+    ],
+    "term": "Unified threat management (UTM)",
+    "definition": "An all-in-one security appliance combining many functions, such as firewall, IDS/IPS, antivirus, content and URL filtering, spam filtering and VPN, in one device. Common in small and medium businesses.",
+    "example": "A 20-person office buys one UTM box to provide its firewall, VPN, web filtering and antivirus scanning.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Firewall types",
+    "keyPoints": "Simple and cheap to manage; single point of failure; performance drops when all features are on; older all-in-one concept compared to NGFW; many UTMs filter only at Layer 4 (ports), not by application"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Firewall types",
+      "Next-generation firewall (NGFW)"
+    ],
+    "term": "Next-generation firewall (NGFW)",
+    "definition": "A firewall that identifies and controls traffic by application, not just by port and IP address, and usually includes intrusion prevention, URL filtering and TLS decryption. Study guides also call it an application layer gateway, a stateful multilayer inspection firewall, a deep packet inspection firewall or a Layer 7 firewall.",
+    "example": "An NGFW allows the company's video conferencing app but blocks file-sharing apps, even though both use port 443.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Firewall types",
+    "keyPoints": "Application awareness is the key feature; integrates IPS; can decrypt and inspect TLS; contrast with a traditional Layer 4 firewall that sees only ports and addresses"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Infrastructure considerations",
+      "Firewall types",
+      "Layer 4/Layer 7"
+    ],
+    "term": "Layer 4 vs. Layer 7 firewall",
+    "definition": "A Layer 4 firewall filters on transport information: source and destination IP address, port and protocol (TCP/UDP), often statefully tracking connections. A Layer 7 firewall understands the application data itself and can allow or block specific applications or content.",
+    "example": "A Layer 4 rule allows TCP port 443; a Layer 7 rule allows only the company's approved web apps over that same port.",
+    "category": "3.2 Securing enterprise infrastructure > Infrastructure considerations > Firewall types",
+    "keyPoints": "Layer 4: fast, simple, cannot tell apps apart on the same port; Layer 7: application-aware (NGFW, WAF), more processing; stateful firewalls track sessions, stateless check each packet alone"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access"
+    ],
+    "term": "Secure communication/access (SY0-701 3.2)",
+    "definition": "Ways to connect users and sites securely over untrusted networks: VPNs, remote access methods, tunneling with TLS or IPSec, SD-WAN and SASE.",
+    "example": "Remote staff connect through a TLS VPN, while branches use IPSec tunnels managed by SD-WAN.",
+    "category": "3.2 Securing enterprise infrastructure",
+    "keyPoints": "Encrypt traffic across untrusted networks; know TLS (application/transport, port 443) vs IPSec (network layer); SD-WAN is about connectivity, SASE adds cloud-delivered security"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access",
+      "Virtual private network (VPN)"
+    ],
+    "term": "Virtual private network (VPN)",
+    "definition": "An encrypted tunnel across an untrusted network (usually the internet) that makes a remote user or site appear to be on the private network. It can be site-to-site or remote access, and is often terminated on a VPN concentrator.",
+    "example": "Two offices link their networks with an always-on site-to-site VPN between their firewalls.",
+    "category": "3.2 Securing enterprise infrastructure > Secure communication/access",
+    "keyPoints": "Site-to-site (network to network) vs remote access (user to network); full tunnel (all traffic through VPN) vs split tunnel (only corporate traffic); built on IPSec or TLS"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access",
+      "Remote access"
+    ],
+    "term": "Remote access (secure communication)",
+    "definition": "Letting users or administrators reach internal systems from outside, for example through a VPN, remote desktop, SSH or a jump server. It must be protected with strong authentication and encryption.",
+    "example": "An administrator connects through the VPN with MFA, then uses SSH to manage a server.",
+    "category": "3.2 Securing enterprise infrastructure > Secure communication/access",
+    "keyPoints": "Always require MFA; never expose RDP directly to the internet; use encrypted protocols (SSH not Telnet); log and limit remote sessions"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access",
+      "Tunneling"
+    ],
+    "term": "Tunneling (secure communication)",
+    "definition": "Encapsulating one network protocol inside another so traffic can cross a network privately, usually with encryption. The main secure tunneling protocols on the exam are TLS and IPSec.",
+    "example": "A remote worker's traffic is wrapped in an encrypted TLS tunnel across hotel Wi-Fi to the corporate network.",
+    "category": "3.2 Securing enterprise infrastructure > Secure communication/access",
+    "keyPoints": "Tunneling hides and protects the inner traffic; TLS tunnels usually run over port 443 and pass most firewalls; IPSec tunnels protect all IP traffic at the network layer"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access",
+      "Tunneling",
+      "Transport Layer Security (TLS)"
+    ],
+    "term": "Transport Layer Security (TLS) tunnel/VPN",
+    "definition": "A cryptographic protocol that encrypts traffic between two endpoints, the successor to SSL. As a VPN it usually runs over TCP port 443 and can be used from a client app or a browser (clientless).",
+    "example": "Contractors open a browser to the company's TLS VPN portal and reach internal web apps without installing software.",
+    "category": "3.2 Securing enterprise infrastructure > Secure communication/access > Tunneling",
+    "keyPoints": "TLS VPN (often still called SSL VPN) usually uses port 443, so it rarely gets blocked; clientless or light client; SSL 3.0 must not be used (RFC 7568) and TLS 1.0 and 1.1 are deprecated (RFC 8996); TLS 1.2 and 1.3 are current; contrast with IPSec"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access",
+      "Tunneling",
+      "Internet protocol security (IPSec)"
+    ],
+    "term": "Internet protocol security (IPSec)",
+    "definition": "A suite of protocols that secures IP traffic at the network layer with authentication, integrity and encryption, commonly used for site-to-site VPNs. It uses Authentication Header (AH) for integrity and authentication, Encapsulating Security Payload (ESP) for encryption, and IKE to set up keys.",
+    "example": "Two data centers connect with an IPSec tunnel-mode VPN between their routers.",
+    "category": "3.2 Securing enterprise infrastructure > Secure communication/access > Tunneling",
+    "keyPoints": "AH = integrity and authentication only, no encryption; ESP = encryption (plus integrity); tunnel mode protects the whole original packet inside a new IP header (site-to-site), transport mode protects only the payload and keeps the original header; IKE (Internet Key Exchange) negotiates keys over UDP port 500, or UDP 4500 when NAT is in the path; both AH and ESP can reject replayed packets"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access",
+      "Software-defined wide area network (SD-WAN)"
+    ],
+    "term": "Software-defined wide area network (SD-WAN)",
+    "definition": "A WAN that uses software to manage and choose among several connection types (broadband, cellular, MPLS) between sites and the cloud, steering traffic over the best path. It is built for cloud-based applications.",
+    "example": "A retail chain's stores send cloud app traffic straight to the internet over broadband and fall back to LTE automatically if broadband fails.",
+    "category": "3.2 Securing enterprise infrastructure > Secure communication/access",
+    "keyPoints": "About efficient, resilient connectivity, not a full security stack; central management and dynamic path selection; contrast with SASE, which adds cloud-delivered security to SD-WAN"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Secure communication/access",
+      "Secure access service edge (SASE)"
+    ],
+    "term": "Secure access service edge (SASE)",
+    "definition": "A cloud-delivered model that combines SD-WAN networking with security services such as secure web gateway, cloud access security broker (CASB), zero trust network access and firewall as a service. Users get the same protection wherever they connect.",
+    "example": "Remote employees connect through a SASE provider's nearby cloud point of presence, which applies company security policy before traffic reaches any app.",
+    "category": "3.2 Securing enterprise infrastructure > Secure communication/access",
+    "keyPoints": "SASE = networking (SD-WAN) plus security delivered from the cloud; follows users anywhere, supports zero trust; SD-WAN alone does not provide the security services; the security half on its own is called security service edge (SSE)"
+  },
+  {
+    "obj": "3.2",
+    "path": [
+      "Selection of effective controls"
+    ],
+    "term": "Selection of effective controls (enterprise infrastructure)",
+    "definition": "Picking the control that answers a scenario: name the threat or need, choose the control type that acts on it (preventive, deterrent, detective, corrective, compensating, directive) and the category that delivers it (technical, managerial, operational, physical), then layer it with other controls. When the ideal control cannot be used, pick a compensating control that lowers the same risk.",
+    "example": "A legacy controller cannot be patched or run an agent, so the team puts it on an isolated network segment behind a firewall and adds traffic monitoring: technical compensating and detective controls in layers.",
+    "category": "3.2 Securing enterprise infrastructure",
+    "keyPoints": "Match the scenario verb: stop it first means preventive, notice it means detective, repair or restore means corrective, discourage means deterrent; Scenario: people tailgate into the server room. Physical preventive control (an access control vestibule), with cameras as a detective layer; Scenario: staff keep clicking phishing links. Managerial and operational controls (policy, awareness training) layered with technical email filtering; Scenario: a system cannot be patched. Compensating controls such as segmentation, isolation and monitoring; Weigh cost, performance and availability impact (an inline device that fails closed can cause an outage); Layer controls so one failure does not leave the asset exposed"
+  },
+  {
+    "obj": "3.3",
+    "path": [],
+    "term": "SY0-701 3.3: Compare and contrast concepts and strategies to protect data",
+    "definition": "This objective covers data types, data classifications, data states, data sovereignty and geolocation, and methods to secure data such as encryption, hashing, masking, tokenization, obfuscation, segmentation and permission restrictions.",
+    "example": "Deciding to tokenize stored card numbers, encrypt laptops and restrict a database to EU data centers for GDPR.",
+    "category": "3.3 Protecting data",
+    "keyPoints": "Match the method to the goal: encryption (reversible with a key), hashing (one-way), masking (hide part), tokenization (replace with a token); know the three data states; sovereignty is about laws, geolocation about location"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data types"
+    ],
+    "term": "Data types (SY0-701 3.3)",
+    "definition": "Categories of data by content and the rules that apply to them: regulated, trade secret, intellectual property, legal information, financial information, and human- and non-human-readable data.",
+    "example": "A hospital holds regulated health records, legal contracts and financial billing data, each with different handling rules.",
+    "category": "3.3 Protecting data",
+    "keyPoints": "The type drives which laws and protections apply; one record can belong to several types; differs from classification, which labels sensitivity"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data types",
+      "Regulated"
+    ],
+    "term": "Regulated data",
+    "definition": "Data whose handling is governed by laws or industry rules, such as personal data (PII), health data (PHI) and payment card data. Mishandling it can bring fines and legal penalties.",
+    "example": "A clinic must protect patient records under HIPAA and report breaches.",
+    "category": "3.3 Protecting data > Data types",
+    "keyPoints": "Examples: PII (GDPR, state laws), PHI (HIPAA), cardholder data (PCI DSS); compliance requirements set minimum controls; regulators may audit"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data types",
+      "Trade secret"
+    ],
+    "term": "Trade secret (data type)",
+    "definition": "Confidential business information that gives a company a competitive advantage because it is kept secret, such as formulas, processes or customer lists. It stays protected only while secrecy is maintained.",
+    "example": "A soft-drink formula known by only a few employees and protected by NDAs.",
+    "category": "3.3 Protecting data > Data types",
+    "keyPoints": "Protected by secrecy and NDAs, not by registration; once disclosed, protection can be lost; differs from patents, which are public"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data types",
+      "Intellectual property"
+    ],
+    "term": "Intellectual property (data type)",
+    "definition": "Creations of the mind owned by a person or company, such as software code, designs, inventions, brands and written works. Legally protected by copyrights, trademarks and patents.",
+    "example": "A game studio's source code and character designs are its intellectual property and are targeted by competitors and nation-state actors.",
+    "category": "3.3 Protecting data > Data types",
+    "keyPoints": "Protected by law (copyright, trademark, patent) and by security controls; theft of IP is a common espionage motive; trade secrets are a related form of IP protected by secrecy"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data types",
+      "Legal information"
+    ],
+    "term": "Legal information (data type)",
+    "definition": "Data related to legal matters, such as contracts, court documents, case files and attorney-client communications. It is often confidential and may be subject to legal holds.",
+    "example": "A law firm keeps privileged client communications on restricted file shares.",
+    "category": "3.3 Protecting data > Data types",
+    "keyPoints": "Often privileged and confidential; may be under legal hold (must not be deleted); some court records are public"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data types",
+      "Financial information"
+    ],
+    "term": "Financial information (data type)",
+    "definition": "Data about money: company financial records, payroll, bank account and payment card details. It is a prime target for fraud and often regulated.",
+    "example": "Attackers steal a company's unreleased quarterly earnings report to trade on it.",
+    "category": "3.3 Protecting data > Data types",
+    "keyPoints": "Includes internal company finances and customer payment data; card data falls under PCI DSS; public company reporting falls under laws like SOX"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data types",
+      "Human- and non-human-readable"
+    ],
+    "term": "Human-readable vs. non-human-readable data",
+    "definition": "Human-readable data can be read directly by people (text documents, spreadsheets). Non-human-readable data needs a machine to interpret it, such as barcodes, QR codes, images, binary or encoded files.",
+    "example": "A DLP system must decode a QR code or scan an image to find a credit card number that a keyword search on text would miss.",
+    "category": "3.3 Protecting data > Data types",
+    "keyPoints": "Both can contain sensitive data; non-human-readable data is harder for people and simple DLP rules to inspect; encoding is not encryption"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data classifications"
+    ],
+    "term": "Data classifications (SY0-701 3.3)",
+    "definition": "Labels that describe how sensitive data is and how it must be handled. SY0-701 lists sensitive, confidential, public, restricted, private and critical; each organization defines its own scheme and the controls for each label.",
+    "example": "A company labels its press releases public, its HR files confidential and its merger plans restricted.",
+    "category": "3.3 Protecting data",
+    "keyPoints": "Classification drives controls (access, encryption, retention); the data owner assigns it; schemes differ by organization; the US government has three classified levels, top secret, secret and confidential, and anything else is unclassified"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data classifications",
+      "Sensitive"
+    ],
+    "term": "Sensitive (data classification)",
+    "definition": "Data that would cause harm if disclosed and needs protection, such as PII, PHI and intellectual property. Access is limited to those who need it.",
+    "example": "Employee home addresses and Social Security numbers are classified sensitive.",
+    "category": "3.3 Protecting data > Data classifications",
+    "keyPoints": "Broad label for data needing protection; often includes PII and PHI; exact meaning set by each organization"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data classifications",
+      "Confidential"
+    ],
+    "term": "Confidential (data classification)",
+    "definition": "Highly sensitive data whose disclosure could seriously harm the organization or individuals. Access must be specifically approved.",
+    "example": "Source code for an unreleased product is classified confidential and shared only with the development team.",
+    "category": "3.3 Protecting data > Data classifications",
+    "keyPoints": "Need-to-know and approval required; usually encrypted and access-logged; disclosure has serious impact"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data classifications",
+      "Public"
+    ],
+    "term": "Public (data classification)",
+    "definition": "Data meant to be shared freely with anyone, so disclosure causes no harm. Also called unclassified.",
+    "example": "Product brochures and the company's published annual report.",
+    "category": "3.3 Protecting data > Data classifications",
+    "keyPoints": "No confidentiality controls needed; integrity still matters (no defacement); lowest classification level"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data classifications",
+      "Restricted"
+    ],
+    "term": "Restricted (data classification)",
+    "definition": "Data with access strictly limited to specific, named people, often requiring extra approval or an NDA. Disclosure could cause severe damage.",
+    "example": "Merger negotiation documents are restricted to the executive team and legal counsel.",
+    "category": "3.3 Protecting data > Data classifications",
+    "keyPoints": "Tightest access controls; often individual approval or NDA required; terms overlap with confidential, so read how the question defines them"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data classifications",
+      "Private"
+    ],
+    "term": "Private (data classification)",
+    "definition": "Data with restricted access that needs extra rights or permissions to view, and sometimes a signed NDA. It is not for public release and often covers personal information about employees or customers.",
+    "example": "Employee salary records can be viewed only by HR staff who have been granted access.",
+    "category": "3.3 Protecting data > Data classifications",
+    "keyPoints": "Some study guides group private with classified and restricted (extra permissions, possibly an NDA); not for public release; exact meaning set by each organization"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Data classifications",
+      "Critical"
+    ],
+    "term": "Critical (data classification)",
+    "definition": "Data the organization cannot operate without, so its availability and integrity must be protected above all. Loss or downtime would stop essential operations.",
+    "example": "A hospital's patient medication records must always be available, so they are replicated and backed up frequently.",
+    "category": "3.3 Protecting data > Data classifications",
+    "keyPoints": "Focus on availability and integrity, not just confidentiality; drives backups, redundancy and recovery priority; links to business impact analysis"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "General data considerations"
+    ],
+    "term": "General data considerations (SY0-701 3.3)",
+    "definition": "Factors that affect how data must be protected wherever it is: its state (at rest, in transit, in use), data sovereignty and geolocation.",
+    "example": "A cloud architect checks which country customer data is stored in and encrypts it at rest and in transit.",
+    "category": "3.3 Protecting data",
+    "keyPoints": "Different states need different protections; sovereignty is legal, geolocation is physical location; both affect cloud region choices"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "General data considerations",
+      "Data states"
+    ],
+    "term": "Data states (at rest, in transit, in use)",
+    "definition": "The three conditions data can be in: at rest (stored), in transit (moving across a network) and in use (being processed in memory). Each needs its own protections.",
+    "example": "A customer record is encrypted on disk (at rest), sent over TLS (in transit) and decrypted in RAM while an app processes it (in use).",
+    "category": "3.3 Protecting data > General data considerations",
+    "keyPoints": "At rest: full-disk, database, file encryption; in transit: TLS, IPSec, VPN; in use: hardest to protect, data is decrypted in memory; secure enclaves and access controls help"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "General data considerations",
+      "Data states",
+      "Data at rest"
+    ],
+    "term": "Data at rest",
+    "definition": "Data stored on a device or medium, such as hard drives, SSDs, databases, backups or cloud storage. Protected by encryption and access permissions.",
+    "example": "A stolen laptop with full-disk encryption (BitLocker) does not expose its files.",
+    "category": "3.3 Protecting data > General data considerations > Data states",
+    "keyPoints": "Protect with full-disk, volume, file or database encryption plus permissions; backups and removable media count as data at rest"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "General data considerations",
+      "Data states",
+      "Data in transit"
+    ],
+    "term": "Data in transit",
+    "definition": "Data moving across a network, between systems or locations. Also called data in motion. Protected by transport encryption.",
+    "example": "Employee logins to a web app are protected by HTTPS (TLS) so they cannot be sniffed on public Wi-Fi.",
+    "category": "3.3 Protecting data > General data considerations > Data states",
+    "keyPoints": "Protect with TLS, IPSec, VPNs, SSH; threats are sniffing and on-path attacks; also called data in motion"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "General data considerations",
+      "Data states",
+      "Data in use"
+    ],
+    "term": "Data in use",
+    "definition": "Data actively being processed, held in memory (RAM), CPU caches or registers. It is usually unencrypted at that moment, which makes it hard to protect.",
+    "example": "Malware scrapes card numbers from a point-of-sale terminal's memory while transactions are processed.",
+    "category": "3.3 Protecting data > General data considerations > Data states",
+    "keyPoints": "Most difficult state to protect; RAM scraping is the classic attack; protections include secure enclaves, memory protection and limiting access"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "General data considerations",
+      "Data sovereignty"
+    ],
+    "term": "Data sovereignty",
+    "definition": "The principle that data is subject to the laws of the country where it is stored or collected. Some laws require certain data to stay within national or regional borders.",
+    "example": "GDPR restricts transferring EU residents' personal data to countries without adequate protection, so a company stores it in EU cloud regions.",
+    "category": "3.3 Protecting data > General data considerations",
+    "keyPoints": "About legal jurisdiction; affects cloud region choice and backups abroad; contrast with geolocation, which is the physical location itself"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "General data considerations",
+      "Geolocation"
+    ],
+    "term": "Geolocation (data consideration)",
+    "definition": "Determining the physical location of a device, user or data, using GPS, IP address, Wi-Fi or cell data. Used to enforce location-based rules and to know where data resides.",
+    "example": "A login attempt geolocated to another continent minutes after a local login is flagged as impossible travel.",
+    "category": "3.3 Protecting data > General data considerations",
+    "keyPoints": "Supports location-based access policies and impossible travel detection; IP geolocation can be fooled by VPNs; informs data sovereignty compliance"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data"
+    ],
+    "term": "Methods to secure data (SY0-701 3.3)",
+    "definition": "Techniques for protecting data: geographic restrictions, encryption, hashing, masking, tokenization, obfuscation, segmentation and permission restrictions.",
+    "example": "A payment company tokenizes card numbers, masks them on receipts, hashes passwords and encrypts databases.",
+    "category": "3.3 Protecting data",
+    "keyPoints": "Encryption is reversible with a key; hashing is one-way; tokenization swaps in a meaningless token; masking hides part of the data; pick by whether the original must be recovered"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Geographic restrictions"
+    ],
+    "term": "Geographic restrictions (method to secure data)",
+    "definition": "Allowing or blocking access to data or systems based on location, such as country, region or a defined area (geofencing).",
+    "example": "A company blocks logins from countries where it has no employees, and a mobile app works only inside the office geofence.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "Uses geolocation and geofencing; can be bypassed with VPNs, so combine with other controls; also used to meet data sovereignty rules"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Encryption"
+    ],
+    "term": "Encryption (method to secure data)",
+    "definition": "Turning readable plaintext into unreadable ciphertext with an algorithm and key, so only those with the right key can read it. It protects confidentiality and is reversible.",
+    "example": "Customer records in a database are encrypted with AES-256, so a stolen copy is useless without the key.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "Reversible with the key (unlike hashing); symmetric (AES) vs asymmetric (RSA, ECC); protecting the keys is critical; used for data at rest and in transit"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Hashing"
+    ],
+    "term": "Hashing (method to secure data)",
+    "definition": "A one-way function that turns data of any size into a fixed-length digest. The same input always gives the same hash, and the original cannot be recovered from it.",
+    "example": "A website stores salted password hashes, compares the hash at login and never stores the actual passwords.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "One-way, not reversible (not encryption); used for integrity checks and password storage; salt defeats rainbow tables; every hash has collisions in theory, but MD5 and SHA-1 are weak because collisions can be found in practice; SHA-256 is common"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Masking"
+    ],
+    "term": "Masking (method to secure data)",
+    "definition": "Hiding part or all of data by replacing characters with symbols or fake values, so people see only what they need. The underlying data still exists elsewhere.",
+    "example": "A receipt shows a card number as ************4321.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "Limits exposure on screens, reports and test data; often one-way for the viewer; does not protect the stored original; contrast with tokenization, which replaces the stored value"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Tokenization"
+    ],
+    "term": "Tokenization (method to secure data)",
+    "definition": "Replacing sensitive data with a random token that has no mathematical relationship to the original. The real value is kept in a secure token vault and looked up only when needed.",
+    "example": "A phone wallet pays with a device-specific token number plus a code valid for one transaction, never the real card number, so a merchant breach exposes no card data.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "Token is not derived from the data, so it cannot be decrypted (unlike encryption); original lives in a token vault; widely used for card data to reduce PCI DSS scope; study guides often call mobile payment tokens one-time, but in practice the device token is reused and the per-transaction code changes; PCI also describes tokens made by cryptographic functions, while the exam sense is the vault token with no mathematical link"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Obfuscation"
+    ],
+    "term": "Obfuscation (method to secure data)",
+    "definition": "Making data or code hard to understand while keeping it usable, so it is hard to read or reverse-engineer. Masking, tokenization and steganography are forms of obfuscation.",
+    "example": "A developer obfuscates JavaScript so competitors cannot easily read its logic.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "Hides meaning but is not strong protection on its own (security through obscurity); umbrella term covering masking, tokenization, steganography; code obfuscation slows reverse engineering"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Segmentation"
+    ],
+    "term": "Segmentation (method to secure data)",
+    "definition": "Separating data into different locations, databases or network segments based on sensitivity, so a breach of one area does not expose everything.",
+    "example": "Card data is kept on an isolated network segment, separate from the rest of the company's systems, which also shrinks PCI DSS scope.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "Limits the blast radius of a breach; sensitive data gets stronger controls in its own segment; related to network segmentation in 3.1"
+  },
+  {
+    "obj": "3.3",
+    "path": [
+      "Methods to secure data",
+      "Permission restrictions"
+    ],
+    "term": "Permission restrictions (method to secure data)",
+    "definition": "Limiting who can read, change or delete data through access controls such as file permissions, ACLs and role-based access, following least privilege.",
+    "example": "Only payroll staff have read access to the salary folder, and only the payroll manager can modify it.",
+    "category": "3.3 Protecting data > Methods to secure data",
+    "keyPoints": "Apply least privilege and need to know; review permissions regularly; controls access but not what happens if storage is stolen (pair with encryption)"
+  },
+  {
+    "obj": "3.4",
+    "path": [],
+    "term": "SY0-701 3.4: Explain the importance of resilience and recovery in security architecture",
+    "definition": "This objective covers keeping systems running and recovering them: high availability, site considerations, platform diversity, multi-cloud, continuity of operations, capacity planning, testing, backups and power.",
+    "example": "A company designs a warm site, daily offsite backups, UPS and generator power, and yearly failover tests for its core systems.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Know hot vs warm vs cold sites; load balancing vs clustering; test types (tabletop, failover, simulation, parallel processing); backup terms (snapshots, replication, journaling); UPS vs generator"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "High availability"
+    ],
+    "term": "High availability (resilience)",
+    "definition": "Keeping systems up and running nearly all the time through redundant components, so one failure does not cause downtime. On SY0-701 3.4 it focuses on load balancing and clustering.",
+    "example": "Two clustered database servers share storage so the standby takes over automatically if the active node fails.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Redundancy at every level (servers, power, network, sites); more nines of uptime costs more; load balancing and clustering are the two main techniques"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "High availability",
+      "Load balancing vs. clustering"
+    ],
+    "term": "Load balancing vs. clustering",
+    "definition": "Load balancing spreads requests across independent servers that do not need to know about each other. Clustering links servers to work together as one system, usually sharing storage and aware of each other, so one node can take over another's work.",
+    "example": "Web servers sit behind a load balancer; a database runs as a failover cluster sharing the same storage.",
+    "category": "3.4 Resilience and recovery > High availability",
+    "keyPoints": "Load balancer: front-end device distributing traffic, servers independent; cluster: servers cooperate as one logical unit, often with shared storage; both give high availability and scale"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Site considerations"
+    ],
+    "term": "Site considerations (disaster recovery)",
+    "definition": "Choosing alternate locations to resume operations after a disaster, by how ready they are (hot, warm, cold) and how far away they are (geographic dispersion). Readiness trades cost against recovery speed.",
+    "example": "A bank keeps a hot site in another state; a small firm contracts a cold site and plans to bring in equipment.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Hot = fastest and most expensive; cold = slowest and cheapest; warm in between; distance protects against regional disasters"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Site considerations",
+      "Hot"
+    ],
+    "term": "Hot site (site consideration)",
+    "definition": "A fully equipped, ready-to-run alternate site with hardware, software, network and current data, so operations can switch over within minutes or hours.",
+    "example": "An airline's reservation system fails over to a hot site with real-time replicated data.",
+    "category": "3.4 Resilience and recovery > Site considerations",
+    "keyPoints": "Fastest recovery, highest cost; data kept current (replication); used when RTO is very short; often a mirror of production"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Site considerations",
+      "Cold"
+    ],
+    "term": "Cold site (site consideration)",
+    "definition": "An empty alternate facility with space, power and connectivity but no ready systems or data. Equipment and data must be brought in, so recovery takes days or weeks.",
+    "example": "A small company rents empty office space it can move into, then installs servers and restores backups after a disaster.",
+    "category": "3.4 Resilience and recovery > Site considerations",
+    "keyPoints": "Cheapest, slowest; no hardware or current data; suits long RTOs and low budgets"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Site considerations",
+      "Warm"
+    ],
+    "term": "Warm site (site consideration)",
+    "definition": "An alternate site with some equipment and connectivity in place but not fully current, needing data restoration and setup before use. Recovery takes hours to days.",
+    "example": "A warm site has servers and network gear installed; staff restore last night's backups to bring it online.",
+    "category": "3.4 Resilience and recovery > Site considerations",
+    "keyPoints": "Between hot and cold in both cost and speed; hardware present, data not fully current; a middle ground when a hot site costs too much and a cold site is too slow"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Site considerations",
+      "Geographic dispersion"
+    ],
+    "term": "Geographic dispersion (site consideration)",
+    "definition": "Placing data centers, recovery sites and backups far enough apart that one regional event (hurricane, earthquake, power grid failure) cannot take them all out.",
+    "example": "A company on the US East Coast keeps its recovery site in the Midwest, outside the same hurricane zone.",
+    "category": "3.4 Resilience and recovery > Site considerations",
+    "keyPoints": "Protects against regional disasters; too far can add latency and legal (sovereignty) issues; cloud regions and availability zones support it"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Platform diversity"
+    ],
+    "term": "Platform diversity (resilience)",
+    "definition": "Using different operating systems, vendors or technologies for the same function so one vulnerability or failure cannot bring everything down.",
+    "example": "Using firewalls from two different vendors in layers, so one vendor's zero-day does not open the whole network.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Reduces single points of failure and common-mode vulnerabilities; adds management complexity and training cost; part of defense in depth"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Multi-cloud systems"
+    ],
+    "term": "Multi-cloud systems (resilience)",
+    "definition": "Using services from more than one cloud provider so an outage, price change or problem at one provider does not stop the business.",
+    "example": "An app runs in two different cloud providers, so a major outage at one leaves the other serving users.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Avoids vendor lock-in and single-provider outages; more complex security, identity and monitoring across providers; different from hybrid cloud, which mixes on-premises and cloud"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Continuity of operations"
+    ],
+    "term": "Continuity of operations (COOP)",
+    "definition": "Planning to keep essential business functions running during and after a disruption, including alternate processes when technology is unavailable.",
+    "example": "When the ordering system goes down, staff switch to paper order forms and phone calls until it returns.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Part of business continuity planning; focuses on essential functions; includes manual or alternate processes, not only IT recovery; disaster recovery is the IT restoration part"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Capacity planning"
+    ],
+    "term": "Capacity planning (resilience)",
+    "definition": "Making sure enough people, technology and infrastructure exist to meet normal and peak demand and to keep running during disruptions.",
+    "example": "Before a holiday sale, a retailer adds cloud capacity, extra support staff and more bandwidth.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Three areas: people, technology, infrastructure; both too little (outage) and too much (waste) are problems; cloud elasticity eases technology capacity"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Capacity planning",
+      "People"
+    ],
+    "term": "People (capacity planning)",
+    "definition": "Having enough staff with the right skills and cross-training to handle workloads and incidents, including backups for key roles.",
+    "example": "A SOC cross-trains analysts so the night shift can still respond if one analyst is sick during a major incident.",
+    "category": "3.4 Resilience and recovery > Capacity planning",
+    "keyPoints": "Avoid single points of failure in people (one admin who knows everything); cross-training and succession planning; staffing for peak or incident load"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Capacity planning",
+      "Technology"
+    ],
+    "term": "Technology (capacity planning)",
+    "definition": "Making sure applications, servers and services can handle the expected demand, scaling up or out as needed.",
+    "example": "An online store adds application servers and uses autoscaling so the site stays fast during a flash sale.",
+    "category": "3.4 Resilience and recovery > Capacity planning",
+    "keyPoints": "Plan for peak load, not average; cloud elasticity scales on demand; monitor usage trends to predict needs"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Capacity planning",
+      "Infrastructure"
+    ],
+    "term": "Infrastructure (capacity planning)",
+    "definition": "Making sure the underlying facilities and services, such as network bandwidth, power, cooling, data center space and cloud resources, can support the load.",
+    "example": "A data center adds cooling and power capacity before installing new server racks.",
+    "category": "3.4 Resilience and recovery > Capacity planning",
+    "keyPoints": "Includes network, power, cooling, physical space; long lead times for physical upgrades; cloud can shift some of this to the provider"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Testing"
+    ],
+    "term": "Testing (resilience and recovery)",
+    "definition": "Checking that recovery and continuity plans actually work, using tabletop exercises, failover tests, simulations and parallel processing, from low risk discussions to real switchovers.",
+    "example": "A company runs a tabletop exercise each quarter and a full failover test once a year.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Untested plans often fail; tabletop is discussion only and lowest risk; failover actually switches systems; simulations practice realistic scenarios; document lessons learned"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Testing",
+      "Tabletop exercises"
+    ],
+    "term": "Tabletop exercises",
+    "definition": "A discussion-based exercise where key staff talk through how they would respond to a scenario, step by step, without touching any systems.",
+    "example": "Managers sit in a conference room and walk through their response to a ransomware scenario to find gaps in the plan.",
+    "category": "3.4 Resilience and recovery > Testing",
+    "keyPoints": "Cheapest and least disruptive test; no systems affected; finds gaps in roles, communication and procedures; contrast with simulation and failover, which involve action"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Testing",
+      "Fail over"
+    ],
+    "term": "Fail over (recovery testing)",
+    "definition": "Actually switching operations from a primary system or site to the redundant one to prove it takes over correctly, then usually switching back.",
+    "example": "The team shuts down the primary database server to confirm the cluster moves work to the secondary node without data loss.",
+    "category": "3.4 Resilience and recovery > Testing",
+    "keyPoints": "Real switchover, so it carries risk and needs planning; proves redundancy works; measure against RTO and RPO"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Testing",
+      "Simulation"
+    ],
+    "term": "Simulation (recovery testing)",
+    "definition": "A realistic practice run of an event where people carry out their actions as if it were real, but in a controlled way that does not affect production.",
+    "example": "The team acts out the loss of the main data center: staff follow the disaster recovery plan, bring up the systems in an isolated recovery environment and time it against the 4-hour RTO, while production keeps running.",
+    "category": "3.4 Resilience and recovery > Testing",
+    "keyPoints": "More hands-on than a tabletop, less risky than a real failover; tests whether the recovery plan, people and backups actually work; production is not switched over (that is fail over); also covers simulated attacks, such as a fake phishing campaign that shows who clicks and whether email filters catch it"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Testing",
+      "Parallel processing"
+    ],
+    "term": "Parallel processing (recovery testing)",
+    "definition": "A recovery test where the backup or recovery system runs alongside production on the same real workload, and its results are compared with production to prove it works. Production stays in charge the whole time: nothing is switched over.",
+    "example": "For a week the recovery site processes copies of the bank's live transactions next to the main data center, and the team checks that both end with the same balances.",
+    "category": "3.4 Resilience and recovery > Testing",
+    "keyPoints": "Proves the recovery system handles a real load without risking an outage; More realistic than a tabletop exercise or simulation, less risky than a failover test; Compare outputs: any mismatch shows what the recovery system gets wrong; No cutover: a problem found during the test does not touch production; Not to be confused with parallel processing in computing (several CPUs or processes running work at once, so a failed one is isolated while the rest continue)"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups"
+    ],
+    "term": "Backups (resilience and recovery)",
+    "definition": "Copies of data and systems kept so they can be restored after loss, corruption, ransomware or disaster. SY0-701 covers onsite/offsite, frequency, encryption, snapshots, recovery, replication and journaling.",
+    "example": "A company keeps nightly backups onsite for quick restores and a weekly encrypted copy offsite.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "Follow 3-2-1 (three copies, two media types, one offsite); keep an offline or immutable copy against ransomware; test restores; the RPO (how much data loss the business accepts) sets how often backups must run"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups",
+      "Onsite/offsite"
+    ],
+    "term": "Onsite vs. offsite backups",
+    "definition": "Onsite backups are stored at the same location as the original data, so restores are fast. Offsite backups are stored at another location or in the cloud, so they survive a site disaster.",
+    "example": "Local backup appliance for quick file restores, plus nightly copies to a cloud provider in another region.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": "Onsite: fast, but lost in fire or flood; offsite: survives site disasters, slower restore; use both"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups",
+      "Frequency"
+    ],
+    "term": "Frequency (backups)",
+    "definition": "How often backups are taken. It decides how much data could be lost, which ties to the recovery point objective (RPO).",
+    "example": "An RPO of one hour means backups or replication must happen at least hourly.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": "More frequent = less data lost, more cost and storage; match frequency to RPO and data importance; full, incremental and differential backups mix frequency and size"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups",
+      "Encryption"
+    ],
+    "term": "Encryption (backups)",
+    "definition": "Encrypting backup data so a lost or stolen backup cannot be read. The keys must be protected and available for recovery.",
+    "example": "Backup tapes sent offsite are encrypted, so a tape lost in transit does not cause a breach.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": "Backups are data at rest and often hold everything; lose the key and the backup is useless; store keys separately from the backups"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups",
+      "Snapshots"
+    ],
+    "term": "Snapshots (backups)",
+    "definition": "A point-in-time copy of a system or volume, common for virtual machines and storage, that can be rolled back to quickly. Often stores only changes since the previous snapshot.",
+    "example": "An admin takes a VM snapshot before patching and reverts to it when the patch breaks the application.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": "Fast to take and restore; often depend on the original storage, so they are not a full substitute for separate backups; common in virtualization and cloud"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups",
+      "Recovery"
+    ],
+    "term": "Recovery (backup)",
+    "definition": "Restoring data or systems from backups to a working state. Restores must be tested regularly to prove backups are complete and recovery meets the RTO.",
+    "example": "A quarterly test restore reveals a corrupted backup job before a real outage needs it.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": "A backup is only as good as a successful restore; test restores regularly; measure against RTO (time) and RPO (data loss)"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups",
+      "Replication"
+    ],
+    "term": "Replication (backups)",
+    "definition": "Continuously or frequently copying data to another system or location, keeping a near-current copy available. It supports fast failover.",
+    "example": "A database replicates in real time to a hot site in another region.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": "Very low data loss and fast recovery; replicates corruption and deletions too, so it does not replace point-in-time backups; synchronous vs asynchronous"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Backups",
+      "Journaling"
+    ],
+    "term": "Journaling (backups)",
+    "definition": "Recording each change in a journal (log) before or as it is applied, so data can be rebuilt or rolled to a consistent point after a failure. Used by file systems, databases and backup systems.",
+    "example": "After a crash, a database replays its journal to restore all committed transactions.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": "Allows recovery to a consistent state or a specific point in time; protects against corruption from crashes mid-write; journal must itself be protected"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Power"
+    ],
+    "term": "Power: generators and UPS (resilience)",
+    "definition": "Keeping systems running when utility power fails, using an uninterruptible power supply for short-term power and generators for long outages, along with redundant power feeds and supplies.",
+    "example": "A data center's UPS carries the load for the seconds it takes the diesel generator to start.",
+    "category": "3.4 Resilience and recovery",
+    "keyPoints": "UPS bridges the gap, generator runs long term; dual power supplies and multiple feeds add redundancy; power distribution units (PDUs) distribute power to racks"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Power",
+      "Generators"
+    ],
+    "term": "Generators (power resilience)",
+    "definition": "Fuel-powered machines that produce electricity for long power outages, from hours to days, as long as fuel lasts. They take time to start, so a UPS covers the gap.",
+    "example": "A hospital's diesel generators power critical systems through a two-day grid outage.",
+    "category": "3.4 Resilience and recovery > Power",
+    "keyPoints": "Long-term power; startup delay requires a UPS; needs fuel supply contracts and regular testing"
+  },
+  {
+    "obj": "3.4",
+    "path": [
+      "Power",
+      "Uninterruptible power supply (UPS)"
+    ],
+    "term": "Uninterruptible power supply (UPS)",
+    "definition": "A battery-based device that provides immediate power when utility power fails, for minutes, enough for a clean shutdown or for a generator to start. It also smooths out surges and sags.",
+    "example": "When the power flickers, servers keep running on the UPS without rebooting.",
+    "category": "3.4 Resilience and recovery > Power",
+    "keyPoints": "Short-term, immediate power; types: offline/standby, line-interactive, online (double-conversion: the load always runs through the battery and inverter side, so there is no switchover gap); pair with a generator for long outages"
+  }
+]

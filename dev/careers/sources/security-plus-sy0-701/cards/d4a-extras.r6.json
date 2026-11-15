@@ -1,0 +1,100 @@
+[
+  {
+    "obj": "4.1",
+    "extra": true,
+    "term": "Protected management frames (PMF, 802.11w)",
+    "definition": "A Wi-Fi feature that cryptographically protects management frames, such as deauthentication and disassociation messages, so an outsider cannot forge or replay them. It is required in WPA3.",
+    "example": "An attacker sends forged deauthentication frames to kick laptops off the office Wi-Fi, but with PMF required the laptops drop the forged frames because they fail the integrity check and stay connected.",
+    "category": "4.1 Security techniques for computing resources > Wireless security settings",
+    "keyPoints": [
+      "Stops forged disconnect (deauth) attacks used for denial of service and to push clients toward an evil twin",
+      "Its job is integrity: a forged or replayed protected frame fails the check and is dropped",
+      "Required for WPA3 networks and for all newly Wi-Fi certified devices",
+      "Needs the keys a WPA2 or WPA3 handshake creates (personal or 802.1X); a classic open network has no keys, so PMF cannot protect it",
+      "Can be set to optional so older clients without it can still join"
+    ],
+    "sources": [
+      "https://www.wi-fi.org/discover-wi-fi/security",
+      "https://www.cisco.com/c/en/us/support/docs/wireless-mobility/wireless-lan-wlan/212576-configure-802-11w-management-frame-prote.html"
+    ]
+  },
+  {
+    "obj": "4.2",
+    "extra": true,
+    "term": "Cryptographic erase (CE)",
+    "definition": "A purge sanitization method for media whose data is already encrypted: the encryption keys are destroyed, so the remaining ciphertext can no longer be decrypted.",
+    "example": "Before returning leased laptops with self-encrypting SSDs, IT runs the drives' cryptographic erase command, which wipes the internal key in seconds and leaves the stored data unreadable.",
+    "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
+    "keyPoints": [
+      "Counts as purge under NIST SP 800-88",
+      "Only works if all the data was encrypted from the start and every copy of the key is destroyed",
+      "Fast: seconds instead of hours of overwriting",
+      "Often the only practical purge for cloud and virtual storage",
+      "Degaussing does nothing to SSDs; overwriting SSDs is unreliable; cryptographic erase avoids both problems"
+    ],
+    "sources": [
+      "https://csrc.nist.gov/glossary/term/cryptographic_erase",
+      "https://doi.org/10.6028/NIST.SP.800-88r2"
+    ]
+  },
+  {
+    "obj": "4.3",
+    "extra": true,
+    "term": "Credentialed vs non-credentialed scan",
+    "definition": "A credentialed scan logs in to each host with an account and reads its software, patches and settings directly. A non-credentialed scan works only from the network, guessing from open ports and service banners what an outside attacker would see.",
+    "example": "A non-credentialed scan reports a server only as running SSH on port 22; the credentialed scan of the same server lists 40 missing operating system patches and a vulnerable library inside an application.",
+    "category": "4.3 Vulnerability management > Identification methods",
+    "keyPoints": [
+      "Credentialed: deeper and more accurate, fewer false positives",
+      "Non-credentialed: the attacker's outside view, finds exposed services and network weaknesses",
+      "Credentialed scans need an account with enough rights to read the system, often administrator, so guard it closely: used only by the scanner, password vaulted",
+      "Confirm the login worked on each host, or a clean report may mean nothing was checked",
+      "Mature programs run both"
+    ],
+    "sources": [
+      "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-115.pdf",
+      "https://docs.tenable.com/nessus/Content/Credentials.htm"
+    ]
+  },
+  {
+    "obj": "4.5",
+    "extra": true,
+    "term": "Encrypted DNS (DoH and DoT) as a blind spot",
+    "definition": "DNS over HTTPS (DoH) and DNS over TLS (DoT) encrypt name lookups. When a browser, app or malware sends them to an outside resolver, the lookups skip the company's DNS server, so DNS filtering and DNS logging never see them.",
+    "example": "Malware queries its control domain through a public DoH service over port 443; the company's DNS filter and SIEM show nothing because the request looked like ordinary web traffic.",
+    "category": "4.5 Enhancing enterprise security > DNS filtering",
+    "keyPoints": [
+      "DoH uses port 443, mixing with normal web traffic; DoT uses port 853",
+      "Fix: send all DNS, encrypted or not, only to the enterprise resolver",
+      "Block known outside DoH resolvers and port 853, and disable or point browser DoH settings to the internal resolver",
+      "The enterprise resolver itself can offer encrypted DNS",
+      "Good for privacy at home, a monitoring gap in a company if unmanaged"
+    ],
+    "sources": [
+      "https://www.rfc-editor.org/rfc/rfc8484",
+      "https://www.rfc-editor.org/rfc/rfc7858",
+      "https://media.defense.gov/2021/Jan/14/2002564889/-1/-1/0/CSI_ADOPTING_ENCRYPTED_DNS_U_OO_102904_21.PDF"
+    ]
+  },
+  {
+    "obj": "4.5",
+    "extra": true,
+    "term": "Email encryption: S/MIME and PGP",
+    "definition": "S/MIME and PGP encrypt and digitally sign the email message itself, end to end, so only the recipient can read it and the recipient can verify the sender and that nothing changed. S/MIME uses certificates issued by a certificate authority (CA); PGP uses keys that users vouch for each other in a web of trust.",
+    "example": "A lawyer signs and encrypts a contract email with S/MIME using her company issued certificate; it stays unreadable on every mail server it passes through, and the client's mail app shows it is really from her.",
+    "category": "4.5 Enhancing enterprise security > Email security",
+    "keyPoints": [
+      "Encrypt with the recipient's public key (it locks a one time message key), sign with the sender's private key",
+      "S/MIME: certificates from a CA, built into most corporate mail clients; PGP (and OpenPGP, GPG): web of trust, no central authority",
+      "SPF, DKIM and DMARC check that mail really comes from the domain it claims; they do not hide the content",
+      "TLS between mail servers protects only each hop; the message sits readable on every server along the way",
+      "Exam cue: \"only the recipient can read it\" or \"prove the sender of this one message\" points to S/MIME or PGP"
+    ],
+    "sources": [
+      "https://www.rfc-editor.org/rfc/rfc8551",
+      "https://www.rfc-editor.org/rfc/rfc4880",
+      "https://csrc.nist.gov/pubs/sp/800/177/r1/final",
+      "https://www.rfc-editor.org/rfc/rfc9580"
+    ]
+  }
+]

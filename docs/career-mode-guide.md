@@ -102,3 +102,5 @@ This is a cautious standard, not legal advice.
 - 2026-11-14: the start tile alone sat 5 questionnaire steps deep. A matching course is offered on the welcome screen.
 - 2026-11-14: a whole domain sent to the boss prompt (about 260 items) was far too big. Quizzes sample items (`careerQuizItems`).
 - 2026-11-14: reviewers changed a meaning only where a well-known course teaches it differently (attestation, parallel processing, blocked content). Keep the exam's sense first and name the other one.
+- 2026-11-15: a reviewer's change log named and linked a banned third-party course creator. Every writer and reviewer brief says: never name, quote or link a third-party course or its creator, in cards, chapters OR logs; describe it generically. `src/config/bannedNames.test.js` catches it in tracked files.
+- 2026-11-15: an independent coverage check found two acronyms differing only in case ("SoC", "SOC") sharing one item id, so the final raid could ask only one. Acronym ids keep a mixed-case pattern; the build and `career.test.js` fail on a shared id.

@@ -36,6 +36,21 @@ export const careerHasProgress = (map) => Object.keys(map?.days || {}).length > 
 // Raid art per island, in package order, and the final raid's (raid boss drawings with three phases).
 export const CAREER_RAID_MOTIFS = ['titan', 'hydra', 'chronos', 'vampire', 'seraph']
 export const CAREER_FINAL_MOTIF = 'ophanim'
+// DOMAIN PICTURES (the owner, 2026-11-15: "pictures that pertain to the topic of the domain"): per course, one topic
+// picture per domain in package order, hand-drawn files in public/assets/legends/career/<topic>.svg (generic symbols,
+// no logos). Chosen at RENDER time, never stored in the map, so older saved maps get them too; a course or domain
+// with no entry keeps its adventure banner. Design: docs/plans/2026-11-15-domain-pictures.md.
+export const CAREER_TOPICS = ['concepts', 'threats', 'architecture', 'operations', 'governance']
+export const CAREER_TOPIC_ART = {
+  'security-plus-sy0-701': ['concepts', 'threats', 'architecture', 'operations', 'governance'],
+}
+// The topic picture's URL for a course map's island ('' = none: keep the adventure banner).
+export function careerTopicArt(map, area) {
+  const list = CAREER_TOPIC_ART[map?.career?.id] || []
+  const n = Math.round(Number(area?.number) || 0)
+  const topic = n >= 1 ? list[n - 1] : ''
+  return topic && CAREER_TOPICS.includes(topic) && !area?.final ? `/assets/legends/career/${topic}.svg` : ''
+}
 // EVERY REGION BOSS IS ITS OWN BOSS (the owner, 2026-11-15: no two bosses of a domain may be the same boss): a
 // Legends boss drawing and a name of its own, per island in package order, region by region. No drawing repeats in the
 // course or matches an island's own. An island with more regions than its list takes the next unused drawing.

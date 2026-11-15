@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" aria-hidden="true">
+  <!-- Security architecture: a cloud and a server rack in two zones, a firewall wall between them, linked by a line. -->
+  <g stroke="#0b1220" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M100 96 H200" fill="none" stroke="#8fe3ff" stroke-width="5" stroke-dasharray="3 11"/>
+    <path d="M30 78 a18 18 0 0 1 22 -24 a26 26 0 0 1 48 6 a18 18 0 0 1 4 36 H40 a18 18 0 0 1 -10 -18 Z" fill="#e3f1ff"/>
+    <path d="M40 96 H104 a18 18 0 0 0 17 -12 H31 a18 18 0 0 0 9 12 Z" fill="#b6d3f0" stroke="none"/>
+    <path d="M30 78 a18 18 0 0 1 22 -24 a26 26 0 0 1 48 6 a18 18 0 0 1 4 36 H40 a18 18 0 0 1 -10 -18 Z" fill="none"/>
+    <rect x="132" y="28" width="36" height="108" rx="3" fill="#e8743b"/>
+    <path d="M132 46 h36 M132 64 h36 M132 82 h36 M132 100 h36 M132 118 h36 M150 28 v18 M141 46 v18 M159 46 v18 M150 64 v18 M141 82 v18 M159 82 v18 M150 100 v18 M141 118 v18 M159 118 v18" stroke="#a4461b" stroke-width="3"/>
+    <rect x="132" y="28" width="36" height="108" rx="3" fill="none"/>
+    <rect x="204" y="26" width="64" height="112" rx="6" fill="#4b5b70"/>
+    <rect x="212" y="36" width="48" height="20" rx="3" fill="#2b3646"/>
+    <rect x="212" y="64" width="48" height="20" rx="3" fill="#2b3646"/>
+    <rect x="212" y="92" width="48" height="20" rx="3" fill="#2b3646"/>
+    <circle cx="250" cy="46" r="4" fill="#48e08a" stroke="none"/>
+    <circle cx="250" cy="74" r="4" fill="#48e08a" stroke="none"/>
+    <circle cx="250" cy="102" r="4" fill="#f2b531" stroke="none"/>
+    <path d="M218 46 h20 M218 74 h20 M218 102 h20" stroke="#7d8da3" stroke-width="3"/>
+  </g>
+</svg>

@@ -270,3 +270,25 @@ describe('path data', () => {
     expect(bad).toEqual([])
   })
 })
+
+// Course DOMAIN PICTURES (career.js CAREER_TOPIC_ART, docs/plans/2026-11-15-domain-pictures.md): hand-drawn, still,
+// generic symbols, safe to show as an <img>.
+describe('course domain pictures', () => {
+  it('every topic file exists and is a plain, still drawing', async () => {
+    const { CAREER_TOPICS } = await import('./career')
+    for (const topic of CAREER_TOPICS) {
+      const svg = read(`/assets/legends/career/${topic}.svg`)
+      expect(svg, topic).toMatch(/^<svg[\s\S]*<\/svg>\s*$/)
+      expect(svg, topic).toMatch(/viewBox="0 0 \d+ \d+"/)
+      expect(svg, topic).not.toMatch(/<(script|foreignObject|image|use|a|style|text|animate\w*|set)\b|\son\w+\s*=|url\s*\(|javascript:|href=|\sid=/i)
+      expect(svg, topic).toMatch(/aria-hidden="true"/)
+    }
+  })
+  it('each course names known topics, none twice', async () => {
+    const { CAREER_TOPICS, CAREER_TOPIC_ART } = await import('./career')
+    for (const [course, list] of Object.entries(CAREER_TOPIC_ART)) {
+      for (const t of list) expect(CAREER_TOPICS, `${course}: ${t}`).toContain(t)
+      expect(new Set(list).size, course).toBe(list.length)
+    }
+  })
+})

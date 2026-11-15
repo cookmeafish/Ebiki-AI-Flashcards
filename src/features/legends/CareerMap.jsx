@@ -11,7 +11,7 @@ import { ChunkyButton, ProgressBar, depthBorder, shade } from '../ui'
 import { AreaArt, BossArt, LegendsArt, paletteColors } from './art'
 import { AreaExtras } from './Extras'
 import { CheatButton, CheatRow } from './CheatUI'
-import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea, isAcronymTrack } from './career'
+import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea, isAcronymTrack, careerTopicArt } from './career'
 import { itemSections } from './itemSections'
 import { QUIZ_SIZE } from './prompt'
 
@@ -42,7 +42,50 @@ const islandProgress = (area) => { const r = required(area); return { done: r.fi
 // The island to show first: one in progress, else the first unfinished, else the first.
 const startIsland = (areas) => currentIsland(areas)?.id
 
-function IslandCard({ t, area, selected, onPick }) {
+// A DOMAIN'S BANNER (docs/plans/2026-11-15-domain-pictures.md): the domain's topic picture, with the domain's raid
+// boss tucked into its own box on the LEFT (still, whole, never over the picture or any text). Both decorative: the
+// card's text carries the meaning. A course or domain with no topic picture keeps its adventure banner; a map with no
+// raid step (an older layout) shows the picture across the whole width.
+const BANNER_BG = '#13243d' // a fixed blueprint blue in both themes, so the fixed-colour drawings read the same
+const BANNER_GRID = 'repeating-linear-gradient(0deg, transparent 0 15px, rgba(143,184,232,.10) 15px 16px), repeating-linear-gradient(90deg, transparent 0 15px, rgba(143,184,232,.10) 15px 16px)'
+function CareerBanner({ map, area, height: tall }) {
+  const src = careerTopicArt(map, area)
+  // The banner's own width (layout px, like `height`): the boss slot is capped by it, so a narrow phone at a high zoom
+  // never squeezes the picture to a speck beside a big boss (an independent judge, 2026-11-15).
+  const ref = useRef(null)
+  const [wide, setWide] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(() => setWide(el.offsetWidth || 0))
+    ro.observe(el); setWide(el.offsetWidth || 0)
+    return () => ro.disconnect()
+  }, [src])
+  if (!src) return <AreaArt area={area} height={tall} />
+  // A narrow box gets a lower banner (a 140 px banner in a 150 px wide box was mostly empty blue).
+  // The picture is 2:1 and fills about 90% of the height, beside a boss slot of up to 30% of the width: height follows
+  // the picture's own shape, so a narrow box has no empty blue bands (a judge).
+  const height = wide ? Math.min(tall, Math.max(76, Math.round((wide * 0.7 * 0.5) / 0.9))) : tall
+  const raid = (area.nodes || []).find((n) => n.stage === 'raid')?.motif
+  // The boss stays secondary to the topic (the learner reads the domain from the picture): a slot about 3/4 of the
+  // banner's height and never over 30% of its width, the drawing inside it with room for its 20% headroom.
+  const box = Math.max(32, Math.round(Math.min(height * 0.78, wide ? wide * 0.3 : Infinity)))
+  return (
+    <div ref={ref} data-career-banner={area.id} aria-hidden="true" style={{
+      display: 'flex', alignItems: 'center', height, overflow: 'hidden', borderRadius: RADIUS.md,
+      backgroundColor: BANNER_BG, backgroundImage: BANNER_GRID, border: '1px solid rgba(143,184,232,.35)',
+    }}>
+      {raid && (
+        <div data-banner-boss={raid} style={{ flex: 'none', width: box, height: box, marginLeft: Math.round(height * 0.06), display: 'grid', placeItems: 'center' }}>
+          <LegendsArt kind="raids" motif={raid} height={Math.round(box * 0.82)} width={Math.round(box * 0.82)} round={0} />
+        </div>
+      )}
+      <img src={src} alt="" draggable={false} style={{ flex: 1, minWidth: '55%', height: '90%', objectFit: 'contain', pointerEvents: 'none' }} />
+    </div>
+  )
+}
+
+function IslandCard({ t, map, area, selected, onPick }) {
   const colors = paletteColors(area.palette)
   const p = islandProgress(area)
   return (
@@ -51,7 +94,7 @@ function IslandCard({ t, area, selected, onPick }) {
       borderRadius: RADIUS.md, background: C.surface, color: C.ink, fontFamily: FONT.body,
       ...depthBorder(selected ? colors.deep : C.border, { width: selected ? 3 : 2, bottomColor: selected ? shade(colors.deep, 30) : C.border }),
     }}>
-      <AreaArt area={area} height={58} />
+      <CareerBanner map={map} area={area} height={76} />
       <div style={{ padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 900, letterSpacing: '.04em', color: colors.deep, textTransform: 'uppercase' }}>
           {t('lg_careerDomain', { n: area.number })}
@@ -79,9 +122,9 @@ function Briefing({ t, item, colors, label, open: startOpen = false }) {
   const points = secs.find((x) => x.role === 'points')?.points || []
   return (
     <div data-briefing="" style={{ borderRadius: RADIUS.md, background: C.surface, border: `2px dashed color-mix(in srgb, ${colors.deep} 60%, ${C.border})` }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="card-head" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="card-head" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink }}>
         <span aria-hidden="true" style={{ fontSize: 18 }}>📋</span>
-        <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ flex: '1 1 8em', minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: colors.deep }}>{label}</span>
           <span style={{ display: 'block', fontSize: 12.5, color: C.inkDim }}>{t('lg_briefingSub')}</span>
         </span>
@@ -112,7 +155,7 @@ function ContinueCard({ t, map, onOpen, onShow }) {
     <div data-continue="" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '14px 16px', borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(C.success, { bottomColor: shade(C.success, 30) }) }}>
       <div style={{ flex: '1 1 220px', minWidth: 0 }}>
         <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.success }}>{t('lg_continueNext')}</div>
-        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{label}</div>
+        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink, lineHeight: 1.25, overflowWrap: 'break-word', hyphens: 'auto' }}>{label}</div>
         <div style={{ fontSize: 12.5, color: C.inkDim, fontWeight: 700 }}>
           {isFinalArea(area) ? <span style={{ color: colors.deep }}>{t('lg_finalRaidAll')}</span> : <span style={{ color: colors.deep }}>{t('lg_careerDomain', { n: area.number })}</span>}{region ? ` · ${t('lg_region', { n: region.n })}` : ''}{section ? ` · ${section.id} ${section.short}` : ''}
         </div>
@@ -140,7 +183,9 @@ function StepChip({ t, node, onOpen, colors, cheat, area }) {
         }}>
         <span aria-hidden="true" style={{ fontSize: check ? 22 : 18, filter: locked ? 'grayscale(1)' : 'none' }}>{icon}</span>
         <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-          <span style={{ fontWeight: 800, fontSize: check ? 14.5 : 13.5, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{label}</span>
+          {/* break-word, not anywhere: "anywhere" let the label shrink below its longest word, so a phone at 150% broke
+              "Categ/ories" mid-word (a judge); now a word moves whole to the next line. */}
+          <span style={{ fontWeight: 800, fontSize: check ? 14.5 : 13.5, lineHeight: 1.25, overflowWrap: 'break-word', hyphens: 'auto' }}>{label}</span>
           {check && <span style={{ fontSize: 12, color: C.inkDim, fontWeight: 600 }}>{t('lg_careerCheckpointDesc', { n: Math.min(QUIZ_SIZE.checkpoint, (node.itemIds || []).length * 3), p: 70 })}</span>}
         </span>
         {done && <span aria-hidden="true" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{'⭐'.repeat(Math.max(1, node.stars || 1))}</span>}
@@ -162,13 +207,13 @@ function ObjectiveCard({ t, area, section, open, onToggle, onOpen, colors, cheat
   return (
     <div style={{ borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(section.done ? C.warning : open ? colors.deep : C.border, { bottomColor: section.done ? shade(C.warning, 30) : open ? shade(colors.deep, 30) : C.border }) }}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="card-head" style={{
-        display: 'flex', gap: 12, alignItems: 'center', width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink,
+        display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink,
       }}>
         <span style={{ flex: 'none', minWidth: 44, padding: '6px 8px', borderRadius: RADIUS.sm, background: colors.deep, color: '#fff', fontWeight: 900, fontSize: 14, textAlign: 'center' }}>{section.id}</span>
-        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: '1 1 150px', overflowWrap: 'break-word' }}>
           <span style={{ fontWeight: 900, fontSize: 15, lineHeight: 1.25 }}>{section.short}</span>
           <span style={{ fontSize: 12.5, color: C.inkDim, lineHeight: 1.35 }}>{section.title}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ flex: 1, minWidth: 60 }}><ProgressBar value={section.done ? 1 : frac} max={1} color={section.done ? C.warning : colors.deep} height={7} /></span>
             <span style={{ fontSize: 12, fontWeight: 800, color: section.done ? C.warning : C.inkDim, whiteSpace: 'nowrap' }}>{status}</span>
           </span>
@@ -200,13 +245,13 @@ function RegionCard({ t, area, region, regions, open, onToggle, onOpen, colors, 
   return (
     <div data-region={region.id} style={{ borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(region.done ? C.warning : open ? colors.deep : C.border, { bottomColor: region.done ? shade(C.warning, 30) : open ? shade(colors.deep, 30) : C.border }) }}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="card-head" style={{
-        display: 'flex', gap: 12, alignItems: 'center', width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink,
+        display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink,
       }}>
         <span style={{ flex: 'none', minWidth: 44, padding: '6px 8px', borderRadius: RADIUS.sm, background: colors.deep, color: '#fff', fontWeight: 900, fontSize: 13, textAlign: 'center', lineHeight: 1.15 }}>{t('lg_regionShort', { n: region.n })}</span>
-        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: '1 1 150px', overflowWrap: 'break-word' }}>
           <span style={{ fontWeight: 900, fontSize: 15, lineHeight: 1.25 }}>{region.sections.map((s) => partLabel(t, s, region, regions)).join(' · ')}</span>
           <span style={{ fontSize: 12.5, color: C.inkDim, lineHeight: 1.35 }}>{t('lg_regionSummary', { ids: region.sections.map((s) => s.id).join(', '), k: items, l: region.lessons })}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ flex: 1, minWidth: 60 }}><ProgressBar value={region.done ? 1 : frac} max={1} color={region.done ? C.warning : colors.deep} height={7} /></span>
             <span style={{ fontSize: 12, fontWeight: 800, color: region.done ? C.warning : C.inkDim, whiteSpace: 'nowrap' }}>{status}</span>
           </span>
@@ -292,7 +337,7 @@ function AcronymCard({ t, area, colors, cheat, onOpen }) {
           <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: C.info }}>{t('lg_acronyms')}</div>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{t('lg_acronymsTitle', { n: count })}</div>
           <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.4 }}>{t('lg_acronymsDesc', { k: lessons.length })}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
             <span style={{ flex: 1, minWidth: 60 }}><ProgressBar value={done} max={lessons.length} color={C.info} height={7} /></span>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.inkDim, whiteSpace: 'nowrap' }}>{t('lg_acronymsSets', { i: done, n: lessons.length })}</span>
           </div>
@@ -381,7 +426,7 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
       <div>
         <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase', marginBottom: 8 }}>🏝️ {t('lg_careerIslands', { course: map.career?.title || '' })}</div>
         <div role="group" aria-label={t('lg_careerIslandsAria')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-          {map.areas.filter((a) => !isFinalArea(a)).map((a) => <IslandCard key={a.id} t={t} area={a} selected={a.id === area.id} onPick={() => { picked.current = true; setIslandId(a.id) }} />)}
+          {map.areas.filter((a) => !isFinalArea(a)).map((a) => <IslandCard key={a.id} t={t} map={map} area={a} selected={a.id === area.id} onPick={() => { picked.current = true; setIslandId(a.id) }} />)}
         </div>
         <div style={{ marginTop: 10 }}><FinalRaidCard t={t} map={map} onOpen={onOpen} cheat={cheat} /></div>
         {careerFor(map.career?.id)?.noticeKey && <div style={{ fontSize: 11.5, color: C.inkFaint, marginTop: 8 }}>{t(careerFor(map.career.id).noticeKey)}</div>}
@@ -389,8 +434,8 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
 
       <section ref={pageRef} aria-label={area.title} style={{ scrollMarginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ position: 'relative' }}>
-          <AreaArt area={area} height={120} />
-          <div style={{ position: 'relative', margin: '-30px 14px 0', padding: '10px 14px', borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(colors.deep, { bottomColor: shade(colors.deep) }) }}>
+          <CareerBanner map={map} area={area} height={careerTopicArt(map, area) ? 140 : 120} />
+          <div style={{ position: 'relative', margin: careerTopicArt(map, area) ? '10px 0 0' : '-30px 14px 0', padding: '10px 14px', borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(colors.deep, { bottomColor: shade(colors.deep) }) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: colors.deep }}>{t('lg_careerDomain', { n: area.number })}{area.weight ? ` · ${t('lg_careerWeight', { p: area.weight })}` : ''}</span>
               {area.status === 'done' && <span style={{ fontSize: 11.5, fontWeight: 800, color: C.warning }}>👑 {t('lg_areaDone')}</span>}

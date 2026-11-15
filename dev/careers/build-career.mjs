@@ -202,8 +202,18 @@ if (fs.existsSync(acrFile)) for (const line of fs.readFileSync(acrFile, 'utf8').
   }
   areas.forEach((ar, i) => {
     ar.acronyms = byArea[i].sort((x, y) => x.at - y.at || x.acronym.localeCompare(y.acronym))
-      .map((x) => ({ id: `acr-${x.acronym.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, acronym: x.acronym, expansions: x.expansions }))
+      .map((x) => ({ id: acronymId(x.acronym), acronym: x.acronym, expansions: x.expansions }))
   })
+  // Ids are unique across the course (the final raid pools every island): two acronyms differing only in case
+  // ("SoC" and "SOC") once shared one id, so only one could ever be asked.
+  const ids = areas.flatMap((ar) => ar.acronyms.map((x) => x.id))
+  for (const d of new Set(ids.filter((x, i) => ids.indexOf(x) !== i))) problems.push(`two acronyms share the id ${d}`)
+}
+// An acronym's item id: its letters, lowercased; a mixed-case one ("SoC") adds its case pattern so it never collides
+// with the all-caps one ("SOC").
+function acronymId(a) {
+  const slug = a.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  return a === a.toUpperCase() ? `acr-${slug}` : `acr-${slug}-${[...a].filter((c) => /[a-z]/i.test(c)).map((c) => (c === c.toLowerCase() ? 'l' : 'u')).join('')}`
 }
 const std = course.standardNames || {}
 const acronymCards = [...acr].map(([a, xs]) => ({ obj: 'acr', term: `${a} (${course.title} acronym)`,
