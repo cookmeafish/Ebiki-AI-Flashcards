@@ -1,3 +1,4 @@
+import { apiFetch } from '../platform/index.js' // the ChatGPT plan provider talks to the local server only
 // ── OpenAI-compatible chat completions (OpenAI, xAI/Grok, anything else that
 //    speaks that dialect) ───────────────────────────────────────────────────
 //
@@ -311,6 +312,10 @@ async function responsesApiCall({ provider, endpoint, apiKey, systemPrompt, user
 export const keyOfOtherProvider = (providerConfig, key) => Object.values(PROVIDERS).find((p) => p !== providerConfig && p.keyPrefix
   && p.keyPrefix.length > String(providerConfig?.keyPrefix || '').length && String(key || '').startsWith(p.keyPrefix)) || null
 
+// The ChatGPT plan provider's "key" while this computer is signed in: a marker, never a secret (the tokens stay on
+// the server). Not a real key's shape, so the key store, the shared keys.json and every prefix check ignore it.
+export const CHATGPT_SIGNED_IN = 'chatgpt-plan-signed-in'
+
 export const PROVIDERS = {
   anthropic: {
     label: 'Anthropic (Claude)',
@@ -453,6 +458,51 @@ export const PROVIDERS = {
         apiKey, systemPrompt, userContent, images, maxTokens,
         model: modelOverride || 'gpt-4o-mini',
       }),
+  },
+  // ChatGPT PLAN USAGE ("Sign in with ChatGPT", OpenAI's official flow for open-source, locally run apps): no API key.
+  // The user signs in once (ChatGptSignIn.jsx) and the SERVER holds the tokens (src/server/chatgptAuth.js): calls go
+  // to /api/chatgpt/respond, which adds them. The "key" this provider gets from App is a non-secret marker meaning
+  // "signed in here" (CHATGPT_SIGNED_IN); the server's key store ignores it (not in ENV_VAR), so it never reaches .env
+  // or the shared keys.json. Presets are 'auto' (the server sends the first model the account lists); a model can
+  // still be picked per job. The Model Advisor and the upgrade check skip it (`fixedModels`).
+  chatgpt: {
+    label: 'ChatGPT plan',
+    signIn: true,
+    fixedModels: true,
+    placeholder: '',
+    keyPrefix: '',
+    color: '#10a37f',
+    url: 'https://chatgpt.com/settings/usage',
+    modelsUrl: 'https://chatgpt.com/settings/usage',
+    billingUrl: 'https://chatgpt.com/settings/usage',
+    model: 'auto',
+    questionModel: 'auto',
+    presets: { cheap: 'auto', normal: 'auto', max: 'auto' },
+    listModels: async () => {
+      const r = await apiFetch('/api/chatgpt/models', { signal: timeoutSignal(LIST_TIMEOUT_MS) })
+      const text = await r.text()
+      let j = null
+      try { j = JSON.parse(text) } catch { j = null }
+      if (!r.ok) throw new Error(j?.error || `API ${r.status}: ${errText(text)}`)
+      return (Array.isArray(j?.models) ? j.models : []).map((m) => m?.id).filter((id) => typeof id === 'string' && id)
+    },
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
+      const r = await apiFetch('/api/chatgpt/respond', {
+        method: 'POST', signal: timeoutSignal(CALL_TIMEOUT_MS),
+        headers: { 'Content-Type': 'application/json' },
+        // No token budget: plan usage refuses max_output_tokens (the model decides). A liveness probe (tiny budget)
+        // still sends a real request, so it is never used to "check" this provider (App asks /status instead).
+        body: JSON.stringify({ model: modelOverride || 'auto', instructions: systemPrompt, input: userContent, images: images || [] }),
+      })
+      const text = await r.text()
+      let j = null
+      try { j = JSON.parse(text) } catch { j = null }
+      if (!r.ok) throw new Error(j?.error || `API ${r.status}: ${errText(text)}`)
+      if (j?.usage) reportUsage('chatgpt', j.model || modelOverride || 'auto', { usage: j.usage })
+      const out = typeof j?.text === 'string' ? j.text : ''
+      if (!out && (maxTokens || 4000) >= MIN_CONTENT_BUDGET) throw new Error(EMPTY_REPLY)
+      return out
+    },
   },
   gemini: {
     label: 'Google (Gemini)',

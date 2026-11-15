@@ -224,13 +224,15 @@ describe('Gemini thinking models', () => {
 })
 
 describe('every provider handles the shared call contract', () => {
-  it('accepts images without throwing, on all four', async () => {
+  it('accepts images without throwing, on every provider', async () => {
     const img = [{ mediaType: 'image/png', base64: 'AAAA' }]
     const responses = {
       anthropic: () => new Response(JSON.stringify({ content: [{ type: 'text', text: 'a' }] }), { status: 200 }),
       gemini: () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'a' }] }, finishReason: 'STOP' }] }), { status: 200 }),
       openai: () => okOpenAi('a'),
       grok: () => okOpenAi('a'),
+      // the ChatGPT plan provider talks to the local server, which answers { text }
+      chatgpt: () => new Response(JSON.stringify({ text: 'a', model: 'm' }), { status: 200 }),
     }
     for (const prov of Object.keys(PROVIDERS)) {
       vi.unstubAllGlobals()
@@ -247,6 +249,7 @@ describe('every provider handles the shared call contract', () => {
       gemini: () => new Response(JSON.stringify({}), { status: 200 }),
       openai: () => new Response(JSON.stringify({}), { status: 200 }),
       grok: () => new Response(JSON.stringify({}), { status: 200 }),
+      chatgpt: () => new Response(JSON.stringify({}), { status: 200 }),
     }
     for (const prov of Object.keys(PROVIDERS)) {
       vi.unstubAllGlobals()
@@ -262,12 +265,13 @@ describe('every provider handles the shared call contract', () => {
 
 describe('blocked or refused replies', () => {
   // A safety block is 200 with no text. Returned as "", chat showed and saved a blank Ebi bubble.
-  it('throws a 200 "blocked" error on all four instead of returning empty text', async () => {
+  it('throws a 200 "blocked" error on every provider instead of returning empty text', async () => {
     const blocked = {
       anthropic: () => new Response(JSON.stringify({ content: [], stop_reason: 'refusal' }), { status: 200 }),
       gemini: () => new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' } }), { status: 200 }),
       openai: () => okOpenAi('', 'content_filter'),
       grok: () => okOpenAi('', 'content_filter'),
+      chatgpt: () => new Response(JSON.stringify({ error: 'API 200: blocked (refusal: no)' }), { status: 502 }),
     }
     for (const prov of Object.keys(PROVIDERS)) {
       vi.unstubAllGlobals()

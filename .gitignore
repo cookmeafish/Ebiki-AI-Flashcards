@@ -32,6 +32,8 @@ discover-mode-plan.md
 .anki-update-declined
 .app-splash
 launchmode.json
+# "Sign in with ChatGPT" tokens for THIS computer (src/server/chatgptAuth.js): never commit
+chatgpt-auth.json*
 # The app language for the launcher/splash (machine-local copy, written by the server)
 applang.json
 

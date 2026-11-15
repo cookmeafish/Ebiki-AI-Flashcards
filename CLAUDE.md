@@ -772,6 +772,11 @@ AND AnkiConnect's `sync` (upstream `ankitects/anki#4188`, no setting; the 5-min 
   keeps the list. Callers awaiting AI use `endStudyForModeSwitchRef.current` (stale closure missed new sessions).
 
 ## Onboarding
+**Every big feature the user must set up before it works gets an onboarding step** (owner, 2026-11-14: "always think
+about the onboarding part of the app whenever you add a big feature that needs to be set"): a new way to connect, sign
+in, pick a provider or choose a device-level mode is offered in `OnboardingWizard.jsx` as well as in Settings, with the
+same wording and choices (one shared component, like `LaunchModeOptions`), and is obvious in the GUI. A plan for such a
+feature names its onboarding step; if it truly needs none, say why.
 No `onboarded` → `OnboardingWizard.jsx`: welcome → language → theme → how Ebiki opens → provider + key → intelligence
 → first mode (`createMode`) → finish (stamps `lastModelCheck`). "Run setup again" (local) with an unchanged key adopts
 no models.
@@ -1946,7 +1951,8 @@ Capacitor (web UI in a WebView) or React Native (UI rebuilt, logic reused). Both
   `player-local`, `feature-data`, `usage`, `log`, `web-search` (CORS-free), `tts`, `anki` (AnkiConnect-like backend
   only). **Desktop-only** ("not available"): `alive`, `alive-ws` (WebSocket), `bye`, `datadir`, `offline`,
   `sync-backup`, `update`, `launchmode`, `launch-overlay`, `overlay-hide`, `overlay-screenshot`, `game-inbox` (the
-  overlay's XP relay), `ankiconnect`, `anki-focus`, `anki-start`. Keep this list current when adding a route.
+  overlay's XP relay), `ankiconnect`, `anki-focus`, `anki-start`, `chatgpt` (the ChatGPT plan sign-in; a phone
+  build needs its own OAuth redirect). Keep this list current when adding a route.
   Electron, launchers, Alt+Q overlay and the Anki updater are desktop-only.
 
 ## Card backend: Anki is swappable (`src/cards/`)
@@ -2536,7 +2542,27 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
 
 ## AI providers (`src/config/providers.js`): everything works on every provider
 - **Everything routes through `aiCall`** → `PROVIDERS[provider].call(...)` (Help: `askAI` prop = `aiCall(...,
-  resolveJobModel('help.reply'))`), on Anthropic / OpenAI / Gemini / Grok. No feature hardcodes a provider.
+  resolveJobModel('help.reply'))`), on Anthropic / OpenAI / Gemini / Grok / ChatGPT plan. No feature hardcodes a
+  provider.
+- **ChatGPT plan (`PROVIDERS.chatgpt`, `signIn: true`): a subscription instead of an API key**, through OpenAI's
+  official "Sign in with ChatGPT" plan usage (open-source and locally run apps may use it without approval;
+  developers.openai.com/siwc). Plan, verdict per provider and security review: `docs/plans/2026-11-14-subscription-sign-in.md`.
+  - **The other providers do NOT allow it** (checked 2026-11-14): Anthropic forbids apps offering Claude.ai login or
+    routing requests through Pro/Max credentials; Google suspends accounts reusing Gemini CLI's login; xAI has no
+    open program. **Never build on another tool's login tokens or an unofficial flow** (bans the user's account), and
+    never drive a user's installed coding-agent CLI (`claude -p`, `grok -p`) as a model (its tools could be steered by
+    card or web text).
+  - Server: `src/server/chatgptAuth.js` (tested end to end against a fake OpenAI): PKCE + dynamic registration
+    (`dynamic_agent_client` first, then the issued `oaiapp_` id), a one-shot loopback callback on `127.0.0.1:1455`,
+    ID token checked against OpenAI's JWKS, rotated refresh (one at a time), revoke on sign-out, the Responses API
+    with `instructions` + `store:false` + `stream:true` and none of the refused fields. **Tokens live only in this
+    computer's `chatgpt-auth.json` (app folder, gitignored) and never reach the page**; `/api/chatgpt/*`.
+  - Client: `apiKeys.chatgpt` holds the non-secret marker `CHATGPT_SIGNED_IN` while `/api/chatgpt/status` says
+    signed in with plan usage, so every "has a key" path works; the server's key store drops it (not in `ENV_VAR`).
+    Presets are `auto` (the server sends the first model the account lists); `fixedModels` skips the Model Advisor
+    and the upgrade check. One UI: `ChatGptSignIn.jsx` in onboarding AND Settings (OpenAI's wording: "Continue with
+    ChatGPT", "You're using your ChatGPT plan", "Using ChatGPT plan", Manage usage). No speech on it (plan usage takes
+    no audio).
 - **Intelligence preset** (global `intelligence` = `optimized` | `normal` | `max`): providers have
   `presets: { cheap, normal, max }` (all vision-capable). `ROLE_DEFAULTS(pc, intel, prov)`: `normal`/`max` put every
   role on that preset (pose always `normal`); `optimized` uses `ROLE_TIER`. Settings per-feature overrides win.

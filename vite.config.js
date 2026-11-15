@@ -16,6 +16,7 @@ import { guardMode, isDataRoute } from './src/server/dataGuard.js'
 import { createQuestionBankRoute } from './src/server/questionBankRoute.js'
 import { createAnkiProxy } from './src/server/ankiProxy.js'
 import { createTtsRoute } from './src/server/ttsRoute.js'
+import { createChatgptAuth, createChatgptRoute } from './src/server/chatgptAuth.js'
 import { createWebSearchRoute } from './src/server/webSearchRoute.js'
 import { createConfigRoute } from './src/server/configRoute.js'
 import { createAnkiformatRoute } from './src/server/ankiformatRoute.js'
@@ -2802,6 +2803,17 @@ function apiPlugin() {
       // ── Local TTS proxy + disk cache (pronunciation Tier 2): src/server/ttsRoute.js (strictly opt-in; tested).
       server.middlewares.use('/api/tts', createTtsRoute({ dataMode, readConfig, dataPath, writeFileAtomic, fs, path, crypto }))
 
+      // ── "Sign in with ChatGPT" plan usage: src/server/chatgptAuth.js (tested). Tokens stay in THIS computer's
+      // chatgpt-auth.json in the app folder (gitignored, never the shared data folder, .env or keys.json) and never
+      // reach the page. Not a data route: it works with the share down.
+      {
+        const chatgptAuth = createChatgptAuth({
+          file: path.join(SELF_DIR, 'chatgpt-auth.json'), fs, http, crypto, writeFileAtomic, readUtf8,
+          log: (msg) => { try { fs.mkdirSync(LOG_DIR, { recursive: true }); fs.appendFileSync(path.join(LOG_DIR, 'chatgpt-auth.log'), `${new Date().toISOString()} ${msg}\n`) } catch { /* best effort */ } },
+        })
+        server.middlewares.use('/api/chatgpt', createChatgptRoute({ auth: chatgptAuth }))
+      }
+
       // ── Knowledge outline & section slicing ─────────────────────────────
       // Huge knowledge bases (whole books) are served as an OUTLINE plus sections on demand (a toc.txt overrides
       // heading detection). Routes: src/server/knowledgeRoute.js; outline code: src/server/knowledgeOutline.js (both tested).
@@ -3373,7 +3385,7 @@ function apiPlugin() {
 const ROOT_GLOB = SELF_DIR.split(path.sep).join('/')
 const APP_ROOT_WATCH_IGNORED = [
   ...DATA_ENTRIES.flatMap((e) => [`${ROOT_GLOB}/${e}`, `${ROOT_GLOB}/${e}/**`]),
-  ...['logs', 'electron/last-capture.png', 'launchmode.json', '.deps-installed', '.npm-install-pending', '.update-snooze',
+  ...['logs', 'electron/last-capture.png', 'launchmode.json', 'chatgpt-auth.json', '.deps-installed', '.npm-install-pending', '.update-snooze',
     '.anki-update-declined', '.app-ready', '.app-status', '.app-splash', '.app-answer', '.launcher.lock.d', '.env.bak', '.env.cleared', '.env.declined']
     .flatMap((e) => [`${ROOT_GLOB}/${e}`, `${ROOT_GLOB}/${e}/**`]),
 ]

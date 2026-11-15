@@ -8,7 +8,7 @@ import { preprocessForOCR, filterTessWords, dedupeOcrWords, tidyOcrWords, untran
 import { createKeyVerdictCache } from './utils/keyVerdicts'
 // Media types EVERY provider accepts in an image part (GIF/WebP are re-encoded, see utils/image.js).
 const PORTABLE_IMAGE_TYPES = /^image\/(jpeg|jpg|png)$/i
-import { PROVIDERS, keyOfOtherProvider, setUsageListener, listAllModels, imageInputRefused } from './config/providers'
+import { PROVIDERS, keyOfOtherProvider, setUsageListener, listAllModels, imageInputRefused, CHATGPT_SIGNED_IN } from './config/providers'
 import { parseAiJson, asList } from './utils/aiJson'
 import { recordUsage } from './utils/tokenUsage'
 import { shapeLegacyModes } from './utils/legacyModes'
@@ -1612,6 +1612,72 @@ export default function App() {
   const popupDash = (s) => String(s || '').replace(/\s*[—–]\s*/g, ', ')
 
   const apiKey = apiKeys[provider] || ''
+  // ── ChatGPT plan sign-in (src/server/chatgptAuth.js; the server holds the tokens) ─────────────────────────────
+  // The page only knows the server's PUBLIC status. While it says "signed in with plan usage", apiKeys.chatgpt holds
+  // the non-secret marker CHATGPT_SIGNED_IN, so every "has a key" path (banners, AI calls, key checks) works for the
+  // ChatGPT plan provider as for a key. The key save drops it on the server (not a real key), so it never reaches
+  // .env or the shared keys.json, and another computer on the share is never "signed in" by this one.
+  const [chatgptStatus, setChatgptStatus] = useState(null)
+  const [chatgptWaiting, setChatgptWaiting] = useState(false)
+  const [chatgptSigningOut, setChatgptSigningOut] = useState(false)
+  const chatgptWelcomeRef = useRef(false)
+  const readChatgptStatus = async () => {
+    try {
+      const r = await apiFetch('/api/chatgpt/status')
+      if (!r.ok) return null
+      const s = await r.json()
+      if (s && typeof s === 'object') { setChatgptStatus(s); return s }
+    } catch { /* server restarting: keep the last status */ }
+    return null
+  }
+  useEffect(() => {
+    readChatgptStatus()
+    // Signed out in ChatGPT's settings, or on another tab: looked at again when the window comes back.
+    const onFocus = () => { if (!document.hidden) readChatgptStatus() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!keysLoaded) return
+    const want = !!(chatgptStatus?.signedIn && chatgptStatus?.planUsage)
+    if (want && apiKeys.chatgpt !== CHATGPT_SIGNED_IN) setApiKeys((prev) => ({ ...prev, chatgpt: CHATGPT_SIGNED_IN }))
+    else if (!want && apiKeys.chatgpt) setApiKeys((prev) => { const n = { ...prev }; delete n.chatgpt; return n })
+  }, [keysLoaded, chatgptStatus, apiKeys.chatgpt])
+  // Waiting for the browser sign-in: the status is read every 1.5 s until it lands, fails or times out (the server
+  // gives up after 5 minutes; this stops a little later).
+  useEffect(() => {
+    if (!chatgptWaiting) return
+    const started = Date.now()
+    let stopped = false
+    // The last attempt's error stays on the server until the new attempt starts (the browser may take a few seconds to
+    // open the link): an error counts only once this attempt has been seen running, or after 20 s with no sign of it.
+    let seenPending = false
+    const iv = setInterval(async () => {
+      const s = await readChatgptStatus()
+      if (stopped) return
+      if (s?.pending) seenPending = true
+      const failed = s && !s.pending && s.error && (seenPending || Date.now() - started > 20000)
+      if ((s && s.signedIn) || failed || Date.now() - started > 330000) { stopped = true; clearInterval(iv); setChatgptWaiting(false) }
+    }, 1500)
+    return () => { stopped = true; clearInterval(iv) }
+  }, [chatgptWaiting]) // eslint-disable-line react-hooks/exhaustive-deps
+  // OpenAI's first-time notice, once per account (the server remembers it was shown). Not in the overlay.
+  useEffect(() => {
+    if (isOverlay || !chatgptStatus?.signedIn || !chatgptStatus.planUsage || chatgptStatus.welcomed || chatgptWelcomeRef.current) return
+    chatgptWelcomeRef.current = true
+    const tt = tLiveRef.current
+    openDialog({ title: tt('cg_welcomeTitle'), message: tt('cg_welcomeBody'), notice: true, okLabel: tt('cg_welcomeOk') })
+      .then(() => apiFetch('/api/chatgpt/welcomed', { method: 'POST' }).catch(() => {}))
+  }, [chatgptStatus]) // eslint-disable-line react-hooks/exhaustive-deps
+  const chatgptSignIn = () => { setChatgptStatus((s) => (s ? { ...s, error: '', needsSignIn: false } : s)); setChatgptWaiting(true) }
+  const chatgptCancel = () => { setChatgptWaiting(false); apiFetch('/api/chatgpt/cancel', { method: 'POST' }).catch(() => {}) }
+  const chatgptSignOut = async () => {
+    setChatgptSigningOut(true)
+    try { await apiFetch('/api/chatgpt/signout', { method: 'POST' }) } catch { /* the status read below says what happened */ }
+    finally { setChatgptSigningOut(false); chatgptWelcomeRef.current = false; readChatgptStatus() }
+  }
+  const chatgptProps = { status: chatgptStatus, waiting: chatgptWaiting, signingOut: chatgptSigningOut, onSignIn: chatgptSignIn, onSignOut: chatgptSignOut, onCancel: chatgptCancel }
   const providerConfig = PROVIDERS[provider]
   // Does the SELECTED provider actually have a key on this computer, and if not,
   // is there another one that does? Drives the mismatch banner below. Purely
@@ -1622,7 +1688,11 @@ export default function App() {
   // providers.js is covered here with no change. Trimmed on purpose - a key that is
   // only whitespace fails every request exactly like a missing one, so it must not
   // be what silences the banner explaining why nothing works.
-  const providerKeyMissing = !apiKey.trim() && Object.keys(PROVIDERS).includes(provider)
+  // A sign-in provider (the ChatGPT plan) is "missing" only once the server has said it is not signed in here: before
+  // its status arrives the banner flashed on every launch.
+  const providerKeyMissing = PROVIDERS[provider]?.signIn
+    ? !!chatgptStatus && !(chatgptStatus.signedIn && chatgptStatus.planUsage)
+    : !apiKey.trim() && Object.keys(PROVIDERS).includes(provider)
   const providerWithKey = providerKeyMissing
     ? Object.keys(PROVIDERS).find((p) => p !== provider && (apiKeys[p] || '').trim())
     : null
@@ -1987,7 +2057,7 @@ export default function App() {
   const findModelUpgrades = async (prov, { respectRejections = true } = {}) => {
     const pc = PROVIDERS[prov]
     const key = aiStateRef.current.apiKeys[prov]
-    if (!pc?.listModels || !key) return []
+    if (!pc?.listModels || !key || pc.fixedModels) return [] // the ChatGPT plan: the account's own list, no tiers to upgrade
     if (keyMisfits(pc, key)) return null // another provider's key is never sent (null = the list could not be read)
     let ids = []
     // null = the list could not be READ (offline, bad key): not the same as "nothing newer". "Check for new
@@ -2258,6 +2328,9 @@ export default function App() {
   // NOT the model's fault). `key` is passed so bursts don't re-read a stale ref.
   const probeModel = async (prov, id, key) => {
     if (!key || !id) return null
+    // A sign-in provider (the ChatGPT plan) is never probed: plan usage takes no token budget, so every "1-token" probe
+    // was a full reply counted against the user's plan.
+    if (PROVIDERS[prov]?.signIn) return null
     try { await PROVIDERS[prov].call(key, 'ping', 'hi', id, undefined, 4); return true }
     catch (e) {
       const msg = String(e?.message || ''); const status = (msg.match(/API (\d{3})/) || [])[1]
@@ -2387,7 +2460,7 @@ export default function App() {
   }
   const ensurePresetPlanInner = async (prov, preset) => {
     const key = aiStateRef.current.apiKeys[prov]; const pc = PROVIDERS[prov]
-    if (!key || !pc?.listModels) return
+    if (!key || !pc?.listModels || pc.fixedModels) return // the ChatGPT plan: no research or probes spent on the user's plan
     let ids = []
     try { ids = await pc.listModels(key) } catch { return } // offline: keep cached plan / tier defaults
     if (!ids.length) return
@@ -3005,6 +3078,8 @@ export default function App() {
   const checkKeyNow = async (prov, key) => {
     const k = (key || '').trim(); const pc = PROVIDERS[prov]
     if (!k || !pc) return null
+    // A sign-in provider has no key to ping: the server says whether this computer is signed in with plan usage.
+    if (pc.signIn) { const s = await readChatgptStatus(); return !s ? null : (s.signedIn && s.planUsage) }
     if (keyMisfits(pc, k)) return false // another provider's key: refused WITHOUT sending it anywhere
     const id = presetModel(pc, prov, 'normal') || pc.questionModel
     try {
@@ -3042,9 +3117,15 @@ export default function App() {
   const keyPromptedRef = useRef(false)
   useEffect(() => {
     if (!keysLoaded || !onboarded || keyPromptedRef.current) return
+    // The ChatGPT plan has no key on disk: its marker arrives with the server's sign-in status, AFTER the keys. Judged
+    // on the key alone, a signed-in user got Settings popped open on every launch.
+    if (PROVIDERS[provider]?.signIn) {
+      if (!chatgptStatus) return
+      if (chatgptStatus.signedIn && chatgptStatus.planUsage) { keyPromptedRef.current = true; return }
+    }
     if (!apiKeys[provider]) { keyPromptedRef.current = true; setSettingsCategory('models'); setSettingsOpen(true) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keysLoaded, onboarded])
+  }, [keysLoaded, onboarded, chatgptStatus])
 
   // ─── Load Image Helper ──────────────────────────────────────────────────────
   const imageLoadSeqRef = useRef(0) // the newest picture wins: a big photo decoding slowly replaced a screenshot pasted after it
@@ -15598,14 +15679,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           is a normal provider change and persists like any other. */}
       {!isOverlay && configLoaded && onboarded && !dataUnreachable && providerKeyMissing && (
         <div style={{ flexShrink: 0, background: 'rgba(232,147,12,.14)', borderBottom: '1px solid rgba(232,147,12,.35)', color: C.ink, padding: '7px 16px', fontSize: 12, fontWeight: 600, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span>⚠️ {t('providerNoKey', { prov: PROVIDERS[provider]?.label || provider })}</span>
+          <span>⚠️ {t(PROVIDERS[provider]?.signIn ? 'providerNotSignedIn' : 'providerNoKey', { prov: PROVIDERS[provider]?.label || provider })}</span>
           {providerWithKey && (
             <button onClick={() => setProvider(providerWithKey)} style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.45)' }}>
               {t('providerUseOther', { other: PROVIDERS[providerWithKey]?.label || providerWithKey })}
             </button>
           )}
           <button onClick={() => { setSettingsCategory('models'); setSettingsOpen(true) }} style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.45)' }}>
-            {t('providerAddKey', { prov: PROVIDERS[provider]?.label || provider })}
+            {PROVIDERS[provider]?.signIn ? t('cg_continue') : t('providerAddKey', { prov: PROVIDERS[provider]?.label || provider })}
           </button>
         </div>
       )}
@@ -15850,8 +15931,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           appTheme={appTheme} setAppTheme={setAppTheme}
           provider={provider} setProvider={setProvider}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
-          validateKey={validateKey}
-          presetModel={(tier) => presetModel(providerConfig, provider, tier)}
+          validateKey={validateKey} chatgpt={chatgptProps}
+          presetModel={(tier) => { const m = presetModel(providerConfig, provider, tier); return m === 'auto' ? t('cg_autoModel') : m }}
           createMode={createMode} modeCreating={modeCreating}
           aiModels={aiModels} setAiModels={setAiModels}
           intelligence={intelligence} setIntelligence={selectIntelligence}
@@ -15877,11 +15958,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           onRunSetup={() => { setSettingsOpen(false); setRerunSetup(true) }}
           confirmDialog={confirmDialog} alertDialog={alertDialog} knowledgeBusyFiles={knowledgeBusyFiles}
           onDataFolderChanged={() => { dataSwitchingRef.current = true; setBlobWritesPaused(true); configHealthyRef.current = false; setTimeout(() => window.location.reload(), 1500) }}
-          provider={provider} setProvider={setProvider}
+          provider={provider} setProvider={setProvider} chatgpt={chatgptProps}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} validateKey={validateKey} providerConfig={providerConfig}
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
           aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels} allModels={allModels}
-          presetModel={(tier) => presetModel(providerConfig, provider, tier)}
+          presetModel={(tier) => { const m = presetModel(providerConfig, provider, tier); return m === 'auto' ? t('cg_autoModel') : m }}
           refreshModels={refreshModels} checkNewModels={checkNewModels} modelsLoading={modelsLoading} modelsError={modelsError}
           intelligence={intelligence} setIntelligence={selectIntelligence}
           planDeciding={planDeciding} runConnectionTest={runConnectionTest} modelProbe={modelProbe}
@@ -17219,6 +17300,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <img src={chatTabImage} alt={t('img_attached')} style={{ height: 44, borderRadius: 6, border: '1px solid var(--c-border)' }} />
                   <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('removeImage')}</button>
+                </div>
+              )}
+              {/* OpenAI's indicator while requests run on the user's ChatGPT plan (Sign in with ChatGPT guidelines). */}
+              {provider === 'chatgpt' && apiKeys.chatgpt && (
+                <div data-plan-indicator="" style={{ fontSize: 10.5, color: 'var(--c-ink-dim)', marginBottom: 4, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span>{t('cg_usingPlan')}</span>
+                  <a href={chatgptStatus?.manageUrl || 'https://chatgpt.com/settings/usage'} target="_blank" rel="noopener noreferrer" style={{ color: C.brandText, fontWeight: 700 }}>{t('cg_manageUsage')} ↗</a>
                 </div>
               )}
               <div className="ch-composer" data-composer="" style={{ display: 'flex', gap: 6, alignItems: 'flex-end', position: 'relative' }}>
@@ -19638,7 +19726,8 @@ ${PALETTE_CSS}
             padding: '18px 20px', maxWidth: 440, width: 'calc(90vw / var(--app-zoom))', boxShadow: SHADOW.lg,
             display: 'flex', flexDirection: 'column', gap: 14, animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
           }}>
-            <div id="ebiki-app-dialog-msg" style={{ fontSize: 14, color: 'var(--c-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontWeight: 600 }}>{appConfirm.message}</div>
+            {appConfirm.title && <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--c-ink)', fontFamily: FONT.display }}>{appConfirm.title}</div>}
+            <div id="ebiki-app-dialog-msg" style={{ fontSize: 14, color: 'var(--c-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontWeight: appConfirm.title ? 500 : 600 }}>{appConfirm.message}</div>
             {appConfirm.input && (
               <input autoFocus value={appConfirm.value}
                 onChange={(e) => { const v = e.target.value; setAppConfirm((cur) => (cur ? { ...cur, value: v } : cur)) }}
@@ -19654,7 +19743,7 @@ ${PALETTE_CSS}
               )}
               <button onClick={() => resolveConfirm(true)} autoFocus={!appConfirm.input} className="btn-press"
                 style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '7px 18px' }}>
-                OK
+                {appConfirm.okLabel || 'OK'}
               </button>
             </div>
           </div>

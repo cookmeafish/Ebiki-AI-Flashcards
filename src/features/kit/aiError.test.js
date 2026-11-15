@@ -13,6 +13,10 @@ describe('aiErrorText', () => {
     expect(aiErrorText(t, new Error('API 401: invalid x-api-key'))).toBe('aiErr_badKey')
     expect(aiErrorText(t, new Error('API 403: permission denied'))).toBe('aiErr_badKey')
     expect(aiErrorText(t, new TypeError('Failed to fetch'))).toBe('aiErr_network')
+    // ChatGPT plan usage: the plan's limit, a lost sign-in and an ineligible plan each say what to do
+    expect(aiErrorText(t, new Error('API 429: subscription_sharing_usage_limit_exceeded Limit'))).toBe('aiErr_planLimit')
+    expect(aiErrorText(t, new Error('API 401: signed_out Sign in with ChatGPT again'))).toBe('aiErr_planSignIn')
+    expect(aiErrorText(t, new Error('API 403: subscription_sharing_user_not_eligible'))).toBe('aiErr_planNotEligible')
     const timeout = new Error('signal timed out'); timeout.name = 'TimeoutError'
     expect(aiErrorText(t, timeout)).toBe('aiErr_network')
   })

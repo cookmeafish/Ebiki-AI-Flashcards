@@ -5,6 +5,7 @@ import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
 import { shrimpUrl, poseFile, DEFAULT_SHRIMP } from '../config/shrimp'
 import { LaunchModeOptions, choiceProps } from './LaunchModeChoice'
+import ChatGptSignIn, { SubscriptionNote } from './ChatGptSignIn'
 import { apiFetch } from '../platform'
 import { imeActive } from '../utils/keys'
 
@@ -15,7 +16,7 @@ export default function OnboardingWizard(p) {
   const {
     t, onFinish, onClose,
     appLanguage, setAppLanguage, appTheme, setAppTheme,
-    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig, presetModel, validateKey,
+    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig, presetModel, validateKey, chatgpt,
     createMode, modeCreating,
     aiModels, setAiModels,
     intelligence, setIntelligence,
@@ -248,6 +249,12 @@ export default function OnboardingWizard(p) {
               </button>
             ))}
           </div>
+          <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'center' }}><SubscriptionNote t={t} /></div>
+          {providerConfig.signIn ? (
+            <div style={{ maxWidth: 460, margin: '16px auto 0', padding: '14px 16px', border: `1px solid ${C.border}`, borderRadius: RADIUS.md, background: C.surface }}>
+              <ChatGptSignIn t={t} {...(chatgpt || {})} />
+            </div>
+          ) : (<>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', maxWidth: 460, margin: '16px auto 0' }}>
             <input type="password" data-no-voice="" value={apiKey} onChange={(e) => setCurrentKey(e.target.value.replace(/\s+/g, ''))} placeholder={providerConfig.placeholder}
               /* The whole `border` shorthand, never a borderColor toggled over it: removing the longhand left the
@@ -276,6 +283,7 @@ export default function OnboardingWizard(p) {
               </div>
             )}
           </div>
+          </>)}
         </>)
       case 'intelligence':
         return (<>
@@ -343,8 +351,9 @@ export default function OnboardingWizard(p) {
               onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeInput.trim() && apiKey && !keyBad && !creatingFirst && !modeCreating) createFirstMode() }}
               placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1, minWidth: 0 }} disabled={creatingFirst || modeCreating} />
           </div>
-          {!apiKey && <div style={{ fontSize: 12, color: C.warning, marginTop: 10 }}>{t('obModeNeedsKey')}</div>}
+          {!apiKey && !providerConfig.signIn && <div style={{ fontSize: 12, color: C.warning, marginTop: 10 }}>{t('obModeNeedsKey')}</div>}
           {apiKey && keyBad && <div style={{ fontSize: 12, color: C.danger, marginTop: 10 }}>{t('obModeFixKey')}</div>}
+          {!apiKey && providerConfig.signIn && <div style={{ fontSize: 12, color: C.warning, marginTop: 10 }}>{t('cg_signInFirst')}</div>}
           {modeFailed && <div style={{ fontSize: 12, color: C.danger, marginTop: 10 }}>{t('obModeFailed')}</div>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
             <button className="btn-press" style={{ ...bigBtn, opacity: (!modeInput.trim() || !apiKey || keyBad || creatingFirst || modeCreating) ? 0.5 : 1 }}

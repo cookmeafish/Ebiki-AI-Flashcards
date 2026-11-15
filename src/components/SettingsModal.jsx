@@ -13,6 +13,7 @@ import { fileSizeLabel } from '../utils/fileSize'
 import { checkStateFor, updateResultState, verifyOutcome, restartOffered, pollUntilAnswered } from './updatesState'
 import { imeActive } from '../utils/keys'
 import JobModelSettings from './JobModelSettings'
+import ChatGptSignIn, { SubscriptionNote } from './ChatGptSignIn'
 import { UsageDetails } from './TokenUsageMeter'
 import { jobOverridesOf, chatModelsOnly } from '../config/aiJobs'
 
@@ -483,7 +484,7 @@ export default function SettingsModal(p) {
     appTheme, setAppTheme, appZoom, setAppZoom, appLanguage, setAppLanguage,
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
     // AI Models (global)
-    provider, setProvider, apiKeys, apiKey, setCurrentKey, validateKey, providerConfig,
+    provider, setProvider, apiKeys, apiKey, setCurrentKey, validateKey, providerConfig, chatgpt,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, allModels, presetModel,
     refreshModels, checkNewModels, modelsLoading, modelsError, intelligence, setIntelligence,
     planDeciding, runConnectionTest, modelProbe,
@@ -786,6 +787,7 @@ export default function SettingsModal(p) {
             </button>
           ))}
         </div>
+        {providerConfig.signIn ? <ChatGptSignIn t={t} {...(chatgpt || {})} /> : (<>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* Visible while the user is typing THIS session so they can verify it; concealed once it
               validates, or when it is a pre-existing saved key the user has not touched yet.
@@ -818,6 +820,8 @@ export default function SettingsModal(p) {
           : keyCheck?.state === 'noCredit' ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyNoCredit')}</div>
           : keyCheck?.state === 'unknown' ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyCheckUnknown')}</div>
           : <div style={hint}>{apiKey ? t('keysStored') : t('keyPasteHint')}</div>}
+        </>)}
+        <SubscriptionNote t={t} />
       </div>
 
       {/* Intelligence preset: one switch that sets every feature's default model tier. */}
@@ -871,7 +875,8 @@ export default function SettingsModal(p) {
                 style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.brand, borderColor: C.brandRing, ...((modelsLoading || !apiKey) ? { opacity: 0.5, cursor: 'default' } : {}) }}>
                 {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
               </button>
-              {runConnectionTest && (
+              {/* Not for the ChatGPT plan: every probe would be a full reply counted against the user's plan. */}
+              {runConnectionTest && !providerConfig.signIn && (
                 <button onClick={() => runConnectionTest(provider)} disabled={(modelProbe?.loading && modelProbe.provider === provider) || !apiKey} className="tip" data-tip={t('set_testConnectionsHint')}
                   style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.inkDim, ...(((modelProbe?.loading && modelProbe.provider === provider) || !apiKey) ? { opacity: 0.5, cursor: 'default' } : {}) }}>
                   {modelProbe?.loading && modelProbe.provider === provider ? t('set_testing') : t('set_testConnections')}

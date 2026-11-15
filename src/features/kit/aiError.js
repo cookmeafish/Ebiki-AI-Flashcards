@@ -17,6 +17,11 @@ export function aiErrorInfo(e) {
   if (at < 0 && !net) return null
   const status = at >= 0 ? Number(m.slice(at + 4, at + 7)) : 0
   const body = at >= 0 ? m.slice(at) : m
+  // ChatGPT plan usage (the server's codes, src/server/chatgptAuth.js): the plan's own limit, a lost sign-in, and an
+  // account that may not use its plan in apps each say what to do, never "rate limited" or "bad API key".
+  if (/subscription_sharing_usage_limit_exceeded/.test(body)) return { key: 'aiErr_planLimit' }
+  if (/signed_out|subscription_sharing_invalid_user/.test(body)) return { key: 'aiErr_planSignIn' }
+  if (/subscription_sharing_user_not_eligible|no_models your chatgpt plan/.test(body)) return { key: 'aiErr_planNotEligible' }
   // A per-minute limit worded like a quota ("You exceeded your current quota", one provider's 429) is a RATE limit:
   // it clears by itself. Real credit trouble names it.
   if (/resource_exhausted/.test(body) || (status === 429 && !/insufficient|credit|balance|payment|billing/.test(body))) return { key: 'aiErr_rateLimit' }
