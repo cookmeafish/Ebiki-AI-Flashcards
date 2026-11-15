@@ -2,6 +2,7 @@
 // normalizeMap from what is DONE, so every cheat edits "done" and lets the map work out the rest. None of these pay
 // rewards (they emit nothing); only "Win now" inside a step goes through the normal finish.
 import { normalizeMap, areaIndex } from './map'
+import { clearsIsland } from './career'
 
 const withArea = (map, areaId, fn, now = Date.now()) => {
   const i = areaIndex(map, areaId)
@@ -16,7 +17,7 @@ const freshNode = ({ flawless, allPower, ...n }) => ({ ...n, status: 'open', sta
 export function cheatCompleteNode(map, areaId, nodeId, now) {
   return withArea(map, areaId, (a) => {
     const nodes = (a.nodes || []).map((n) => (n.id === nodeId ? doneNode(n) : n))
-    const boss = nodes.find((n) => n.id === nodeId)?.kind === 'boss'
+    const boss = clearsIsland(nodes.find((n) => n.id === nodeId)) // a course's region boss never finishes its island
     return { ...a, nodes, frozen: true, status: boss ? 'done' : a.status }
   }, now)
 }
@@ -38,7 +39,7 @@ export function cheatUnlockTo(map, areaId, now) {
 export function cheatResetNode(map, areaId, nodeId, now) {
   return withArea(map, areaId, (a) => {
     const nodes = (a.nodes || []).map((n) => (n.id === nodeId ? freshNode(n) : n))
-    const boss = nodes.find((n) => n.id === nodeId)?.kind === 'boss'
+    const boss = clearsIsland(nodes.find((n) => n.id === nodeId))
     return { ...a, nodes, status: boss && a.status === 'done' ? 'open' : a.status }
   }, now)
 }

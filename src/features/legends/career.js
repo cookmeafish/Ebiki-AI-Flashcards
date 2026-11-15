@@ -18,9 +18,66 @@
 // Known gap: a started course keeps the card text it started with; a package fix reaches it only after Start over.
 
 export const CAREER_MAP_VERSION = 2 // a career map: an older build (MAP_VERSION 1) reads it as "newer", never rewrites it
-export const CAREER = { lessonMax: 4, checkpointItems: 24, checkpointQuestions: 12, bossItems: 30 }
-// Quiz kinds over a whole objective or island: written from a SAMPLE of its items (CAREER.*Items), never all of them.
-export const careerSampleMax = (kind) => (kind === 'checkpoint' ? CAREER.checkpointItems : kind === 'boss' || kind === 'legendary' ? CAREER.bossItems : 0)
+export const CAREER = {
+  lessonMax: 4, checkpointItems: 24, checkpointQuestions: 12, bossItems: 30,
+  // THE BOSS LADDER (the owner: a domain is a month or two of study, so one boss per domain was far too slow; Legends
+  // paces 8 to 14 lessons, then a boss). An island is cut into REGIONS of regionMin..regionMax lessons, each ending in
+  // its boss; the island ends in a RAID boss over the whole domain; every island cleared opens the FINAL raid.
+  regionTarget: 30, // new things taught per region (a lesson teaches 1 to 4): about 8 to 14 lessons
+  regionItems: 36, regionQuestions: 15,
+  raidItems: 60, raidQuestions: 25,
+  finalItems: 90, finalQuestions: 30,
+}
+// Has the learner played any step of this course (a finished step, or any attempt)? A course without is safe to rebuild.
+export const careerHasProgress = (map) => Object.keys(map?.days || {}).length > 0 || (map?.helpers?.scroll || 0) > 0 || (map?.helpers?.shield || 0) > 0
+  || (map?.areas || []).some((a) => a.storySeen || a.chestOpened || (a.nodes || []).some((n) => n.status === 'done' || (n.attempts || 0) > 0)
+    || (a.items || []).some((it) => it.cardNoteId || (it.seen || 0) > 0 || it.missNudged))
+// Raid art per island, in package order, and the final raid's (raid boss drawings with three phases).
+export const CAREER_RAID_MOTIFS = ['titan', 'hydra', 'chronos', 'vampire', 'seraph']
+export const CAREER_FINAL_MOTIF = 'ophanim'
+export const CAREER_LAYOUT = 2 // 1 = objective checkpoints + one boss; 2 = regions, region bosses, island raids, final raid
+export const FINAL_AREA_ID = 'final'
+// Quiz kinds over a whole objective, region or island: written from a SAMPLE of its items (CAREER.*Items), never all.
+export const careerSampleMax = (kind, stage = '') => (kind === 'checkpoint' ? CAREER.checkpointItems
+  : kind === 'boss' ? (stage === 'region' ? CAREER.regionItems : stage === 'raid' ? CAREER.raidItems : stage === 'final' ? CAREER.finalItems : CAREER.bossItems)
+  : kind === 'legendary' ? CAREER.bossItems : 0)
+// A fight that clears its island: the raid (or an older course's single boss) and the final raid; a region boss never does.
+export const clearsIsland = (node) => node?.kind === 'boss' && node.stage !== 'region'
+export const isFinalArea = (area) => !!area?.final
+
+// Cut an island's lessons (in objective order) into regions that are FAIR to study (the owner: never "2 new things,
+// then a boss" next to "30 new things, then a boss"): balanced by the number of NEW THINGS taught (a lesson teaches 1
+// to 4 items), never by the lesson count. The island gets round(items / regionTarget) regions; an exact search picks
+// the cut points making every region's item count as even as possible, preferring to cut where an objective ends (a
+// cut inside an objective costs extra). -> [[lesson, ...], ...] (pure, tested).
+export function cutRegions(sections, lessons, { target = CAREER.regionTarget } = {}) {
+  const seq = sections.flatMap((sec) => lessons.filter((l) => l.section === sec.id))
+  const n = seq.length
+  if (!n) return []
+  const w = seq.map((l) => Math.max(1, (l.itemIds || []).length))
+  const pre = [0]; for (const x of w) pre.push(pre[pre.length - 1] + x)
+  const total = pre[n]
+  const k = Math.max(1, Math.min(n, Math.round(total / target)))
+  const avg = total / k
+  const midCut = (avg * 0.3) ** 2 // the extra cost of a cut inside an objective
+  const cutCost = (i) => (i >= n || seq[i].section !== seq[i - 1].section ? 0 : midCut)
+  // best[j][i]: the cheapest way to cut the first i lessons into j regions.
+  const best = Array.from({ length: k + 1 }, () => new Array(n + 1).fill(Infinity))
+  const from = Array.from({ length: k + 1 }, () => new Array(n + 1).fill(-1))
+  best[0][0] = 0
+  for (let j = 1; j <= k; j++) {
+    for (let i = j; i <= n - (k - j); i++) {
+      for (let h = j - 1; h < i; h++) {
+        if (best[j - 1][h] === Infinity) continue
+        const c = best[j - 1][h] + (pre[i] - pre[h] - avg) ** 2 + cutCost(i)
+        if (c < best[j][i]) { best[j][i] = c; from[j][i] = h }
+      }
+    }
+  }
+  const cuts = []
+  for (let j = k, i = n; j > 0; j--) { const h = from[j][i]; cuts.unshift([h, i]); i = h }
+  return cuts.map(([h, i]) => seq.slice(h, i))
+}
 
 // The courses this build knows. `match`: a mode whose name or description is about it gets the tile first.
 export const CAREERS = [
@@ -76,52 +133,112 @@ export function shapePackage(raw) {
 
 const node = (areaId, k, fields) => ({ id: `${areaId}-${k}`, title: '', status: 'locked', stars: 0, bestScore: 0, attempts: 0, optional: false, ...fields })
 
-// The map a career starts with: every island fully built (no AI plan or detail call), each objective's lessons then its
-// checkpoint, then Weak spots and the boss. `start` as the questionnaire saved it.
+// The map a career starts with: every island fully built (no AI plan or detail call). Per island: its regions in order
+// (each region's lessons, then its region boss), Weak spots, then the island's RAID boss; after the last island, the
+// FINAL raid (an area of its own, `final: true`, no items: its fight draws on every island). `start` as the
+// questionnaire saved it.
 export function buildCareerMap(pkg, { modeId, subject, start = null }, now = Date.now()) {
-  const areas = pkg.areas.map((a) => {
+  const areas = pkg.areas.map((a, ai) => {
     const nodes = []
-    for (const s of a.sections) {
-      a.lessons.filter((l) => l.section === s.id).forEach((l, i) => nodes.push(node(a.id, `${s.id}-l${i + 1}`, { kind: 'learn', section: s.id, title: l.title, itemIds: l.itemIds })))
-      // BRIEFINGS (kind 'brief': the domain's and objectives' overviews) are read, never quizzed.
-      const ids = a.items.filter((it) => it.section === s.id && it.kind !== 'brief').map((it) => it.id)
-      if (ids.length) nodes.push(node(a.id, `${s.id}-check`, { kind: 'checkpoint', section: s.id, title: '', itemIds: ids }))
-    }
+    const regions = cutRegions(a.sections, a.lessons).map((list, ri) => {
+      const id = `r${ri + 1}`
+      const secIds = [...new Set(list.map((l) => l.section))]
+      const counters = {}
+      for (const l of list) {
+        const at = a.lessons.filter((x) => x.section === l.section).indexOf(l)
+        counters[l.section] = (counters[l.section] || 0) + 1
+        nodes.push(node(a.id, `${l.section}-l${at + 1}`, { kind: 'learn', section: l.section, region: id, title: l.title, itemIds: l.itemIds }))
+      }
+      const itemIds = [...new Set(list.flatMap((l) => l.itemIds))].filter((x) => a.items.find((it) => it.id === x)?.kind !== 'brief')
+      nodes.push(node(a.id, `${id}-boss`, { kind: 'boss', stage: 'region', region: id, itemIds, count: CAREER.regionQuestions }))
+      return { id, n: ri + 1, sections: secIds }
+    })
     nodes.push(node(a.id, 'weak', { kind: 'weak', itemIds: [], optional: true }))
-    nodes.push(node(a.id, 'boss', { kind: 'boss', itemIds: a.items.filter((it) => it.kind !== 'brief').map((it) => it.id) }))
+    nodes.push(node(a.id, 'boss', { kind: 'boss', stage: 'raid', motif: CAREER_RAID_MOTIFS[ai % CAREER_RAID_MOTIFS.length], count: CAREER.raidQuestions, itemIds: a.items.filter((it) => it.kind !== 'brief').map((it) => it.id) }))
     return {
       id: a.id, title: a.title, theme: a.theme, motif: a.motif, palette: a.palette || 'original', status: 'open', detailed: true, frozen: false,
-      number: a.number, weight: a.weight, sections: a.sections, ...(a.brief ? { brief: a.brief } : {}), bossName: a.bossName, story: a.story, canDo: a.canDo,
-      // Ready to show as built (the first lesson of every objective open): the store caches what is written.
+      number: a.number, weight: a.weight, sections: a.sections, regions, ...(a.brief ? { brief: a.brief } : {}), bossName: a.bossName, story: a.story, canDo: a.canDo,
+      // Ready to show as built (the first lesson of every region open): the store caches what is written.
       items: a.items.map((it) => ({ ...it, cardNoteId: null, seen: 0, right: 0 })), nodes: normalizeCareerNodes(nodes, 'open'),
     }
   })
+  const final = {
+    id: FINAL_AREA_ID, final: true, title: pkg.title, theme: '', motif: areas[0]?.motif || '', palette: 'original', status: 'locked', detailed: true, frozen: false,
+    number: '', weight: 0, sections: [], regions: [], bossName: '', story: [], canDo: [], items: [],
+    nodes: [node(FINAL_AREA_ID, 'raid', { kind: 'boss', stage: 'final', motif: CAREER_FINAL_MOTIF, count: CAREER.finalQuestions, itemIds: [] })],
+  }
   return {
-    version: CAREER_MAP_VERSION, modeId, career: { id: pkg.id, title: pkg.title, version: pkg.version },
+    version: CAREER_MAP_VERSION, modeId, career: { id: pkg.id, title: pkg.title, version: pkg.version, layout: CAREER_LAYOUT },
     subject: { name: String(subject?.name || ''), description: String(subject?.description || '') },
-    createdAt: now, updatedAt: now, start, areas, helpers: { scroll: 0, shield: 0 }, days: {},
+    createdAt: now, updatedAt: now, start, areas: [...areas, final], helpers: { scroll: 0, shield: 0 }, days: {},
   }
 }
 
-// THE CAREER LADDER (normalizeMap calls it for a career map): islands never lock; inside an island every objective is
-// open and climbs on its own (its lessons in order, then its checkpoint); the boss opens once every required step is
-// done; Weak spots open with the boss.
+// THE CAREER LADDER (normalizeMap calls it for a career map): islands never lock; inside an island every region is
+// open and climbs on its own (its lessons in order, then its region boss); the raid opens once every region boss (and
+// every other required step) is done; Weak spots opens with the raid. An older course (layout 1) climbs per objective
+// to its checkpoint the same way. The final raid's area is opened or locked by the map (careerAreaStatus).
 export function normalizeCareerNodes(nodes, areaStatus) {
   const blocked = new Set()
-  const required = nodes.filter((n) => !n.optional && n.kind !== 'boss' && n.kind !== 'weak')
+  const isRaid = (n) => n.kind === 'boss' && n.stage !== 'region'
+  const required = nodes.filter((n) => !n.optional && !isRaid(n) && n.kind !== 'weak')
   const allDone = required.every((n) => n.status === 'done')
+  const regionDone = (r) => nodes.filter((n) => n.region === r && n.kind !== 'boss').every((n) => n.status === 'done')
   return nodes.map((n) => {
     if (n.status === 'done') return n
     if (areaStatus === 'done') return { ...n, status: 'open' }
-    if (n.kind === 'boss') return { ...n, status: allDone ? 'open' : 'locked' }
+    if (areaStatus === 'locked') return { ...n, status: 'locked' }
+    if (n.stage === 'final') return { ...n, status: 'open' }
+    if (isRaid(n)) return { ...n, status: allDone ? 'open' : 'locked' }
     if (n.kind === 'weak') return { ...n, status: allDone ? 'open' : 'locked' }
+    if (n.kind === 'boss') return { ...n, status: regionDone(n.region) ? 'open' : 'locked' }
     if (n.optional) return { ...n, status: 'open' }
-    const key = n.section || ''
+    const key = n.region || n.section || ''
     if (blocked.has(key)) return { ...n, status: 'locked' }
     blocked.add(key)
     return { ...n, status: 'open' }
   })
 }
+// An island's status in a course: the final raid's area opens once every island is cleared; islands are always open.
+export function careerAreaStatus(area, areas) {
+  if (area.status === 'done') return 'done'
+  if (!isFinalArea(area)) return 'open'
+  return (areas || []).filter((a) => !isFinalArea(a)).every((a) => a.status === 'done') ? 'open' : 'locked'
+}
+
+// Per region: { id, n, sections: [section], lessons, lessonsDone, boss (node|null), done, nodes } (the island page).
+export function careerRegions(area) {
+  const nodes = area?.nodes || []
+  return (area?.regions || []).map((r) => {
+    const own = nodes.filter((n) => n.region === r.id)
+    const lessons = own.filter((n) => n.kind !== 'boss')
+    const boss = own.find((n) => n.kind === 'boss') || null
+    const sections = (r.sections || []).map((id) => (area.sections || []).find((s) => s.id === id)).filter(Boolean)
+    return { ...r, sections, nodes: own, lessons: lessons.length, lessonsDone: lessons.filter((n) => n.status === 'done').length, boss, done: !!boss && boss.status === 'done' }
+  })
+}
+export const regionBossesLeft = (area) => careerRegions(area).filter((r) => r.boss && !r.done).length
+// The region to show open: the first one started but not finished, else the first not finished.
+export function currentRegion(area) {
+  const list = careerRegions(area)
+  return (list.find((r) => !r.done && r.nodes.some((n) => n.status === 'done')) || list.find((r) => !r.done) || list[0] || null)?.id || null
+}
+// The area a course fight runs on: a region boss is named after its region, a raid wears its raid art (its own motif)
+// and the island's boss name, the final raid draws on every island (items and objectives of all of them).
+// → { area, node } (the node of the final raid lists every island's items).
+export function careerFight(area, node, areas, { regionName = '', finalName = '' } = {}) {
+  if (node?.kind !== 'boss' || !node.stage) return { area, node }
+  if (node.stage === 'region') return { area: { ...area, bossName: regionName || area.bossName }, node }
+  if (node.stage === 'raid') return { area: { ...area, motif: node.motif || area.motif }, node }
+  const islands = (areas || []).filter((a) => !isFinalArea(a))
+  const items = islands.flatMap((a) => a.items || [])
+  return {
+    area: { ...area, motif: node.motif || area.motif, bossName: finalName || area.bossName, items, sections: islands.flatMap((a) => a.sections || []) },
+    node: { ...node, itemIds: items.filter((it) => it.kind !== 'brief').map((it) => it.id) },
+  }
+}
+// Is this fight drawn as a RAID boss (raid art, three phases)?
+export const raidLook = (node) => node?.kind === 'boss' && (node.stage === 'raid' || node.stage === 'final')
 
 // Per objective: { id, title, short, lessons, lessonsDone, checkpoint (node|null), done } (the island page's cards).
 export function careerSections(area) {
@@ -141,7 +258,10 @@ export function currentSection(area) {
 }
 
 // The island a learner is on: one in progress, else the first unfinished, else the first (the map screen and Help).
-export const currentIsland = (areas) => (areas || []).find((a) => a.status !== 'done' && (a.nodes || []).some((n) => n.status === 'done')) || (areas || []).find((a) => a.status !== 'done') || (areas || [])[0] || null
+export const currentIsland = (areas) => {
+  const list = (areas || []).filter((a) => !isFinalArea(a) || a.status !== 'locked')
+  return list.find((a) => a.status !== 'done' && (a.nodes || []).some((n) => n.status === 'done')) || list.find((a) => a.status !== 'done') || list[0] || null
+}
 
 // THE NEXT STEP (the owner found the course map overwhelming: one obvious "Continue" now leads): on the island in
 // progress, the first open step of the objective in progress (its lessons in order, then its checkpoint), else the
@@ -149,14 +269,23 @@ export const currentIsland = (areas) => (areas || []).find((a) => a.status !== '
 export function nextCareerStep(areas) {
   const area = currentIsland(areas)
   if (!area || area.status === 'done') return null
-  const sections = careerSections(area)
-  const order = [...sections.filter((x) => x.id === currentSection(area)), ...sections.filter((x) => x.id !== currentSection(area))]
-  for (const sec of order) {
-    const node = sec.nodes.find((n) => n.status === 'open' && !n.optional)
-    if (node) return { area, node, section: sec }
+  if (area.regions?.length) {
+    const regions = careerRegions(area)
+    const cur = currentRegion(area)
+    for (const r of [...regions.filter((x) => x.id === cur), ...regions.filter((x) => x.id !== cur)]) {
+      const node = r.nodes.find((n) => n.status === 'open' && !n.optional)
+      if (node) return { area, node, section: (area.sections || []).find((s) => s.id === node.section) || null, region: r }
+    }
+  } else {
+    const sections = careerSections(area)
+    const order = [...sections.filter((x) => x.id === currentSection(area)), ...sections.filter((x) => x.id !== currentSection(area))]
+    for (const sec of order) {
+      const node = sec.nodes.find((n) => n.status === 'open' && !n.optional)
+      if (node) return { area, node, section: sec, region: null }
+    }
   }
-  const boss = (area.nodes || []).find((n) => n.kind === 'boss' && n.status === 'open')
-  return boss ? { area, node: boss, section: null } : null
+  const boss = (area.nodes || []).find((n) => n.kind === 'boss' && n.stage !== 'region' && n.status === 'open')
+  return boss ? { area, node: boss, section: null, region: null } : null
 }
 
 // How shaky an item is (lower = shakier): never asked counts as shaky, then the share answered right.

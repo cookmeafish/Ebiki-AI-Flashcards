@@ -25,13 +25,13 @@ import { planMap, detailAreas, extendIfNeeded, detailAreaNow, forgetRunning } fr
 import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
-import { loadCareer, availableCareers } from './CareerMap'
-import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes } from './career'
+import { loadCareer, availableCareers, regionBossName } from './CareerMap'
+import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes, clearsIsland, careerFight, careerHasProgress, raidLook, CAREER_LAYOUT } from './career'
 import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
 import RaidRun from './RaidRun'
-import { BossArt } from './art'
+import { BossArt, LegendsArt } from './art'
 import { BossStyle } from './BossArena'
 import { cheatsOn } from './CheatUI'
 import { cheatCompleteNode, cheatCompleteArea, cheatUnlockTo, cheatResetNode, cheatResetArea, cheatClearArea } from './cheats'
@@ -119,7 +119,9 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
       {node.kind === 'boss' ? (
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18 }}>
           <img src={shrimpUrl(poseFile(pose))} alt="" width={120} />
-          <BossArt area={area} size={110} room style={passed ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
+          {raidLook(node)
+            ? <LegendsArt kind="raids" motif={node.motif} height={110} width={110} round={0} room style={passed ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
+            : <BossArt area={area} size={110} room style={passed ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />}
         </div>
       ) : <img src={shrimpUrl(poseFile(pose))} alt="" width={130} />}
       <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 30, color: passed ? C.success : C.warning, lineHeight: 1.1 }}>
@@ -160,10 +162,11 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
       {node.kind === 'weak' && passed && !earnedLife && area.bonusLife && <div style={{ fontSize: 13.5, fontWeight: 700, color: C.inkDim }}>💖 {t('lg_weakAlready')}</div>}
       {node.kind === 'legendary' && passed && <div style={{ fontFamily: FONT.display, fontSize: 20, fontWeight: 900, color: C.purple }}>🏅 {firstLegend ? t('lg_legendaryWon') : t('lg_legendaryAgainWon')}</div>}
       {areaDone && nextTitle && <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{t('lg_nextArea', { area: nextTitle })}</div>}
-      {node.kind === 'boss' && passed && (
+      {/* A boss's cards: a course's region boss offers ITS region's, the final raid none (the whole course). */}
+      {node.kind === 'boss' && passed && node.stage !== 'final' && (
         <Card style={{ width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 8 }}>{t('lg_bossCards')}</div>
-          <ItemAddList ctx={ctx} modeId={modeId} areaId={area.id} itemIds={area.items.map((it) => it.id)} />
+          <ItemAddList ctx={ctx} modeId={modeId} areaId={area.id} itemIds={node.stage === 'region' ? node.itemIds || [] : area.items.map((it) => it.id)} />
         </Card>
       )}
       {res.answers?.length > 0 && <AllAnswers ctx={ctx} modeId={modeId} area={area} answers={res.answers} fight={fight} />}
@@ -206,6 +209,18 @@ export default function LegendsScreen() {
   // A course runs as a GENERAL subject in the app language, whatever mode holds it (never graded as the mode's language).
   const ctx = courseCtx(rawCtx, map)
   const parked = useParkedMaps(modeId) // the course or adventure waiting while the other is on screen
+  // A course saved in an older layout (objective checkpoints and one boss per island) and never played is rebuilt in
+  // the current one (regions with their bosses, island raids, the final raid). One with progress keeps its layout.
+  useEffect(() => {
+    if (!isCareerMap(map) || (map.career?.layout || 1) >= CAREER_LAYOUT || careerHasProgress(map)) return undefined
+    let alive = true
+    const pinned = modeId
+    loadCareer(map.career.id).then((pkg) => {
+      if (!alive || !pkg) return
+      updateMap(pinned, (m) => (isCareerMap(m) && (m.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(m) ? buildCareerMap(pkg, { modeId: pinned, subject: m.subject, start: m.start }) : m))
+    })
+    return () => { alive = false }
+  }, [map, modeId])
   const { model: learner } = useLearner(modeId)
   const [view, setView] = useState('map') // map | intro | questionnaire | placement | node | result | edit
   const [openStep, setOpenStep] = useState(null) // { area, node, misses }
@@ -528,7 +543,9 @@ export default function LegendsScreen() {
       try { await finishStepNow(res) } finally { finishingRef.current = false }
     }
     const finishStepNow = async (res) => {
-      const { area, node } = openStep
+      const { area: stored, node } = openStep
+      // A course's final raid owns no items: logging, nudges and the result read every island's (careerFight).
+      const area = stored.final && isCareerMap(map) ? careerFight(stored, node, map.areas, { finalName: t('lg_finalRaidName') }).area : stored
       const pinned = modeId
       let outcome = null
       const cheating = cheatsOn(ctx)
@@ -565,8 +582,9 @@ export default function LegendsScreen() {
           // A Weak spots win pays its life here too (the screen says so).
           if (node.kind === 'weak') next = { ...next, areas: next.areas.map((a) => (a.id === area.id ? { ...a, bonusLife: true } : a)) }
           const i = next.areas.findIndex((a) => a.id === area.id)
-          const areaDone = node.kind === 'boss' && live.status !== 'done'
-          outcome = { map: after(next), passed: true, stars, areaDone, nextAreaId: areaDone ? next.areas[i + 1]?.id || null : null }
+          const areaDone = clearsIsland(node) && live.status !== 'done'
+          const nextArea = areaDone ? next.areas.slice(i + 1).find((a) => !a.final || a.status === 'open') : null
+          outcome = { map: after(next), passed: true, stars, areaDone, nextAreaId: nextArea?.id || null }
           return outcome.map
         }
         outcome = applyNodeResult(m, area.id, node.id, res)
@@ -600,7 +618,8 @@ export default function LegendsScreen() {
       // Its wrong answers go to the Mistake Gym like Study's.
       const lgMisses = (res.misses || []).filter((m) => m && m.asked).map((m) => ({ front: area.title, question: String(m.asked), answer: String(m.answered || ''), expected: String(m.expected || '') }))
       if (lgMisses.length) ctx.emit(EVENTS.PRACTICE_MISSED, { source: LEGENDS_ID, mode: pinned, misses: lgMisses })
-      const liveArea = outcome.map.areas.find((a) => a.id === area.id) || area
+      const liveStored = outcome.map.areas.find((a) => a.id === area.id) || area
+      const liveArea = stored.final ? { ...area, status: liveStored.status } : liveStored
       if (pinned !== modeIdRef.current) return // recorded for its own mode; the screen now shows another one
       setResult({ node, area: liveArea, res, passed, stars, areaDone, bossPaid, earnedLife, firstLegend: !!outcome.firstLegend, helper: outcome.helper || '', flawless: !!outcome.flawless, nudgeIds, nextTitle: nextAreaId ? outcome.map.areas.find((a) => a.id === nextAreaId)?.title : '' })
       setView('result')
@@ -621,8 +640,11 @@ export default function LegendsScreen() {
     }
 
     if (view === 'node' && openStep) {
+      // A course's fights (career.js careerFight): a region boss named after its region, a raid in raid art, the final
+      // raid over every island. The map still records the step on its own area and node.
+      const run = isCareerMap(map) ? careerFight(openStep.area, openStep.node, map.areas, { regionName: regionBossName(t, openStep.area, openStep.node), finalName: t('lg_finalRaidName') }) : openStep
       return (
-        <NodeRun key={`${openStep.area.id}:${openStep.node.id}:${openStep.try || 0}`} cheat={cheatsOn(ctx)} ctx={ctx} modeId={modeId} area={openStep.area} node={openStep.node} misses={openStep.misses || []}
+        <NodeRun key={`${openStep.area.id}:${openStep.node.id}:${openStep.try || 0}`} cheat={cheatsOn(ctx)} ctx={ctx} modeId={modeId} area={run.area} node={run.node} misses={openStep.misses || []}
           onFinish={finishStep} onQuit={() => { setOpenStep(null); setView('map') }}
           onNewQuestions={() => newQuestions(openStep.area, openStep.node)} />
       )

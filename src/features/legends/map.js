@@ -13,7 +13,7 @@
 // Map extras:  helpers ({ scroll, shield }), days ({ 'YYYY-MM-DD': steps finished }) for the journey heatmap
 import { gradeIsRight, gradeIsSolid } from '../../config/grading'
 import { canonKeys, pickObject } from '../../utils/aiJson'
-import { normalizeCareerNodes, CAREER_MAP_VERSION } from './career'
+import { normalizeCareerNodes, careerAreaStatus, clearsIsland, CAREER_MAP_VERSION } from './career'
 export const MAP_VERSION = 1
 // The newest stored format this build reads: a career map (./career.js) is 2, so a build before career mode reads it as
 // "newer" and leaves it alone (a failed read, never a rewrite). Maps keep the version they were written with.
@@ -114,7 +114,7 @@ export function ensureWeakNodes(map) {
   const areas = map.areas.map((a) => {
     const nodes = a.nodes || []
     const b = nodes.findIndex((n) => n.kind === 'boss')
-    if (!a.detailed || b < 0 || nodes.some((n) => n.kind === 'weak')) return a
+    if (a.final || !a.detailed || b < 0 || nodes.some((n) => n.kind === 'weak')) return a // a course's final raid has no island to practice
     changed = true
     return { ...a, nodes: [...nodes.slice(0, b), weakNode(a.id, a.items || []), ...nodes.slice(b)] }
   })
@@ -253,7 +253,7 @@ export function normalizeMap(map) {
   if (!map || !Array.isArray(map.areas)) return map
   // A career map (./career.js): every island stays open and each objective climbs on its own.
   if (map.career?.id) {
-    return { ...map, areas: map.areas.map((a) => { const status = a.status === 'done' ? 'done' : 'open'; return { ...a, status, nodes: normalizeCareerNodes(a.nodes || [], status) } }) }
+    return { ...map, areas: map.areas.map((a) => { const status = careerAreaStatus(a, map.areas); return { ...a, status, nodes: normalizeCareerNodes(a.nodes || [], status) } }) }
   }
   let openFound = false
   const areas = map.areas.map((a) => {
@@ -365,6 +365,17 @@ const rightOf = (r) => (r?.grade ? gradeIsRight(r.grade) : !!r?.correct)
 const solidOf = (r) => (r?.grade ? gradeIsSolid(r.grade) : !!r?.correct)
 // Add a result's answers to the items' tallies. Again = a miss; Hard (a hint, a glancing strike, a near miss) counts
 // right; only Good or Easy in a boss or Legendary (`fight`) counts toward gold.
+// A course's FINAL RAID asks items of every island; its own area holds none, so each answer is tallied on the island
+// that owns the item (seen, right, a fight's bossRight toward gold), like any boss.
+export function tallyFinalRaid(map, results) {
+  const owner = new Map()
+  for (const a of map.areas || []) for (const it of a.items || []) owner.set(it.id, a.id)
+  return { ...map, areas: map.areas.map((a) => {
+    const mine = results.filter((r) => r?.itemId && owner.get(r.itemId) === a.id)
+    return mine.length ? { ...a, items: tallyItems(a.items, mine, true) } : a
+  }) }
+}
+
 function tallyItems(items, results, fight) {
   const hits = new Map()
   for (const r of results || []) {
@@ -496,7 +507,7 @@ export function applyNodeResult(map, areaId, nodeId, result, now = Date.now()) {
     ...(flawless ? { flawless: true } : {}), ...(fight && passed && result?.power ? { allPower: true } : {}),
   }))
   const items = tallyItems(area.items, result?.items, fight)
-  const areaDone = area.status !== 'done' && node.kind === 'boss' && passed
+  const areaDone = area.status !== 'done' && clearsIsland(node) && passed // a course's region boss never clears its island
   const bonusLife = area.bonusLife || (node.kind === 'weak' && passed)
   // The nemesis: a lost fight's missed items (asked again in the rematch), cleared by a win.
   const missed = [...new Set((result?.items || []).filter((r) => r?.itemId && !r.correct).map((r) => r.itemId))]
@@ -509,7 +520,10 @@ export function applyNodeResult(map, areaId, nodeId, result, now = Date.now()) {
     const earned = earnHelper(next, kind)
     if (earned !== next) { next = earned; helper = kind }
   }
-  return { map: next, passed, stars, areaDone, nextAreaId: areaDone ? next.areas[i + 1]?.id || null : null, flawless, helper }
+  // The next area to name: never a course's final raid that is still locked (another island is not cleared yet).
+  const nextArea = areaDone ? next.areas.slice(i + 1).find((a) => !a.final || a.status === 'open') : null
+  if (area.final && Array.isArray(result?.items) && result.items.length) next = tallyFinalRaid(next, result.items)
+  return { map: next, passed, stars, areaDone, nextAreaId: nextArea?.id || null, flawless, helper }
 }
 
 // Split a step's items by how well they are known: new or weak ones are asked as multiple choice.

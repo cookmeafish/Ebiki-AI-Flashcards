@@ -9,7 +9,7 @@ import { RAID, RAID_ABILITY, shapeRaid, raidMotif, siegeOf, raidToday, isNewerRa
 import { raidProfile } from './raidProfiles'
 import { bossesBeaten, unlockedPowers, nextUnlock, powerProgress } from './powers'
 import { learnerLine } from '../kit/learner'
-import { isCareerMap, currentIsland, careerSections } from './career'
+import { isCareerMap, currentIsland, careerSections, clearsIsland } from './career'
 
 export const HELP_MAX = 5000
 const BACK_MAX = 90
@@ -45,7 +45,7 @@ const list = (v) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'objec
 function areaLine(a, i, current) {
   const steps = list(a.nodes).filter((n) => !n.optional && n.kind !== 'boss')
   const done = steps.filter((n) => n.status === 'done').length
-  const boss = list(a.nodes).find((n) => n.kind === 'boss')
+  const boss = list(a.nodes).find((n) => clearsIsland(n)) // a course's region bosses come first; its island raid is the one that clears it
   const stars = list(a.nodes).reduce((s, n) => s + (n.stars || 0), 0)
   const codex = areaCodex({ ...a, items: list(a.items) })
   const bits = [
@@ -74,11 +74,16 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
   if (!map?.areas?.length) {
     out.push('Legends map: none yet for this mode (the learner has not started Legends, or started over).')
   } else {
-    const p = mapProgress(map)
+    const p = mapProgress(isCareerMap(map) ? { ...map, areas: map.areas.filter((a) => !a.final) } : map) // a course's final raid is not an island
     // A course (career mode): every island is open, so the current one is where the learner has progress.
     const career = isCareerMap(map)
     const cur = career ? currentIsland(map.areas) : (map.areas || []).find((a) => a.status === 'open') || null
-    if (career) out.push(`This map is the course "${short(map.career.title, 80)}": one island per exam domain, all open; each objective has lessons then a checkpoint test; the island boss opens after every checkpoint. Ebi cannot change a course map.`)
+    if (career && (map.career.layout || 1) >= 2) {
+      const islands = map.areas.filter((a) => !a.final)
+      const bosses = islands.flatMap((a) => a.nodes.filter((n) => n.stage === 'region'))
+      const final = map.areas.find((a) => a.final)
+      out.push(`This map is the course "${short(map.career.title, 80)}": one island per exam domain, all open. Each island is cut into regions of about the same amount to learn; each region has lessons then its region boss; beating every region boss opens the island's raid boss (a three-phase fight over the whole domain); clearing every island opens the final raid over the whole course. Region bosses beaten: ${bosses.filter((n) => n.status === 'done').length}/${bosses.length}. Final raid: ${final?.status === 'done' ? 'beaten' : final?.status === 'open' ? 'open' : 'locked'}. Ebi cannot change a course map.`)
+    } else if (career) out.push(`This map is the course "${short(map.career.title, 80)}": one island per exam domain, all open; each objective has lessons then a checkpoint test; the island boss opens after every checkpoint. Ebi cannot change a course map.`)
     out.push(`Legends map: ${p.areasDone}/${p.areasTotal} areas cleared, ${p.nodesDone}/${p.nodesTotal} steps done, ${p.stars} stars${p.finished ? ', whole map finished' : ''}.`)
     if (map.start?.goal || map.start?.reason) out.push(`Why they started: ${short([map.start.reason, map.start.goal].filter(Boolean).join('; '), 200)}.`)
     if (map.start?.placement?.level != null) out.push(map.start.placement.from === 'evidence' ? `Starting level ${Math.round(map.start.placement.level)}, read from what Ebiki had seen of the learner's studying (no exam).` : `Placement exam result: level ${Math.round(map.start.placement.level)}.`)

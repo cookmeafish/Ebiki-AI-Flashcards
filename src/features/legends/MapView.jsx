@@ -187,7 +187,7 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
             {career ? (<>
               <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.07em', textTransform: 'uppercase', color: C.success }}>🏝️ {t('lg_pickCareer')}</div>
               <div onClick={titleClick} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink, lineHeight: 1.15, userSelect: 'none' }}>{map.career?.title || t('lg_title')}{cheat ? ' ⚡' : ''}</div>
-              <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 700 }}>{t('lg_careerIslandsDone', { a: p.areasDone, n: p.areasTotal })}</div>
+              <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 700 }}>{t('lg_careerIslandsDone', { a: map.areas.filter((x) => !x.final && x.status === 'done').length, n: map.areas.filter((x) => !x.final).length })}</div>
             </>) : (<>
               <div onClick={titleClick} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.ink, lineHeight: 1.1, userSelect: 'none' }}>🗺️ {t('lg_title')}{cheat ? ' ⚡' : ''}</div>
               <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 700 }}>{subject.name} · {t('lg_progress', { a: p.areasDone, n: p.areasTotal })} · ⭐ {p.stars}</div>

@@ -8,10 +8,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton, ProgressBar, depthBorder, shade } from '../ui'
-import { AreaArt, BossArt, paletteColors } from './art'
+import { AreaArt, BossArt, LegendsArt, paletteColors } from './art'
 import { AreaExtras } from './Extras'
 import { CheatButton, CheatRow } from './CheatUI'
-import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER } from './career'
+import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea } from './career'
 import { itemSections } from './itemSections'
 import { QUIZ_SIZE } from './prompt'
 
@@ -35,6 +35,9 @@ export async function availableCareers(list) {
 }
 
 const required = (area) => (area.nodes || []).filter((n) => !n.optional)
+// A region boss's name ("Region 2 Guardian"), the same on the map, the Continue card and in the fight.
+export const regionBossName = (t, area, node) => t('lg_regionBossName', { n: (area?.regions || []).find((r) => r.id === node?.region)?.n || 1 })
+const bossesOf = (area) => (area.nodes || []).filter((n) => n.kind === 'boss')
 const islandProgress = (area) => { const r = required(area); return { done: r.filter((n) => n.status === 'done').length, total: r.length } }
 // The island to show first: one in progress, else the first unfinished, else the first.
 const startIsland = (areas) => currentIsland(areas)?.id
@@ -58,6 +61,7 @@ function IslandCard({ t, area, selected, onPick }) {
         {area.weight > 0 && <div style={{ fontSize: 12, color: C.inkDim, fontWeight: 700 }}>{t('lg_careerWeight', { p: area.weight })}</div>}
         <ProgressBar value={p.done} max={p.total} color={colors.deep} height={8} label={t('lg_stepsDone', { i: p.done, n: p.total })} />
         <div style={{ fontSize: 11.5, color: C.inkDim, fontWeight: 700 }}>{t('lg_stepsDone', { i: p.done, n: p.total })}</div>
+        {bossesOf(area).length > 1 && <div style={{ fontSize: 11.5, color: C.inkDim, fontWeight: 700 }}>⚔️ {t('lg_bossesBeaten', { i: bossesOf(area).filter((n) => n.status === 'done').length, n: bossesOf(area).length })}</div>}
       </div>
     </button>
   )
@@ -98,16 +102,19 @@ function Briefing({ t, item, colors, label, open: startOpen = false }) {
 function ContinueCard({ t, map, onOpen, onShow }) {
   const next = nextCareerStep(map.areas)
   if (!next) return null
-  const { area, node, section } = next
+  const { area, node, section, region } = next
   const colors = paletteColors(area.palette)
-  const label = node.kind === 'boss' ? `⚔️ ${t('lg_careerBoss')}: ${area.bossName || t('lg_boss')}` : node.kind === 'checkpoint' ? `🚩 ${t('lg_careerCheckpoint')}: ${section?.short || ''}` : `📘 ${t('lg_continueLesson', { title: node.title })}`
+  const label = node.stage === 'region' ? `⚔️ ${t('lg_regionBoss')}: ${regionBossName(t, area, node)}`
+    : node.stage === 'final' ? `👑 ${t('lg_finalRaid')}: ${t('lg_finalRaidName')}`
+    : node.kind === 'boss' ? `🐉 ${node.stage === 'raid' ? t('lg_careerRaid') : t('lg_careerBoss')}: ${area.bossName || t('lg_boss')}`
+    : node.kind === 'checkpoint' ? `🚩 ${t('lg_careerCheckpoint')}: ${section?.short || ''}` : `📘 ${t('lg_continueLesson', { title: node.title })}`
   return (
     <div data-continue="" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '14px 16px', borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(C.success, { bottomColor: shade(C.success, 30) }) }}>
       <div style={{ flex: '1 1 220px', minWidth: 0 }}>
         <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.success }}>{t('lg_continueNext')}</div>
         <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{label}</div>
         <div style={{ fontSize: 12.5, color: C.inkDim, fontWeight: 700 }}>
-          <span style={{ color: colors.deep }}>{t('lg_careerDomain', { n: area.number })}</span>{section ? ` · ${section.id} ${section.short}` : ''}
+          {isFinalArea(area) ? <span style={{ color: colors.deep }}>{t('lg_finalRaidAll')}</span> : <span style={{ color: colors.deep }}>{t('lg_careerDomain', { n: area.number })}</span>}{region ? ` · ${t('lg_region', { n: region.n })}` : ''}{section ? ` · ${section.id} ${section.short}` : ''}
         </div>
       </div>
       <ChunkyButton color={C.success} onClick={() => { onShow(area.id); onOpen(area, node) }}>▶ {t('lg_continue')}</ChunkyButton>
@@ -178,21 +185,111 @@ function ObjectiveCard({ t, area, section, open, onToggle, onOpen, colors, cheat
   )
 }
 
+// A REGION of an island (career.js cutRegions: about 30 new things): its objectives' lessons in order, then its boss.
+// An objective's name in a region, with "(part 2 of 3)" when regions share it (a big objective is split evenly).
+const partLabel = (t, sec, region, regions) => {
+  const holders = regions.filter((r) => r.sections.some((s) => s.id === sec.id))
+  return holders.length > 1 ? `${sec.short} ${t('lg_regionPart', { i: holders.indexOf(region) + 1, n: holders.length })}` : sec.short
+}
+
+function RegionCard({ t, area, region, regions, open, onToggle, onOpen, colors, cheat }) {
+  const boss = region.boss
+  const frac = region.lessons ? region.lessonsDone / region.lessons : 0
+  const status = region.done ? `✅ ${t('lg_careerCleared')}` : boss && boss.status === 'open' ? `⚔️ ${t('lg_regionReady')}` : t('lg_careerLessons', { i: region.lessonsDone, n: region.lessons })
+  const items = new Set(region.nodes.filter((n) => n.kind !== 'boss').flatMap((n) => n.itemIds || [])).size
+  return (
+    <div data-region={region.id} style={{ borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(region.done ? C.warning : open ? colors.deep : C.border, { bottomColor: region.done ? shade(C.warning, 30) : open ? shade(colors.deep, 30) : C.border }) }}>
+      <button type="button" onClick={onToggle} aria-expanded={open} className="card-head" style={{
+        display: 'flex', gap: 12, alignItems: 'center', width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink,
+      }}>
+        <span style={{ flex: 'none', minWidth: 44, padding: '6px 8px', borderRadius: RADIUS.sm, background: colors.deep, color: '#fff', fontWeight: 900, fontSize: 13, textAlign: 'center', lineHeight: 1.15 }}>{t('lg_regionShort', { n: region.n })}</span>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+          <span style={{ fontWeight: 900, fontSize: 15, lineHeight: 1.25 }}>{region.sections.map((s) => partLabel(t, s, region, regions)).join(' · ')}</span>
+          <span style={{ fontSize: 12.5, color: C.inkDim, lineHeight: 1.35 }}>{t('lg_regionSummary', { ids: region.sections.map((s) => s.id).join(', '), k: items, l: region.lessons })}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1, minWidth: 60 }}><ProgressBar value={region.done ? 1 : frac} max={1} color={region.done ? C.warning : colors.deep} height={7} /></span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: region.done ? C.warning : C.inkDim, whiteSpace: 'nowrap' }}>{status}</span>
+          </span>
+        </span>
+        <span aria-hidden="true" style={{ fontSize: 14, color: C.inkDim, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>▸</span>
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 14px 14px' }}>
+          {region.sections.map((s) => {
+            const own = region.nodes.filter((n) => n.section === s.id && n.kind !== 'boss')
+            const startsHere = own.some((n) => /-l1$/.test(n.id))
+            return (
+              <div key={s.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: colors.deep, letterSpacing: '.03em' }}>{s.id} · {s.short}</div>
+                {startsHere && s.brief && <Briefing t={t} colors={colors} label={t('lg_briefingObjective', { id: s.id })} item={(area.items || []).find((it) => it.id === s.brief)} />}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                  {own.map((n) => <StepChip key={n.id} t={t} node={n} area={area} colors={colors} cheat={cheat} onOpen={(node) => onOpen(area, node)} />)}
+                </div>
+              </div>
+            )
+          })}
+          {boss && <RegionBossRow t={t} area={area} region={region} node={boss} colors={colors} cheat={cheat} onOpen={() => onOpen(area, boss)} />}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RegionBossRow({ t, area, region, node, colors, cheat, onOpen }) {
+  const locked = node.status === 'locked'
+  const done = node.status === 'done'
+  return (
+    <div data-region-boss={region.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: 12, borderRadius: RADIUS.md, background: `color-mix(in srgb, ${colors.deep} 12%, ${C.surface})`, ...depthBorder(locked ? C.border : colors.deep, { width: 2, bottomColor: locked ? C.border : shade(colors.deep, 30) }) }}>
+      <BossArt area={area} size={56} locked={locked} />
+      <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: colors.deep }}>⚔️ {t('lg_regionBoss')}</div>
+        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: C.ink }}>{regionBossName(t, area, node)} {done ? '👑' : ''}</div>
+        <div style={{ fontSize: 12.5, color: C.inkDim, fontWeight: 600 }}>{locked ? `🔒 ${t('lg_regionBossLocked')}` : t('lg_regionBossDesc', { q: node.count || CAREER.regionQuestions })}</div>
+      </div>
+      <ChunkyButton color={C.danger} disabled={locked && !cheat} onClick={onOpen} style={{ fontSize: 13, padding: '8px 14px' }}>⚔️ {done ? t('lg_careerBossAgain') : t('lg_careerBossFight')}</ChunkyButton>
+      {cheat && !done && <CheatButton tip={t('lg_cheatCompleteStep')} onClick={() => cheat.completeStep(area.id, node.id)}>⚡✓</CheatButton>}
+    </div>
+  )
+}
+
+// The FINAL RAID (every island in one fight): locked until every island's raid is beaten, then the course's last step.
+export function FinalRaidCard({ t, map, onOpen, cheat }) {
+  const area = (map.areas || []).find(isFinalArea)
+  const node = area?.nodes?.[0]
+  if (!area || !node) return null
+  const islands = map.areas.filter((a) => !isFinalArea(a))
+  const cleared = islands.filter((a) => a.status === 'done').length
+  const locked = node.status === 'locked'
+  const done = node.status === 'done'
+  return (
+    <div data-final-raid="" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: 14, borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(locked ? C.border : C.warning, { bottomColor: locked ? C.border : shade(C.warning, 30) }) }}>
+      <LegendsArt kind="raids" motif={node.motif} height={84} width={84} round={RADIUS.md} locked={locked} />
+      <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: C.warning }}>👑 {t('lg_finalRaid')}</div>
+        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19, color: C.ink }}>{t('lg_finalRaidName')} {done ? '🏆' : ''}</div>
+        <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{locked ? `🔒 ${t('lg_finalRaidLocked', { i: cleared, n: islands.length })}` : done ? t('lg_finalRaidDone') : t('lg_finalRaidDesc', { q: node.count || CAREER.finalQuestions, n: islands.length })}</div>
+      </div>
+      <ChunkyButton color={C.warning} disabled={locked && !cheat} onClick={() => onOpen(area, node)}>👑 {done ? t('lg_careerBossAgain') : t('lg_careerBossFight')}</ChunkyButton>
+    </div>
+  )
+}
+
 function BossCard({ t, area, colors, onOpen, onLegendary, ctx, cheat }) {
-  const boss = (area.nodes || []).find((n) => n.kind === 'boss')
+  const boss = (area.nodes || []).find((n) => n.kind === 'boss' && n.stage !== 'region')
   const weak = (area.nodes || []).find((n) => n.kind === 'weak')
   if (!boss) return null
-  const left = checkpointsLeft(area)
+  const raid = boss.stage === 'raid'
+  const left = raid ? regionBossesLeft(area) : checkpointsLeft(area)
   const locked = boss.status === 'locked'
   return (
     <div style={{ borderRadius: RADIUS.lg, padding: 14, background: `color-mix(in srgb, ${colors.sky} 35%, ${C.surface})`, ...depthBorder(colors.deep, { bottomColor: shade(colors.deep, 30) }), display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-        <BossArt area={area} size={76} locked={locked} />
-        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: colors.deep }}>👑 {t('lg_careerBoss')}</div>
+        {raid ? <LegendsArt kind="raids" motif={boss.motif} height={84} width={84} round={RADIUS.md} locked={locked} /> : <BossArt area={area} size={76} locked={locked} />}
+        <div data-raid-card={raid ? '' : undefined} style={{ flex: '1 1 200px', minWidth: 0 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: colors.deep }}>{raid ? `🐉 ${t('lg_careerRaid')}` : `👑 ${t('lg_careerBoss')}`}</div>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19, color: C.ink }}>{area.bossName || t('lg_boss')}</div>
-          <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{t('lg_careerBossDesc', { n: QUIZ_SIZE.boss, k: CAREER.bossItems })}</div>
-          {locked && <div style={{ fontSize: 13, color: C.ink, fontWeight: 800, marginTop: 4 }}>🔒 {t('lg_careerBossLocked', { n: left })}</div>}
+          <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{raid ? t('lg_careerRaidDesc', { q: boss.count || CAREER.raidQuestions }) : t('lg_careerBossDesc', { n: QUIZ_SIZE.boss, k: CAREER.bossItems })}</div>
+          {locked && <div style={{ fontSize: 13, color: C.ink, fontWeight: 800, marginTop: 4 }}>🔒 {raid ? t('lg_careerRaidLocked', { n: left }) : t('lg_careerBossLocked', { n: left })}</div>}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -228,10 +325,14 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
     const z = (typeof ctx.getZoom === 'function' && ctx.getZoom()) || 1
     box.scrollTo({ top: box.scrollTop + (el.getBoundingClientRect().top - box.getBoundingClientRect().top) / z - 12, behavior: 'smooth' })
   }, [islandId]) // eslint-disable-line react-hooks/exhaustive-deps
-  const area = map.areas.find((a) => a.id === islandId) || map.areas[0]
-  const [openId, setOpenId] = useState(() => currentSection(area))
-  // A new island shows its objective in progress (never the last island's open card).
-  useEffect(() => { setOpenId(currentSection(area)) }, [area?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const islands = map.areas.filter((a) => !isFinalArea(a))
+  const area = islands.find((a) => a.id === islandId) || islands[0]
+  const byRegion = !!area?.regions?.length // a course built with regions (older courses: objectives + checkpoints)
+  const openFor = (a) => (a?.regions?.length ? currentRegion(a) : currentSection(a))
+  const [openId, setOpenId] = useState(() => openFor(area))
+  // A new island shows its region (or objective) in progress (never the last island's open card).
+  // (Also when the island's layout changes under it: an older course rebuilt into regions had no region open.)
+  useEffect(() => { setOpenId(openFor(area)) }, [area?.id, byRegion]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!area) return null
   const colors = paletteColors(area.palette)
   const sections = careerSections(area)
@@ -243,8 +344,9 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
       <div>
         <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase', marginBottom: 8 }}>🏝️ {t('lg_careerIslands', { course: map.career?.title || '' })}</div>
         <div role="group" aria-label={t('lg_careerIslandsAria')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-          {map.areas.map((a) => <IslandCard key={a.id} t={t} area={a} selected={a.id === area.id} onPick={() => { picked.current = true; setIslandId(a.id) }} />)}
+          {map.areas.filter((a) => !isFinalArea(a)).map((a) => <IslandCard key={a.id} t={t} area={a} selected={a.id === area.id} onPick={() => { picked.current = true; setIslandId(a.id) }} />)}
         </div>
+        <div style={{ marginTop: 10 }}><FinalRaidCard t={t} map={map} onOpen={onOpen} cheat={cheat} /></div>
         {careerFor(map.career?.id)?.noticeKey && <div style={{ fontSize: 11.5, color: C.inkFaint, marginTop: 8 }}>{t(careerFor(map.career.id).noticeKey)}</div>}
       </div>
 
@@ -264,11 +366,20 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
           </div>
         </div>
         {area.brief && <Briefing key={area.id} t={t} colors={colors} label={t('lg_briefingDomain', { n: area.number })} item={(area.items || []).find((it) => it.id === area.brief)} open={!(area.nodes || []).some((n) => n.status === 'done')} />}
-        <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase' }}>{t('lg_careerObjectives', { n: sections.length })}</div>
-        {sections.map((s) => (
-          <ObjectiveCard key={s.id} t={t} area={area} section={s} colors={colors} cheat={cheat} open={openId === s.id}
-            onToggle={() => setOpenId((cur) => (cur === s.id ? null : s.id))} onOpen={onOpen} />
-        ))}
+        {byRegion ? (<>
+          <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase' }}>{t('lg_careerRegions', { n: area.regions.length })}</div>
+          <div style={{ fontSize: 13, color: C.inkDim, marginTop: -6 }}>{t('lg_careerRegionsHow')}</div>
+          {careerRegions(area).map((r, _i, regions) => (
+            <RegionCard key={r.id} t={t} area={area} region={r} regions={regions} colors={colors} cheat={cheat} open={openId === r.id}
+              onToggle={() => setOpenId((cur) => (cur === r.id ? null : r.id))} onOpen={onOpen} />
+          ))}
+        </>) : (<>
+          <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase' }}>{t('lg_careerObjectives', { n: sections.length })}</div>
+          {sections.map((s) => (
+            <ObjectiveCard key={s.id} t={t} area={area} section={s} colors={colors} cheat={cheat} open={openId === s.id}
+              onToggle={() => setOpenId((cur) => (cur === s.id ? null : s.id))} onOpen={onOpen} />
+          ))}
+        </>)}
         <BossCard t={t} ctx={ctx} area={area} colors={colors} cheat={cheat} onOpen={onOpen} onLegendary={legendary} />
       </section>
     </div>

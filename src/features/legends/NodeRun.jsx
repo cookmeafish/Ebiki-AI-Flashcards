@@ -20,6 +20,7 @@ import { addItemsToDeck, liveItems, isAdding } from './deck'
 import Talk from './Talk'
 import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
 import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
+import { raidLook } from './career'
 import { powerHint } from './powers'
 import { DAMAGE } from './abilities/_rules'
 import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundRunningFight, strikeCost } from './fight'
@@ -600,7 +601,9 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       ? <ChunkyButton variant="ghost" color={C.purple} onClick={() => spendScroll(q, api)} style={{ fontSize: 12, padding: '6px 10px' }}>📜 {t('lg_useScroll', { n: scrolls })}</ChunkyButton>
       : null) : undefined
     const boss = fight
-    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} calm={focus} onFight={() => setFighting(true)} /><FightSettings ctx={ctx} allowStyle />{renewRow}</div>
+    // A course's domain raid and final raid are drawn as RAID bosses (raid art, three phases); the rules stay a boss's.
+    const raidArt = raidLook(node)
+    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} calm={focus} onFight={() => setFighting(true)} {...(raidArt ? { kind: 'raids', raidLives: bossOdds(questions.length, odds).lives } : {})} /><FightSettings ctx={ctx} allowStyle />{renewRow}</div>
     const runner = (
       <QuizRunner questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
         title={node.kind === 'boss' ? `👑 ${bossName || t('lg_boss')}` : node.kind === 'legendary' ? `🏅 ${bossName || t('lg_legendary')}` : node.title || t(`lg_kind_${node.kind}`)}
@@ -638,7 +641,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       <div style={{ display: 'grid', gap: 12 }}>
         {/* Sticky: a long question or four tall choices scroll UNDER the boss instead of pushing it off screen. */}
         <div ref={arenaRef} data-arena-pin={pin.mode} style={{ maxWidth: 680, width: '100%', margin: '0 auto', ...(pin.sticky ? { position: 'sticky', top: pin.top, zIndex: 5 } : {}), paddingTop: 4, background: C.bg }}>
-          <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} slim={pin.slim} />
+          <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} slim={pin.slim} {...(raidLook(node) ? { kind: 'raids', phases: 3 } : {})} />
           {pin.extrasIn && extras}
         </div>
         {!pin.extrasIn && extras}

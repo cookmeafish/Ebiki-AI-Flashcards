@@ -234,7 +234,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [], refill = null
   const weak = node.kind === 'weak'
   // A career checkpoint or boss covers a whole objective or island (up to ~260 items): the quiz is written from a
   // sample, shakiest first, a boss spread over every objective (./career.js careerQuizItems).
-  const careerMax = area.sections ? careerSampleMax(node.kind) : 0
+  const careerMax = area.sections ? careerSampleMax(node.kind, node.stage) : 0
   const stepItems = weak ? weakItems(area) : careerMax ? careerQuizItems(area, node, { max: careerMax }) : node.itemIds.map((id) => area.items.find((it) => it.id === id)).filter(Boolean)
   const sig = stepSig(stepItems)
   const fresh = FRESH_KINDS.has(node.kind)
@@ -285,7 +285,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [], refill = null
   const avoid = [...new Set([...others.flatMap(askedIn), ...history])].slice(-QUIZ_AVOID_MAX)
   const seen = new Set(avoid.map(normQ))
   const opts = {
-    choiceItems: tiered(split.choice), typedItems: tiered(split.typed), reviewItems: tiered(reviewItems), ladder, count: QUIZ_SIZE[node.kind] || QUIZ_SIZE.practice,
+    choiceItems: tiered(split.choice), typedItems: tiered(split.typed), reviewItems: tiered(reviewItems), ladder, count: node.count || QUIZ_SIZE[node.kind] || QUIZ_SIZE.practice,
     level: await levelText(ctx), knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz), misses, avoid, nemesis,
   }
   const lang = subject.isLanguage ? subject.learnLangIso : ''

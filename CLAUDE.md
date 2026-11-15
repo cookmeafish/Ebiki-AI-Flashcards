@@ -1975,6 +1975,14 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   - **A mode keeps a course AND an adventure** (`switchMapKind`, slots `park-<mode>-course|adventure`, `park` writes
     only an empty slot after reading it): "🗺️ My own adventure" / "🏝️ Back to the course" in the map header, "Resume
     the course" on the start screen. Leaving a course never throws it away (`store-park.test.js`).
+  - **THE BOSS LADDER (layout 2, `CAREER_LAYOUT`)**: an island is cut into REGIONS balanced by NEW THINGS taught,
+    never by lesson count (`cutRegions`: about `CAREER.regionTarget` 30 items each, an exact search for the most even
+    cuts, cheaper at an objective's end; the owner: never "2 new things then a boss" beside "30 then a boss"). Each
+    region ends in its boss (`stage: 'region'`, "Region N Guardian", never clears the island); every region boss
+    beaten opens the island's RAID (`stage: 'raid'`, raid art + 3 phases via `raidLook`, `CAREER_RAID_MOTIFS`); every
+    island cleared opens the FINAL RAID (an area `final: true`, no items: `careerFight` lends it every island's).
+    No objective checkpoints in layout 2. An older course with no progress is rebuilt on open (`careerHasProgress`);
+    one with progress keeps layout 1 (objectives + checkpoints), which the UI still draws.
   - **Course cards can't be deleted** (`src/cards/protect.js`: tag `ebiki-course` or a course's own tag): the ONE
     delete in `srs.deleteNotes` refuses the whole call (code `courseCard`); the Deck tab shows 🔒.
   - **Extra cards** (`<prefix>-extras.rN.json`, `extra: true` + sources) cover what a learner needs that no outline
