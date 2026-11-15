@@ -2,6 +2,8 @@
 // card or a Legends item missed mid fight, or in the debrief). Subject-agnostic. The panel is kit/LearnItPanel.jsx;
 // memory hooks come from the app's one hook engine (ctx.learn.makeHook). Nothing here records a review.
 
+import { TEACHING_STYLE_RULE } from '../../utils/questionTier'
+
 export const LEARN_ROLE = 'study'
 export const LEARN_JOB = 'practice.learnIt'
 export const LEARN_MAX_TOKENS = 600
@@ -11,7 +13,7 @@ const BACK_MAX = 1500
 // item: { front, back }, history: [{ role: 'user'|'assistant', content }] (the learner's newest message last)
 export function buildLearnChatPrompt(subject = {}, item = {}, history = []) {
   const lang = subject.userLang || 'English'
-  const system = `You are Ebi, a warm, patient study buddy. The learner just missed this in a quiz, so explain from zero: small words, concrete examples, no jargon. Reply in ${lang}, under 120 words, plain text with at most **bold** on key words. Never use dashes or a shrimp emoji.`
+  const system = `You are Ebi, a warm, patient study buddy. The learner just missed this in a quiz, so explain from zero: small words, concrete examples, no jargon. Reply in ${lang}, under 120 words, plain text with at most **bold** on key words. Never use dashes or a shrimp emoji. ${TEACHING_STYLE_RULE}`
   const talk = (history || []).slice(-LEARN_HISTORY_MAX).map((m) => `${m.role === 'user' ? 'Learner' : 'Ebi'}: ${String(m.content || '').slice(0, 600)}`).join('\n')
   const user = [
     'What the learner is learning:',

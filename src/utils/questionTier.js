@@ -63,6 +63,12 @@ export const tierIcon = (t) => TIERS[clampTier(t)].icon
 // be able to tell exactly which ONE answer is wanted. Shared wording so every prompt says it the same way.
 export const CLEAR_ANSWER_RULE = 'ONE CLEAR ANSWER: before finalizing EVERY question, try 2 to 3 plausible alternatives (synonyms, related terms, other forms). If any of them would also be a fair answer, the question is INVALID until fixed: add a compact cue in the question (the precise sense, the register, the context) that rules them out, or list every fair answer as accepted. Never write letters of the answer yourself: in a language course the app adds a hint of the first letters of the answer to every typed word question (only an answer written in Han characters or kana gets the first sound of its reading in quotes from you). Never a question with two defensible answers.'
 
+// THE TEACHING STYLE RULE (owner, 2026-11-14: "ebi teaching is fluff free and straight to the point while being
+// efficient and accurate and easy to understand"): every prompt that writes a question, an explanation, a lesson or a
+// teaching reply carries these same words, and the review pass rejects a question that breaks them
+// (teachingStyle.test.js keeps every such prompt on it).
+export const TEACHING_STYLE_RULE = 'PLAIN AND EXACT: every question, explanation and lesson line is fluff free and straight to the point. Everyday words, one idea per sentence, the shortest wording that is still exact and complete. No preamble, no praise, no restating the question, no scene-setting or filler adjectives the learner does not need. Accuracy first: never drop a needed qualifier or cue to save words, and never state anything you are not sure is true.'
+
 // THE REVIEW PASS (the second, independent look at every question before the learner sees it; Study, raids and
 // Legends all run it with these words). The reviewer sees the card(s) and the questions, never as their author.
 export const QUESTION_CHECK_RULES = [
@@ -74,6 +80,7 @@ export const QUESTION_CHECK_RULES = [
   '- Its choices hold two defensible options, or the right option is missing.',
   '- It asks about something the card does not contain, or needs knowledge the learner cannot have.',
   '- Its tier does not match what it asks (a TIER 4 question that is only a translation, a TIER 1 question with no support).',
+  '- It is padded or hard to follow: filler, a story the question does not need, or a sentence the learner has to read twice. (A cue or qualifier that pins the one answer is NOT padding.)',
   GOAL_CHECK_RULES,
 ].join('\n')
 

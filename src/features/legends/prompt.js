@@ -4,7 +4,7 @@
 import { sanitizeQuestions, leaksAnswer } from '../kit/grade'
 import { MOTIFS, PALETTES, AREAS, ITEMS, NODES, LESSONS, PER_LESSON, STORY, CAN_DO, cleanBossName } from './map'
 import { TIERS } from './placement'
-import { tierInstruction, CLEAR_ANSWER_RULE, QUESTION_CHECK_RULES, clampTier } from '../../utils/questionTier'
+import { tierInstruction, CLEAR_ANSWER_RULE, QUESTION_CHECK_RULES, TEACHING_STYLE_RULE, clampTier } from '../../utils/questionTier'
 import { cardGoal, goalLine } from '../../utils/questionGoal'
 import { distractorRule } from '../../utils/choicePool'
 import { canonKeys } from '../../utils/aiJson'
@@ -97,6 +97,7 @@ export function buildPlacementPrompt(subject, tier, n, { avoid = [], knowledge =
         ? `Mostly questions the learner answers with a ${subject.learnLang} sentence or phrase (translate a short ${subject.userLang} sentence, complete a sentence, say something for a situation): mark those "open": true and put one good model answer in "accepted". Include one question on a rule (grammar, spelling, accents, agreement) and one multiple choice question with 4 real options. Write instructions in ${subject.userLang}.`
         : `Mostly questions the learner answers in a sentence (explain why, what to do, what happens): mark those "open": true and put one good model answer in "accepted". Include one question on a principle or procedure and one multiple choice question with 4 real options. Write everything in ${subject.userLang}.`,
       'Cover different topics; never reveal the answer in the question.',
+      TEACHING_STYLE_RULE,
       avoid.length ? `Already asked (never repeat or rephrase these): ${avoid.slice(-30).join(' | ')}` : '',
       knowledge ? `The learner's own material (prefer its topics):\n${knowledge}` : '',
     ].filter(Boolean).join('\n'),
@@ -225,6 +226,7 @@ export function buildAreaPrompt(subject, area, { level = '', knowledge = '', bef
         ? `"bonus": ONE extra authentic ${subject.learnLang} phrase or saying that fits the area and is NOT one of the items (a treasure the learner finds): "front" the phrase, "back" its meaning and when natives say it, in ${subject.userLang}.`
         : `"bonus": ONE extra surprising fact or rule of thumb that fits the area and is NOT one of the items: "front" a short title, "back" the explanation in ${subject.userLang}.`,
       bossLine(subject),
+      TEACHING_STYLE_RULE,
       knowledge ? `The learner's own material (prefer its content and wording):\n${knowledge}` : '',
     ].filter(Boolean).join('\n'),
   }
@@ -279,6 +281,7 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
       goalsBlock(subject, items),
       boss || ladder ? distractorRule(!!subject.isLanguage, subject.learnLang) : '',
       CLEAR_ANSWER_RULE,
+      TEACHING_STYLE_RULE,
       ambiguityRule(subject),
       `Write ${n} questions. "explanation" in ${subject.userLang}: why the answer is right, in one sentence.`,
       knowledge ? `Background from the learner's own material (only to keep facts accurate; never ask about anything in it that the learning material above does not teach):\n${knowledge}` : '',
@@ -499,6 +502,7 @@ export function buildRaidPrompt(subject, cards, { level = '', redo = [] } = {}) 
       tiered ? ladderBlock(subject, cards) : '',
       goalsBlock(subject, cards),
       CLEAR_ANSWER_RULE,
+      TEACHING_STYLE_RULE,
       ambiguityRule(subject),
       redo.length ? `A REVIEWER REJECTED the last questions for these cards. Write NEW ones that fix the problem:\n${redo.map((r, i) => `${i + 1}. ${r.prompt ? `"${String(r.prompt).replace(/\s+/g, ' ').slice(0, 200)}"` : '(no usable question was written)'}${r.why ? ` (rejected: ${String(r.why).slice(0, 160)})` : ''}`).join('\n')}` : '',
       subject.isLanguage

@@ -2439,6 +2439,12 @@ calls `generate()`, tested); **only the user turns it on** (Settings > AI & cost
   reuse read waits (3s) for the card's pending write. Questions carry `_bank`; `storableQuestion` strips session state.
 
 ## Question generation (`generateQuestionsForCard`)
+- **Ebi's teaching is fluff free and straight to the point, efficient, accurate and easy to understand** (owner,
+  2026-11-14). ONE wording, `TEACHING_STYLE_RULE` (`utils/questionTier.js`), goes into every prompt that writes a
+  question, an explanation, a lesson or a teaching reply (Study questions, Fix question, Learn-it, Legends lessons,
+  quizzes, placement, raids, answer notes), and the review pass (`QUESTION_CHECK_RULES`) rejects a padded or
+  hard-to-follow question (a cue that pins the one answer is not padding). A new teaching prompt carries it and joins
+  `src/utils/teachingStyle.test.js`.
 - **Pin exactly one answer with an INLINE cue, ALWAYS**: a parenthetical SENSE cue in `quizLang` at the blank, in the
   question text (hints don't count); the app adds the PREFIX HINT (see "Hints and choices"). The model writes no letters.
 - **The cue is guaranteed in code**: every typed language recall/fill_blank gets the prefix hint (`finish` →

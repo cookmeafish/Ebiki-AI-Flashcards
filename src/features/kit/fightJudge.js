@@ -8,7 +8,7 @@
 // background. A re-check (and an appeal) can only RAISE a verdict (miss -> glancing/clean, glancing -> clean), never
 // lower it: a right answer is never marked wrong after the fact.
 
-import { clampTier, tierTeaches, tierOpen } from '../../utils/questionTier'
+import { clampTier, tierTeaches, tierOpen, TEACHING_STYLE_RULE } from '../../utils/questionTier'
 import { canonKeys } from '../../utils/aiJson'
 
 export const VERDICT_MAX_TOKENS = 120
@@ -115,6 +115,7 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
       subjectLine(subject), ...questionLines(q, ans, subject),
       verdict === 'miss' ? 'The answer was judged WRONG.' : verdict === 'glancing' ? 'The answer got the tested thing right but has another mistake.' : 'The answer was judged right.',
       `Write "note" in ${subject?.userLang || 'English'}: one short, neutral sentence saying what was wrong and the right form or answer. Plain words, no dashes, no shrimp emoji.`,
+      TEACHING_STYLE_RULE,
       wantFix ? '"fix": a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". null when there is none.' : '',
     ].filter(Boolean).join('\n'),
   }
