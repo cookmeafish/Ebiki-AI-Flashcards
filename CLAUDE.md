@@ -1234,6 +1234,19 @@ mud": LatAm says "lodo"). Distinct from usage tags (where) and dialect (which va
     REAL speech (`dev/voice/speech-pause.wav`, a plain 48 kHz PCM WAV: a WAV with an 18-byte fmt chunk played as
     silence) through the owner's own path (Anthropic key, default settings), then counts live mic tracks, recognizer
     workers and AI calls after leaving. A test that forces a paid engine is not a test of what the owner has.
+  - **Ebi TALKS LIKE A PERSON** (the owner: spoken Spanish got English answers and "too much fluff ... like talking to
+    any person, not a robot"): a spoken turn appends `VOICE_TURN_RULE` (`utils/voiceStyle.js`) LAST to Chat's system
+    prompt (it overrides the typed-chat menus and card dumps): 1 or 2 casual sentences, the language just spoken, one
+    recast at most, quiz one question at a time. The recognizer is TOLD the language (`hearingLang`: the learned one in
+    a language mode; auto-detect translated learners' Spanish into English); "I'm speaking" switches it, read again at
+    transcription (`listen({ lang: fn })`), so a switch mid-turn counts. Also judge it with REAL Spanish speech, never
+    only the English fixture. Design + judge table: `docs/plans/2026-11-15-voice-conversation.md`.
+  - **Spoken commands never cost an AI call** (`voiceCommands.js`, pure, tested): the WHOLE turn "repeat", "slower",
+    "faster", "pause", "end", "recap" in the app and common learned languages; a sentence merely containing the word
+    is a turn. Empty, filler or recognizer-silence transcripts are dropped (`isEmptyTurn`), three in a row pause the
+    session. Speed (0.75/1/1.25, `speak({ rate })`) and push to talk (the turn ends only on "I'm done" or Space) are
+    per device (`ebiki-voice-speed`, `ebiki-voice-turn`) under the panel's Options. Esc while speaking interrupts, a
+    second closes; another window opening voice mode pauses this one (BroadcastChannel `ebiki-voice`).
 - **Offer-to-search**: with web search OFF the model emits `<offer-search>query</offer-search>` instead of guessing
   (`chatOfferSearchAccept` / `chatOfferSearchDecline`).
 - **Reply parsing**: `<sources>` via `parseCitedSources`, keeping only URLs the search returned (`keepRealSources`);
@@ -1975,6 +1988,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   - **A mode keeps a course AND an adventure** (`switchMapKind`, slots `park-<mode>-course|adventure`, `park` writes
     only an empty slot after reading it): "🗺️ My own adventure" / "🏝️ Back to the course" in the map header, "Resume
     the course" on the start screen. Leaving a course never throws it away (`store-park.test.js`).
+  - **DOMAIN PICTURES** (the owner: pictures that "pertain to the topic of the domain", the raid boss tucked on the
+    left): `CareerBanner` shows a hand-drawn topic picture (`public/assets/legends/career/<topic>.svg`, generic
+    symbols, no logos, no text, still, an `<img>`) beside the island's raid boss as a still snapshot in its own left
+    slot (about 3/4 of the banner's height: the topic leads). Picked at RENDER time from `CAREER_TOPIC_ART` (course id
+    → topic per domain), never stored in the map; no entry = the adventure banner; no raid step = full width. A new
+    course adds its row (and new topic files, `CAREER_TOPICS`, checked by `art.test.js`). Design + judge:
+    `docs/plans/2026-11-15-domain-pictures.md`.
   - **THE BOSS LADDER (layout 2, `CAREER_LAYOUT`)**: an island is cut into REGIONS balanced by NEW THINGS taught,
     never by lesson count (`cutRegions`: about `CAREER.regionTarget` 30 items each, an exact search for the most even
     cuts, cheaper at an objective's end; the owner: never "2 new things then a boss" beside "30 then a boss"). Each
@@ -2507,7 +2527,11 @@ calls `generate()`, tested); **only the user turns it on** (Settings > AI & cost
   question, an explanation, a lesson or a teaching reply (Study questions, Fix question, Learn-it, Legends lessons,
   quizzes, placement, raids, answer notes), and the review pass (`QUESTION_CHECK_RULES`) rejects a padded or
   hard-to-follow question (a cue that pins the one answer is not padding). A new teaching prompt carries it and joins
-  `src/utils/teachingStyle.test.js`.
+  `src/utils/teachingStyle.test.js`. **A rule in a prompt is not proof**: independent judges reading REAL replies found
+  the Chat tab never had it (128 to 220 words, "Great question", card offers at the end). Chat now carries
+  `CHAT_STYLE_RULE` + this rule, a strip of the named openers and closers (`stripChatFluff`), and one rewrite when a typed
+  reply is padded (`chatReplyProblems`); hooks have a hard word cap; the lesson grader never praises. Judge style
+  changes on real replies, never only on the prompt text.
 - **Pin exactly one answer with an INLINE cue, ALWAYS**: a parenthetical SENSE cue in `quizLang` at the blank, in the
   question text (hints don't count); the app adds the PREFIX HINT (see "Hints and choices"). The model writes no letters.
 - **The cue is guaranteed in code**: every typed language recall/fill_blank gets the prefix hint (`finish` →

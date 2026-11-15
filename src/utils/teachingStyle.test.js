@@ -40,8 +40,23 @@ describe('the teaching style rule', () => {
   for (const [name, build] of Object.entries(prompts)) {
     it(`${name} carries it`, () => { expect(all(build())).toContain(TEACHING_STYLE_RULE) })
   }
-  it('Study\'s question writer, Fix question and Learn-it (App.jsx) carry it', () => {
+  it('Study\'s question writer, Fix question, Learn-it, Chat and the hook shortener (App.jsx) carry it', () => {
     const app = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', 'App.jsx'), 'utf8')
-    expect(app.match(/\$\{TEACHING_STYLE_RULE\}/g)?.length || 0).toBeGreaterThanOrEqual(3)
+    expect(app.match(/\$\{TEACHING_STYLE_RULE\}/g)?.length || 0).toBeGreaterThanOrEqual(5)
+    // The Chat tab's own system prompt (an independent judge found it had only "be concise and helpful", and replies
+    // ran 128 to 220 words with "Great question" and a card offer at the end).
+    const chat = app.slice(app.indexOf('IMPORTANT BEHAVIOR RULES'), app.indexOf('4. NEVER dump a wall of cards'))
+    expect(chat).toContain('${CHAT_STYLE_RULE}')
+    expect(chat).toContain('${TEACHING_STYLE_RULE}')
+    expect(chat).not.toMatch(/I can help with that! Would you like me to/)
+  })
+  it('the lesson grader carries it and never asks for praise', async () => {
+    const { judgeAnswer } = await import('../features/kit/judge')
+    let seen = ''
+    const ai = { hasKey: true, call: async (s, u) => { seen = `${s}\n${u}`; return '{"correct": false, "note": "x"}' }, json: (r) => JSON.parse(r), clean: (x) => x }
+    await judgeAnswer(ai, comptia, { prompt: 'Which control category is a padlock?', accepted: ['physical'] }, 'a lock')
+    expect(seen).toContain(TEACHING_STYLE_RULE)
+    expect(seen).not.toMatch(/encouragement/)
+    expect(seen).toMatch(/EXAMPLE of it is not the answer/)
   })
 })

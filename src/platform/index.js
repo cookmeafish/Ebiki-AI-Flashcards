@@ -242,7 +242,8 @@ const web = {
   },
   // Play an audio clip (Blob). Resolves when it ends; `stop()` on the returned handle cuts it short.
   audio: {
-    play: (blob) => {
+    // `rate`: playback speed (1 = normal; the pitch is kept).
+    play: (blob, { rate = 1 } = {}) => {
       let el = null
       let url = ''
       let finish = () => {}
@@ -251,6 +252,7 @@ const web = {
         try {
           url = URL.createObjectURL(blob)
           el = new Audio(url)
+          if (rate && rate !== 1) { try { el.playbackRate = rate } catch { /* fixed rate */ } }
           el.onended = () => resolve()
           el.onerror = () => resolve()
           el.play().catch(() => resolve())

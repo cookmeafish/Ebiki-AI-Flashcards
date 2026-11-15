@@ -96,6 +96,12 @@ async function appPage(browser, onAnthropic) {
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => { if (process.env.VOICE_DEBUG && /voice|whisper|speech/i.test(m.text())) console.log('  [page]', m.text().slice(0, 300)) })
   const state = () => page.locator('[data-voice-panel]').getAttribute('data-voice-panel').catch(() => 'none')
+  // The fixture speaks ENGLISH: in a language mode the panel expects the learned language, so pick English the way a
+  // learner would (the switch counts for the turn already being heard).
+  const english = page.locator('[data-speak-lang] [role=radio]', { hasText: /^English$/ })
+  if (await english.count()) await english.click()
+  // The engines line lives under Options (folded so the panel fits a phone).
+  await page.locator('[data-voice-options] summary').click().catch(() => {})
   const panel = await page.locator('[data-voice-panel]').innerText().catch(() => '')
   check(/On this computer/.test(panel), 'the free on-device recognizer is chosen by default')
   let peak = 0; const t0 = Date.now()

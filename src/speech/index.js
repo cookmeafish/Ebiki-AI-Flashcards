@@ -23,16 +23,19 @@ export function speechEngines(ctx) {
 // `onLevel(level, ms)`: microphone loudness for hands-free turn taking (recorded engines only; the browser recognizer
 // ends its own turns). The returned handle says which: `levels: true` when onLevel will be called.
 // `onProgress({ loaded, total })`: the on-device model downloading (its first use only).
-export async function listen(ctx, { lang = '', onFail, onLevel, onProgress } = {}) {
+// `lang` may be a function: read when the recording is transcribed, so a language switched mid-turn still counts.
+export async function listen(ctx, { lang: langIn = '', onFail, onLevel, onProgress } = {}) {
+  const langNow = () => String((typeof langIn === 'function' ? langIn() : langIn) || '')
   const { stt } = speechEngines(ctx)
   if (!stt) throw new Error('no-engine')
-  if (stt === 'browser') return { ...(await platform.speech.recognize({ lang, onFail })), levels: false, engine: stt }
+  if (stt === 'browser') return { ...(await platform.speech.recognize({ lang: langNow(), onFail })), levels: false, engine: stt }
   const rec = await platform.speech.record(onLevel ? { onLevel } : undefined)
   return {
     // `keep()`: asked after the recording ends; false = the caller no longer wants it (closed): nothing is paid.
     stop: async ({ keep } = {}) => {
       const blob = await rec.stop()
       if (keep && !keep()) return ''
+      const lang = langNow()
       if (stt === 'local') return platform.speech.transcribeLocally(blob, { lang, onProgress, keep })
       return transcribe(blob, { engine: stt, keys: ctx.apiKeys, lang, geminiModel: ctx.presetModel?.('gemini', 'cheap'), model: ctx.speechModel?.('stt', stt) || '' })
     },
@@ -63,9 +66,9 @@ export function prepare(ctx, text, { lang = '', voice = 0 } = {}) {
   clipFor(ctx, clean, { tts, model: ctx.speechModel?.('tts', tts) || '', voice, lang }).catch(() => {})
 }
 
-// Say `text`. `voice` picks a character's voice (0 = Ebi). Returns { done: Promise, stop() }.
+// Say `text`. `voice` picks a character's voice (0 = Ebi); `rate` the speed (1 = normal). Returns { done: Promise, stop() }.
 // An AI voice that fails falls back to the free device voice, so speech never just goes silent.
-export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
+export function speak(ctx, text, { lang = '', voice = 0, rate = 1 } = {}) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim()
   if (!clean) return { done: Promise.resolve(), stop: () => {} }
   const { tts } = speechEngines(ctx)
@@ -80,7 +83,7 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
     handle = { stop: () => { if (token) platform.speech.stop(token); release?.() } }
     return new Promise((resolve) => {
       release = resolve
-      platform.speech.speak(clean, lang, { voiceIndex: voice, onHandle: (u) => { token = u } }).then(resolve, resolve)
+      platform.speech.speak(clean, lang, { voiceIndex: voice, rate, onHandle: (u) => { token = u } }).then(resolve, resolve)
     })
   }
   // stop() settles `done` at once on EVERY path: an AI voice stopped while its clip was still being made kept `done`
@@ -93,7 +96,7 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
     try {
       const blob = await clipFor(ctx, clean, { tts, model, voice, lang })
       if (stopped) return
-      handle = platform.audio.play(blob)
+      handle = platform.audio.play(blob, { rate })
       return handle.done
     } catch {
       if (!stopped) return device()

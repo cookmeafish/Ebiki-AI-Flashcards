@@ -1,6 +1,7 @@
 // AI check for a typed answer the local matcher couldn't settle (a synonym, a paraphrase, an open answer).
 // Subject-agnostic: language questions judge the exact word or form; everything else judges meaning.
 import { matchTyped } from './grade'
+import { TEACHING_STYLE_RULE } from '../../utils/questionTier'
 import { flagOf, gradeObject, tierJudgeLine, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
 
 export const JUDGE_ROLE = 'study'
@@ -100,8 +101,9 @@ export async function judgeAnswer(ai, subject, q, answer) {
       ? 'This is an open question: mark it correct when the answer shows the understanding the question asks for, in any wording or language. Ignore spelling unless it changes the meaning.'
       : lang
         ? `This checks ${subject.learnLang}: correct only when it is an acceptable ${subject.learnLang} answer for exactly what was asked (the right word and form). Forgive a single-letter typo; accents alone are not wrong.`
-        : 'Mark it correct when it means the same as a reference answer (a synonym, abbreviation or paraphrase is fine).',
-    `Write "note" in ${subject?.userLang || 'English'}: if wrong, say briefly what the right answer is and why; if right, a few words of encouragement. No dashes.`,
+        : 'Mark it correct when it means the same as a reference answer (a synonym, abbreviation or paraphrase is fine). When the question asks for a category, type or name, an EXAMPLE of it is not the answer (asked which category a padlock belongs to, "a lock on the door" names no category): mark that wrong. If the example belongs to a DIFFERENT category than the right one, the note says which category it belongs to and why the right one fits instead (never only "name the category"); an example OF the right category gets exactly one short sentence, "<their answer> is an example of it; the category is <X>.", nothing more (no restating the question, no invented sub-types).',
+    `Write "note" in ${subject?.userLang || 'English'}: if wrong, say in one sentence what makes the right answer right (the right answer is already shown, so do not just repeat it; never restate the question); if right, at most a few words naming the key point, never praise (no "Excellent", "Great"). No dashes: where you would use one, start a new sentence.`,
+    TEACHING_STYLE_RULE,
   ].filter(Boolean).join('\n')
   try {
     const raw = await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.quiz, maxTokens: JUDGE_MAX_TOKENS, silent: true })

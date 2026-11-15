@@ -1,5 +1,39 @@
 import { describe, it, expect } from 'vitest'
-import { boundChatHistory, cleanChatReply, chatTitleText } from './chatReply'
+import { boundChatHistory, cleanChatReply, chatTitleText, stripChatFluff, CHAT_STYLE_RULE } from './chatReply'
+
+describe('Chat replies are fluff free (an independent judge read real ones, 2026-11-15)', () => {
+  it('the rule says answer first, no openers, no closing offers or menus', () => {
+    expect(CHAT_STYLE_RULE).toMatch(/answer first/)
+    expect(CHAT_STYLE_RULE).toMatch(/Never open with praise/)
+    expect(CHAT_STYLE_RULE).toMatch(/offer a card only when the learner asks/)
+    expect(CHAT_STYLE_RULE).not.toMatch(/[—–]/)
+  })
+  it('a praise opener and a closing offer are cut, the answer kept', () => {
+    expect(stripChatFluff('Great question. A VLAN splits one switch into separate networks.\n\nWant a flashcard for this?')).toBe('A VLAN splits one switch into separate networks.')
+    expect(stripChatFluff("I'd be happy to help! Hashing is one way.\n\nDoes that make sense?")).toBe('Hashing is one way.')
+    expect(stripChatFluff('Un "atardecer" es la tarde que cae. ¿Quieres que te haga una tarjeta de esta palabra?')).toBe('Un "atardecer" es la tarde que cae.')
+    expect(stripChatFluff('Port 22 is SSH. Would you like me to create a flashcard for it?')).toBe('Port 22 is SSH.')
+    expect(stripChatFluff('Es correcto.\n\n¿Hay algo en lo que pueda ayudarte hoy? Podemos practicar vocabulario.')).toBe('Es correcto.')
+  })
+  it('a real teaching question at the end stays, and so does everything else', () => {
+    expect(stripChatFluff('Try it: how would you say "I ate" in the past?')).toBe('Try it: how would you say "I ate" in the past?')
+    expect(stripChatFluff('Use **ser** for identity.\n\n- Soy alto.\n- Es lunes.')).toBe('Use **ser** for identity.\n\n- Soy alto.\n- Es lunes.')
+    expect(stripChatFluff('Want a flashcard?')).toBe('Want a flashcard?') // never empties a reply
+  })
+  it('a typed reply too long for a direct question, or with an exam tip or a restating table, gets a rewrite', async () => {
+    const { chatReplyProblems } = await import('./chatReply')
+    const long = 'A proxy forwards requests. It hides the client. It can cache pages. It can filter content. It logs traffic. It can terminate TLS. It can balance load.'
+    expect(chatReplyProblems(long, { userText: 'what is a proxy?' }).join(' ')).toMatch(/sentences/)
+    expect(chatReplyProblems('A proxy forwards requests for clients.\n\nFor Security+, know that it works at layer 7.', { userText: 'what is a proxy?' }).join(' ')).toMatch(/unasked section/)
+    expect(chatReplyProblems('Hashing is one way.\n\nHash | Cipher\nOne way | Two way', { userText: 'hash vs cipher' }).join(' ')).toMatch(/table/)
+    expect(chatReplyProblems('A proxy forwards requests for clients and can filter them.', { userText: 'what is a proxy?' })).toEqual([])
+    expect(chatReplyProblems(long, { userText: 'explain proxies in detail' })).toEqual([])
+    expect(chatReplyProblems('```\n' + 'x = 1;\n'.repeat(80) + '```\nThat sets x.', { userText: 'show code' })).toEqual([])
+  })
+  it('cleanChatReply applies it after the machine tags are out', () => {
+    expect(cleanChatReply('Done, it is below.\n<anki-card>{"front":"x","back":"y"}</anki-card>\nWant me to make another card?')).toBe('Done, it is below.')
+  })
+})
 
 describe('cleanChatReply', () => {
   it('removes every machine tag and keeps the text around them', () => {

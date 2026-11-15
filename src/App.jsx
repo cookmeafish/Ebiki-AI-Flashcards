@@ -78,7 +78,8 @@ import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestio
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
 import { pressable } from './utils/pressable'
-import { boundChatHistory, cleanChatReply, chatTitleText } from './utils/chatReply'
+import { boundChatHistory, cleanChatReply, chatTitleText, CHAT_STYLE_RULE, chatReplyProblems } from './utils/chatReply'
+import { VOICE_TURN_RULE, VOICE_TURN_REMINDER, spokenReplyProblems, trimSpoken, wantsMore, usesVoseo } from './utils/voiceStyle'
 import { SLASH_ENDING, SLASH_SPELLED, isSlashEnding, expandSlashEnding, GENDERED_ARTICLES, expandSlashAnswers, answerNormalize, stripLeadArticles, stripAccArticlesFor, stripAccentsKeepYot, exactAnswerMatch } from './utils/answers'
 import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugation'
 import { leakNorm, HANGUL, leakLen, hangulLeak, NO_SPACE_SCRIPT, noSpaceLeak, answerInQuestionText, leakAnswers, questionAnswerLeak, scrubAnswerFromQuestion, hintTokenLeaks, hintRevealsAnswer, scrubHint } from './utils/leak'
@@ -11876,7 +11877,19 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       const words = (x) => x.split(/\s+/).filter(Boolean).length
       const verdict = /\b(no changes?|already (?:good|clear|optimal|passes|works)|the draft)\b/i.test(out) && !/\*\*/.test(out)
       const lostLabel = /^\*\*[^*\n]{1,40}\*\*/.test(draft) && !/^\*\*[^*\n]{1,40}\*\*/.test(out)
-      if (out && !verdict && !lostLabel && words(out) <= Math.max(40, words(draft) * 2.5)) return out
+      // THE WORD CAP IS ENFORCED (an independent judge, 2026-11-15: real hooks ran 75 and 88 words against "UNDER 35",
+      // two images where the method says ONE): the method's cap (an auto hook's from its bold label) with a little
+      // slack; the shorter valid version wins, and when both are over, one shortening pass.
+      const label = String((/^\*\*([^*\n]{1,40})\*\*/.exec(out || draft) || [])[1] || '').toLowerCase()
+      const kind = method === 'auto' ? (/story|historia|物語|故事/.test(label) ? 'story' : /break|parte|分解|拆/.test(label) ? 'parts' : 'meaning') : method
+      const cap = Math.round(({ story: 70, parts: 60, confuse: 50 }[kind] || 35) * 1.3)
+      let best = out && !verdict && !lostLabel && words(out) <= Math.max(40, words(draft) * 2.5) ? out : draft
+      if (words(best) > cap && words(draft) <= cap) best = draft
+      if (words(best) > cap) {
+        const short = deDash(await aiCall(apiKey, 'You shorten memory aids. Output only the shortened memory aid.', `Shorten this memory aid to UNDER ${Math.round(cap / 1.3)} words in ${explainLang}. Keep ONE image, the part that rebuilds the answer, and any leading bold label; drop every second image, explanation and recap. ${TEACHING_STYLE_RULE}\n\n${best}`, resolveJobModel('study.hooks'), { silent: true }).catch(() => ''))
+        if (short && words(short) <= cap && words(short) >= 4) best = short
+      }
+      return best
     } catch { /* review is best-effort */ }
     return draft
   }
@@ -14119,7 +14132,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
 
 ACCURACY IS CRITICAL. This is a learning app and the user will MEMORIZE what you teach, so a single error is harmful. Rules:
 - NEVER invent words or state facts you are not sure are correct. Do not guess.
-${activeMode.type === 'language' ? '- Before stating any word, translation, conjugation, gender, definition, or fact, double-check it is correct and that the word actually EXISTS and is spelled correctly in the target language.' : '- Before stating any term, definition, figure, or fact, double-check it is correct: every term, figure and fact is correct, and anything that depends on an edition, country, or jurisdiction says so.'}
+${activeMode.type === 'language' ? '- Before stating any word, translation, conjugation, gender, definition, or fact, double-check it is correct and that the word actually EXISTS and is spelled correctly in the target language. Every sentence YOU write in that language is fully grammatical too (parallel verbs in the same form: "¿nadaron o se relajaron?", never "¿nadaron o relajarse?"): the learner copies your sentences.' : '- Before stating any term, definition, figure, or fact, double-check it is correct: every term, figure and fact is correct, and anything that depends on an edition, country, or jurisdiction says so. State exactly what a control or technique does AND does not do (rotating a key protects data encrypted after the change, not what a stolen key already unlocks).'}
 - Silently re-read your answer before sending and fix any mistakes. If you realize a word may not exist, correct it.
 - If you are not fully certain, say so honestly instead of presenting a guess as fact.
 
@@ -14132,7 +14145,7 @@ You run on the ${providerConfig.label} model "${resolveJobModel('chat.reply')}".
 IMPORTANT BEHAVIOR RULES:
 1. When the user asks you to build a whole DECK or many cards for a broad topic:
    - DO NOT immediately generate a wall of cards
-   - Instead, ASK: "I can help with that! Would you like me to: (1) Search for top-rated existing Anki decks for this topic online, or (2) Generate custom cards based on specific objectives or materials you provide?"
+   - Instead, ask in one plain sentence whether they want you to search for existing top-rated Anki decks for it, or to make custom cards from the objectives or materials they give you.
    - If they want custom cards: ask what to cover, then generate systematically.
    - BUT if the user just asks for a card for a SPECIFIC word/phrase (e.g. "make a card for surcar"), make it right away, no need to ask first.
 
@@ -14146,7 +14159,9 @@ ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName
      back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
      tags: include part of speech, level, topic, and "ebiki".${usageTagsRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag. Write the back content in ${userLangName()} (keep the front term, proper nouns, technical terms, code, and formulas in their original form) so the learner studies in their own language, including when reviewing in Anki.${(() => { const bt = String(activeMode.backTemplate || '').replace(/\\n/g, '\n'); return bt.includes('{') ? ` Use this mode's fixed card format for the back (fill each {placeholder}, keep the labels and line order): ${bt.replace(/\n/g, ' | ')}` : '' })()}`}
 
-3. For general questions: be concise and helpful. Explain concepts clearly.
+3. For general questions:
+${CHAT_STYLE_RULE}
+${TEACHING_STYLE_RULE}
 
 4. NEVER dump a wall of cards without asking first. Quality over quantity.`
 
@@ -14229,6 +14244,9 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       // scope): the remembered snapshot, never waited for. The level and (language modes) the slips are above already.
       const chatLearnerCtx = learnerBlock('chat', { omit: ['level', ...(activeMode.type === 'language' ? ['slips'] : [])] })
       if (chatLearnerCtx) systemPrompt += `\n\n${chatLearnerCtx}`
+      // A SPOKEN turn (voice mode) is a conversation read aloud: short, casual, in the language just spoken. LAST, so it
+      // overrides the typed-chat rules above (the deck menu, card dumps, long explanations).
+      if (spokenTurn) systemPrompt += `\n\n${VOICE_TURN_RULE}`
 
       const convo = boundChatHistory(newMsgs)
       // Include images from the recent conversation (most recent up to 4) so follow-up questions
@@ -14241,7 +14259,37 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
         // images ride along on every send, every later message in the chat failed too. Left out instead.
         if (PORTABLE_IMAGE_TYPES.test(part.mediaType)) imageParts.push(part)
       }
-      const text = await aiCall(apiKey, systemPrompt, convo, resolveJobModel('chat.reply'), imageParts.length ? { images: imageParts } : undefined)
+      // A SPOKEN turn: a reminder at the very end of the learner's turn (the rule far up the prompt lost to the chat's
+      // habits), errors stay in the voice panel (no second toast over it), and the reply is CHECKED (utils/voiceStyle.js):
+      // too long, an assistant opener/closer or a menu gets one rewrite naming what was wrong, then a trim.
+      const lastTurn = convo[convo.length - 1]
+      const callConvo = spokenTurn && lastTurn?.role === 'user' && typeof lastTurn.content === 'string'
+        ? [...convo.slice(0, -1), { ...lastTurn, content: `${lastTurn.content}\n\n${VOICE_TURN_REMINDER}` }] : convo
+      const callOpts = { ...(imageParts.length ? { images: imageParts } : {}), ...(spokenTurn ? { silent: true, maxTokens: 700 } : {}) }
+      let text = await aiCall(apiKey, systemPrompt, callConvo, resolveJobModel('chat.reply'), Object.keys(callOpts).length ? callOpts : undefined)
+      if (spokenTurn) {
+        const more = wantsMore(q)
+        // In Spanish the learner's own form of address is kept: a reply switching to vos when they never used it is fixed.
+        const learnerVoseo = activeMode.type === 'language' && /spanish|español|espanol/i.test(learnLangName() || '') ? usesVoseo(newMsgs.filter((m) => m.role === 'user').map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n')) : undefined
+        const problems = spokenReplyProblems(text, { more, learnerVoseo, spanishTalk: learnerVoseo !== undefined })
+        if (problems.length) {
+          try {
+            const again = String(await aiCall(apiKey, `${systemPrompt}\n\nYOUR DRAFT REPLY WAS:\n"""${text}"""\nIt breaks the spoken rules: ${problems.join('; ')}. Rewrite it so it follows them (keep any <anki-card> tags exactly). Answer with the rewritten reply only.`, callConvo, resolveJobModel('chat.reply'), callOpts) || '')
+            text = again.trim() ? (spokenReplyProblems(again, { more }).length ? trimSpoken(again, { more }) : again) : trimSpoken(text, { more })
+          } catch { text = trimSpoken(text, { more }) }
+        }
+      } else {
+        // A TYPED reply is checked too (utils/chatReply.js chatReplyProblems: too long for a direct question, an unasked
+        // exam tip or summary section, a table restating the prose): one rewrite naming what was wrong; the rewrite is
+        // kept only when it is really shorter, the first reply otherwise (never a cut of a typed answer).
+        const problems = chatReplyProblems(text, { userText: q })
+        if (problems.length) {
+          try {
+            const again = String(await aiCall(apiKey, `${systemPrompt}\n\nYOUR DRAFT REPLY WAS:\n"""${text}"""\nIt breaks the answer rules: ${problems.join('; ')}. Rewrite it: answer first, 2 to 5 sentences, nothing unasked, nothing wrong (keep any <anki-card> tags exactly). Answer with the rewritten reply only.`, callConvo, resolveJobModel('chat.reply'), { ...callOpts, silent: true }) || '').trim()
+            if (again && again.length < text.length) text = again
+          } catch { /* the first reply stands */ }
+        }
+      }
 
       // Parse anki cards from response
       const parsedCards = chatReplyCards(text)
@@ -15410,6 +15458,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       messagesNow: () => chatTabMsgsRef.current || [],
       send: (text) => sendChatTabMessage(String(text || '')),
       open: () => pickTab('chat'),
+      // Add a card a reply made (one of reply.cards) to the deck, as its "+ Add" button does. False when it can't.
+      canAddCards: ankiConnected !== false,
+      addCard: async (card) => {
+        const i = (chatTabMsgsRef.current || []).findIndex((m) => m?.cards?.includes(card))
+        if (i < 0 || !ankiConnected) return false
+        await chatTabSyncCard(card, i)
+        return !!(chatTabMsgsRef.current[i]?.cards || []).find((c) => c === card || (c.front === card.front && c.back === card.back))?.synced
+      },
     },
     // Open Settings on a pane ('general' holds the speech engines, 'models' the AI provider and key).
     openSettings: (pane = 'general') => { setSettingsCategory(pane); setSettingsOpen(true) },

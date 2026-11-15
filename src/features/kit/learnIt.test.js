@@ -15,5 +15,8 @@ describe('learn it chat', () => {
   })
   it('splits bold parts', () => {
     expect(boldParts('a **b** c')).toEqual([{ text: 'a ', bold: false }, { text: 'b', bold: true }, { text: ' c', bold: false }])
+    // single-asterisk italics are not rendered: the stars go, the words stay (a judge saw *planning* on screen)
+    expect(boldParts('the *planning* layer and **rules**')).toEqual([{ text: 'the planning layer and ', bold: false }, { text: 'rules', bold: true }])
+    expect(boldParts('2 * 3 = 6')).toEqual([{ text: '2 * 3 = 6', bold: false }])
   })
 })

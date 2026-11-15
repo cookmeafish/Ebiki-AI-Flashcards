@@ -13,7 +13,7 @@ const BACK_MAX = 1500
 // item: { front, back }, history: [{ role: 'user'|'assistant', content }] (the learner's newest message last)
 export function buildLearnChatPrompt(subject = {}, item = {}, history = []) {
   const lang = subject.userLang || 'English'
-  const system = `You are Ebi, a warm, patient study buddy. The learner just missed this in a quiz, so explain from zero: small words, concrete examples, no jargon. Reply in ${lang}, under 120 words, plain text with at most **bold** on key words. Never use dashes or a shrimp emoji. ${TEACHING_STYLE_RULE}`
+  const system = `You are Ebi, a warm, patient study buddy. The learner just missed this in a quiz, so explain from zero: small words, concrete examples, no jargon. Reply in ${lang}, under 120 words, plain text with at most **bold** on key words (no *italics*). Never use dashes or a shrimp emoji. Say each thing ONCE: a yes or no question gets the verdict once, then the one reason; no closing recap line repeating it. Never open by restating their question. When the item is one of several categories or types, check your reason against the neighbouring ones (a reason that defines a different category is wrong) before you answer. ${TEACHING_STYLE_RULE}`
   const talk = (history || []).slice(-LEARN_HISTORY_MAX).map((m) => `${m.role === 'user' ? 'Learner' : 'Ebi'}: ${String(m.content || '').slice(0, 600)}`).join('\n')
   const user = [
     'What the learner is learning:',
@@ -29,5 +29,7 @@ export function buildLearnChatPrompt(subject = {}, item = {}, history = []) {
 
 // "**bold** words" → [{ text, bold }] for a plain renderer (no HTML).
 export function boldParts(text) {
-  return String(text || '').split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((p) => (/^\*\*[^*]+\*\*$/.test(p) ? { text: p.slice(2, -2), bold: true } : { text: p, bold: false }))
+  // Single-asterisk italics are not rendered: their stars go (they showed literally on screen), the words stay.
+  const plain = String(text || '').replace(/(^|[^*])\*(?!\*)([^*\n]+?)\*(?!\*)/g, '$1$2')
+  return plain.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((p) => (/^\*\*[^*]+\*\*$/.test(p) ? { text: p.slice(2, -2), bold: true } : { text: p, bold: false }))
 }
