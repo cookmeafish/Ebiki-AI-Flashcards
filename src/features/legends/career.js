@@ -27,6 +27,7 @@ export const CAREER = {
   regionItems: 36, regionQuestions: 15,
   raidItems: 60, raidQuestions: 25,
   finalItems: 90, finalQuestions: 30,
+  acronymLesson: 8, acronymDrill: 15, // the acronym track: lessons of 8, a drill of 15 questions over them all
 }
 // Has the learner played any step of this course (a finished step, or any attempt)? A course without is safe to rebuild.
 export const careerHasProgress = (map) => Object.keys(map?.days || {}).length > 0 || (map?.helpers?.scroll || 0) > 0 || (map?.helpers?.shield || 0) > 0
@@ -153,6 +154,8 @@ export function shapePackage(raw) {
       motif: str(a?.motif, 30), palette: str(a?.palette, 30), bossName: str(a?.bossName, 60), story: (a?.story || []).map((s) => str(s, 220)).filter(Boolean).slice(0, 3),
       canDo: (a?.canDo || []).map((s) => str(s, 140)).filter(Boolean).slice(0, 4), sections, items, lessons,
       ...(a?.brief && ids.has(String(a.brief)) ? { brief: String(a.brief) } : {}),
+      acronyms: (Array.isArray(a?.acronyms) ? a.acronyms : []).filter((x) => x?.id && x.acronym && Array.isArray(x.expansions) && x.expansions.length)
+        .map((x) => ({ id: String(x.id), acronym: str(x.acronym, 30), expansions: x.expansions.map((e) => str(e, 160)).filter(Boolean).slice(0, 4) })),
     }
   }).filter((a) => a.id && a.title && a.items.length && a.sections.length && a.lessons.length)
   if (areas.length !== raw.areas.length) return null
@@ -160,6 +163,47 @@ export function shapePackage(raw) {
 }
 
 const node = (areaId, k, fields) => ({ id: `${areaId}-${k}`, title: '', status: 'locked', stars: 0, bestScore: 0, attempts: 0, optional: false, ...fields })
+
+// THE ACRONYM TRACK (the owner: acronyms are a big part of the exam): an island's acronyms (the package's
+// `acronyms`, one island each, build-career.mjs) become items of kind 'acronym' (section ACRONYM_SECTION), lessons of
+// CAREER.acronymLesson in the island's own order, and a DRILL over all of them. All optional (never block a boss) and
+// open at once; region bosses and the raid never ask them (their item lists hold no acronym).
+export const ACRONYM_SECTION = 'acr'
+export const isAcronymTrack = (n) => n?.track === ACRONYM_SECTION
+const acronymBack = (x, where) => [
+  `Definition: ${x.acronym} stands for ${x.expansions.length > 1 ? x.expansions.map((e, i) => `(${i + 1}) ${e}`).join(', ') : x.expansions[0]}.`,
+  'Category: Acronyms',
+  `Key Points: ${[x.expansions.length > 1 ? 'More than one meaning on the exam list: the question tells you which one' : 'Know both directions: the letters from the name, the name from the letters', where ? `Where it shows up: ${where}` : ''].filter(Boolean).join('; ')}`,
+].join('\n')
+export function withAcronyms(area, acronyms) {
+  const list = (acronyms || []).filter((x) => !(area.items || []).some((it) => it.id === x.id))
+  if (!list.length || (area.nodes || []).some(isAcronymTrack)) return area
+  const items = list.map((x) => {
+    const re = new RegExp(`(^|[^A-Za-z0-9])${x.acronym.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-z0-9]|$)`)
+    const where = (area.items || []).find((it) => it.kind !== 'brief' && it.kind !== 'acronym' && re.test(`${it.front}\n${it.back}`))?.front || ''
+    return { id: x.id, kind: 'acronym', front: x.acronym, back: acronymBack(x, where), section: ACRONYM_SECTION, cardNoteId: null, seen: 0, right: 0 }
+  })
+  const n = Math.ceil(items.length / CAREER.acronymLesson)
+  const size = Math.ceil(items.length / n)
+  const lessons = Array.from({ length: n }, (_, i) => items.slice(i * size, (i + 1) * size)).filter((g) => g.length)
+    .map((g, i, all) => node(area.id, `acr-l${i + 1}`, { kind: 'learn', track: ACRONYM_SECTION, optional: true, status: 'open', title: `${g[0].front} to ${g.at(-1).front} (${i + 1}/${all.length})`, itemIds: g.map((it) => it.id) }))
+  const drill = node(area.id, 'acr-drill', { kind: 'practice', track: ACRONYM_SECTION, optional: true, status: 'open', title: '', count: CAREER.acronymDrill, itemIds: items.map((it) => it.id) })
+  const at = (area.nodes || []).findIndex((x) => x.kind === 'weak')
+  const nodes = at < 0 ? [...(area.nodes || []), ...lessons, drill] : [...area.nodes.slice(0, at), ...lessons, drill, ...area.nodes.slice(at)]
+  return { ...area, items: [...(area.items || []), ...items], nodes }
+}
+// A course map saved before the acronym track: add it from the package (nothing else changes). Pure.
+export function addAcronymTrack(map, pkg) {
+  if (!isCareerMap(map) || !pkg) return map
+  let changed = false
+  const areas = map.areas.map((a) => {
+    const src = pkg.areas.find((x) => x.id === a.id)
+    const next = src ? withAcronyms(a, src.acronyms) : a
+    if (next !== a) changed = true
+    return next
+  })
+  return changed ? { ...map, areas, career: { ...map.career, acronyms: true } } : (map.career.acronyms ? map : { ...map, career: { ...map.career, acronyms: true } })
+}
 
 // The map a career starts with: every island fully built (no AI plan or detail call). Per island: its regions in order
 // (each region's lessons, then its region boss), Weak spots, then the island's RAID boss; after the last island, the
@@ -184,12 +228,12 @@ export function buildCareerMap(pkg, { modeId, subject, start = null }, now = Dat
     })
     nodes.push(node(a.id, 'weak', { kind: 'weak', itemIds: [], optional: true }))
     nodes.push(node(a.id, 'boss', { kind: 'boss', stage: 'raid', motif: CAREER_RAID_MOTIFS[ai % CAREER_RAID_MOTIFS.length], count: CAREER.raidQuestions, itemIds: a.items.filter((it) => it.kind !== 'brief').map((it) => it.id) }))
-    return {
+    return withAcronyms({
       id: a.id, title: a.title, theme: a.theme, motif: a.motif, palette: a.palette || 'original', status: 'open', detailed: true, frozen: false,
       number: a.number, weight: a.weight, sections: a.sections, regions, ...(a.brief ? { brief: a.brief } : {}), bossName: a.bossName, story: a.story, canDo: a.canDo,
       // Ready to show as built (the first lesson of every region open): the store caches what is written.
       items: a.items.map((it) => ({ ...it, cardNoteId: null, seen: 0, right: 0 })), nodes: normalizeCareerNodes(nodes, 'open'),
-    }
+    }, a.acronyms)
   })
   const final = {
     id: FINAL_AREA_ID, final: true, title: pkg.title, theme: '', motif: areas[0]?.motif || '', palette: 'original', status: 'locked', detailed: true, frozen: false,
@@ -197,7 +241,7 @@ export function buildCareerMap(pkg, { modeId, subject, start = null }, now = Dat
     nodes: [node(FINAL_AREA_ID, 'raid', { kind: 'boss', stage: 'final', motif: CAREER_FINAL_MOTIF, count: CAREER.finalQuestions, itemIds: [] })],
   }
   return {
-    version: CAREER_MAP_VERSION, modeId, career: { id: pkg.id, title: pkg.title, version: pkg.version, layout: CAREER_LAYOUT },
+    version: CAREER_MAP_VERSION, modeId, career: { id: pkg.id, title: pkg.title, version: pkg.version, layout: CAREER_LAYOUT, acronyms: true },
     subject: { name: String(subject?.name || ''), description: String(subject?.description || '') },
     createdAt: now, updatedAt: now, start, areas: [...areas, final], helpers: { scroll: 0, shield: 0 }, days: {},
   }

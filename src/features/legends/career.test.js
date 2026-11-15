@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { shapePackage, buildCareerMap, careerQuizItems, careerMatches, careerSampleMax, CAREERS, CAREER, CAREER_MAP_VERSION, isCareerMap, nextCareerStep, courseCtx, courseModes,
-  cutRegions, careerRegions, currentRegion, regionBossesLeft, careerFight, raidLook, careerHasProgress, CAREER_LAYOUT, CAREER_RAID_MOTIFS, CAREER_FINAL_MOTIF, FINAL_AREA_ID } from './career'
+  cutRegions, careerRegions, currentRegion, regionBossesLeft, careerFight, raidLook, careerHasProgress, addAcronymTrack, CAREER_LAYOUT, CAREER_RAID_MOTIFS, CAREER_FINAL_MOTIF, FINAL_AREA_ID } from './career'
 import { cheatCompleteNode, cheatCompleteArea, cheatResetNode } from './cheats'
 import { normalizeMap, shapeMap, applyNodeResult, needsMoreAreas, needsDetail, passRatio, PASS, MAP_VERSION, MOTIFS } from './map'
 
@@ -404,7 +404,7 @@ describe('the shipped Security+ course', () => {
       }
       expect(a.nodes.slice(-2).map((n) => n.kind)).toEqual(['weak', 'boss'])
       expect(a.nodes.at(-1).stage).toBe('raid')
-      expect(a.nodes.at(-1).itemIds).toHaveLength(a.items.filter((it) => it.kind !== 'brief').length)
+      expect(a.nodes.at(-1).itemIds).toHaveLength(a.items.filter((it) => it.kind !== 'brief' && it.kind !== 'acronym').length) // the raid asks the lessons' cards; acronyms have their own track
       expect(a.nodes.filter((n) => n.kind === 'checkpoint')).toHaveLength(0)
     }
     expect(m.areas.at(-1)).toMatchObject({ final: true, status: 'locked' })
@@ -432,6 +432,37 @@ describe('the shipped Security+ course', () => {
     const m = normalizeMap(raw)
     const firsts = m.areas.filter((a) => !a.final).map((a) => a.nodes.find((n) => n.stage === 'region').motif)
     expect(firsts).toEqual(['dojo', 'pirate', 'city', 'arena', 'celestial'])
+  })
+  it('ACRONYMS: every acronym on the exam list sits in exactly ONE island, as lessons of 8 and a drill; optional, open, never in a boss', () => {
+    const m = normalizeMap(buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }))
+    const islands = m.areas.filter((a) => !a.final)
+    const acr = islands.flatMap((a) => a.items.filter((it) => it.kind === 'acronym'))
+    expect(acr.length).toBe(pkg.areas.reduce((n, a) => n + a.acronyms.length, 0))
+    expect(acr.length).toBeGreaterThanOrEqual(300)
+    expect(new Set(acr.map((it) => it.front)).size).toBe(acr.length) // one island each
+    const sizes = islands.map((a) => a.items.filter((it) => it.kind === 'acronym').length)
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(Math.ceil((acr.length / islands.length) * 1.3) + 2) // a fair spread
+    for (const a of islands) {
+      const track = a.nodes.filter((n) => n.track === 'acr')
+      const lessons = track.filter((n) => n.kind === 'learn'); const drill = track.find((n) => n.kind === 'practice')
+      expect(lessons.every((n) => n.itemIds.length <= CAREER.acronymLesson && n.optional && n.status === 'open')).toBe(true)
+      expect(new Set(lessons.flatMap((n) => n.itemIds)).size).toBe(a.items.filter((it) => it.kind === 'acronym').length)
+      expect(drill).toMatchObject({ optional: true, status: 'open', count: CAREER.acronymDrill })
+      const ids = new Set(a.items.filter((it) => it.kind === 'acronym').map((it) => it.id))
+      for (const b of a.nodes.filter((n) => n.kind === 'boss')) expect(b.itemIds.some((id) => ids.has(id))).toBe(false)
+      for (const it of a.items.filter((x) => x.kind === 'acronym')) expect(it.back.startsWith(`Definition: ${it.front} stands for `)).toBe(true)
+    }
+    expect(nextCareerStep(m.areas).node.track).toBeUndefined() // Continue leads the main path; the track is reached from its card
+  })
+  it('a course saved before the acronym track gets it added, nothing else changed', () => {
+    const full = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } })
+    const old = { ...full, career: { ...full.career, acronyms: undefined }, areas: full.areas.map((a) => ({ ...a, items: a.items.filter((it) => it.kind !== 'acronym'), nodes: a.nodes.filter((n) => n.track !== 'acr') })) }
+    old.areas[0].nodes[0] = { ...old.areas[0].nodes[0], status: 'done', stars: 3 }
+    const m = addAcronymTrack(old, pkg)
+    expect(m.career.acronyms).toBe(true)
+    expect(m.areas[0].nodes[0]).toMatchObject({ status: 'done', stars: 3 })
+    expect(m.areas[0].items.filter((it) => it.kind === 'acronym')).toHaveLength(pkg.areas[0].acronyms.length)
+    expect(addAcronymTrack(m, pkg).areas).toBe(m.areas) // a second run changes nothing
   })
   it('BRIEFINGS: every domain and objective has its overview as a briefing, never in a lesson, a checkpoint, a boss or a quiz sample', () => {
     const m = normalizeMap(buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }))

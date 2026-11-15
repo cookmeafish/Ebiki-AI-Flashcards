@@ -1990,6 +1990,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     delete in `srs.deleteNotes` refuses the whole call (code `courseCard`); the Deck tab shows 🔒.
   - **Extra cards** (`<prefix>-extras.rN.json`, `extra: true` + sources) cover what a learner needs that no outline
     line names; reviewed twice like every card.
+  - **Acronyms per domain** (the owner: learning the acronyms is a big part of the exam): the build assigns each entry of
+    the course's acronym list to ONE island (where its items use it, else a fair share), shipped as the package's
+    `acronyms`; `withAcronyms` / `addAcronymTrack` (older saved courses get it on open) make an optional, always-open
+    track per island (section `acr`, items `kind: 'acronym'`): lessons of `CAREER.acronymLesson` (8) and a drill of
+    `CAREER.acronymDrill` (15). It never blocks the region bosses; the `AcronymCard` on the map opens it.
 - Drive it with every AI host stubbed and `/api/feature-data` in memory (the real stores and credits untouched).
 
 ## Porting to phones (iOS / Android): keep these seams clean
@@ -2766,6 +2771,21 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
 - User-facing: what the app is, what each tab does, setup and use. Tight, no filler or hype; cut words, not
   information. No developer internals (prompt/function names, algorithms, file trees); those live here.
 - Describe each feature once. Keep it accurate (shortcuts, model versions, renamed/removed features).
+
+## ⭐ EVERY NEW IDEA IS DESIGNED FROM USER ANGLES, BUILT WHOLE, JUDGED AS THE OWNER WOULD USE IT (owner, 2026-11-15)
+Never ship the bare minimum: a fix or feature that only passes our own check, tested on a convenient default path, is
+not done. For ANY new idea or addition, before building:
+1. **Angles**: run several SEPARATE agents, each thinking about it from one user angle without seeing the others
+   (a first-time user; the owner with their real saved data; what can go wrong (failures, no key, cost, slowness);
+   phone; keyboard and screen reader; a daily power user; for language features a learner of that language). Three
+   angles for a small addition, all of them for a new mode, flow or feature.
+2. **Design**: write the COMPLETE design from their merged list (`docs/plans/`), noting which angle raised each item.
+3. **Build all of it**, not a slice.
+4. **Judge**: an independent agent that did not build it walks the REAL result the way the owner would use it (their
+   real setup and data, real input such as real speech in each language, desktop and phone) and judges it item by
+   item, pass or fail with reasons. Fails are fixed and judged again before anything is called done.
+Check: a plan in `docs/plans/` lists the angles and the judge's pass/fail table for every new feature (hook: N/A,
+the agent work can't be detected by a script; the reviewer and the owner's report check it).
 
 ## The owner's own examples never become the code's examples (owner, 2026-11-15)
 Code, comments, tests, fixtures, prompts and shipped content never reuse the owner's exact examples: their mode names,

@@ -26,7 +26,7 @@ import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
 import { loadCareer, availableCareers, regionBossName } from './CareerMap'
-import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes, clearsIsland, careerFight, careerHasProgress, raidLook, CAREER_LAYOUT } from './career'
+import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes, clearsIsland, careerFight, careerHasProgress, raidLook, addAcronymTrack, CAREER_LAYOUT } from './career'
 import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
@@ -211,13 +211,20 @@ export default function LegendsScreen() {
   const parked = useParkedMaps(modeId) // the course or adventure waiting while the other is on screen
   // A course saved in an older layout (objective checkpoints and one boss per island) and never played is rebuilt in
   // the current one (regions with their bosses, island raids, the final raid). One with progress keeps its layout.
+  // A course saved before the acronym track gets it added (progress untouched).
   useEffect(() => {
-    if (!isCareerMap(map) || (map.career?.layout || 1) >= CAREER_LAYOUT || careerHasProgress(map)) return undefined
+    if (!isCareerMap(map)) return undefined
+    const rebuild = (map.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(map)
+    if (!rebuild && map.career?.acronyms) return undefined
     let alive = true
     const pinned = modeId
     loadCareer(map.career.id).then((pkg) => {
       if (!alive || !pkg) return
-      updateMap(pinned, (m) => (isCareerMap(m) && (m.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(m) ? buildCareerMap(pkg, { modeId: pinned, subject: m.subject, start: m.start }) : m))
+      updateMap(pinned, (m) => {
+        if (!isCareerMap(m)) return m
+        if ((m.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(m)) return buildCareerMap(pkg, { modeId: pinned, subject: m.subject, start: m.start })
+        return addAcronymTrack(m, pkg)
+      })
     })
     return () => { alive = false }
   }, [map, modeId])

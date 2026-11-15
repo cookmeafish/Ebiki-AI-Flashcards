@@ -11,7 +11,7 @@ import { ChunkyButton, ProgressBar, depthBorder, shade } from '../ui'
 import { AreaArt, BossArt, LegendsArt, paletteColors } from './art'
 import { AreaExtras } from './Extras'
 import { CheatButton, CheatRow } from './CheatUI'
-import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea } from './career'
+import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea, isAcronymTrack } from './career'
 import { itemSections } from './itemSections'
 import { QUIZ_SIZE } from './prompt'
 
@@ -274,6 +274,43 @@ export function FinalRaidCard({ t, map, onOpen, cheat }) {
   )
 }
 
+// THE ACRONYM TRACK of an island (career.js withAcronyms): short sets to learn, a drill over all of them. Any time,
+// never locks a boss; the drill is the one big button, the sets open below it.
+function AcronymCard({ t, area, colors, cheat, onOpen }) {
+  const [open, setOpen] = useState(false)
+  const track = (area.nodes || []).filter(isAcronymTrack)
+  const lessons = track.filter((n) => n.kind === 'learn')
+  const drill = track.find((n) => n.kind === 'practice')
+  if (!lessons.length) return null
+  const count = (area.items || []).filter((it) => it.kind === 'acronym').length
+  const done = lessons.filter((n) => n.status === 'done').length
+  return (
+    <div data-acronyms="" style={{ borderRadius: RADIUS.lg, background: C.surface, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, ...depthBorder(C.info, { bottomColor: shade(C.info, 30) }) }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span aria-hidden="true" style={{ fontSize: 30 }}>🔤</span>
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: C.info }}>{t('lg_acronyms')}</div>
+          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{t('lg_acronymsTitle', { n: count })}</div>
+          <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.4 }}>{t('lg_acronymsDesc', { k: lessons.length })}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <span style={{ flex: 1, minWidth: 60 }}><ProgressBar value={done} max={lessons.length} color={C.info} height={7} /></span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.inkDim, whiteSpace: 'nowrap' }}>{t('lg_acronymsSets', { i: done, n: lessons.length })}</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <ChunkyButton color={C.info} onClick={() => setOpen((v) => !v)} aria-expanded={open}>📘 {open ? t('lg_acronymsHide') : t('lg_acronymsLearn')}</ChunkyButton>
+        {drill && <ChunkyButton variant="ghost" color={C.info} onClick={() => onOpen(area, drill)}>🎯 {t('lg_acronymsDrill', { q: drill.count || CAREER.acronymDrill })}</ChunkyButton>}
+      </div>
+      {open && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {lessons.map((n) => <StepChip key={n.id} t={t} node={n} area={area} colors={colors} cheat={cheat} onOpen={(node) => onOpen(area, node)} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BossCard({ t, area, colors, onOpen, onLegendary, ctx, cheat }) {
   const boss = (area.nodes || []).find((n) => n.kind === 'boss' && n.stage !== 'region')
   const weak = (area.nodes || []).find((n) => n.kind === 'weak')
@@ -380,6 +417,7 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
               onToggle={() => setOpenId((cur) => (cur === s.id ? null : s.id))} onOpen={onOpen} />
           ))}
         </>)}
+        <AcronymCard t={t} area={area} colors={colors} cheat={cheat} onOpen={onOpen} />
         <BossCard t={t} ctx={ctx} area={area} colors={colors} cheat={cheat} onOpen={onOpen} onLegendary={legendary} />
       </section>
     </div>

@@ -166,6 +166,45 @@ if (fs.existsSync(acrFile)) for (const line of fs.readFileSync(acrFile, 'utf8').
   const a = line.slice(0, i).trim(); const x = line.slice(i + 1).trim()
   if (!acr.has(a)) acr.set(a, []); if (!acr.get(a).includes(x)) acr.get(a).push(x)
 }
+// ── ACRONYMS IN THE COURSE (the owner: learning the acronyms is a big part of the exam): every acronym joins ONE
+// island, the one whose cards use it most (the acronym itself counts 3, its spelled-out form 2, each of its longer
+// words 1), in the order the island first uses it; never-used ones go last, alphabetically. The map makes lessons
+// and a drill from them (src/features/legends/career.js withAcronyms).
+{
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const textOf = (a) => a.items.map((it) => `${it.front}\n${it.back}`)
+  const STOP = new Set('and the for with of to in on a an or by protocol system service security standard'.split(' '))
+  // A FAIR spread: an acronym the cards really use (by name or spelled out) joins its island; one they never use is a
+  // weak guess, so it goes to the best-matching island that still has room (each holds at most its share + 30%).
+  const byArea = areas.map(() => [])
+  const loose = []
+  for (const [a, xs] of acr) {
+    const re = new RegExp(`(^|[^A-Za-z0-9])${escRe(a)}([^A-Za-z0-9]|$)`)
+    const longWords = [...new Set(xs.join(' ').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3 && !STOP.has(w)))]
+    const scored = areas.map((ar, i) => {
+      let strong = 0; let weak = 0; let at = Infinity
+      textOf(ar).forEach((t, k) => {
+        const low = t.toLowerCase()
+        const s = (re.test(t) ? 3 : 0) + (xs.some((x) => low.includes(x.toLowerCase())) ? 2 : 0)
+        if (s) { strong += s; if (k < at) at = k }
+        weak += longWords.filter((w) => low.includes(w)).length
+      })
+      return { i, strong, weak, at }
+    })
+    const top = scored.reduce((x, y) => (y.strong > x.strong ? y : x))
+    if (top.strong > 0) byArea[top.i].push({ acronym: a, expansions: xs, at: top.at })
+    else loose.push({ acronym: a, expansions: xs, order: [...scored].sort((x, y) => y.weak - x.weak || x.i - y.i).map((s) => s.i) })
+  }
+  const cap = Math.ceil((acr.size / areas.length) * 1.3)
+  for (const l of loose.sort((x, y) => x.acronym.localeCompare(y.acronym))) {
+    const i = l.order.find((k) => byArea[k].length < cap) ?? l.order[0]
+    byArea[i].push({ acronym: l.acronym, expansions: l.expansions, at: Infinity })
+  }
+  areas.forEach((ar, i) => {
+    ar.acronyms = byArea[i].sort((x, y) => x.at - y.at || x.acronym.localeCompare(y.acronym))
+      .map((x) => ({ id: `acr-${x.acronym.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, acronym: x.acronym, expansions: x.expansions }))
+  })
+}
 const std = course.standardNames || {}
 const acronymCards = [...acr].map(([a, xs]) => ({ obj: 'acr', term: `${a} (${course.title} acronym)`,
   definition: xs.length > 1 ? `${a} has ${xs.length} meanings on the official list: ${xs.join('; ')}.` : xs[0], example: '', category: 'Acronym list',
