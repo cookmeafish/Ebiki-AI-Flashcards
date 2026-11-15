@@ -36,7 +36,7 @@ export async function availableCareers(list) {
 
 const required = (area) => (area.nodes || []).filter((n) => !n.optional)
 // A region boss's name ("Region 2 Guardian"), the same on the map, the Continue card and in the fight.
-export const regionBossName = (t, area, node) => t('lg_regionBossName', { n: (area?.regions || []).find((r) => r.id === node?.region)?.n || 1 })
+export const regionBossName = (t, area, node) => node?.bossName || t('lg_regionBossName', { n: (area?.regions || []).find((r) => r.id === node?.region)?.n || 1 })
 const bossesOf = (area) => (area.nodes || []).filter((n) => n.kind === 'boss')
 const islandProgress = (area) => { const r = required(area); return { done: r.filter((n) => n.status === 'done').length, total: r.length } }
 // The island to show first: one in progress, else the first unfinished, else the first.
@@ -240,7 +240,7 @@ function RegionBossRow({ t, area, region, node, colors, cheat, onOpen }) {
   const done = node.status === 'done'
   return (
     <div data-region-boss={region.id} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: 12, borderRadius: RADIUS.md, background: `color-mix(in srgb, ${colors.deep} 12%, ${C.surface})`, ...depthBorder(locked ? C.border : colors.deep, { width: 2, bottomColor: locked ? C.border : shade(colors.deep, 30) }) }}>
-      <BossArt area={area} size={56} locked={locked} />
+      <BossArt area={{ ...area, motif: node.motif || area.motif }} size={56} locked={locked} />
       <div style={{ flex: '1 1 180px', minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.05em', textTransform: 'uppercase', color: colors.deep }}>⚔️ {t('lg_regionBoss')}</div>
         <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: C.ink }}>{regionBossName(t, area, node)} {done ? '👑' : ''}</div>

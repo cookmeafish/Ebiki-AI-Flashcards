@@ -1981,7 +1981,10 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     region ends in its boss (`stage: 'region'`, "Region N Guardian", never clears the island); every region boss
     beaten opens the island's RAID (`stage: 'raid'`, raid art + 3 phases via `raidLook`, `CAREER_RAID_MOTIFS`); every
     island cleared opens the FINAL RAID (an area `final: true`, no items: `careerFight` lends it every island's).
-    No objective checkpoints in layout 2. An older course with no progress is rebuilt on open (`careerHasProgress`);
+    No objective checkpoints in layout 2. **Every region boss is its OWN boss** (the owner, 2026-11-15: "make sure
+    that each boss isn't the same boss in the same domain"): `CAREER_REGION_BOSSES` gives each a Legends drawing and a
+    name, none repeated in the course nor an island's own (career.test.js "EVERY BOSS IS ITS OWN"); older saves are
+    filled in on load (`fillRegionBosses`). A new course needs its own list. An older course with no progress is rebuilt on open (`careerHasProgress`);
     one with progress keeps layout 1 (objectives + checkpoints), which the UI still draws.
   - **Course cards can't be deleted** (`src/cards/protect.js`: tag `ebiki-course` or a course's own tag): the ONE
     delete in `srs.deleteNotes` refuses the whole call (code `courseCard`); the Deck tab shows 🔒.

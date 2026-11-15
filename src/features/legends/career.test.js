@@ -6,7 +6,7 @@ import path from 'path'
 import { shapePackage, buildCareerMap, careerQuizItems, careerMatches, careerSampleMax, CAREERS, CAREER, CAREER_MAP_VERSION, isCareerMap, nextCareerStep, courseCtx, courseModes,
   cutRegions, careerRegions, currentRegion, regionBossesLeft, careerFight, raidLook, careerHasProgress, CAREER_LAYOUT, CAREER_RAID_MOTIFS, CAREER_FINAL_MOTIF, FINAL_AREA_ID } from './career'
 import { cheatCompleteNode, cheatCompleteArea, cheatResetNode } from './cheats'
-import { normalizeMap, shapeMap, applyNodeResult, needsMoreAreas, needsDetail, passRatio, PASS, MAP_VERSION } from './map'
+import { normalizeMap, shapeMap, applyNodeResult, needsMoreAreas, needsDetail, passRatio, PASS, MAP_VERSION, MOTIFS } from './map'
 
 const item = (id, section) => ({ id, kind: 'term', front: `Front ${id}`, back: `Back ${id}`, section })
 const PKG = {
@@ -258,7 +258,10 @@ describe('the career ladder', () => {
   it('a region boss is named after its region; a raid wears its raid art', () => {
     const m = map0()
     const a = m.areas[0]
-    expect(careerFight(a, nodeOf(m, 'd1', 'r1-boss'), m.areas, { regionName: 'Region 1 Guardian' }).area.bossName).toBe('Region 1 Guardian')
+    const own = careerFight(a, nodeOf(m, 'd1', 'r1-boss'), m.areas, { regionName: 'Region 1 Guardian' }).area
+    expect(own).toMatchObject({ bossName: 'The Control Sensei', motif: 'dojo' }) // its own boss, never the island's
+    const noName = { ...nodeOf(m, 'd1', 'r1-boss'), bossName: undefined }
+    expect(careerFight(a, noName, m.areas, { regionName: 'Region 1 Guardian' }).area.bossName).toBe('Region 1 Guardian')
     expect(raidLook(nodeOf(m, 'd1', 'r1-boss'))).toBe(false)
     const raid = careerFight(a, nodeOf(m, 'd1', 'boss'), m.areas)
     expect(raid.area.motif).toBe(CAREER_RAID_MOTIFS[0])
@@ -405,6 +408,30 @@ describe('the shipped Security+ course', () => {
       expect(a.nodes.filter((n) => n.kind === 'checkpoint')).toHaveLength(0)
     }
     expect(m.areas.at(-1)).toMatchObject({ final: true, status: 'locked' })
+  })
+  it('EVERY BOSS IS ITS OWN: no region boss shares a drawing or a name with another boss in the course, nor an island\'s own drawing; every drawing exists', () => {
+    const m = normalizeMap(buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }))
+    const islands = m.areas.filter((a) => !a.final)
+    const regionBosses = islands.flatMap((a) => a.nodes.filter((n) => n.stage === 'region'))
+    expect(regionBosses.length).toBeGreaterThanOrEqual(20)
+    const motifs = regionBosses.map((n) => n.motif)
+    expect(new Set(motifs).size).toBe(motifs.length)
+    for (const mo of motifs) expect(MOTIFS).toContain(mo)
+    for (const a of islands) for (const n of a.nodes.filter((x) => x.stage === 'region')) expect(n.motif).not.toBe(a.motif)
+    expect(motifs.some((mo) => islands.some((a) => a.motif === mo))).toBe(false)
+    const names = regionBosses.map((n) => n.bossName)
+    expect(names.every(Boolean)).toBe(true)
+    expect(new Set([...names, ...islands.map((a) => a.bossName)]).size).toBe(names.length + islands.length)
+    // the fight wears it
+    const a = islands[0]; const n = a.nodes.find((x) => x.stage === 'region')
+    expect(careerFight(a, n, m.areas).area).toMatchObject({ motif: n.motif, bossName: n.bossName })
+  })
+  it('an older save without region boss drawings gets them filled in on load', () => {
+    const raw = buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } })
+    for (const a of raw.areas) for (const n of a.nodes) if (n.stage === 'region') { delete n.motif; delete n.bossName }
+    const m = normalizeMap(raw)
+    const firsts = m.areas.filter((a) => !a.final).map((a) => a.nodes.find((n) => n.stage === 'region').motif)
+    expect(firsts).toEqual(['dojo', 'pirate', 'city', 'arena', 'celestial'])
   })
   it('BRIEFINGS: every domain and objective has its overview as a briefing, never in a lesson, a checkpoint, a boss or a quiz sample', () => {
     const m = normalizeMap(buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }))

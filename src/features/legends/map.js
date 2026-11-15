@@ -13,7 +13,7 @@
 // Map extras:  helpers ({ scroll, shield }), days ({ 'YYYY-MM-DD': steps finished }) for the journey heatmap
 import { gradeIsRight, gradeIsSolid } from '../../config/grading'
 import { canonKeys, pickObject } from '../../utils/aiJson'
-import { normalizeCareerNodes, careerAreaStatus, clearsIsland, CAREER_MAP_VERSION } from './career'
+import { normalizeCareerNodes, careerAreaStatus, clearsIsland, fillRegionBosses, CAREER_MAP_VERSION } from './career'
 export const MAP_VERSION = 1
 // The newest stored format this build reads: a career map (./career.js) is 2, so a build before career mode reads it as
 // "newer" and leaves it alone (a failed read, never a rewrite). Maps keep the version they were written with.
@@ -253,7 +253,7 @@ export function normalizeMap(map) {
   if (!map || !Array.isArray(map.areas)) return map
   // A career map (./career.js): every island stays open and each objective climbs on its own.
   if (map.career?.id) {
-    return { ...map, areas: map.areas.map((a) => { const status = careerAreaStatus(a, map.areas); return { ...a, status, nodes: normalizeCareerNodes(a.nodes || [], status) } }) }
+    return { ...map, areas: map.areas.map((a0, ai) => { const a = fillRegionBosses(a0, ai); const status = careerAreaStatus(a, map.areas); return { ...a, status, nodes: normalizeCareerNodes(a.nodes || [], status) } }) }
   }
   let openFound = false
   const areas = map.areas.map((a) => {

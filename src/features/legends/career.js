@@ -35,6 +35,34 @@ export const careerHasProgress = (map) => Object.keys(map?.days || {}).length > 
 // Raid art per island, in package order, and the final raid's (raid boss drawings with three phases).
 export const CAREER_RAID_MOTIFS = ['titan', 'hydra', 'chronos', 'vampire', 'seraph']
 export const CAREER_FINAL_MOTIF = 'ophanim'
+// EVERY REGION BOSS IS ITS OWN BOSS (the owner: "make sure that each boss isn't the same boss in the same domain"): a
+// Legends boss drawing and a name of its own, per island in package order, region by region. No drawing repeats in the
+// course or matches an island's own. An island with more regions than its list takes the next unused drawing.
+export const CAREER_REGION_BOSSES = [
+  [['dojo', 'The Control Sensei'], ['mirror', 'The Trust Mirror'], ['manor', 'The Change Butler'], ['crystal', 'The Cipher Crystal']],
+  [['pirate', 'Captain Breach'], ['graveyard', 'The Unpatched Wraith'], ['hive', 'The Botnet Queen'], ['sewer', 'The Injection Rat'], ['underworld', 'The Ransom Lord']],
+  [['city', 'The Segment Mayor'], ['space', 'The Cloud Drifter'], ['mountains', 'The Redundancy Giant'], ['ice', 'The Cold Storage Yeti']],
+  [['arena', 'The Hardening Champion'], ['frontier', 'The Asset Sheriff'], ['mine', 'The Vuln Miner'], ['junkyard', 'The Scrap Logger'], ['volcano', 'The Alert Inferno'], ['fungal', 'The Identity Spore'], ['jungle', 'The Automation Ape'], ['savanna', 'The Incident Lion']],
+  [['celestial', 'The Governance Oracle'], ['garden', 'The Risk Gardener'], ['stage', 'The Vendor Ringmaster'], ['sakura', 'The Compliance Blossom'], ['moonlit', 'The Audit Owl'], ['dream', 'The Awareness Dreamer']],
+].map((list) => list.map(([motif, name]) => ({ motif, name })))
+const SPARE_REGION_MOTIFS = ['arcade', 'carnival', 'desert', 'forest', 'ocean', 'primeval', 'sky', 'sweets']
+// The boss of region `n` (1-based) on island `islandIndex`: { motif, name } (name '' = the generic "Region N Guardian").
+export function regionBossFor(islandIndex, n) {
+  const own = CAREER_REGION_BOSSES[islandIndex]?.[n - 1]
+  if (own) return own
+  const used = CAREER_REGION_BOSSES.reduce((k, l) => k + l.length, 0)
+  return { motif: SPARE_REGION_MOTIFS[(islandIndex * 7 + n + used) % SPARE_REGION_MOTIFS.length], name: '' }
+}
+// Older saves built before every region boss had its own: fill the drawing and name in (pure; normalizeMap calls it).
+export function fillRegionBosses(area, islandIndex) {
+  if (!(area?.regions || []).length || !(area.nodes || []).some((n) => n.stage === 'region' && !n.motif)) return area
+  return { ...area, nodes: area.nodes.map((n) => {
+    if (n.stage !== 'region' || n.motif) return n
+    const r = area.regions.find((x) => x.id === n.region)
+    const b = regionBossFor(islandIndex, r?.n || 1)
+    return { ...n, motif: b.motif, ...(b.name ? { bossName: b.name } : {}) }
+  }) }
+}
 export const CAREER_LAYOUT = 2 // 1 = objective checkpoints + one boss; 2 = regions, region bosses, island raids, final raid
 export const FINAL_AREA_ID = 'final'
 // Quiz kinds over a whole objective, region or island: written from a SAMPLE of its items (CAREER.*Items), never all.
@@ -150,7 +178,8 @@ export function buildCareerMap(pkg, { modeId, subject, start = null }, now = Dat
         nodes.push(node(a.id, `${l.section}-l${at + 1}`, { kind: 'learn', section: l.section, region: id, title: l.title, itemIds: l.itemIds }))
       }
       const itemIds = [...new Set(list.flatMap((l) => l.itemIds))].filter((x) => a.items.find((it) => it.id === x)?.kind !== 'brief')
-      nodes.push(node(a.id, `${id}-boss`, { kind: 'boss', stage: 'region', region: id, itemIds, count: CAREER.regionQuestions }))
+      const own = regionBossFor(ai, ri + 1)
+      nodes.push(node(a.id, `${id}-boss`, { kind: 'boss', stage: 'region', region: id, itemIds, count: CAREER.regionQuestions, motif: own.motif, ...(own.name ? { bossName: own.name } : {}) }))
       return { id, n: ri + 1, sections: secIds }
     })
     nodes.push(node(a.id, 'weak', { kind: 'weak', itemIds: [], optional: true }))
@@ -228,7 +257,7 @@ export function currentRegion(area) {
 // → { area, node } (the node of the final raid lists every island's items).
 export function careerFight(area, node, areas, { regionName = '', finalName = '' } = {}) {
   if (node?.kind !== 'boss' || !node.stage) return { area, node }
-  if (node.stage === 'region') return { area: { ...area, bossName: regionName || area.bossName }, node }
+  if (node.stage === 'region') return { area: { ...area, motif: node.motif || area.motif, bossName: node.bossName || regionName || area.bossName }, node }
   if (node.stage === 'raid') return { area: { ...area, motif: node.motif || area.motif }, node }
   const islands = (areas || []).filter((a) => !isFinalArea(a))
   const items = islands.flatMap((a) => a.items || [])
