@@ -230,6 +230,17 @@ describe('the career ladder', () => {
     const lastFirst = applyNodeResult(m, 'd2', 'd2-boss', { total: 25, correct: 25, outcome: 'won' })
     expect(lastFirst.nextAreaId).toBe(null) // island 1 still open: the final raid stays locked, nothing to name
   })
+  it('a lost fight\'s rematch belongs to THAT boss: losing a region boss never reshapes another boss, and a win clears only its own', () => {
+    let m = win(win(map0(), 'd1', '1.1-l1'), 'd1', '1.1-l2')
+    m = win(m, 'd1', '1.2-l1')
+    const lost = applyNodeResult(m, 'd1', 'd1-r1-boss', { total: 15, correct: 3, outcome: 'lost', items: [{ itemId: 'a', correct: false }] }).map
+    expect(lost.areas[0].nemesis).toMatchObject({ itemIds: ['a'], nodeId: 'd1-r1-boss' })
+    // another fight on the island (here the raid, opened by a won region boss) leaves it alone when won
+    const won = applyNodeResult(lost, 'd1', 'd1-r1-boss', { total: 15, correct: 15, outcome: 'won' }).map
+    expect(won.areas[0].nemesis).toBe(null)
+    const other = applyNodeResult({ ...lost, areas: lost.areas.map((a, i) => (i ? a : { ...a, nemesis: { itemIds: ['b'], at: 1, nodeId: 'd1-boss' } })) }, 'd1', 'd1-r1-boss', { total: 15, correct: 15, outcome: 'won' }).map
+    expect(other.areas[0].nemesis).toMatchObject({ nodeId: 'd1-boss' })
+  })
   it('cheats: completing or resetting a region boss never finishes or reopens the island', () => {
     const m = map0()
     expect(cheatCompleteNode(m, 'd1', 'd1-r1-boss').areas[0].status).toBe('open')

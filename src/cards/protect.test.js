@@ -9,6 +9,11 @@ describe('course cards are protected', () => {
     expect(isCourseNote({ tags: ['ebiki', 'secplus', 'SY0-701'] })).toBe(true)
     expect(isCourseNote({ tags: ['ebiki', 'greeting'] })).toBe(false)
   })
+  it('a deck the user made or downloaded with a bare "sy0-701" tag stays deletable (only Ebiki\'s own course cards are kept)', () => {
+    expect(isCourseNote({ tags: ['sy0-701'] })).toBe(false)
+    expect(isCourseNote({ tags: ['SY0-701', 'domain-1', 'my-notes'] })).toBe(false)
+    expect(isCourseNote({ tags: ['ebiki', 'sy0-701', 'domain-1', 'obj-1-1'] })).toBe(true) // the first course build's own cards
+  })
   it('splitProtected keeps course notes and lets the rest go', () => {
     const r = splitProtected([1, 2, 3], [{ noteId: 1, tags: [COURSE_TAG] }, { noteId: 2, tags: [] }])
     expect(r).toEqual({ allowed: [2, 3], kept: [1] })

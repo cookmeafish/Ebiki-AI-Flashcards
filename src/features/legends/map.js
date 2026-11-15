@@ -511,7 +511,10 @@ export function applyNodeResult(map, areaId, nodeId, result, now = Date.now()) {
   const bonusLife = area.bonusLife || (node.kind === 'weak' && passed)
   // The nemesis: a lost fight's missed items (asked again in the rematch), cleared by a win.
   const missed = [...new Set((result?.items || []).filter((r) => r?.itemId && !r.correct).map((r) => r.itemId))]
-  const nemesis = !fight ? area.nemesis : result?.outcome === 'lost' && missed.length ? { itemIds: missed, at: now } : passed ? null : area.nemesis
+  // It belongs to the FIGHT that set it (`nodeId`): a course island holds several bosses, and losing to one must not
+  // reshape another's rematch; a win clears only its own. (An older nemesis without `nodeId` counts for any boss.)
+  const mine = !area.nemesis?.nodeId || area.nemesis.nodeId === node.id
+  const nemesis = !fight ? area.nemesis : result?.outcome === 'lost' && missed.length ? { itemIds: missed, at: now, nodeId: node.id } : passed && mine ? null : area.nemesis
   const areas = map.areas.map((x, k) => (k === i ? { ...x, nodes, items, frozen: true, bonusLife, status: areaDone ? 'done' : x.status, ...(nemesis ? { nemesis } : { nemesis: null }) } : x))
   let next = normalizeMap({ ...map, areas, updatedAt: now })
   let helper = ''

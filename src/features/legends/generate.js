@@ -229,7 +229,9 @@ export function applyOptionCheck(qs, fixes) {
 }
 async function makeQuizNow(ctx, modeId, area, node, { misses = [], refill = null } = {}) {
   // A boss that beat the learner comes back with those items (area.nemesis, set by a lost fight).
-  const nemesis = node.kind === 'boss' ? (area.nemesis?.itemIds || []).map((id) => area.items.find((it) => it.id === id)?.front).filter(Boolean) : []
+  // Only the fight that set it (a course island has region bosses and a raid: each keeps its own rematch).
+  const ownNemesis = node.kind === 'boss' && (!area.nemesis?.nodeId || area.nemesis.nodeId === node.id)
+  const nemesis = ownNemesis ? (area.nemesis?.itemIds || []).map((id) => area.items.find((it) => it.id === id)?.front).filter(Boolean) : []
   const { subject, ai, t } = ctx
   const weak = node.kind === 'weak'
   // A career checkpoint or boss covers a whole objective or island (up to ~260 items): the quiz is written from a

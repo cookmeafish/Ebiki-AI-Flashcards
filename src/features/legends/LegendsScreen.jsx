@@ -493,7 +493,10 @@ export default function LegendsScreen() {
                   <div style={{ fontSize: 30 }}>🗺️</div>
                   <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickAdventure')}</div>
                   <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_pickAdventureDesc', { subject: subject.name })}</div>
-                  <ChunkyButton color={C.info} variant={fit.length ? 'ghost' : undefined} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>▶ {t('lg_pickAdventureGo')}</ChunkyButton>
+                  {/* An adventure put aside for the course comes back as it was (a new one would be written over nothing). */}
+                  {parked.adventure
+                    ? <ChunkyButton color={C.info} variant={fit.length ? 'ghost' : undefined} onClick={async () => { if (!(await switchMapKind(modeId, 'adventure'))) setError(t('lg_errSave')) }}>▶ {t('lg_resumeAdventure')}</ChunkyButton>
+                    : <ChunkyButton color={C.info} variant={fit.length ? 'ghost' : undefined} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>▶ {t('lg_pickAdventureGo')}</ChunkyButton>}
                 </div>
                 {!fit.length && goTo.length > 0 && (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 12.5, color: C.inkDim }}>
@@ -727,7 +730,9 @@ export default function LegendsScreen() {
     }
     const kindSwitch = isCareerMap(map)
       ? { label: `🗺️ ${t('lg_toAdventure')}`, to: 'adventure' }
-      : parked.course && careers.some((c) => c.id === parked.course.career?.id && careerMatches(c, subject)) ? { label: `🏝️ ${t('lg_backToCourse')}`, to: 'course' } : null
+      : parked.course && careers.some((c) => c.id === parked.course.career?.id && careerMatches(c, subject)) ? { label: `🏝️ ${t('lg_backToCourse')}`, to: 'course' }
+      // An adventure in a mode a course fits: the course is one click away (the adventure waits parked, never deleted).
+      : careers.some((c) => careerMatches(c, subject)) ? { label: `🏝️ ${t('lg_tryCourse')}`, to: 'course' } : null
     return (
       <MapView ctx={ctx} map={map} learner={learner} busy={busy} error={error} cheat={cheat} onRaid={() => setView('raid')}
         kindSwitch={kindSwitch && { label: kindSwitch.label, run: async () => { if (!(await switchMapKind(modeId, kindSwitch.to))) setError(t('lg_errSave')) } }}
