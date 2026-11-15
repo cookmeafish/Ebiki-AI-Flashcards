@@ -97,8 +97,8 @@ medical device practice question already names the vendor as the blocker. No cha
 | 57 | 3.2 | Extensible Authentication Protocol (EAP) | CORRECT | EAP methods and PAC for EAP-FAST: RFC 4851 (EAP-FAST), RFC 5216 (EAP-TLS). |
 | 58 | 3.2 | Firewall types (SY0-701) | CORRECT |  |
 | 59 | 3.2 | Web application firewall (WAF) | CORRECT | PCI DSS v4.0 req 6.4.2 calls for an automated solution such as a WAF on public-facing web apps: wording "required or recommended" holds. |
-| 60 | 3.2 | Unified threat management (UTM) | CORRECT | "Many UTMs filter only at Layer 4" checked: Professor Messer SY0-701 3.2 Firewall Types says many of these devices only operate at layer 4 (https://www.professormesser.com/?p=630941). Exam sense kept. |
-| 61 | 3.2 | Next-generation firewall (NGFW) | CORRECT | Alternate names for NGFW match the Messer SY0-701 3.2 notes, attributed to study guides. |
+| 60 | 3.2 | Unified threat management (UTM) | CORRECT | "Many UTMs filter only at Layer 4" checked: a video course SY0-701 3.2 Firewall Types says many of these devices only operate at layer 4. Exam sense kept. |
+| 61 | 3.2 | Next-generation firewall (NGFW) | CORRECT | Alternate names for NGFW match the the video course SY0-701 3.2 notes, attributed to study guides. |
 | 62 | 3.2 | Layer 4 vs. Layer 7 firewall | CORRECT |  |
 | 63 | 3.2 | Secure communication/access (SY0-701 3.2) | CORRECT |  |
 | 64 | 3.2 | Virtual private network (VPN) | CORRECT |  |
@@ -122,7 +122,7 @@ medical device practice question already names the vendor as the blocker. No cha
 | 82 | 3.3 | Confidential (data classification) | CORRECT |  |
 | 83 | 3.3 | Public (data classification) | CORRECT |  |
 | 84 | 3.3 | Restricted (data classification) | CORRECT |  |
-| 85 | 3.3 | Private (data classification) | CORRECT | Messer groups private, classified and restricted: matches his SY0-701 3.3 notes. |
+| 85 | 3.3 | Private (data classification) | CORRECT | the video course groups private, classified and restricted: matches his SY0-701 3.3 notes. |
 | 86 | 3.3 | Critical (data classification) | CORRECT |  |
 | 87 | 3.3 | General data considerations (SY0-701 3.3) | CORRECT |  |
 | 88 | 3.3 | Data states (at rest, in transit, in use) | CORRECT |  |
@@ -159,7 +159,7 @@ medical device practice question already names the vendor as the blocker. No cha
 | 119 | 3.4 | Tabletop exercises | CORRECT |  |
 | 120 | 3.4 | Fail over (recovery testing) | CORRECT |  |
 | 121 | 3.4 | Simulation (recovery testing) | CORRECT |  |
-| 122 | 3.4 | Parallel processing (recovery testing) | CORRECT | Parallel processing in Messer sense plus the parallel test sense, both named, per the career guide pitfall. |
+| 122 | 3.4 | Parallel processing (recovery testing) | CORRECT | Parallel processing in the video course sense plus the parallel test sense, both named, per the career guide pitfall. |
 | 123 | 3.4 | Backups (resilience and recovery) | CORRECT |  |
 | 124 | 3.4 | Onsite vs. offsite backups | CORRECT |  |
 | 125 | 3.4 | Frequency (backups) | CORRECT |  |
@@ -174,4 +174,4 @@ medical device practice question already names the vendor as the blocker. No cha
 
 ## Still weak (not wrong)
 - #60 UTM: "many UTMs filter only at Layer 4" is the exam course's sense; current vendor UTMs (Sophos, Fortinet) also do application control. Kept, as the guide says to keep the exam sense first.
-- Sources were checked from known standards and a few live pages this session (CSA 2024 report, FDA fact sheet, Messer 3.2 notes); the remaining standards (RFCs, NIST) were checked against their known contents, not each re-fetched.
+- Sources were checked from known standards and a few live pages this session (CSA 2024 report, FDA fact sheet, the video course 3.2 notes); the remaining standards (RFCs, NIST) were checked against their known contents, not each re-fetched.

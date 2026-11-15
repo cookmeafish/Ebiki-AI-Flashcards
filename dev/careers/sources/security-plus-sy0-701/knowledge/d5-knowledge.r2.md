@@ -13,7 +13,6 @@ The six objectives:
 
 ## 5.1 Summarize elements of effective security governance
 
-Watch: Professor Messer, Security Policies (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-policies-sy0-701/); Security Standards (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-standards-sy0-701/); Security Procedures (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-procedures-sy0-701/); Security Considerations (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-considerations-sy0-701/); Data Roles and Responsibilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/data-roles-and-responsibilities-sy0-701/)
 
 What the exam expects: you can place a document in the governance hierarchy, name what each policy type covers, pick the external factor that applies, describe governance structures, and match a data role to a description.
 
@@ -107,7 +106,6 @@ Exam tip: the owner is accountable but not hands-on; the custodian does the dail
 
 ## 5.2 Explain elements of the risk management process
 
-Watch: Professor Messer, Risk Management (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/risk-management-sy0-701/); Risk Analysis (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/risk-analysis-sy0-701/); Risk Management Strategies (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/risk-management-strategies-sy0-701/); Business Impact Analysis (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/business-impact-analysis-sy0-701/)
 
 What the exam expects: the process order, assessment frequencies, qualitative vs quantitative analysis, the SLE/ALE formulas with numbers, register contents, appetite vs tolerance, the four strategies including exemption vs exception, and BIA metrics.
 
@@ -213,7 +211,6 @@ Memory aid: RTO is about *time* to be back up; RPO is about the *point* in the p
 
 ## 5.3 Explain the processes associated with third-party risk assessment and management
 
-Watch: Professor Messer, Third-party Risk Assessment (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/third-party-risk-assessment-sy0-701/); Agreement Types (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/agreement-types-sy0-701/)
 
 What the exam expects: how to verify a vendor's security, what to check before choosing one, which agreement fits a scenario, and how vendors are watched after signing.
 
@@ -268,7 +265,6 @@ The boundaries of an engagement such as a pen test: in-scope and out-of-scope sy
 
 ## 5.4 Summarize elements of effective security compliance
 
-Watch: Professor Messer, Compliance (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/compliance-sy0-701/); Privacy (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/privacy-sy0-701/)
 
 What the exam expects: who compliance reports go to, what happens when you fail, how compliance is monitored, and the privacy concepts and roles.
 
@@ -318,7 +314,6 @@ Reputational damage cannot be transferred by insurance and often costs more than
 
 ## 5.5 Explain types and purposes of audits and assessments
 
-Watch: Professor Messer, Audits and Assessments (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/audits-and-assessments-sy0-701/); Penetration Tests (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/penetration-tests-sy0-701/)
 
 What the exam expects: tell internal from external reviews, know what an attestation is, and identify pen test types, environments and reconnaissance from a scenario.
 
@@ -386,7 +381,6 @@ Exam trap: a port scan is always active reconnaissance.
 
 ## 5.6 Given a scenario, implement security awareness practices
 
-Watch: Professor Messer, Security Awareness (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-awareness-sy0-701/); User Training (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/user-training-sy0-701/)
 
 What the exam expects: given a situation, choose the right awareness activity, identify the type of anomalous behavior, pick the right training topic, and know how a program is measured, developed and run.
 

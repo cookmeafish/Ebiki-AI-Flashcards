@@ -4,7 +4,6 @@ Domain 1.0 is 12% of the SY0-701 exam, the smallest domain, but its vocabulary a
 
 ## 1.1 Compare and contrast various types of security controls
 
-Watch: Professor Messer, Security Controls (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-controls-sy0-701/)
 
 **What the exam expects:** classify a control on two independent axes. Category = how it is implemented. Type = what it is meant to achieve. The same control has one category but may have several types.
 
@@ -52,7 +51,6 @@ Trap: managerial writes the rule, operational is people performing it, technical
 
 ## 1.2 Summarize fundamental security concepts
 
-Watch: Professor Messer, The CIA Triad (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/the-cia-triad-sy0-701/); Non-repudiation (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/non-repudiation-sy0-701/); Authentication, Authorization, and Accounting (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/authentication-authorization-and-accounting-sy0-701/); Gap Analysis (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/gap-analysis-sy0-701/); Zero Trust (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/zero-trust-sy0-701/); Physical Security (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/physical-security-sy0-701/); Deception and Disruption (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/deception-and-disruption-sy0-701/)
 
 **What the exam expects:** define each concept, match tools to the CIA goal they serve, name the Zero Trust components and their roles, pick the right physical control or sensor, and distinguish the four deception technologies.
 
@@ -149,7 +147,6 @@ Any interaction with a decoy is suspicious because legitimate users have no reas
 
 ## 1.3 Explain the importance of change management processes and the impact to security
 
-Watch: Professor Messer, Change Management (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/change-management-sy0-701/); Technical Change Management (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/technical-change-management-sy0-701/)
 
 **What the exam expects:** know why changes must be controlled (unplanned changes cause outages and open security holes), each step of the business process, the technical side effects to plan for, and the need to keep documentation and versions current.
 
@@ -196,7 +193,6 @@ Track changes to code, configurations and documents with who, what and when, so 
 
 ## 1.4 Explain the importance of using appropriate cryptographic solutions
 
-Watch: Professor Messer, Public Key Infrastructure (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/public-key-infrastructure-sy0-701/); Encrypting Data (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/encrypting-data-sy0-701/); Key Exchange (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/key-exchange-sy0-701/); Encryption Technologies (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/encryption-technologies-sy0-701/); Obfuscation (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/obfuscation-sy0-701/); Hashing and Digital Signatures (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/hashing-and-digital-signatures-sy0-701/); Blockchain Technology (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/blockchain-technology-sy0-701/); Certificates (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/certificates-sy0-701/)
 
 **What the exam expects:** choose the right cryptographic tool for a scenario: which key does what, which encryption level fits, symmetric vs asymmetric, which hardware stores keys, obfuscation vs encryption, hashing vs encryption, salting vs key stretching, and how certificates are issued and checked.
 

@@ -3,7 +3,7 @@
 Files: `cards/d5-cards.r2.json` (168 cards) to `cards/d5-cards.r3.json`; `knowledge/d5-knowledge.r2.md` to `knowledge/d5-knowledge.r3.md`.
 Same count, order, `obj` and `path` for every card (checked by script). 61 cards changed. Validation: JSON parses, no em or en dashes, no HTML, 0 runs of 12+ words from the outline (`dev/careers/verbatim.mjs`). Every added fact is written in my own words; nothing was removed except wording a source showed was wrong.
 
-Owner rule applied: only fix what a source shows is wrong; add true helpful detail (including Professor Messer's free SY0-701 notes); never delete helpful detail.
+Owner rule applied: only fix what a source shows is wrong; add true helpful detail (including a video course's free SY0-701 notes); never delete helpful detail.
 
 ## Sources read this session
 - [GDPR-M] GDPR Article 3, territorial scope: https://gdpr-info.eu/art-3-gdpr/
@@ -30,7 +30,7 @@ Owner rule applied: only fix what a source shows is wrong; add true helpful deta
 - [REL] MTTF vs MTBF and availability: https://help.reliasoft.com/articles/content/hotwire/issue94/relbasics94.htm and https://www.fabrico.io/blog/mtbf-vs-mttf/
 - [SOC] SOC 2 Type 1 vs Type 2 periods (vendor pages, 3 to 12 months): https://drata.com/learn/soc-2/type-1-vs-type-2
 - [ACR] local `acronyms.txt` (SY0-701 acronym list)
-- Professor Messer SY0-701 notes (free): [PM-POL] security-policies, [PM-STD] security-standards, [PM-PROC] security-procedures, [PM-CONS] security-considerations, [PM-ROLES] data-roles-and-responsibilities, [PM-RM] risk-management, [PM-RA] risk-analysis, [PM-RMS] risk-management-strategies, [PM-BIA] business-impact-analysis, [PM-3P] third-party-risk-assessment, [PM-AGR] agreement-types, [PM-COMP] compliance, [PM-PRIV] privacy, [PM-AUD] audits-and-assessments, [PM-PEN] penetration-tests, [PM-AW] security-awareness, [PM-UT] user-training; all at https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/<name>-sy0-701/
+- a video course SY0-701 notes (free): [PM-POL] security-policies, [PM-STD] security-standards, [PM-PROC] security-procedures, [PM-CONS] security-considerations, [PM-ROLES] data-roles-and-responsibilities, [PM-RM] risk-management, [PM-RA] risk-analysis, [PM-RMS] risk-management-strategies, [PM-BIA] business-impact-analysis, [PM-3P] third-party-risk-assessment, [PM-AGR] agreement-types, [PM-COMP] compliance, [PM-PRIV] privacy, [PM-AUD] audits-and-assessments, [PM-PEN] penetration-tests, [PM-AW] security-awareness, [PM-UT] user-training; all at 
 
 ## Sweep 1: Facts
 Checked every definition against the sources above. Checked: 168. Changed: 6.
@@ -39,7 +39,7 @@ Checked every definition against the sources above. Checked: 168. Changed: 6.
 - **National (external consideration)**, example. Before: "Every US healthcare provider follows HIPAA regardless of the state". After: HIPAA applies to covered providers, health plans and clearinghouses in every state. Why: only covered entities are bound. Source: [HHS].
 - **National (privacy law)**, example. Before: HIPAA "across the entire United States"; PIPEDA "private sector personal data nationally". After: HIPAA covers health information held by covered entities and business associates; PIPEDA covers personal data private organizations handle in commercial activity; keyPoint added on the Alberta, BC and Quebec carve-out. Sources: [HHS], [OPC].
 - **Industry (external consideration)**, example. Before: "stores or processes". After: "stores, processes or transmits". Source: [PCI].
-- **Risk tolerance**, keyPoint. Before: "Tolerance is usually narrower and more concrete than appetite". After: more specific and concrete, and the outer edge of acceptable deviation, so often a wider band than the appetite target. Why: NIST defines tolerance as acceptable variance; Messer notes it is often a larger variance than appetite, so "narrower" misled. Sources: [NIST-RT], [NIST-RA], [PM-RA].
+- **Risk tolerance**, keyPoint. Before: "Tolerance is usually narrower and more concrete than appetite". After: more specific and concrete, and the outer edge of acceptable deviation, so often a wider band than the appetite target. Why: NIST defines tolerance as acceptable variance; the video course notes it is often a larger variance than appetite, so "narrower" misled. Sources: [NIST-RT], [NIST-RA], [PM-RA].
 Confirmed unchanged (examples): GDPR fines 20 million euros or 4% [GDPR-83]; Article 17 right to erasure [GDPR-17]; controller and processor definitions [GDPR-4]; DR as IT recovery at an alternate facility, a subset of continuity [NIST-DRP], [NIST-BCP]; SP 800-30 is the risk assessment guide [800-30]; SLE, ARO, ALE, EF and likelihood vs probability [PM-RA]; RTO, RPO, MTTR, MTBF [PM-BIA]; agreement types [PM-AGR]; pen test teams, environments and recon [PM-PEN].
 
 ## Sweep 2: Numbers and names
@@ -141,9 +141,9 @@ Tried to prove each card wrong; each claim is either confirmed by a source above
 4. **Mean time to failure (MTTF).** In the acronym list, only mentioned inside the MTBF card. Source: [ACR], [REL].
 
 ## Unsure
-- **Disaster recovery vs business continuity scope.** Professor Messer's notes call the DR plan a broader version of the continuity plan; NIST SP 800-34 defines the DRP as recovering information systems at an alternate facility and the BCP as keeping core operations going. Cards keep the NIST view (DR is the IT subset). [PM-POL], [NIST-DRP], [NIST-BCP]
+- **Disaster recovery vs business continuity scope.** a video course's notes call the DR plan a broader version of the continuity plan; NIST SP 800-34 defines the DRP as recovering information systems at an alternate facility and the BCP as keeping core operations going. Cards keep the NIST view (DR is the IT subset). [PM-POL], [NIST-DRP], [NIST-BCP]
 - **Initial vs recurring reporting (5.6).** Two readings exist (program baseline vs a user's first and repeat risky acts); both are now on the cards. The official guide's reading was not available to check.
-- **GDPR wording elsewhere.** Messer's privacy notes say GDPR covers people living in the EU; the law says people in the Union when targeted or monitored. Other domain files may use "EU residents"; worth a check by their reviewers.
+- **GDPR wording elsewhere.** the video course's privacy notes say GDPR covers people living in the EU; the law says people in the Union when targeted or monitored. Other domain files may use "EU residents"; worth a check by their reviewers.
 - **Unverified but left unchanged (common knowledge, no primary source read this session):** CCPA card's "no equivalent federal law" (no comprehensive US federal consumer privacy law); "reputational damage cannot be transferred by insurance"; SOC 2 Type II "12 months" in the attestation example (a valid period, not the only one).
-- **PCI DSS annual risk assessment.** Messer says PCI DSS requires an annual risk assessment; that was v3.2.1 Requirement 12.2, and v4.0 changed to targeted risk analyses. Not added for that reason.
-- **HIPAA penalty figures** in Messer's compliance notes were not added: their felony class labels look wrong and the statute was not read.
+- **PCI DSS annual risk assessment.** the video course says PCI DSS requires an annual risk assessment; that was v3.2.1 Requirement 12.2, and v4.0 changed to targeted risk analyses. Not added for that reason.
+- **HIPAA penalty figures** in the video course's compliance notes were not added: their felony class labels look wrong and the statute was not read.

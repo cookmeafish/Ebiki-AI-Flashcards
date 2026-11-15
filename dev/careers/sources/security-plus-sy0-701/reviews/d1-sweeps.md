@@ -8,15 +8,15 @@ Checks run: the r3 JSON parses, 116 cards, obj/path/term unchanged per position,
 | Key | Source |
 |---|---|
 | S1 | NIST SP 800-207 Zero Trust Architecture, https://doi.org/10.6028/NIST.SP.800-207 (sections 2 and 3.1, read in full text) |
-| S2 | Professor Messer, Security Controls (SY0-701), https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-controls-sy0-701/ |
-| S3 | Professor Messer, Physical Security, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/physical-security-sy0-701/ |
-| S4 | Professor Messer, Change Management, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/change-management-sy0-701/ |
-| S5 | Professor Messer, Technical Change Management, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/technical-change-management-sy0-701/ |
-| S6 | Professor Messer, Zero Trust, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/zero-trust-sy0-701/ |
-| S7 | Professor Messer, Gap Analysis, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/gap-analysis-sy0-701/ |
-| S8 | Professor Messer, Deception and Disruption, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/deception-and-disruption-sy0-701/ |
-| S9 | Professor Messer, Encrypting Data, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/encrypting-data-sy0-701/ |
-| S10 | Professor Messer, Encryption Technologies, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/encryption-technologies-sy0-701/ |
+| S2 | a video course, Security Controls (SY0-701),  |
+| S3 | a video course, Physical Security,  |
+| S4 | a video course, Change Management,  |
+| S5 | a video course, Technical Change Management,  |
+| S6 | a video course, Zero Trust,  |
+| S7 | a video course, Gap Analysis,  |
+| S8 | a video course, Deception and Disruption,  |
+| S9 | a video course, Encrypting Data,  |
+| S10 | a video course, Encryption Technologies,  |
 | S11 | Microsoft Learn, Trusted Platform Module Technology Overview, https://learn.microsoft.com/en-us/windows/security/hardware-security/tpm/trusted-platform-module-overview |
 | S12 | Apple Platform Security, The Secure Enclave, https://support.apple.com/guide/security/the-secure-enclave-sec59b0b31ff/web |
 | S13 | Apple, Apple Pay security and privacy overview, https://support.apple.com/101554 ; Apple Platform Security, Card provisioning, https://support.apple.com/guide/security/card-provisioning-security-overview-sec0f005981a/web |
@@ -42,9 +42,9 @@ Checks run: the r3 JSON parses, 116 cards, obj/path/term unchanged per position,
 | S33 | SDM Magazine, Back to basics on detector technology, https://www.sdmmag.com/articles/84870-back-to-basics-on-detector-technology |
 | S34 | The local SY0-701 outline (`outline.md`), for coverage only |
 | S35 | NIST glossary, confidentiality (FIPS 200 / 44 U.S.C. 3542), https://csrc.nist.gov/glossary/term/confidentiality |
-| S36 | Professor Messer, Authentication, Authorization, and Accounting, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/authentication-authorization-and-accounting-sy0-701/ |
-| S37 | Professor Messer, Certificates, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/certificates-sy0-701/ |
-| S38 | Professor Messer, Obfuscation, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/obfuscation-sy0-701/ |
+| S36 | a video course, Authentication, Authorization, and Accounting,  |
+| S37 | a video course, Certificates,  |
+| S38 | a video course, Obfuscation,  |
 
 ## Sweep 1: Facts
 Checked every definition against the sources above. Checked 116, changed 3.
@@ -62,7 +62,7 @@ Checked ports, key sizes, iteration counts, standard numbers, acronym expansions
 
 ## Sweep 3: Examples
 Checked each example is concrete, realistic and an instance of its own concept. Checked 116, changed 1.
-- **Tokenization (data obfuscation)**, example. Before: "A mobile payment sends a one-time token instead of the real card number; only the payment processor's vault maps it back." After: "A phone wallet pays with a device-specific token (Apple calls it a Device Account Number) plus a one-time security code instead of the real card number; only the card issuer or payment network can map the token back to the card." Why: Apple's own documentation says the Device Account Number is created by the issuer, stays on the device, and each purchase adds a transaction-specific dynamic code verified by the bank, issuer or network; the merchant's "payment processor" does not hold the mapping. Source S13. Messer's "single use token" teaching kept as a key point (see sweep 10).
+- **Tokenization (data obfuscation)**, example. Before: "A mobile payment sends a one-time token instead of the real card number; only the payment processor's vault maps it back." After: "A phone wallet pays with a device-specific token (Apple calls it a Device Account Number) plus a one-time security code instead of the real card number; only the card issuer or payment network can map the token back to the card." Why: Apple's own documentation says the Device Account Number is created by the issuer, stays on the device, and each purchase adds a transaction-specific dynamic code verified by the bank, issuer or network; the merchant's "payment processor" does not hold the mapping. Source S13. the video course's "single use token" teaching kept as a key point (see sweep 10).
 
 ## Sweep 4: Key points
 Checked every key point for truth and exam use; added true details that help. Checked 116, changed 6.
@@ -117,11 +117,11 @@ Confirmed and left as is (examples): EFS copies to FAT/FAT32 and over SMB are de
 The outline has no line for these, so per the plan the coordinator decides; options are a line-less card or keeping them as key points.
 
 ## Unsure
-- **Mobile payment tokens single use vs device token.** Professor Messer (S38) teaches that each mobile payment token is single use; Apple's documentation (S13) describes a per-device token plus a per-transaction code. Other wallets (cloud-based) may use limited-use keys; not verified. The card now states both.
+- **Mobile payment tokens single use vs device token.** a video course (S38) teaches that each mobile payment token is single use; Apple's documentation (S13) describes a per-device token plus a per-transaction code. Other wallets (cloud-based) may use limited-use keys; not verified. The card now states both.
 - **Tokenization "no mathematical relationship".** True for vault-based tokens (the exam sense) but PCI also allows cryptographic tokens derived with a key (S14). Kept the exam sense and named the other, as the career guide asks.
 - **Digital signature definition** keeps the exam's "hash encrypted with the private key" wording; NIST does not describe it that way (S16). Kept for exam fit, with a key point.
-- **Physical control vs operational guard.** Card #6 says a guard can be counted as physical or operational by framing; Messer (S2) files guard actions under operational and a guard shack under physical. Left as is.
-- **Messer's TPM "persistent memory"** detail is not on the TPM card; it is true but was not added because the card already names secure key storage.
+- **Physical control vs operational guard.** Card #6 says a guard can be counted as physical or operational by framing; the video course (S2) files guard actions under operational and a guard shack under physical. Left as is.
+- **The video course's TPM "persistent memory"** detail is not on the TPM card; it is true but was not added because the card already names secure key storage.
 
 ## Per-card sources
 Each card's facts came from these sources (keys in the table at the top).

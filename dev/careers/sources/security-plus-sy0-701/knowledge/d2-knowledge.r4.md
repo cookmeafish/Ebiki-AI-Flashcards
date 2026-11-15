@@ -6,7 +6,6 @@ The second Security+ SY0-701 domain, worth about 22% of the exam. It covers who 
 
 ## 2.1 Compare and contrast common threat actors and motivations
 
-Watch: Professor Messer, Threat Actors (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/threat-actors-sy0-701/)
 
 **What the exam expects:** Compare threat actors by type, attributes and motivation, and pick the most likely actor or motive from a short scenario.
 
@@ -190,7 +189,6 @@ Cyber attacks used by one nation against another as part of armed conflict or mi
 
 ## 2.2 Explain common threat vectors and attack surfaces
 
-Watch: Professor Messer, Common Threat Vectors (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/common-threat-vectors-sy0-701/); Phishing (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/phishing-sy0-701/); Impersonation (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/impersonation-sy0-701/); Watering Hole Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/watering-hole-attacks-sy0-701/); Other Social Engineering Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/other-social-engineering-attacks-sy0-701/)
 
 **What the exam expects:** Recognize the paths attackers use to get in (message, image, file, voice, removable media, software, networks, ports, default credentials, supply chain) and every listed social engineering technique, and know how each widens the attack surface.
 
@@ -452,7 +450,6 @@ Registering domain names that are common misspellings of legitimate ones, so use
 
 ## 2.3 Explain various types of vulnerabilities
 
-Watch: Professor Messer, Memory Injections (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/memory-injections-sy0-701/); Buffer Overflows (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/buffer-overflows-sy0-701/); Race Conditions (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/race-conditions-sy0-701/); Malicious Updates (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/malicious-updates-sy0-701/); Operating System Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/operating-system-vulnerabilities-sy0-701/); SQL Injection (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/sql-injection-sy0-701/); Cross-site Scripting (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/cross-site-scripting-sy0-701/); Hardware Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/hardware-vulnerabilities-sy0-701/); Virtualization Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/virtualization-vulnerabilities-sy0-701/); Cloud-specific Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/cloud-specific-vulnerabilities-sy0-701/); Supply Chain Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/supply-chain-vulnerabilities-sy0-701/); Misconfiguration Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/misconfiguration-vulnerabilities-sy0-701/); Mobile Device Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/mobile-device-vulnerabilities-sy0-701/); Zero-day Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/zero-day-vulnerabilities-sy0-701/)
 
 **What the exam expects:** Explain each category of vulnerability and its examples, and tell look-alikes apart (SQLi vs XSS, TOC vs TOU, side loading vs jailbreaking).
 
@@ -686,7 +683,6 @@ A vulnerability unknown to the vendor or with no patch available yet, so defende
 
 ## 2.4 Given a scenario, analyze indicators of malicious activity
 
-Watch: Professor Messer, An Overview of Malware (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/an-overview-of-malware-sy0-701/); Viruses and Worms (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/viruses-and-worms-sy0-701/); Spyware and Bloatware (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/spyware-and-bloatware-sy0-701/); Other Malware Types (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/other-malware-types-sy0-701/); Physical Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/physical-attacks-sy0-701/); Denial of Service (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/denial-of-service-sy0-701/); DNS Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/dns-attacks-sy0-701/); Wireless Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/wireless-attacks-sy0-701/); On-path Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/on-path-attacks-sy0-701/); Replay Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/replay-attacks-sy0-701/); Malicious Code (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/malicious-code-sy0-701/); Application Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/application-attacks-sy0-701/); Cryptographic Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/cryptographic-attacks-sy0-701/); Password Attacks (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/password-attacks-sy0-701/); Indicators of Compromise (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/indicators-of-compromise-sy0-701/)
 
 **What the exam expects:** Given symptoms, logs or a story, identify the attack type (malware, physical, network, application, cryptographic, password) and recognize the listed indicators of compromise. Expect performance-based questions.
 
@@ -1059,7 +1055,6 @@ Gaps or deleted entries in log files, often a sign an attacker covered their tra
 
 ## 2.5 Explain the purpose of mitigation techniques used to secure the enterprise
 
-Watch: Professor Messer, Segmentation and Access Control (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/segmentation-and-access-control-sy0-701/); Mitigation Techniques (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/mitigation-techniques-sy0-701/); Hardening Techniques (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/hardening-techniques-sy0-701/)
 
 **What the exam expects:** Explain what each mitigation and hardening technique is for and match it to the threat it reduces.
 

@@ -18,7 +18,7 @@ This is an independent check of the r3 card pass (`dev/careers/sources/security-
 
 1. **Changed cards.** Each r3 card was matched to its r2 card by `obj` + `term`. A card counts as changed when its term, definition, example or keyPoints differ. 166 cards changed (d1 22, d2 30, d3 16, d4a 19, d4b 18, d5 61) and none were new. From each file, 10 were taken at evenly spaced positions in the changed list (index `floor(j * n / 10)`), 60 in all.
 2. **Unchanged cards.** The six r3 files were joined in the order d1, d2, d3, d4a, d4b, d5, and every 13th card was taken starting at index 5. That gives 64 positions. The 6 already in sample A were dropped, leaving **58** (the rule cannot reach 60 in 830 cards without wrapping, so it was not extended).
-3. **Checking.** Four checkers worked in parallel (A first and second halves, B first and second halves). Each verified every claim in the definition, example and keyPoints against pages fetched during the check: NIST SPs and the CSRC glossary, RFCs, vendor docs (Microsoft, Apple, AWS, Cisco, MDN), MITRE, OWASP, FIRST, CISA, ZDI, and Professor Messer's SY0-701 notes for how the exam frames each topic. The one WRONG verdict was confirmed again by the coordinator against the ZDI results pages.
+3. **Checking.** Four checkers worked in parallel (A first and second halves, B first and second halves). Each verified every claim in the definition, example and keyPoints against pages fetched during the check: NIST SPs and the CSRC glossary, RFCs, vendor docs (Microsoft, Apple, AWS, Cisco, MDN), MITRE, OWASP, FIRST, CISA, ZDI, and a video course's SY0-701 notes for how the exam frames each topic. The one WRONG verdict was confirmed again by the coordinator against the ZDI results pages.
 4. **Verdicts.** CORRECT means every claim is true. MINOR means imprecise or misleading wording that is not false. WRONG means the card states something false.
 
 ## Fixes needed
@@ -73,17 +73,17 @@ This is an independent check of the r3 card pass (`dev/careers/sources/security-
 
 ## Per-card verdicts
 
-Unless a row says otherwise, "Messer" means the matching Professor Messer SY0-701 page, https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/<topic>-sy0-701/.
+Unless a row says otherwise, "video course" means the matching a video course SY0-701 page, 
 
 ### Sample A (changed, 60)
 
 | Card | Term | Verdict | Claim at issue | Source |
 |---|---|---|---|---|
-| d1#21 | Gap analysis | CORRECT | | Messer gap-analysis |
+| d1#21 | Gap analysis | CORRECT | | the video course gap-analysis |
 | d1#28 | Policy Engine (Zero Trust) | CORRECT | | https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-207.pdf |
 | d1#31 | Subject/System (Zero Trust) | CORRECT | | NIST SP 800-207 |
-| d1#44 | Microwave sensor | CORRECT | | Messer physical-security; https://www.sdmmag.com/articles/84870-back-to-basics-on-detector-technology |
-| d1#63 | Restricted activities | CORRECT | | Messer technical-change-management |
+| d1#44 | Microwave sensor | CORRECT | | the video course physical-security; https://www.sdmmag.com/articles/84870-back-to-basics-on-detector-technology |
+| d1#63 | Restricted activities | CORRECT | | the video course technical-change-management |
 | d1#89 | Key exchange | MINOR | TLS 1.3 forward secrecy for "every session" (PSK-only lacks it) | https://www.rfc-editor.org/rfc/rfc8446.html |
 | d1#93 | TPM | MINOR | omits firmware TPM; "stores" vs seals the BitLocker key | https://learn.microsoft.com/en-us/windows/security/hardware-security/tpm/trusted-platform-module-overview |
 | d1#101 | Hashing (cryptography) | CORRECT | | https://csrc.nist.gov/glossary/term/hash_function; OWASP Password Storage |
@@ -95,23 +95,23 @@ Unless a row says otherwise, "Messer" means the matching Professor Messer SY0-70
 | d2#61 | Race conditions | **WRONG** | Pwn2Own 2023 TOCTOU was against the Gateway, not infotainment over Bluetooth | ZDI day one and day two results |
 | d2#79 | Hardware provider | CORRECT | | theregister.com 2020/07/15 (secondary; the F-Secure report itself was not read) |
 | d2#89 | Ransomware | MINOR | "200,000 computers" should be victims | phys.org / Global News (secondary) |
-| d2#100 | RFID cloning | CORRECT | | Messer physical-attacks |
+| d2#100 | RFID cloning | CORRECT | | the video course physical-attacks |
 | d2#116 | Forgery | CORRECT | | OWASP SSRF Prevention Cheat Sheet |
 | d2#120 | Collision | CORRECT | | https://shattered.io/; https://marc-stevens.nl/research/hashclash/rogue-ca/ |
-| d2#136 | Segmentation | CORRECT | | Messer segmentation-and-access-control |
+| d2#136 | Segmentation | CORRECT | | the video course segmentation-and-access-control |
 | d3#3 | Cloud | CORRECT | | CSA Top Threats 2024 blog |
 | d3#12 | Air-gapped network | CORRECT | | Kaspersky "What is Stuxnet" (hedged claim) |
 | d3#19 | IoT | CORRECT | | https://www.cisa.gov/news-events/alerts/2016/10/14/heightened-ddos-threat-posed-mirai-and-other-botnets |
 | d3#20 | ICS/SCADA | CORRECT | | https://csrc.nist.gov/pubs/sp/800/82/r3/final |
-| d3#57 | EAP | CORRECT | | https://www.rfc-editor.org/rfc/rfc4851.html; Messer wireless-security-settings |
-| d3#61 | NGFW | CORRECT | | Messer firewall-types |
+| d3#57 | EAP | CORRECT | | https://www.rfc-editor.org/rfc/rfc4851.html; the video course wireless-security-settings |
+| d3#61 | NGFW | CORRECT | | the video course firewall-types |
 | d3#67 | TLS tunnel/VPN | CORRECT | | RFC 7568, RFC 8996 |
 | d3#70 | SASE | CORRECT | | Cisco "What is SASE" |
-| d3#80 | Data classifications | CORRECT | | Messer data-types-and-classifications; EO 13526 |
-| d3#121 | Simulation (recovery testing) | CORRECT | | Messer recovery-testing |
+| d3#80 | Data classifications | CORRECT | | the video course data-types-and-classifications; EO 13526 |
+| d3#121 | Simulation (recovery testing) | CORRECT | | the video course recovery-testing |
 | d4a#32 | WPA3 | CORRECT | | Meraki WPA3 guide; https://www.wi-fi.org/discover-wi-fi/security |
 | d4a#33 | AAA/RADIUS | CORRECT | | RFC 2865, 2866, 8907 |
-| d4a#35 | Authentication protocols | CORRECT | | RFC 4851; Messer wireless-security-settings |
+| d4a#35 | Authentication protocols | CORRECT | | RFC 4851; the video course wireless-security-settings |
 | d4a#38 | Secure cookies | MINOR | Lax default only in Chromium-based browsers | https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie |
 | d4a#53 | Destruction (media disposal) | CORRECT | | https://csrc.nist.gov/pubs/sp/800/88/r2/final |
 | d4a#77 | CVSS | MINOR | 9.8 example lacks "v3.1" | https://www.first.org/cvss/v4.0/specification-document |
@@ -119,93 +119,93 @@ Unless a row says otherwise, "Messer" means the matching Professor Messer SY0-70
 | d4a#121 | Rules (firewall) | CORRECT | | NIST SP 800-41 Rev. 1 |
 | d4a#142 | DNS filtering | CORRECT | | Infoblox; Dark Reading on the NSA advisory (secondary; the NSA PDF returned 403) |
 | d4a#146 | SPF | CORRECT | | https://www.rfc-editor.org/rfc/rfc7208.html |
-| d4b#6 | LDAP | CORRECT | | RFC 4511; Messer identity-and-access-management |
+| d4b#6 | LDAP | CORRECT | | RFC 4511; the video course identity-and-access-management |
 | d4b#8 | SAML | CORRECT | | OASIS SAML 2.0 core (the outline's "Assertions" spelling was not confirmed) |
 | d4b#30 | Password best practices | CORRECT | | https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63B-4.pdf |
 | d4b#32 | Complexity | CORRECT | | NIST SP 800-63B-4 |
-| d4b#36 | Password managers | CORRECT | | NIST SP 800-63B-4; Messer password-security |
+| d4b#36 | Password managers | CORRECT | | NIST SP 800-63B-4; the video course password-security |
 | d4b#39 | JIT permissions | CORRECT | | Microsoft Entra PIM docs |
 | d4b#41 | Ephemeral credentials | MINOR | 15 min to 12 h is AssumeRole only | AWS STS AssumeRole / GetSessionToken API reference |
-| d4b#68 | Incident response process | CORRECT | | NIST SP 800-61 r2 and r3; Messer incident-response |
+| d4b#68 | Incident response process | CORRECT | | NIST SP 800-61 r2 and r3; the video course incident-response |
 | d4b#75 | Lessons learned | CORRECT | | NIST SP 800-61 r2 |
-| d4b#83 | Legal hold | CORRECT | | Messer digital-forensics |
-| d5#3 | Policies | CORRECT | | Messer security-policies |
-| d5#14 | Physical security standard | CORRECT | | Messer security-standards |
-| d5#22 | Legal (external consideration) | CORRECT | | study-notes mirror (the Messer page returned 404; weaker source) |
+| d4b#83 | Legal hold | CORRECT | | the video course digital-forensics |
+| d5#3 | Policies | CORRECT | | the video course security-policies |
+| d5#14 | Physical security standard | CORRECT | | the video course security-standards |
+| d5#22 | Legal (external consideration) | CORRECT | | study-notes mirror (the the video course page returned 404; weaker source) |
 | d5#31 | Government entities | CORRECT | | study-notes mirror (weaker source) |
-| d5#42 | Recurring risk assessment | CORRECT | | Messer risk-management |
-| d5#79 | Penetration testing (vendor) | CORRECT | | Messer third-party-risk-assessment |
+| d5#42 | Recurring risk assessment | CORRECT | | the video course risk-management |
+| d5#79 | Penetration testing (vendor) | CORRECT | | the video course third-party-risk-assessment |
 | d5#93 | NDA | CORRECT | | NDA-type articles (secondary) |
 | d5#116 | National privacy law | CORRECT | | CMS HIPAA covered entities; OPC PIPEDA brief |
-| d5#147 | Phishing campaigns | CORRECT | | Messer security-awareness |
-| d5#157 | Insider threat training | CORRECT | | Messer security-awareness ("multiple approvals" and "file monitoring" are standard practice, not on that page) |
+| d5#147 | Phishing campaigns | CORRECT | | the video course security-awareness |
+| d5#157 | Insider threat training | CORRECT | | the video course security-awareness ("multiple approvals" and "file monitoring" are standard practice, not on that page) |
 
 ### Sample B (unchanged, 58)
 
 | Card | Term | Verdict | Claim at issue | Source |
 |---|---|---|---|---|
-| d1#5 | Operational control | CORRECT | | Messer security-controls |
-| d1#18 | Authenticating people (AAA) | CORRECT | | Messer authentication-authorization-and-accounting |
-| d1#57 | Test results | CORRECT | | Messer change-management |
-| d1#70 | Updating diagrams | CORRECT | | Messer technical-change-management |
-| d1#83 | Volume encryption | CORRECT | | Messer encrypting-data; Microsoft BitLocker |
+| d1#5 | Operational control | CORRECT | | the video course security-controls |
+| d1#18 | Authenticating people (AAA) | CORRECT | | the video course authentication-authorization-and-accounting |
+| d1#57 | Test results | CORRECT | | the video course change-management |
+| d1#70 | Updating diagrams | CORRECT | | the video course technical-change-management |
+| d1#83 | Volume encryption | CORRECT | | the video course encrypting-data; Microsoft BitLocker |
 | d1#96 | Secure enclave | CORRECT | | https://support.apple.com/guide/security/secure-enclave-sec59b0b31ff/web |
 | d2#6 | Insider threat | CORRECT | | CISA defining insider threats |
-| d2#19 | Philosophical/political beliefs | CORRECT | | Messer threat-actors |
-| d2#32 | Removable device | CORRECT | | Messer common-threat-vectors; CISA ICSA-10-201-01C |
-| d2#45 | Suppliers | CORRECT | | Messer supply-chain-vulnerabilities |
-| d2#58 | Application vulnerabilities | CORRECT | | Messer application-attacks (memory injection and malicious updates checked against the objective list only) |
-| d2#71 | End-of-life | CORRECT | | Messer hardware-vulnerabilities |
-| d2#84 | Side loading | CORRECT | | Messer mobile-device-vulnerabilities; Apple DMA page |
+| d2#19 | Philosophical/political beliefs | CORRECT | | the video course threat-actors |
+| d2#32 | Removable device | CORRECT | | the video course common-threat-vectors; CISA ICSA-10-201-01C |
+| d2#45 | Suppliers | CORRECT | | the video course supply-chain-vulnerabilities |
+| d2#58 | Application vulnerabilities | CORRECT | | the video course application-attacks (memory injection and malicious updates checked against the objective list only) |
+| d2#71 | End-of-life | CORRECT | | the video course hardware-vulnerabilities |
+| d2#84 | Side loading | CORRECT | | the video course mobile-device-vulnerabilities; Apple DMA page |
 | d2#97 | Rootkit | CORRECT | | https://csrc.nist.gov/glossary/term/rootkit |
-| d2#110 | Malicious code | CORRECT | | Messer malicious-code |
+| d2#110 | Malicious code | CORRECT | | the video course malicious-code |
 | d2#123 | Password spraying | CORRECT | | https://attack.mitre.org/techniques/T1110/003/ |
-| d2#149 | Encryption (hardening) | CORRECT | | Messer hardening-techniques |
-| d3#6 | Third-party vendors (cloud) | CORRECT | | Messer infrastructure-considerations |
-| d3#32 | Ease of recovery | CORRECT | | Messer infrastructure-considerations |
-| d3#45 | Fail-closed | CORRECT | | Messer intrusion-prevention |
-| d3#58 | Firewall types | CORRECT | | Messer firewall-types |
-| d3#71 | Selection of effective controls | CORRECT | | Messer infrastructure-considerations |
-| d3#84 | Restricted (classification) | CORRECT | | Messer data-types-and-classifications |
+| d2#149 | Encryption (hardening) | CORRECT | | the video course hardening-techniques |
+| d3#6 | Third-party vendors (cloud) | CORRECT | | the video course infrastructure-considerations |
+| d3#32 | Ease of recovery | CORRECT | | the video course infrastructure-considerations |
+| d3#45 | Fail-closed | CORRECT | | the video course intrusion-prevention |
+| d3#58 | Firewall types | CORRECT | | the video course firewall-types |
+| d3#71 | Selection of effective controls | CORRECT | | the video course infrastructure-considerations |
+| d3#84 | Restricted (classification) | CORRECT | | the video course data-types-and-classifications |
 | d3#97 | Hashing (secure data) | MINOR | "collisions mean weak algorithms" (should be practically findable collisions) | https://csrc.nist.gov/glossary/term/hash_function |
-| d3#110 | Geographic dispersion | CORRECT | | Messer resiliency |
-| d3#123 | Backups | MINOR | "frequency sets RPO" is backwards | Messer backups |
-| d4a#2 | Secure baselines | CORRECT | | Messer secure-baselines (CIS Benchmarks mention is common practice, not on that page) |
-| d4a#15 | RTOS | CORRECT | | Messer hardening-targets |
+| d3#110 | Geographic dispersion | CORRECT | | the video course resiliency |
+| d3#123 | Backups | MINOR | "frequency sets RPO" is backwards | the video course backups |
+| d4a#2 | Secure baselines | CORRECT | | the video course secure-baselines (CIS Benchmarks mention is common practice, not on that page) |
+| d4a#15 | RTOS | CORRECT | | the video course hardening-targets |
 | d4a#28 | Cellular | MINOR | air-interface encryption is the operator's option | https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-187.pdf |
 | d4a#41 | Sandboxing | CORRECT | | https://csrc.nist.gov/glossary/term/sandbox |
 | d4a#54 | Certification (media disposal) | MINOR | SP 800-88 Rev. 1 term is "certificate of media disposition" | https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-88r1.pdf |
-| d4a#67 | Dark web | CORRECT | | Messer threat-intelligence |
-| d4a#80 | Exposure factor | CORRECT | | Messer risk-analysis |
-| d4a#93 | Verification | CORRECT | | Messer vulnerability-remediation |
-| d4a#106 | Alert response | CORRECT | | Messer security-monitoring |
-| d4a#119 | Objective 4.5 | CORRECT | | Messer email-security, web-filtering |
-| d4a#132 | Content categorization | CORRECT | | Messer web-filtering |
+| d4a#67 | Dark web | CORRECT | | the video course threat-intelligence |
+| d4a#80 | Exposure factor | CORRECT | | the video course risk-analysis |
+| d4a#93 | Verification | CORRECT | | the video course vulnerability-remediation |
+| d4a#106 | Alert response | CORRECT | | the video course security-monitoring |
+| d4a#119 | Objective 4.5 | CORRECT | | the video course email-security, web-filtering |
+| d4a#132 | Content categorization | CORRECT | | the video course web-filtering |
 | d4a#145 | DKIM | CORRECT | | https://www.rfc-editor.org/rfc/rfc6376 |
-| d4b#5 | SSO | CORRECT | | Messer identity-and-access-management (Kerberos as SSO from general knowledge) |
+| d4b#5 | SSO | CORRECT | | the video course identity-and-access-management (Kerberos as SSO from general knowledge) |
 | d4b#18 | Least privilege | CORRECT | | https://csrc.nist.gov/glossary/term/least_privilege |
 | d4b#31 | Length | CORRECT | | https://pages.nist.gov/800-63-4/sp800-63b.html |
-| d4b#44 | User provisioning | CORRECT | | Messer scripting-and-automation |
-| d4b#57 | Scaling securely | CORRECT | | Messer scripting-and-automation |
-| d4b#70 | Detection | CORRECT | | Messer incident-response |
-| d4b#96 | Network logs | CORRECT | | Messer log-data (DNS, DHCP and NetFlow details from general knowledge) |
-| d5#6 | Business continuity | CORRECT | | Messer security-policies |
+| d4b#44 | User provisioning | CORRECT | | the video course scripting-and-automation |
+| d4b#57 | Scaling securely | CORRECT | | the video course scripting-and-automation |
+| d4b#70 | Detection | CORRECT | | the video course incident-response |
+| d4b#96 | Network logs | CORRECT | | the video course log-data (DNS, DHCP and NetFlow details from general knowledge) |
+| d5#6 | Business continuity | CORRECT | | the video course security-policies |
 | d5#19 | Playbooks | CORRECT | | study-notes mirror (weaker source) |
 | d5#32 | Centralized vs decentralized | CORRECT | | study-notes mirror (weaker source) |
-| d5#45 | Risk analysis | CORRECT | | Messer risk-analysis |
-| d5#58 | Risk threshold | CORRECT | | Messer risk-analysis |
-| d5#71 | Risk reporting | CORRECT | | Messer risk-management-strategies |
-| d5#84 | Vendor selection | CORRECT | | Messer third-party-risk-assessment |
-| d5#97 | Rules of engagement | CORRECT | | Messer third-party-risk-assessment |
-| d5#110 | Attestation and acknowledgement | CORRECT | | Messer compliance |
-| d5#123 | Objective 5.5 | CORRECT | | Messer penetration-tests |
-| d5#136 | Offensive (red team) | CORRECT | | Messer penetration-tests |
-| d5#149 | Responding to reported messages | CORRECT | | Messer security-awareness |
-| d5#162 | Hybrid/remote work | CORRECT | | Messer user-training |
+| d5#45 | Risk analysis | CORRECT | | the video course risk-analysis |
+| d5#58 | Risk threshold | CORRECT | | the video course risk-analysis |
+| d5#71 | Risk reporting | CORRECT | | the video course risk-management-strategies |
+| d5#84 | Vendor selection | CORRECT | | the video course third-party-risk-assessment |
+| d5#97 | Rules of engagement | CORRECT | | the video course third-party-risk-assessment |
+| d5#110 | Attestation and acknowledgement | CORRECT | | the video course compliance |
+| d5#123 | Objective 5.5 | CORRECT | | the video course penetration-tests |
+| d5#136 | Offensive (red team) | CORRECT | | the video course penetration-tests |
+| d5#149 | Responding to reported messages | CORRECT | | the video course security-awareness |
+| d5#162 | Hybrid/remote work | CORRECT | | the video course user-training |
 
 ## Limits
 
 - Sample B has 58 cards, not 60, because of the fixed rule (see Method).
-- Some verdicts rest on secondary sources because the primary page was refused or missing: BlueBorne (Armis), counterfeit Cisco (F-Secure), the NSA DNS advisory, WannaCry figures, and five governance cards backed by a study-notes mirror after Messer pages returned 404. The verdicts are probably right, but these sources are weaker.
+- Some verdicts rest on secondary sources because the primary page was refused or missing: BlueBorne (Armis), counterfeit Cisco (F-Secure), the NSA DNS advisory, WannaCry figures, and five governance cards backed by a study-notes mirror after the video course pages returned 404. The verdicts are probably right, but these sources are weaker.
 - d4a#54 was checked against SP 800-88 Rev. 1. Rev. 2 (Sept 2025) replaces it and was not read for that card.
 - The exact intervals are approximate to 0.1 percentage point.

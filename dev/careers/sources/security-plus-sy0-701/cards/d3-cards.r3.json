@@ -1035,7 +1035,7 @@
     "definition": "Data with restricted access that needs extra rights or permissions to view, and sometimes a signed NDA. It is not for public release and often covers personal information about employees or customers.",
     "example": "Employee salary records can be viewed only by HR staff who have been granted access.",
     "category": "3.3 Protecting data > Data classifications",
-    "keyPoints": "Professor Messer groups private with classified and restricted (extra permissions, possibly an NDA); not for public release; exact meaning set by each organization"
+    "keyPoints": "Some study guides group private with classified and restricted (extra permissions, possibly an NDA); not for public release; exact meaning set by each organization"
   },
   {
     "obj": "3.3",
@@ -1470,7 +1470,7 @@
     "definition": "Splitting work across multiple processors or systems that run at the same time. If one fails, the others carry the load, and a faulty system can be found and taken out while processing continues. Some study guides also use the term for a parallel test: running the backup system alongside production and comparing results without cutting over.",
     "example": "Transactions are spread across four servers; one starts returning errors, so it is removed and the other three keep processing.",
     "category": "3.4 Resilience and recovery > Testing",
-    "keyPoints": "Professor Messer: multiple CPUs or processes handle transactions at once, improving performance and recovery; a failed processor is isolated without stopping work; parallel test meaning: backup runs beside production and outputs are compared, safer than a full failover"
+    "keyPoints": "Study guide wording: multiple CPUs or processes handle transactions at once, improving performance and recovery; a failed processor is isolated without stopping work; parallel test meaning: backup runs beside production and outputs are compared, safer than a full failover"
   },
   {
     "obj": "3.4",

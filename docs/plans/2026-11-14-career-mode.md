@@ -33,7 +33,7 @@
     - Acronym expansions match CompTIA's list. Where CompTIA's spelling differs from the standard name, both are given.
 - **Knowledge base:** one chapter per domain in `modes/Security+/knowledge/`.
   - Headings per objective and item, so Ebiki's table-of-contents retrieval finds sections.
-  - Each objective links to the matching free Professor Messer video (titles and links only: his transcripts are his copyrighted work and are not copied).
+  - Each objective links to the matching free a video course video (titles and links only: his transcripts are his copyrighted work and are not copied).
 - **Package file:** `careers/security-plus-sy0-701.json`.
   - It holds islands, objectives, lessons and items, all built from the reviewed cards.
   - It is built by a script; nothing is hand-copied.
@@ -95,7 +95,7 @@
 - [x] **Every module and objective as a flashcard:** 830 cards, one per line of the SY0-701 outline (5 domain cards, 28 objective cards, every item and sub-item), plus 321 acronym cards.
   - Evidence: `build-career.mjs` prints `830 outline lines, 830 cards ... no problems`.
   - 1,115 new notes were added to Anki (36 already there) under `Security+::<domain>` and `Security+::Acronyms`.
-- [x] **A knowledge base for every domain and objective:** six chapters in `modes/Security+/knowledge/`, with free Professor Messer video links per objective. No transcripts were copied (copyright).
+- [x] **A knowledge base for every domain and objective:** six chapters in `modes/Security+/knowledge/`, with free a video course video links per objective. No transcripts were copied (copyright).
 - [x] **Accuracy checked multiple times:** writer self-check, then 2 independent review passes per domain, each with a change log and sources (`dev/careers/sources/.../cards/*.r2.json`). The build refuses a domain without a second pass.
   - Pass 1 corrected 33 cards, among them RSA vs AES strength, WPA3 ciphers, NIST SP 800-88, NIST SP 800-61 Rev 3, EOL vs EOSL, attestation, parallel processing and IPSec tunnel mode.
   - Pass 2 corrected 18 more and reverted none.

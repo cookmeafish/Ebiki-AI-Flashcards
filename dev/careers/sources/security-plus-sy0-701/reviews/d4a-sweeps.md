@@ -1,7 +1,7 @@
 # d4a sweeps (Domain 4.0, objectives 4.1 to 4.5): pass r2 to r3
 
 Reviewer files: `cards/d4a-cards.r3.json` (153 cards, same obj, path and order as r2) and `knowledge/d4a-knowledge.r3.md`.
-Owner rule applied: nothing true and helpful was removed (Professor Messer style notes such as "WPA3 uses GCMP" were kept); only what a source showed wrong or out of date was fixed, and missing facts were added, in our own words.
+Owner rule applied: nothing true and helpful was removed (a video course style notes such as "WPA3 uses GCMP" were kept); only what a source showed wrong or out of date was fixed, and missing facts were added, in our own words.
 Checks run on the r3 files: JSON parses, 153 cards, same obj/path/keys per card, no em or en dashes, no HTML tags, and `dev/careers/verbatim.mjs` finds no run of 12+ words shared with the outline (objective titles allowed).
 
 Totals: 153 cards checked in each of the 10 sweeps (1,530 card checks). 19 cards changed (25 field edits; some cards changed in more than one sweep, so the per-sweep counts add up to 24), plus the same fixes in the knowledge chapter (18 passages).

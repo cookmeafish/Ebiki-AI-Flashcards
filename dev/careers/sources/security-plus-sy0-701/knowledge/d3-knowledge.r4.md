@@ -4,7 +4,6 @@ Domain 3.0 is 18% of the SY0-701 exam. It asks how the way a system is built and
 
 ## 3.1 Compare and contrast security implications of different architecture models
 
-Watch: Professor Messer, Cloud Infrastructures (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/cloud-infrastructures-sy0-701/); Network Infrastructure Concepts (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/network-infrastructure-concepts-sy0-701/); Other Infrastructure Concepts (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/other-infrastructure-concepts-sy0-701/); Infrastructure Considerations (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/infrastructure-considerations-sy0-701/)
 
 **What the exam expects:** for each architecture model, know who controls and patches what, where the attack surface grows, and which models are hard or impossible to patch. Then weigh the listed considerations to pick a model for a scenario.
 
@@ -98,7 +97,6 @@ Designing for near-constant uptime with redundancy so no single failure causes a
 
 ## 3.2 Given a scenario, apply security principles to secure enterprise infrastructure
 
-Watch: Professor Messer, Secure Infrastructures (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/secure-infrastructures-sy0-701/); Intrusion Prevention (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/intrusion-prevention-sy0-701/); Network Appliances (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/network-appliances-sy0-701/); Port Security (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/port-security-sy0-701/); Firewall Types (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/firewall-types-sy0-701/); Secure Communication (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/secure-communication-sy0-701/)
 
 **What the exam expects:** given a network scenario, choose the right device, where it goes, how it attaches and how it fails, and the right secure connection method.
 
@@ -181,7 +179,6 @@ Choose controls by risk, business needs, environment and cost, and layer them (d
 
 ## 3.3 Compare and contrast concepts and strategies to protect data
 
-Watch: Professor Messer, Data Types and Classifications (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/data-types-and-classifications-sy0-701/); States of Data (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/states-of-data-sy0-701/); Protecting Data (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/protecting-data-sy0-701/)
 
 **What the exam expects:** recognize data types and classification labels, the three data states and their protections, sovereignty vs. geolocation, and pick the right protection method.
 
@@ -199,7 +196,7 @@ Each organization defines its own scheme; the data owner assigns the label and t
 | Label | Meaning |
 |---|---|
 | Public | Free to share, no harm if disclosed (unclassified) |
-| Private | Restricted access needing extra rights, sometimes an NDA; often personal data (Professor Messer groups private, classified and restricted) |
+| Private | Restricted access needing extra rights, sometimes an NDA; often personal data (Some study guides group private, classified and restricted) |
 | Sensitive | Harmful if disclosed (PII, PHI, intellectual property) |
 | Confidential | Very sensitive; access needs specific approval |
 | Restricted | Tightest; only named people, often with an NDA |
@@ -248,7 +245,6 @@ Note that "critical" is about availability and integrity, while the others are m
 
 ## 3.4 Explain the importance of resilience and recovery in security architecture
 
-Watch: Professor Messer, Resiliency (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/resiliency-sy0-701/); Capacity Planning (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/capacity-planning-sy0-701/); Recovery Testing (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/recovery-testing-sy0-701/); Backups (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/backups-sy0-701/); Power Resiliency (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/power-resiliency-sy0-701/)
 
 **What the exam expects:** explain why resilience matters and choose among HA techniques, recovery sites, test types, backup methods and power protections.
 

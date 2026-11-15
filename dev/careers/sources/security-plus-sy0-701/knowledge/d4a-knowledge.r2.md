@@ -6,7 +6,6 @@ Four of the nine objectives start with "Given a scenario" (4.1, 4.5, 4.6, 4.9). 
 
 ## 4.1 Given a scenario, apply common security techniques to computing resources
 
-Watch: Professor Messer, Secure Baselines (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/secure-baselines-sy0-701/); Hardening Targets (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/hardening-targets-sy0-701/); Securing Wireless and Mobile (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/securing-wireless-and-mobile-sy0-701/); Wireless Security Settings (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/wireless-security-settings-sy0-701/); Application Security (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/application-security-sy0-701/)
 
 What the exam expects: given a device or situation, pick the technique that secures it. Know the baseline life cycle, how hardening differs per device type, mobile ownership models, wireless settings and basic secure coding.
 
@@ -80,7 +79,7 @@ Continuous collection and review of logs and security events from computing reso
 - "Shared passphrase, need per-user logins and accounting" points to WPA3-Enterprise with 802.1X and RADIUS.
 - "Device cannot be patched" (ICS, embedded, old IoT) points to segmentation.
 - Telnet, HTTP and SNMPv1/v2c on network gear are findings; replace with SSH, HTTPS and SNMPv3.
-- "Which cipher mode does WPA3 use?" Study guides (including Professor Messer) teach GCMP, so pick GCMP.
+- "Which cipher mode does WPA3 use?" study guides teach GCMP, so pick GCMP.
 
 ### Check yourself
 1. Employees pick a phone from three approved models, the company pays for and manages it. Which model? **CYOD.**
@@ -91,7 +90,6 @@ Continuous collection and review of logs and security events from computing reso
 
 ## 4.2 Explain the security implications of proper hardware, software, and data asset management
 
-Watch: Professor Messer, Asset Management (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/asset-management-sy0-701/)
 
 What the exam expects: the asset life cycle and why each stage matters to security. You cannot protect, patch or scan what you do not know you have, and data left on retired media is a breach waiting to happen.
 
@@ -124,7 +122,6 @@ Traps: deleting files or a quick format is not sanitization. Degaussing does not
 
 ## 4.3 Explain various activities associated with vulnerability management
 
-Watch: Professor Messer, Vulnerability Scanning (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/vulnerability-scanning-sy0-701/); Threat Intelligence (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/threat-intelligence-sy0-701/); Penetration Testing (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/penetration-testing-sy0-701/); Analyzing Vulnerabilities (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/analyzing-vulnerabilities-sy0-701/); Vulnerability Remediation (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/vulnerability-remediation-sy0-701/)
 
 What the exam expects: the cycle identify, analyze, respond, validate, report, and the vocabulary at each step.
 
@@ -194,7 +191,6 @@ Communicate findings, trends and progress (open criticals, time to remediate) at
 
 ## 4.4 Explain security alerting and monitoring concepts and tools
 
-Watch: Professor Messer, Security Monitoring (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-monitoring-sy0-701/); Security Tools (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/security-tools-sy0-701/)
 
 What the exam expects: what gets monitored, what the monitoring activities are, and which tool fits which job.
 
@@ -235,7 +231,6 @@ What the exam expects: what gets monitored, what the monitoring activities are, 
 
 ## 4.5 Given a scenario, modify enterprise capabilities to enhance security
 
-Watch: Professor Messer, Firewalls (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/firewalls-sy0-701/); Web Filtering (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/web-filtering-sy0-701/); Operating System Security (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/operating-system-security-sy0-701/); Secure Protocols (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/secure-protocols-sy0-701/); Email Security (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/email-security-sy0-701/); Monitoring Data (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/monitoring-data-sy0-701/); Endpoint Security (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/endpoint-security-sy0-701/)
 
 What the exam expects: given a problem, choose and adjust the right enterprise control.
 

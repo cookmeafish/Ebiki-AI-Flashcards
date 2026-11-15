@@ -1,6 +1,5 @@
 ## 4.6 Given a scenario, implement and maintain identity and access management
 
-Watch: Professor Messer, Identity and Access Management (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/identity-and-access-management-sy0-701/); Access Controls (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/access-controls-sy0-701/); Multifactor Authentication (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/multifactor-authentication-sy0-701/); Password Security (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/password-security-sy0-701/)
 
 **What the exam expects:** given a situation, pick the identity and access control that fits. Expect scenarios about a forgotten account, the right access model, the right SSO protocol, which factors make real MFA and which password setting stops a behavior.
 
@@ -107,7 +106,6 @@ JIT gives an existing account rights for a while; ephemeral credentials are thro
 
 ## 4.7 Explain the importance of automation and orchestration related to secure operations
 
-Watch: Professor Messer, Scripting and Automation (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/scripting-and-automation-sy0-701/)
 
 **What the exam expects:** recognize tasks worth automating, the benefits, and the drawbacks. Automation is one task run by a script or tool; orchestration coordinates many automated steps across systems (for example a SOAR playbook).
 
@@ -155,7 +153,6 @@ Watch: Professor Messer, Scripting and Automation (https://www.professormesser.c
 
 ## 4.8 Explain appropriate incident response activities
 
-Watch: Professor Messer, Incident Response (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/incident-response-sy0-701/); Incident Planning (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/incident-planning-sy0-701/); Digital Forensics (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/digital-forensics-sy0-701/)
 
 **What the exam expects:** the phases in order and what belongs in each, how plans are trained and tested, and the forensic terms.
 
@@ -219,7 +216,6 @@ Proactive search for threats existing tools missed, started from a hypothesis or
 
 ## 4.9 Given a scenario, use data sources to support an investigation
 
-Watch: Professor Messer, Log Data (https://www.professormesser.com/security-plus/sy0-701/sy0-701-video/log-data-sy0-701/)
 
 **What the exam expects:** given a question an investigator needs answered, pick the source that holds the evidence.
 
