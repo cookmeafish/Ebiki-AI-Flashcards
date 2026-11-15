@@ -14075,9 +14075,11 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
   const chatReplyCards = (text) => [...String(text || '').matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
     .map((m) => parseAiObject(m[1])).filter((c) => c && (c.front || c.back)).map(normalizeChatCard)
     .map((c) => (activeMode.type === 'language' && Array.isArray(c.tags) && c.tags.length ? { ...c, tags: foldUsageTags(c.tags) } : c))
-  const sendChatTabMessage = async () => {
-    const q = chatTabInput.trim()
-    const photoPending = chatImagePendingRef.current > 0
+  // `spoken`: text to send instead of the input box (Chat's voice mode); the box keeps what was typed.
+  const sendChatTabMessage = async (spoken) => {
+    const spokenTurn = typeof spoken === 'string' // a voice turn never takes the composer's photo with it
+    const q = (spokenTurn ? spoken : chatTabInput).trim()
+    const photoPending = !spokenTurn && chatImagePendingRef.current > 0
     // Say why nothing happens: with a chat already on screen (no empty-state "Add your API key" button) a
     // removed or never-set key made Enter and Send silently do nothing.
     if (!apiKey && (q || chatTabImage || photoPending)) { raiseNotice(t('study_addApiKeyFirst')); return }
@@ -14089,7 +14091,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
       const until = Date.now() + 10000
       while (chatImagePendingRef.current > 0 && Date.now() < until) await new Promise((r) => setTimeout(r, 50))
     }
-    const img = chatTabImageRef.current
+    const img = spokenTurn ? null : chatTabImageRef.current
     if (!q && !img) { chatSendingRef.current = false; return }
     // Whether the notes the prompt is built from were really read, AS OF NOW: read live after the AI
     // call, a mode switch meanwhile (whose read succeeded) let the reply replace the first deck's
@@ -14104,10 +14106,11 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     setChatTabMsgs(newMsgs)
     emitAppEvent(EVENTS.CHAT_SENT, { mode: activeModeIdRef.current })
     setChatTabInput((cur) => (cur.trim() === q ? '' : cur))
-    setChatTabImage(null)
+    if (!spokenTurn) setChatTabImage(null)
     setChatPlusOpen(false)
     setChatTabLoading(true)
     setTimeout(() => { scrollChatToLatestTurn(); focusUnlessCovered(chatTabInputRef.current) }, 60) // not behind a modal the send opened (utils/focusGuard)
+    let sentReply = null // what the send returns (voice mode speaks it): the reply, or { error } bubble
     try {
       let systemPrompt = `You are Ebi, a helpful study assistant. The user is studying with mode "${activeMode.name}".
 
@@ -14303,6 +14306,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const updatedMsgs = [...(live.length === newMsgs.length ? live : newMsgs), assistantMsg]
       chatTabMsgsRef.current = updatedMsgs // now, not after the next effect: a card add in between wrote the list back without this reply
       setChatTabMsgs(updatedMsgs)
+      sentReply = assistantMsg
       // Keep the user's message pinned near the top; the reply renders below it (don't jump to bottom).
       setTimeout(scrollChatToLatestTurn, 60)
       // Auto-save to disk after each response
@@ -14311,12 +14315,14 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       // id, but only while this chat is still the one open.
       if (savedId && savedId !== chatTabSessionId) setChatTabSessionId((cur) => (cur === chatTabSessionId ? savedId : cur))
     } catch (err) {
-      setChatTabMsgs(prev => [...prev, { role: 'assistant', content: t('chat_replyError', { msg: stripDashes(aiErrMsg(err)).slice(0, 300) }), error: true }])
+      sentReply = { role: 'assistant', content: t('chat_replyError', { msg: stripDashes(aiErrMsg(err)).slice(0, 300) }), error: true }
+      setChatTabMsgs(prev => [...prev, sentReply])
     } finally {
       chatSendingRef.current = false
       setChatTabLoading(false)
       setChatTabStatus(null)
     }
+    return sentReply
   }
 
   // User declined the offered web search — just hide the offer buttons.
@@ -15393,6 +15399,17 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // The model a speech engine uses ('stt' | 'tts', engine = openai/grok/gemini): Settings' speech job, else built in.
     speechModel: (kind, engine) => speechModelFor(kind, engine),
     activeMode, activeTab, setActiveTab,
+    // CHAT for features (voice mode): the open chat's live messages, whether a reply is on its way, and send(text),
+    // which runs the REAL Chat send (same prompt, learner context, cards, saving) and resolves once the reply landed
+    // (false when it was refused: busy, switching chats, no key). open() shows the Chat tab.
+    chat: {
+      messages: chatTabMsgs, loading: chatTabLoading, sessionId: chatTabSessionId, hasKey: !!apiKey,
+      messagesNow: () => chatTabMsgsRef.current || [],
+      send: (text) => sendChatTabMessage(String(text || '')),
+      open: () => pickTab('chat'),
+    },
+    // Open Settings on a pane ('general' holds the speech engines, 'models' the AI provider and key).
+    openSettings: (pane = 'general') => { setSettingsCategory(pane); setSettingsOpen(true) },
     // App-wide Back/Forward (src/nav). Screens declare their sub-views with useNavEntry (from '../registry').
     nav: { back: () => nav.back(), forward: () => nav.forward(), canGoBack: () => nav.canGoBack() },
     // Open a screen (a sidebar id) with params for it (e.g. { activity, params } for Practice). Unknown ids do nothing.
@@ -17408,8 +17425,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   placeholder={chatTabWebSearch ? t('chat_searchAndAsk') : t('chat_placeholder')}
                   style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 15, padding: '10px 8px', resize: 'none', lineHeight: 1.4, maxHeight: CHAT_INPUT_MAX_H, overflowY: 'auto', boxSizing: 'border-box', display: 'block' }}
                 />
+                {/* Buttons contributed by features (chatComposerItems slot), e.g. voice mode's microphone. */}
+                {registry.slot(SLOT.CHAT_COMPOSER, (it) => !it.visible || it.visible(featureCtxRef.current)).map((it) => (
+                  <button key={`${it.feature}:${it.id}`} type="button" onClick={() => it.onPick?.(featureCtxRef.current)} disabled={chatTabLoading}
+                    aria-label={t(it.labelKey)} className="tip btn-press" data-tip={t(it.labelKey)}
+                    style={{ ...S.ghostBtn, borderRadius: 14, width: 44, height: 44, padding: 0, flexShrink: 0, fontSize: 19, lineHeight: 1, color: 'var(--c-brand)', borderColor: 'color-mix(in srgb, var(--c-brand) 35%, transparent)', opacity: chatTabLoading ? 0.5 : 1, cursor: chatTabLoading ? 'default' : 'pointer' }}>{it.icon}</button>
+                ))}
                 <button
-                  onClick={sendChatTabMessage}
+                  onClick={() => sendChatTabMessage()}
                   disabled={chatTabLoading || (!chatTabInput.trim() && !chatTabImage)}
                   className="btn-press ch-send"
                   style={{ ...S.captureBtn, borderRadius: 14, padding: '11px 20px', flexShrink: 0, opacity: chatTabLoading || (!chatTabInput.trim() && !chatTabImage) ? 0.45 : 1 }}

@@ -20,18 +20,45 @@ export function speechEngines(ctx) {
 
 // Start listening. Returns { stop(): Promise<text>, cancel() }; throws when there is no engine or no mic.
 // `onFail(code)`: the browser recognizer died on its own mid-session ('nomic' = permission refused).
-export async function listen(ctx, { lang = '', onFail } = {}) {
+// `onLevel(level, ms)`: microphone loudness for hands-free turn taking (recorded engines only; the browser recognizer
+// ends its own turns). The returned handle says which: `levels: true` when onLevel will be called.
+export async function listen(ctx, { lang = '', onFail, onLevel } = {}) {
   const { stt } = speechEngines(ctx)
   if (!stt) throw new Error('no-engine')
-  if (stt === 'browser') return platform.speech.recognize({ lang, onFail })
-  const rec = await platform.speech.record()
+  if (stt === 'browser') return { ...(await platform.speech.recognize({ lang, onFail })), levels: false, engine: stt }
+  const rec = await platform.speech.record(onLevel ? { onLevel } : undefined)
   return {
-    stop: async () => {
+    // `keep()`: asked after the recording ends; false = the caller no longer wants it (closed): nothing is paid.
+    stop: async ({ keep } = {}) => {
       const blob = await rec.stop()
+      if (keep && !keep()) return ''
       return transcribe(blob, { engine: stt, keys: ctx.apiKeys, lang, geminiModel: ctx.presetModel?.('gemini', 'cheap'), model: ctx.speechModel?.('stt', stt) || '' })
     },
     cancel: () => rec.cancel(),
+    levels: !!rec.levels, // true only when the level meter really started (Web Audio can fail)
+    engine: stt,
   }
+}
+
+// One synthesized clip per engine, model, voice, language and text: kept (CACHE_MAX) and shared while being made, so
+// prepare() then speak() of the same line pays once.
+const making = new Map()
+function clipFor(ctx, clean, { tts, model, voice, lang }) {
+  const key = `${tts}|${model}|${voice}|${lang}|${clean}`
+  if (cache.has(key)) return Promise.resolve(cache.get(key))
+  if (making.has(key)) return making.get(key)
+  const p = synthesize(clean, { engine: tts, keys: ctx.apiKeys, lang, voice, model })
+    .then((blob) => { cache.set(key, blob); if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value); return blob })
+    .finally(() => making.delete(key))
+  making.set(key, p)
+  return p
+}
+// Make a line's clip ahead of time (the next sentence while one plays). Device voices need nothing. Never throws.
+export function prepare(ctx, text, { lang = '', voice = 0 } = {}) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim()
+  const { tts } = speechEngines(ctx)
+  if (!clean || !tts || tts === 'device') return
+  clipFor(ctx, clean, { tts, model: ctx.speechModel?.('tts', tts) || '', voice, lang }).catch(() => {})
 }
 
 // Say `text`. `voice` picks a character's voice (0 = Ebi). Returns { done: Promise, stop() }.
@@ -61,14 +88,8 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
   const work = (async () => {
     if (tts === 'device') return device()
     const model = ctx.speechModel?.('tts', tts) || '' // Settings > AI & cost > speech job ('' = built in)
-    const key = `${tts}|${model}|${voice}|${lang}|${clean}`
     try {
-      let blob = cache.get(key)
-      if (!blob) {
-        blob = await synthesize(clean, { engine: tts, keys: ctx.apiKeys, lang, voice, model })
-        cache.set(key, blob)
-        if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value)
-      }
+      const blob = await clipFor(ctx, clean, { tts, model, voice, lang })
       if (stopped) return
       handle = platform.audio.play(blob)
       return handle.done

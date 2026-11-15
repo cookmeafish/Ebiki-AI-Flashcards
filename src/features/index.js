@@ -9,6 +9,7 @@ import mistakeGym from './mistake-gym'
 import leechDoctor from './leech-doctor'
 import ebiCall from './ebi-call'
 import roleplay from './roleplay'
+import voiceMode from './voice-mode'
 import listenSpeak from './listen-speak'
 import scenes from './scenes'
 import legends from './legends'
@@ -24,6 +25,7 @@ export const registry = createRegistry([
   leechDoctor,
   ebiCall,
   roleplay,
+  voiceMode,
   listenSpeak,
   scenes,
   legends,

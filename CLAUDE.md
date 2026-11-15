@@ -1214,6 +1214,14 @@ mud": LatAm says "lodo"). Distinct from usage tags (where) and dialect (which va
 - `choosePose` is awaited so pose and text appear together. The reply cleanup strips dashes but never collapses
   whitespace (code) or lets a dash join lines (`stripDashes` keeps digit ranges). Cleanup + `boundChatHistory` live in
   `src/utils/chatReply.js` (`cleanChatReply`, tested).
+- **Voice mode** (`src/features/voice-mode/`, plan + researched prices `docs/plans/2026-11-14-voice-mode.md`): 🎙️
+  beside Send (`chatComposerItems` slot) opens a hands-free panel. Mic loudness (`platform.speech.record({ onLevel })`)
+  feeds `turnDetector.js` (pure, wall-clock, tested); the turn goes through the REAL Chat via `ctx.chat.send(text)`
+  (`sendChatTabMessage(spoken)` returns the reply), spoken sentence by sentence through `speakableText`/`speechChunks`
+  (never markdown, tags or card JSON). Ebi never listens while talking (no echo; Interrupt). Engines = the speech
+  settings (cheapest usable; free browser/device fallback), so no new setup and no onboarding step. Every async step
+  checks the panel's run token; closing releases the mic and cuts the voice. Next phases (live speech-to-speech, on
+  device) are in the plan.
 - **Offer-to-search**: with web search OFF the model emits `<offer-search>query</offer-search>` instead of guessing
   (`chatOfferSearchAccept` / `chatOfferSearchDecline`).
 - **Reply parsing**: `<sources>` via `parseCitedSources`, keeping only URLs the search returned (`keepRealSources`);

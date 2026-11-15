@@ -25,6 +25,7 @@
 //                 { onOpen(params?) }, which opens that activity. It must paint at once (a skeleton while it reads),
 //                 read cheaply, never block the hub and never write state just by being shown.
 //   chatMenuItems [{ id, order, icon, labelKey, onPick(ctx), visible?(ctx) }] entries in the Chat "+" menu
+//   chatComposerItems [{ id, order, icon, labelKey, onPick(ctx), visible?(ctx) }] icon buttons beside Chat's Send
 //   on            { [EVENTS.X]: (payload, ctx) => void } reactions to app facts
 //
 // Components receive nothing; they read the shared context with useFeatureCtx().
@@ -68,6 +69,7 @@ export const SLOT = {
   PRACTICE: 'practiceActivities', // tiles in the Practice hub (if the practice feature is installed)
   PRACTICE_HERO: 'practiceHero',  // the one big card at the top of the Practice hub
   CHAT_MENU: 'chatMenuItems',     // entries in the Chat "+" menu
+  CHAT_COMPOSER: 'chatComposerItems', // icon buttons beside Chat's Send
 }
 
 const ID_RE = /^[a-z][a-z0-9-]*$/

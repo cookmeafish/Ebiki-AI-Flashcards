@@ -42,8 +42,8 @@ describe('installed features', () => {
           }
         }
       })
-      it('gives every Chat menu entry an action and a label in every language', () => {
-        for (const item of f[SLOT.CHAT_MENU] || []) {
+      it('gives every Chat menu entry and composer button an action and a label in every language', () => {
+        for (const item of [...(f[SLOT.CHAT_MENU] || []), ...(f[SLOT.CHAT_COMPOSER] || [])]) {
           expect(typeof item.onPick, `${f.id}.${item.id}`).toBe('function')
           for (const l of I18N_LANGS) expect(makeT(l)(item.labelKey), `${f.id}: ${item.labelKey} (${l})`).not.toBe(item.labelKey)
         }

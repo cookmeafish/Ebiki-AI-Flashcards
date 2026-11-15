@@ -190,10 +190,34 @@ const web = {
       }
     },
     // Microphone recording. Resolves to { stop(): Promise<Blob>, cancel() } or rejects when there is no mic.
-    record: async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    // `onLevel(level, ms)`: the microphone's loudness (0..1, RMS) about every 50 ms of real time, for hands-free turn
+    // taking (Chat's voice mode). Absent = no analyser at all.
+    record: async ({ onLevel } = {}) => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, ...(onLevel ? { audio: { echoCancellation: true, noiseSuppression: true } } : {}) })
       const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) || ''
-      const release = () => stream.getTracks().forEach((tr) => tr.stop())
+      let stopLevel = () => {}
+      let levels = false
+      if (onLevel) {
+        let ac = null
+        try {
+          ac = new (window.AudioContext || window.webkitAudioContext)()
+          ac.resume?.().catch(() => {}) // created suspended (autoplay policy after a slow permission prompt) it reads zeros
+          const an = ac.createAnalyser()
+          an.fftSize = 1024
+          ac.createMediaStreamSource(stream).connect(an)
+          const buf = new Float32Array(an.fftSize)
+          const timer = setInterval(() => {
+            an.getFloatTimeDomainData(buf)
+            let sum = 0
+            for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i]
+            try { onLevel(Math.sqrt(sum / buf.length), performance.now()) } catch { /* a listener error never stops the mic */ }
+          }, 50)
+          const ctxOpen = ac
+          stopLevel = () => { clearInterval(timer); ctxOpen.close().catch(() => {}) }
+          levels = true
+        } catch { try { ac?.close?.() } catch { /* gone */ } } // no Web Audio: no levels, the caller ends turns by hand
+      }
+      const release = () => { stopLevel(); stream.getTracks().forEach((tr) => tr.stop()) }
       let mr
       try {
         mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
@@ -207,6 +231,7 @@ const web = {
           try { mr.stop() } catch { release(); resolve(new Blob(chunks)) }
         }),
         cancel: () => { mr.onstop = release; try { mr.stop() } catch { release() } },
+        levels, // whether onLevel is being called
       }
     },
   },
