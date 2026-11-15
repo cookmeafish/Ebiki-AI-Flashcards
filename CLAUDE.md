@@ -1932,6 +1932,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   pose, never forced `opacity`): `docs/legends-art-guide.md` "Motion". Check with measured centre drift.
 - **Help** can open a map edit: `legends_edit` action (capability text only when `appContext.legendsAvailable`),
   receipts `hr_legends*`, via `featureCtx.open('legends', { edit })` (`useIntent`).
+- **CAREER MODE** (`career.js` pure + tested, `CareerMap.jsx`): a whole course (first: CompTIA Security+ SY0-701) as a
+  ready map, never AI-planned: island per domain (all open), objectives as sections (lessons in order, then a
+  `checkpoint` at 70%), the boss after every checkpoint; checkpoint/boss quizzes SAMPLE items (`careerQuizItems`). A
+  career map is `version: 2` (older builds leave it alone; plain maps stay 1). **Making a course: follow
+  `docs/career-mode-guide.md`** (one card per outline line, two independent reviews, `dev/careers/build-career.mjs`
+  must print `no problems`, a coverage block in `career.test.js`). The package ships in `public/careers/`; the vendor's
+  raw outline stays gitignored.
 - Drive it with every AI host stubbed and `/api/feature-data` in memory (the real stores and credits untouched).
 
 ## Porting to phones (iOS / Android): keep these seams clean

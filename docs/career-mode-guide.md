@@ -1,0 +1,89 @@
+# Career mode: how to make a course (runbook)
+
+Career mode is a Legends GAME MODE for a whole curated course (an exam, a certification, a syllabus). It is not a job path. The first course is CompTIA Security+ SY0-701.
+
+The owner asked for:
+- **Islands:** one island per domain.
+- **Lessons:** each island holds all of its domain's content.
+- **Bosses:** the tests.
+- **Accuracy:** every card checked more than once.
+- **Navigation:** intuitive islands, and objectives easy to reach and understand.
+- **Progression:** every progression triple-checked.
+
+Design and reasoning: `docs/plans/2026-11-14-career-mode.md`.
+
+## How it fits together
+| Piece | Where | What it does |
+|---|---|---|
+| Engine (pure, tested) | `src/features/legends/career.js` | Package shape. Builds the map: islands, objectives, lessons, checkpoint, weak spots, boss. Has the career ladder and the quiz item sampling. Lists the courses this build knows (`CAREERS`). |
+| Screen | `src/features/legends/CareerMap.jsx` | Island strip, island page with objective cards, boss card. Also `loadCareer`. |
+| Hooks into Legends | `map.js` (`normalizeMap` career branch, `MAP_VERSION_READ`, `checkpoint` kind, `PASS.checkpoint`, no `needsMoreAreas`), `generate.js` (checkpoint and boss sample items, objective-scoped review and avoid list), `MapView.jsx` (renders `CareerMap`, hides Change my map), `LegendsScreen.jsx` (welcome offer, `path: 'career'` in `saveStart`), `Questionnaire.jsx` (course tiles) | |
+| Builder and validator | `dev/careers/build-career.mjs` | Fails unless every outline line has exactly one card reviewed twice. Writes the package, the Anki import, and the knowledge chapters. |
+| Course sources | `dev/careers/sources/<id>/` | `course.json` and `cards/` and `knowledge/` are in git. `outline.md` and `acronyms.txt` (the vendor's own text) are gitignored and stay local. |
+| Shipped package | `public/careers/<id>.json` | In git, so every clone gets the course. The app offers a course when this file answers. |
+| Tests | `src/features/legends/career.test.js` | Ladder, sampling, versions, old saves still load, and the shipped package's coverage. |
+
+Rules the engine keeps (do not break them):
+- **All islands are open.** Inside an island every objective is open. An objective's lessons go in order, then its checkpoint (`PASS.checkpoint` 70%).
+- **The boss opens after EVERY checkpoint of its island.** Weak spots open with the boss.
+- **Bounded quizzes.** A checkpoint is written from at most `CAREER.checkpointItems` items, shakiest first, the same sample each visit (its question set is saved). A boss uses `CAREER.bossItems` items spread over every objective, fresh each attempt. A domain has up to about 260 items; sending them all broke the prompt.
+- **The map version.** A career map is `version: 2` (`CAREER_MAP_VERSION`). A build from before career mode reads it as "newer" and never rewrites it. Plain maps keep version 1.
+- **Never AI-planned.** A career map is never re-planned, extended, edited by Ebi, or given AI boss names. Boss names come from `course.json`.
+
+## Steps: a new course
+1. **Get the outline.**
+   - Save the official objectives as `dev/careers/sources/<id>/outline.md`:
+     - `# 1.0 <domain> (NN%)`
+     - `## 1.1 <objective>.`
+     - then `- item` and `  - sub-item` (2 spaces per level).
+   - Optional: the vendor's acronym list as `acronyms.txt`, one `ACR|Expansion` per line.
+   - Both stay local (gitignored). Never copy anyone's course videos or transcripts; link to free videos instead.
+2. **Write the cards: one per outline line**, the domain line and each objective line included.
+   - **Writers:** one per domain (split a big domain), each writing `cards/<prefix>-cards.json`.
+   - **Card fields:** `{ obj, path, term, definition, example, category, keyPoints }`.
+     - Plain and fluff free (`TEACHING_STYLE_RULE`), no dashes, no HTML.
+     - `keyPoints` holds the exam traps.
+     - When the vendor's wording differs from the standard name, the card gives both.
+   - **Chapters:** each writer also writes a knowledge chapter, `knowledge/<prefix>-knowledge.md`, with headings per objective and item (Ebiki's table-of-contents retrieval uses them) and links to free videos.
+3. **Review twice, independently** (the reviewer briefs used for Security+ are reproduced in the plan's checklist):
+   - **Pass 1:** an agent that did not write the cards checks every card against primary sources (standards bodies, RFCs, vendor docs, a well-known course's free notes). It fixes errors and writes `<prefix>-cards.r1.json` and `-knowledge.r1.md`, plus a change log with the source for each change.
+   - **Pass 2:** a different agent re-checks every pass-1 change (and reverts wrong ones), then reads every card again from scratch. It writes `.r2` files.
+   - **Output contract for both passes:** the same array length, the same obj, path and order, valid JSON, no dashes.
+4. **Fill `course.json`.**
+   - Fields: `id`, `title`, `version`, `deck` (the Anki deck root), `tagPrefix`, and `standardNames` for acronyms.
+   - One `areas[]` entry per domain, in order, each with:
+     - `motif`: one of `MOTIFS` in map.js, a different one per island, fitting the domain;
+     - `palette`, `bossName`, `theme`;
+     - `story` (up to 3 lines) and `canDo` (up to 4).
+5. **Build:**
+   ```
+   node dev/careers/build-career.mjs <id> --knowledge "<mode name>"
+   ```
+   - It must print `no problems`. Missing, extra or duplicate cards, a card without a field, dashes, HTML, or a domain not reviewed twice each stop the build.
+   - `--anki` also adds the cards to Anki, a deck per domain plus `::Acronyms`, skipping fronts already in the deck tree. Run it only when the user wants the cards in their Anki.
+6. **Register the course.** Add one `CAREERS` entry in `career.js`:
+   - `id`, `titleKey`, `url: '/careers/<id>.json'`;
+   - `match`: a regex on the mode's name or description, so the welcome screen recommends it.
+
+   Add the `titleKey` string to all four locales.
+7. **Test the package.** Copy the "shipped Security+ course" block in `career.test.js` for the new course, with its own domain, objective and weight table and its card count.
+8. **Check the GUI** in Playwright's bundled Chromium on port 3001, with every write stubbed and `/api/feature-data` in memory.
+   - The welcome offer, Start the course, the island strip, an island page, an expanded objective, the checkpoint and the boss card.
+   - Desktop and phone, light and dark, and a high zoom.
+   - Seed progress by importing `/src/features/legends/map.js` in the page and calling `normalizeMap` first. A raw built map is all locked until normalized.
+   - Look at every screenshot.
+9. **Independent review** of the diff and the screenshots. Then `npx vitest run` and `npx vite build`. Bump the version and commit.
+
+## Done when
+- [ ] `node dev/careers/build-career.mjs <id>` prints `no problems`. Coverage is one card per outline line, every domain reviewed twice (`.r2` files).
+- [ ] `public/careers/<id>.json`, the cards, the chapters and `course.json` are in git. The outline and acronym list are not.
+- [ ] `career.test.js` has a block for the course (domains, objectives, weights, card count, lessons, checkpoints, boss), and `npx vitest run` is green.
+- [ ] Screenshots taken and looked at: desktop and phone, both themes, a high zoom, each career screen.
+- [ ] An independent review found nothing left to fix.
+
+## Pitfalls (dated)
+- 2026-11-14: `ProgressBar` needs `max`. Without it every bar showed empty.
+- 2026-11-14: on a phone at high zoom the island cards stack, and picking one changed the page out of sight. The island page scrolls into view on a pick.
+- 2026-11-14: the start tile alone sat 5 questionnaire steps deep. A matching course is offered on the welcome screen.
+- 2026-11-14: a whole domain sent to the boss prompt (about 260 items) was far too big. Quizzes sample items (`careerQuizItems`).
+- 2026-11-14: reviewers changed a meaning only where a well-known course teaches it differently (attestation, parallel processing, blocked content). Keep the exam's sense first and name the other one.

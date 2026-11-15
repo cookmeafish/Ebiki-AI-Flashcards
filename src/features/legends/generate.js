@@ -15,6 +15,7 @@ import {
   parseQuestions, fitQuestionsToKind, itemIdFor, buildBossNamePrompt, parseBossName, buildQuizCheckPrompt, parseQuizCheck, ROLE, JOB, MAX_TOKENS, QUIZ_SIZE, QUIZ_PER_ITEM_MAX,
 } from './prompt'
 import { updateMap, peekMap, readStep, readStepAny, saveStep, stepSig } from './store'
+import { careerQuizItems, careerSampleMax } from './career'
 
 export const KNOWLEDGE_CAP = { plan: 4000, area: 3000, quiz: 2500 }
 const running = new Map() // task key -> promise
@@ -172,7 +173,8 @@ export const tieredItems = (list, kind, on) => (on ? (list || []).map((it) => ({
 export function legendsPool(area, node, map = null) {
   const nodes = area?.nodes || []
   const at = nodes.findIndex((n) => n.id === node?.id)
-  const upTo = node?.kind === 'boss' || node?.kind === 'legendary' || node?.kind === 'weak' || at < 0 ? nodes : nodes.slice(0, at + 1)
+  const own = node?.section ? nodes.filter((n, i) => n.section === node.section && i <= at) : null // a career objective
+  const upTo = node?.kind === 'boss' || node?.kind === 'legendary' || node?.kind === 'weak' || at < 0 ? nodes : own || nodes.slice(0, at + 1)
   const ids = new Set(upTo.flatMap((n) => n.itemIds || []))
   const here = (area?.items || []).filter((it) => ids.has(it.id) || itemTier(it) !== 'new')
   const elsewhere = (map?.areas || []).filter((a) => a && a.id !== area?.id).flatMap((a) => (a.items || []).filter((it) => itemTier(it) !== 'new'))
@@ -230,16 +232,20 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [], refill = null
   const nemesis = node.kind === 'boss' ? (area.nemesis?.itemIds || []).map((id) => area.items.find((it) => it.id === id)?.front).filter(Boolean) : []
   const { subject, ai, t } = ctx
   const weak = node.kind === 'weak'
-  const stepItems = weak ? weakItems(area) : node.itemIds.map((id) => area.items.find((it) => it.id === id)).filter(Boolean)
+  // A career checkpoint or boss covers a whole objective or island (up to ~260 items): the quiz is written from a
+  // sample, shakiest first, a boss spread over every objective (./career.js careerQuizItems).
+  const careerMax = area.sections ? careerSampleMax(node.kind) : 0
+  const stepItems = weak ? weakItems(area) : careerMax ? careerQuizItems(area, node, { max: careerMax }) : node.itemIds.map((id) => area.items.find((it) => it.id === id)).filter(Boolean)
   const sig = stepSig(stepItems)
   const fresh = FRESH_KINDS.has(node.kind)
   const saved = await readStep(modeId, area.id, node.id, fresh ? null : sig)
   const byId = new Map(area.items.map((it) => [it.id, it]))
   const boss = fresh
-  const split = boss ? { choice: [], typed: node.itemIds.map((id) => byId.get(id)).filter(Boolean) } : adaptiveSplit(area, stepItems.map((it) => it.id))
+  const split = boss ? { choice: [], typed: careerMax ? stepItems : node.itemIds.map((id) => byId.get(id)).filter(Boolean) } : adaptiveSplit(area, stepItems.map((it) => it.id))
   // Spaced review: items earlier levels of this island taught (shakiest first).
   const at = (area.nodes || []).findIndex((n) => n.id === node.id)
-  const earlierIds = new Set((area.nodes || []).slice(0, Math.max(0, at)).filter((n) => REVIEW_KINDS.has(n.kind) || n.kind === 'scene' || n.kind === 'practice').flatMap((n) => n.itemIds || []))
+  // (A career objective reviews only its own earlier lessons: the island's other objectives may not be studied yet.)
+  const earlierIds = new Set((area.nodes || []).slice(0, Math.max(0, at)).filter((n) => (REVIEW_KINDS.has(n.kind) || n.kind === 'scene' || n.kind === 'practice') && (!node.section || n.section === node.section)).flatMap((n) => n.itemIds || []))
   const reviewItems = REVIEW_KINDS.has(node.kind) ? weakItems({ items: area.items.filter((it) => earlierIds.has(it.id) && !stepItems.includes(it)) }, QUIZ_REVIEW_ITEMS) : []
   // THE QUESTION LADDER (utils/questionTier.js, one setting with Study: studyRules.questionLadder): every item is asked
   // at ITS tier, from its codex tier (new, bronze, silver, gold; a boss one step up, Legendary two). Off: today's
@@ -271,7 +277,10 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [], refill = null
     kept = await review(clean)
     if (!kept) { if (enough(clean.length)) return reshuffleQuiz(clean) } else if (!enough(kept.length)) kept = null
   }
-  const others = await Promise.all((area.nodes || []).filter((n) => n.id !== node.id).map((n) => readStepAny(modeId, area.id, n.id).catch(() => null)))
+  // Questions the area already asks (never repeated). A career island has ~90 steps: only this objective's are read.
+  // (A career fight reads only the checkpoints' sets, never all ~100 lesson files.)
+  const askedBefore = (n) => n.id !== node.id && (node.section ? n.section === node.section : !area.sections || n.kind === 'checkpoint')
+  const others = await Promise.all((area.nodes || []).filter(askedBefore).map((n) => readStepAny(modeId, area.id, n.id).catch(() => null)))
   const history = fresh ? (await readStepAny(modeId, area.id, node.id).catch(() => null))?.history || [] : []
   const avoid = [...new Set([...others.flatMap(askedIn), ...history])].slice(-QUIZ_AVOID_MAX)
   const seen = new Set(avoid.map(normQ))

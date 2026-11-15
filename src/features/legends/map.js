@@ -13,7 +13,11 @@
 // Map extras:  helpers ({ scroll, shield }), days ({ 'YYYY-MM-DD': steps finished }) for the journey heatmap
 import { gradeIsRight, gradeIsSolid } from '../../config/grading'
 import { canonKeys, pickObject } from '../../utils/aiJson'
+import { normalizeCareerNodes, CAREER_MAP_VERSION } from './career'
 export const MAP_VERSION = 1
+// The newest stored format this build reads: a career map (./career.js) is 2, so a build before career mode reads it as
+// "newer" and leaves it alone (a failed read, never a rewrite). Maps keep the version they were written with.
+export const MAP_VERSION_READ = CAREER_MAP_VERSION
 export const AREAS = { min: 3, max: 12, plan: 8 }       // areas planned at once (titles only, detail comes later)
 export const ITEMS = { min: 4, max: 24 }
 export const NODES = { min: 3, max: 8 }                 // not counting the boss
@@ -22,7 +26,7 @@ export const NODES = { min: 3, max: 8 }                 // not counting the boss
 export const LESSONS = 8
 export const PER_LESSON = { min: 2, max: 3 }
 export const LOOKAHEAD = 2                              // areas kept fully detailed ahead of the learner
-export const NODE_KINDS = ['learn', 'practice', 'scene', 'rule', 'talk', 'adventure', 'boss']
+export const NODE_KINDS = ['learn', 'practice', 'scene', 'rule', 'talk', 'adventure', 'checkpoint', 'boss']
 // Optional steps: never block the ladder (a Talk conversation, an Adventure with a goal).
 export const OPTIONAL_KINDS = new Set(['talk', 'adventure'])
 export const STORY = { lines: 3, max: 220 }
@@ -35,7 +39,7 @@ export const MOTIFS = ['forest', 'city', 'ocean', 'mountains', 'lab', 'stage', '
   'savanna', 'mirror', 'manor', 'junkyard', 'dream', 'sakura', 'mine', 'frontier', 'primeval', 'celestial']
 // 'original' = every drawing in its own ideal colors; the others recolor one chosen part of each boss (art.jsx).
 export const PALETTES = ['original', 'brand', 'ocean', 'forest', 'sunset', 'night', 'sand', 'candy', 'steel']
-export const PASS = { node: 0.6, boss: 0.7, legendary: 0.9 } // share of answers right to clear a node
+export const PASS = { node: 0.6, checkpoint: 0.7, boss: 0.7, legendary: 0.9 } // share of answers right to clear a node
 // Weak spots: the level before the boss, made from the island's shakiest items. Clearing it ONCE earns the area
 // one extra boss life (`bonusLife`); a replay never adds another.
 export const WEAK = { items: 6 }
@@ -247,6 +251,10 @@ export function createMap({ modeId, subject, start, plan }, now = Date.now()) {
 // in the open area unlock one by one (optional Talk steps never block), and the boss opens last.
 export function normalizeMap(map) {
   if (!map || !Array.isArray(map.areas)) return map
+  // A career map (./career.js): every island stays open and each objective climbs on its own.
+  if (map.career?.id) {
+    return { ...map, areas: map.areas.map((a) => { const status = a.status === 'done' ? 'done' : 'open'; return { ...a, status, nodes: normalizeCareerNodes(a.nodes || [], status) } }) }
+  }
   let openFound = false
   const areas = map.areas.map((a) => {
     let status
@@ -285,8 +293,10 @@ function dedupeAreas(areas) {
 }
 export function shapeMap(raw) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.areas)) return null
-  if ((raw.version || 1) > MAP_VERSION) return null // written by a newer build: leave it alone
-  return normalizeMap(ensureWeakNodes({ ...raw, version: MAP_VERSION, areas: dedupeAreas(raw.areas) }))
+  const version = raw.version || 1
+  if (version > MAP_VERSION_READ) return null // written by a newer build: leave it alone
+  // The version it was written with stays (a plain map stays 1, so builds before career mode keep reading it).
+  return normalizeMap(ensureWeakNodes({ ...raw, version, areas: dedupeAreas(raw.areas) }))
 }
 
 export const areaIndex = (map, areaId) => (map?.areas || []).findIndex((a) => a.id === areaId)
@@ -320,7 +330,7 @@ export function setBossName(map, areaId, name) {
   return { ...map, areas: map.areas.map((x, k) => (k === i ? { ...x, bossName: name } : x)) }
 }
 
-export const passRatio = (kind) => (kind === 'boss' ? PASS.boss : kind === 'legendary' ? PASS.legendary : PASS.node)
+export const passRatio = (kind) => (kind === 'boss' ? PASS.boss : kind === 'legendary' ? PASS.legendary : kind === 'checkpoint' ? PASS.checkpoint : PASS.node)
 
 // A Legendary run over a cleared area (not a node): a pass marks the area legendary. Same outcome shape as
 // applyNodeResult. Only a done area can be legendary. The answers count for the codex like a boss's.
@@ -528,6 +538,7 @@ export function mapProgress(map) {
 // The map needs more areas planned: the learner is on its last area (or finished it).
 // (Every area finished counts too: a "plan more" that failed on the last area must be retried, not a dead end.)
 export const needsMoreAreas = (map) => {
+  if (map?.career?.id) return false // a course has exactly its islands
   if (!map?.areas?.length || map.areas.length >= AREAS.max * 2) return false
   const open = map.areas.findIndex((a) => a.status === 'open')
   return open < 0 ? map.areas.every((a) => a.status === 'done') : open >= map.areas.length - 1

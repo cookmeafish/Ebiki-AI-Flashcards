@@ -25,6 +25,8 @@ import { planMap, detailAreas, extendIfNeeded, detailAreaNow, forgetRunning } fr
 import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
+import { loadCareer, availableCareers } from './CareerMap'
+import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap } from './career'
 import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
@@ -210,6 +212,9 @@ export default function LegendsScreen() {
   const [error, setError] = useState('')
   const [startAnswers, setStartAnswers] = useState(null)
   // What Ebiki has already seen of this learner (kit/evidence.js): offered instead of the placement exam when enough.
+  // Courses installed here (career mode, ./career.js): offered on the start screen.
+  const [careers, setCareers] = useState([])
+  useEffect(() => { let alive = true; availableCareers(CAREERS).then((list) => { if (alive) setCareers(list) }); return () => { alive = false } }, [])
   const [evidence, setEvidence] = useState(null) // null | { status: 'loading' } | { status: 'ready', ok, sum }
   const evidenceSeq = useRef(0)
   const knownRunRef = useRef(false) // one "Use what Ebiki knows" at a time
@@ -250,6 +255,8 @@ export default function LegendsScreen() {
   useEffect(() => {
     // A Gold blitz or the chest runs in a modal over the map (the view stays 'map'): it holds the edit too.
     if (pendingEdit == null || !map?.areas?.length || BUSY_VIEWS.has(view) || legendsSecretHeld()) return
+    // A course is never rewritten by Ebi (it would replace checked cards with AI ones): the request is refused, said once.
+    if (isCareerMap(map)) { setPendingEdit(null); ctx?.notify?.(ctx.t('lg_careerNoEdit')); return }
     setEdit({ text: pendingEdit, auto: true }); setView('edit'); setPendingEdit(null)
   }, [pendingEdit, map, view, liveSnap])
 
@@ -329,6 +336,22 @@ export default function LegendsScreen() {
     // ── First visit ──
     const saveStart = async (a) => {
       const start = { reason: a.reason, selfRating: a.selfRating, goal: a.goal, path: a.path, placement: null }
+      // CAREER MODE: the whole course as a ready map (no plan, no placement: every objective is open). The package is
+      // loaded FIRST and the course written in one go: an empty plain map written before it made the background effect
+      // pay for an AI plan, and a failed load left that AI map in place of the course.
+      if (a.path === 'career') {
+        const pinned = modeId
+        const pkg = await loadCareer(a.career)
+        if (pinned !== modeIdRef.current) return
+        if (!pkg) { setError(t('lg_careerLoadFailed')); setView('map'); return } // no map yet: the welcome screen shows it, with the offer to retry
+        const built = await updateMap(pinned, (m) => (m && m.areas?.length ? m : buildCareerMap(pkg, { modeId: pinned, subject, start })))
+        if (pinned !== modeIdRef.current) return
+        if (!built) { setError(t('lg_errSave')); setView('map'); return }
+        setError('')
+        await updateLearner(ctx, pinned, (m) => m || newLearner({ level: NEW_LEVEL[a.selfRating] || 0, confidence: 0.2, source: 'self' }))
+        if (pinned === modeIdRef.current) setView('map')
+        return
+      }
       const saved = await updateMap(modeId, (m) => (m ? { ...m, start } : createMap({ modeId, subject, start, plan: [] })))
       const pinned = modeId
       // A failed save leaves the questionnaire (it shows no errors: its buttons just did nothing) for the map
@@ -388,7 +411,7 @@ export default function LegendsScreen() {
         if (subject.accents && typeof answers.accents === 'boolean' && answers.accents !== (subject.strictAccents !== false)) subject.setStrictAccents?.(answers.accents)
         return saveStart(answers)
       }
-      return <Questionnaire t={t} subject={subject} evidence={evidence} onRecheck={recheckEvidence} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
+      return <Questionnaire t={t} subject={subject} evidence={evidence} careers={careers.map((c) => ({ ...c, recommended: careerMatches(c, subject) }))} onRecheck={recheckEvidence} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
     }
     if (view === 'placement') {
       return <Placement ctx={ctx} selfRating={startAnswers?.selfRating || map?.start?.selfRating || 1} onDone={placementDone} onQuit={() => setView('map')} />
@@ -422,8 +445,19 @@ export default function LegendsScreen() {
           <div style={{ fontSize: 14.5, color: C.inkDim, lineHeight: 1.55 }}>{t('lg_welcomeBody')}</div>
           {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13 }}>{t('lg_needKey')}</div>}
           {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+          {/* CAREER MODE: a course made for this mode is offered right here (the start screen's tile is 5 steps away). */}
+          {careers.filter((c) => careerMatches(c, subject)).map((c) => (
+            <Card key={c.id} style={{ display: 'grid', gap: 8, borderColor: C.success }}>
+              <div style={{ fontSize: 11.5, fontWeight: 900, color: C.success, textTransform: 'uppercase', letterSpacing: '.05em' }}>🏝️ {t('lg_careerRecommended')}</div>
+              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{t('lg_startCareer', { course: t(c.titleKey) })}</div>
+              <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_startCareerDesc')}</div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <ChunkyButton color={C.success} onClick={() => saveStart({ reason: 'school', selfRating: 1, goal: 'normal', path: 'career', career: c.id })}>{t('lg_careerStart')}</ChunkyButton>
+              </div>
+            </Card>
+          ))}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <ChunkyButton color={C.success} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>{t('lg_begin')}</ChunkyButton>
+            <ChunkyButton color={C.success} variant={careers.some((c) => careerMatches(c, subject)) ? 'ghost' : undefined} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>{t(careers.some((c) => careerMatches(c, subject)) ? 'lg_careerOwnMap' : 'lg_begin')}</ChunkyButton>
           </div>
         </div>
       )
@@ -520,14 +554,16 @@ export default function LegendsScreen() {
       // Clearing a step counts for the "Legends" quest (XP grows with the area); a failed try still earns practice
       // XP. The FIRST win over an area's boss also earns a streak freeze (replays never do).
       ctx.emit(EVENTS.PRACTICE_DONE, { source: passed ? LEGENDS_ID : `${LEGENDS_ID}-try`, mode: pinned, total: res.total, correct: res.correct })
-      const areaNo = Math.max(0, outcome.map.areas.findIndex((a) => a.id === area.id))
+      // (A course's islands are all open: none pays more for its place in the list.)
+      const areaNo = isCareerMap(outcome.map) ? 0 : Math.max(0, outcome.map.areas.findIndex((a) => a.id === area.id))
       if (passed) ctx.emit(EVENTS.LEGENDS_STEP, { mode: pinned, kind: node.kind, area: areaNo, effort: res.effort ?? 1, replays })
       // A boss's first-win reward (XP + a streak freeze) is paid once per island topic, even across Start over.
       const bossPaid = areaDone && (await claimReward(pinned, rewardKeyFor('boss', area.title)))
       if (bossPaid) ctx.emit(EVENTS.BOSS_BEATEN, { mode: pinned, area: areaNo })
       // The items it practiced too (Listen and Scenes pick other cards for a while), not only the topic.
       // Weak spots lists every item of the area but asks only the weakest: the ones it really asked are logged.
-      const askedIds = node.kind === 'weak' ? [...new Set((res.items || []).map((x) => x.itemId).filter(Boolean))] : (node.itemIds || [])
+      // A course's checkpoint and fights ask a SAMPLE of a whole objective or island: only those are logged.
+      const askedIds = node.kind === 'weak' || (careerSampleMax(node.kind) && isCareerMap(outcome.map)) ? [...new Set((res.items || []).map((x) => x.itemId).filter(Boolean))] : (node.itemIds || [])
       const stepItems = askedIds.map((id) => (area.items || []).find((it) => it.id === id)).filter(Boolean)
       recordPractice(ctx, LEGENDS_ID, [{ kind: 'topic', label: area.title }, ...stepItems.map((it) => ({ kind: 'card', label: it.front }))])
       // Its wrong answers go to the Mistake Gym like Study's.

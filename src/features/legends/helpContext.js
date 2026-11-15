@@ -9,6 +9,7 @@ import { RAID, RAID_ABILITY, shapeRaid, raidMotif, siegeOf, raidToday, isNewerRa
 import { raidProfile } from './raidProfiles'
 import { bossesBeaten, unlockedPowers, nextUnlock, powerProgress } from './powers'
 import { learnerLine } from '../kit/learner'
+import { isCareerMap, currentIsland, careerSections } from './career'
 
 export const HELP_MAX = 5000
 const BACK_MAX = 90
@@ -38,7 +39,7 @@ const short = (s, n = BACK_MAX) => {
   const t = String(s ?? '').replace(/\s+/g, ' ').trim()
   return t.length > n ? t.slice(0, n - 1) + '…' : t
 }
-const KIND = { learn: 'lesson', practice: 'practice', rule: 'rule lesson', scene: 'story scene', talk: 'Talk (conversation)', adventure: 'Adventure (mission)', weak: 'Weak spots', boss: 'boss fight' }
+const KIND = { learn: 'lesson', practice: 'practice', rule: 'rule lesson', scene: 'story scene', talk: 'Talk (conversation)', adventure: 'Adventure (mission)', weak: 'Weak spots', checkpoint: 'objective checkpoint test', boss: 'boss fight' }
 
 const list = (v) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : [])
 function areaLine(a, i, current) {
@@ -74,7 +75,10 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
     out.push('Legends map: none yet for this mode (the learner has not started Legends, or started over).')
   } else {
     const p = mapProgress(map)
-    const cur = (map.areas || []).find((a) => a.status === 'open') || null
+    // A course (career mode): every island is open, so the current one is where the learner has progress.
+    const career = isCareerMap(map)
+    const cur = career ? currentIsland(map.areas) : (map.areas || []).find((a) => a.status === 'open') || null
+    if (career) out.push(`This map is the course "${short(map.career.title, 80)}": one island per exam domain, all open; each objective has lessons then a checkpoint test; the island boss opens after every checkpoint. Ebi cannot change a course map.`)
     out.push(`Legends map: ${p.areasDone}/${p.areasTotal} areas cleared, ${p.nodesDone}/${p.nodesTotal} steps done, ${p.stars} stars${p.finished ? ', whole map finished' : ''}.`)
     if (map.start?.goal || map.start?.reason) out.push(`Why they started: ${short([map.start.reason, map.start.goal].filter(Boolean).join('; '), 200)}.`)
     if (map.start?.placement?.level != null) out.push(map.start.placement.from === 'evidence' ? `Starting level ${Math.round(map.start.placement.level)}, read from what Ebiki had seen of the learner's studying (no exam).` : `Placement exam result: level ${Math.round(map.start.placement.level)}.`)
@@ -99,7 +103,9 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
     // The current area in detail: its levels and what they teach (fronts always; backs only when nothing is running).
     if (cur?.detailed && onLegends) {
       out.push(`Current area "${cur.title}" levels:`)
-      for (const n of list(cur.nodes)) {
+      // A course island has ~100 steps: one line per objective instead.
+      if (career) for (const s of careerSections(cur)) out.push(`- Objective ${s.id} "${short(s.short, 60)}": ${s.lessonsDone}/${s.lessons} lessons, checkpoint ${s.checkpoint?.status || 'none'}`)
+      for (const n of career ? list(cur.nodes).filter((x) => !x.section) : list(cur.nodes)) {
         out.push(`- ${KIND[n.kind] || n.kind}${n.title ? ` "${n.title}"` : ''}: ${n.status}${n.stars ? `, ${n.stars} stars` : ''}${n.attempts ? `, ${n.attempts} tries` : ''}${n.goal ? `, mission: ${short(n.goal, 120)}` : ''}`)
       }
       const items = list(cur.items).filter((it) => it.front).slice(0, 24)

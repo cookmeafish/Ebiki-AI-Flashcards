@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { tallyStudiedCard,
   slug, parseMapPlan, parseAreaDetail, createMap, normalizeMap, shapeMap, needsDetail, applyAreaDetail, applyNodeResult,
-  starsFor, adaptiveSplit, mapProgress, weakItems, ensureWeakNodes, applyLegendaryResult, WEAK_BONUS_LIVES, mergeEdit, parseMapEdit, editChanged, appendAreas, needsMoreAreas, currentArea, MAP_VERSION, AREAS,
+  starsFor, adaptiveSplit, mapProgress, weakItems, ensureWeakNodes, applyLegendaryResult, WEAK_BONUS_LIVES, mergeEdit, parseMapEdit, editChanged, appendAreas, needsMoreAreas, currentArea, MAP_VERSION, MAP_VERSION_READ, AREAS,
 } from './map'
 
 const id = (s) => s
@@ -152,7 +152,7 @@ describe('unlocking and progress', () => {
   })
   it('shapes a stored map and refuses one from a newer build', () => {
     expect(shapeMap(null)).toBeNull()
-    expect(shapeMap({ version: MAP_VERSION + 1, areas: [] })).toBeNull()
+    expect(shapeMap({ version: MAP_VERSION_READ + 1, areas: [] })).toBeNull() // newer than anything this build reads (a career map is 2)
     expect(shapeMap({ areas: [{ id: 'x', status: 'locked', nodes: [] }] }).areas[0].status).toBe('open')
   })
   it('plans more areas when the learner reaches the last one', () => {

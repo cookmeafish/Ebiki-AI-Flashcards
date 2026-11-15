@@ -11,8 +11,10 @@ import { LevelChip } from './LevelChip'
 export { LevelChip }
 import { CheatButton, CheatRow, useCheatToggle } from './CheatUI'
 import { AreaExtras, Journey, PassportModal } from './Extras'
+import CareerMap from './CareerMap'
+import { isCareerMap } from './career'
 
-export const KIND_ICON = { learn: '📘', practice: '✏️', scene: '📖', rule: '📐', talk: '💬', adventure: '🧭', weak: '🎯', boss: '👑' }
+export const KIND_ICON = { learn: '📘', practice: '✏️', scene: '📖', rule: '📐', talk: '💬', adventure: '🧭', checkpoint: '🚩', weak: '🎯', boss: '👑' }
 const NODE = { size: 66, boss: 88, swing: 72, gap: 26 }  // px: step button, boss button, sideways swing, vertical gap
 const MAX_W = 620
 const HEAD_STICKY_MAX = 0.4 // share of the screen's height the pinned map header may take
@@ -174,6 +176,7 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
     box.scrollTop += (r.top - b.top - (b.height - Math.min(r.height, b.height)) / 2) / z
   })
   const p = mapProgress(map)
+  const career = isCareerMap(map) // a course (./career.js): island strip + objectives, never re-planned
   const reversed = map.areas.map((a, i) => ({ a, i })).reverse()
   return (
     <div style={{ maxWidth: MAX_W, margin: '0 auto' }}>
@@ -195,7 +198,7 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <ChunkyButton variant="ghost" color={C.purple} onClick={onEdit} disabled={!ctx.ai.hasKey} style={{ fontSize: 12, padding: '7px 12px' }}>✏️ {t('lg_changeMap')}</ChunkyButton>
+          {!career && <ChunkyButton variant="ghost" color={C.purple} onClick={onEdit} disabled={!ctx.ai.hasKey} style={{ fontSize: 12, padding: '7px 12px' }}>✏️ {t('lg_changeMap')}</ChunkyButton>}
           <ChunkyButton variant="ghost" color={C.success} onClick={() => setPassport(true)} style={{ fontSize: 12, padding: '7px 12px' }}>🛂 {t('lg_passport')}</ChunkyButton>
           {onRaid && <ChunkyButton variant="ghost" color={C.warning} onClick={onRaid} style={{ fontSize: 12, padding: '7px 12px' }}>⚔️ {t('lg_raid')}</ChunkyButton>}
           <ChunkyButton variant="ghost" color={C.danger} onClick={onRestart} style={{ fontSize: 12, padding: '7px 12px' }}>↺ {t('lg_restart')}</ChunkyButton>
@@ -217,7 +220,8 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
       {p.finished && (
         <div style={{ textAlign: 'center', padding: 16, fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.warning }}>🏆 {t('lg_mapFinished')}</div>
       )}
-      {reversed.map(({ a, i }) => (
+      {career && <CareerMap key={`${map.modeId}:${map.career.id}`} ctx={ctx} map={map} cheat={cheat} onOpen={onOpen} onLegendary={onLegendary} />}
+      {!career && reversed.map(({ a, i }) => (
         <AreaSection key={a.id} ctx={ctx} cheat={cheat} t={t} area={a} index={i} onOpen={onOpen} onLegendary={(area) => onLegendary?.(area, { id: `${area.id}-legendary`, kind: 'legendary', title: '', itemIds: (area.items || []).map((x) => x.id) })} preparing={!!busy}
           refFor={i === current ? currentRef : undefined} stepRef={i === current ? stepRef : undefined} />
       ))}

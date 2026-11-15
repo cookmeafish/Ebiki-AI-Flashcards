@@ -34,7 +34,9 @@ function Tile({ selected, onClick, children, style, disabled = false }) {
 // `evidence`: what Ebiki has already seen (LegendsScreen reads the learner context): { status, ok, sum }. Anything at
 // all offers a third start, "Use what Ebiki knows" (knownReason.js), which reads everything again on the click and
 // sets the level from it instead of the exam. `onRecheck` reads again (Anki opened since, a chat since).
-export default function Questionnaire({ t, subject, onDone, onBack, focus = false, evidence = null, onRecheck = null }) {
+// `careers`: installed courses (career mode, ./career.js) [{ id, titleKey, recommended }]: each is a start tile, a
+// recommended one (it matches the mode) first.
+export default function Questionnaire({ t, subject, onDone, onBack, focus = false, evidence = null, onRecheck = null, careers = [] }) {
   const [step, setStep] = useState(0)
   // One start only: a double click ran two starts (two paid level reads; "I'm new" landing over the exam).
   const startedRef = useRef(false)
@@ -122,6 +124,16 @@ export default function Questionnaire({ t, subject, onDone, onBack, focus = fals
 
       {name === 'start' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          {[...careers].sort((a, b) => Number(!!b.recommended) - Number(!!a.recommended)).map((c) => (
+            <Tile key={c.id} onClick={() => finish({ ...answers, path: 'career', career: c.id })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6, flex: '1 1 100%', ...(c.recommended ? { borderColor: C.success } : {}) }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 30 }}>🏝️</span>
+                {c.recommended && <span style={{ fontSize: 11.5, fontWeight: 900, color: C.success, textTransform: 'uppercase', letterSpacing: '.05em' }}>{t('lg_careerRecommended')}</span>}
+              </span>
+              <span style={{ fontFamily: FONT.display, fontSize: 18 }}>{t('lg_startCareer', { course: t(c.titleKey) })}</span>
+              <span style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{t('lg_startCareerDesc')}</span>
+            </Tile>
+          ))}
           <Tile onClick={() => finish({ ...answers, path: 'new' })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
             <span style={{ fontSize: 30 }}>🌱</span>
             <span style={{ fontFamily: FONT.display, fontSize: 18 }}>{t('lg_startNew')}</span>

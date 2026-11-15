@@ -1,0 +1,29 @@
+{
+  "id": "security-plus-sy0-701",
+  "title": "CompTIA Security+ SY0-701",
+  "version": "1",
+  "deck": "Security+",
+  "tagPrefix": "secplus sy0-701",
+  "areas": [
+    { "motif": "castle", "palette": "original", "bossName": "The Warden of Controls", "theme": "Controls, CIA and Zero Trust, change management and cryptography: the vocabulary every other domain builds on.", "story": ["Every defense starts with the basics.", "Learn how controls are sorted, how trust is earned, and how secrets are kept."], "canDo": ["Classify any security control by category and type", "Explain CIA, AAA and Zero Trust", "Pick the right cryptographic tool for a job"] },
+    { "motif": "swamp", "palette": "original", "bossName": "The Mire Hydra", "theme": "Threat actors, attack surfaces, vulnerabilities, signs of attack, and how to mitigate them.", "story": ["Something moves under the water.", "Know who attacks, how they get in, and what it looks like when they do."], "canDo": ["Name threat actors and their motives", "Spot indicators of malicious activity", "Choose a mitigation for a vulnerability"] },
+    { "motif": "clockwork", "palette": "original", "bossName": "The Architect", "theme": "Cloud, network and infrastructure design, protecting data, and resilience and recovery.", "story": ["A secure system is built, not bolted on.", "Design networks, protect data in every state, and keep things running when they break."], "canDo": ["Compare architecture models and their risks", "Protect data at rest, in transit and in use", "Plan backups, sites and recovery"] },
+    { "motif": "lab", "palette": "original", "bossName": "The Night Shift", "theme": "Hardening, asset and vulnerability management, monitoring, identity and access, automation, incident response and investigations.", "story": ["The biggest domain: the daily work of a security team.", "Harden, watch, respond, and prove what happened."], "canDo": ["Harden systems and manage vulnerabilities", "Run identity and access management", "Follow the incident response process"] },
+    { "motif": "library", "palette": "original", "bossName": "The Auditor", "theme": "Governance, risk management, third parties, compliance, audits and security awareness.", "story": ["Security is also policy, contracts and proof.", "Manage risk, vendors and compliance, and teach people to stay safe."], "canDo": ["Run a risk analysis with SLE, ARO and ALE", "Assess third parties and agreements", "Plan audits and awareness training"] }
+  ],
+  "standardNames": {
+    "CVE": "Common Vulnerabilities and Exposures (the official name; CompTIA lists Common Vulnerability Enumeration)",
+    "DES": "Data Encryption Standard (CompTIA lists Digital Encryption Standard)",
+    "URL": "Uniform Resource Locator (CompTIA lists Universal Resource Locator)",
+    "HMAC": "Hash-based Message Authentication Code (CompTIA lists Hashed Message Authentication Code)",
+    "ISO": "International Organization for Standardization (CompTIA lists International Standards Organization)",
+    "TACACS+": "Terminal Access Controller Access-Control System Plus (Cisco; encrypts the whole payload, uses TCP 49)",
+    "PHI": "Protected Health Information under HIPAA (CompTIA lists Personal Health Information)",
+    "MTTR": "Mean Time to Recover in the acronym list; objective 5.2 calls it Mean time to repair",
+    "FIM": "File Integrity Monitoring in objective 4.5 (CompTIA lists File Integrity Management)",
+    "RAID": "Redundant Array of Independent (originally Inexpensive) Disks",
+    "FTPS": "FTP over TLS (FTP Secure); not the same as SFTP, which runs over SSH",
+    "SFTP": "SSH File Transfer Protocol; not the same as FTPS, which is FTP over TLS",
+    "CTM": "Counter Mode (usually abbreviated CTR)"
+  }
+}

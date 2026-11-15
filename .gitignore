@@ -70,3 +70,9 @@ game-inbox.json
 
 # The asset view version picker: every past raid boss drawing, written from git by dev/legends-gallery/raid-history.mjs
 dev/raid-history/
+
+# Career mode courses (docs/career-mode-guide.md): the built package, our cards and chapters ship; the vendor's raw
+# outline and acronym list stay local, and so do build outputs (Anki import, report).
+dev/careers/sources/*/outline.md
+dev/careers/sources/*/acronyms.txt
+dev/careers/out/
