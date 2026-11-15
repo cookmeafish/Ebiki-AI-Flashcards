@@ -15,7 +15,7 @@
     "definition": "This objective covers the security trade-offs of architecture choices such as cloud, IaC, serverless, microservices, on-premises, containers, virtualization, IoT, ICS/SCADA, RTOS and embedded systems, and the considerations used to choose between them.",
     "example": "Choosing between running an app on on-premises servers or as serverless functions, weighing patch control, cost and the shared responsibility split.",
     "category": "3.1 Architecture models",
-    "keyPoints": "Know who is responsible for what in each model; know which systems cannot be patched easily (ICS, RTOS, embedded, IoT); considerations list: availability, resilience, cost, responsiveness, scalability, ease of deployment, risk transference, ease of recovery, patching, power, compute"
+    "keyPoints": "Know who is responsible for what in each model; know which systems cannot be patched easily (ICS, RTOS, embedded, IoT); weigh each model on staying up (availability, resilience, ease of recovery), growing and launching (scalability, ease of deployment, responsiveness), money and risk (cost, risk transference) and the hardware it needs (power, compute, patching)"
   },
   {
     "obj": "3.1",
@@ -294,7 +294,7 @@
       "Considerations"
     ],
     "term": "Architecture considerations (SY0-701 3.1)",
-    "definition": "The factors used to compare architecture models: availability, resilience, cost, responsiveness, scalability, ease of deployment, risk transference, ease of recovery, patch availability, inability to patch, power and compute.",
+    "definition": "The factors used to compare architecture models. Staying up: availability, resilience, ease of recovery. Growing and launching: scalability, ease of deployment, responsiveness. Money and risk: cost and risk transference. Upkeep and hardware: patch availability or an inability to patch, power and compute.",
     "example": "Choosing cloud over on-premises for a seasonal app because of scalability and cost, while accepting less control over patching.",
     "category": "3.1 Architecture models",
     "keyPoints": "Every model is a trade-off: no option wins on all factors; exam scenarios name a priority (cost, uptime, patching) and ask which model fits it"

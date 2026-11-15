@@ -18,6 +18,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import { fileURLToPath } from 'url'
+import { outlineGrams, courseTexts, verbatimProblems, RUN_WORDS } from './verbatim.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const id = process.argv[2]
@@ -117,6 +118,12 @@ const counted = areas.reduce((n, a) => n + a.items.length, 0)
 if (counted !== cards.length) problems.push(`package holds ${counted} items, cards are ${cards.length}`)
 for (const a of areas) for (const l of a.lessons) if (l.itemIds.length > LESSON_MAX) problems.push(`lesson over ${LESSON_MAX} items: ${a.number} ${l.title}`)
 const pkg = { id, title: course.title, version: course.version || '1', areas }
+
+// OWN WORDS ONLY (./verbatim.mjs; rule in docs/career-mode-guide.md): nothing shipped copies 12+ words of the outline.
+const chapterFiles = latest(path.join(SRC, 'knowledge'), /^(\w+)-knowledge(?:\.r(\d+))?\.md$/)
+const copied = verbatimProblems(courseTexts({ cards, pkg, chapters: chapterFiles.map((x) => ({ name: path.basename(x.file), text: fs.readFileSync(x.file, 'utf8') })) }),
+  outlineGrams(fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8')), areas.flatMap((a) => a.sections.map((s) => s.title)))
+for (const c of copied) problems.push(`copied from the outline (${RUN_WORDS}+ words), rewrite in our own words: ${c.where}: "${c.run}"`)
 
 // ── acronym cards (Anki only; not on the map) ──
 const acr = new Map()

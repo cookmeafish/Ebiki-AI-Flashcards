@@ -190,6 +190,7 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
         <div role="group" aria-label={t('lg_careerIslandsAria')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
           {map.areas.map((a) => <IslandCard key={a.id} t={t} area={a} selected={a.id === area.id} onPick={() => { picked.current = true; setIslandId(a.id) }} />)}
         </div>
+        {careerFor(map.career?.id)?.noticeKey && <div style={{ fontSize: 11.5, color: C.inkFaint, marginTop: 8 }}>{t(careerFor(map.career.id).noticeKey)}</div>}
       </div>
 
       <section ref={pageRef} aria-label={area.title} style={{ scrollMarginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>

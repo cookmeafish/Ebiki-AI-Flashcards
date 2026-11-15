@@ -30,6 +30,21 @@ Rules the engine keeps (do not break them):
 - **The map version.** A career map is `version: 2` (`CAREER_MAP_VERSION`). A build from before career mode reads it as "newer" and never rewrites it. Plain maps keep version 1.
 - **Never AI-planned.** A career map is never re-planned, extended, edited by Ebi, or given AI boss names. Boss names come from `course.json`.
 
+## Own words only (legal rule, 2026-11-14)
+The owner wants the course AND its flashcards in git, legally. So:
+- **Course content in git is in our own words.** That covers cards, chapters and the built package.
+- **The vendor's own documents stay local.** `outline.md` and `acronyms.txt` are gitignored.
+- **What may match the outline:**
+  - an objective's own title, as its section label;
+  - official term names, one at a time.
+- **What may not:** a run of 12 or more consecutive words from the outline. That includes a whole official list copied in its order: group and explain the terms instead.
+- **Enforced** by `dev/careers/verbatim.mjs`:
+  - `build-career.mjs` refuses to build;
+  - `dev/careers/verbatim.test.js` fails, wherever the outline is present.
+- **The exam is named only to describe the course.** Every course carries a trademark line (`noticeKey` in `CAREERS`, e.g. "Not affiliated with or endorsed by CompTIA...") shown on its welcome offer and island screen, and in the README.
+
+This is a cautious standard, not legal advice.
+
 ## Steps: a new course
 1. **Get the outline.**
    - Save the official objectives as `dev/careers/sources/<id>/outline.md`:

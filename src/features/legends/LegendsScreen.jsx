@@ -451,6 +451,7 @@ export default function LegendsScreen() {
               <div style={{ fontSize: 11.5, fontWeight: 900, color: C.success, textTransform: 'uppercase', letterSpacing: '.05em' }}>🏝️ {t('lg_careerRecommended')}</div>
               <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{t('lg_startCareer', { course: t(c.titleKey) })}</div>
               <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_startCareerDesc')}</div>
+              {c.noticeKey && <div style={{ fontSize: 11.5, color: C.inkFaint }}>{t(c.noticeKey)}</div>}
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <ChunkyButton color={C.success} onClick={() => saveStart({ reason: 'school', selfRating: 1, goal: 'normal', path: 'career', career: c.id })}>{t('lg_careerStart')}</ChunkyButton>
               </div>

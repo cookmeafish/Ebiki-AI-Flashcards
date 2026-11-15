@@ -24,7 +24,8 @@ export const careerSampleMax = (kind) => (kind === 'checkpoint' ? CAREER.checkpo
 
 // The courses this build knows. `match`: a mode whose name or description is about it gets the tile first.
 export const CAREERS = [
-  { id: 'security-plus-sy0-701', titleKey: 'lg_careerSecPlus', url: '/careers/security-plus-sy0-701.json', match: /security\s*\+|security\s*plus|sy0-?701/i },
+  // `noticeKey`: the course's trademark line, shown on its screens (we name the exam only to describe it).
+  { id: 'security-plus-sy0-701', titleKey: 'lg_careerSecPlus', noticeKey: 'lg_careerSecPlusNotice', url: '/careers/security-plus-sy0-701.json', match: /security\s*\+|security\s*plus|sy0-?701/i },
 ]
 export const careerFor = (id) => CAREERS.find((c) => c.id === id) || null
 export const careerMatches = (career, subject) => !!career?.match?.test(`${subject?.name || ''} ${subject?.description || ''}`)

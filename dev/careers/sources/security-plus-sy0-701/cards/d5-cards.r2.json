@@ -917,7 +917,7 @@
     "definition": "Evaluating a vendor's security posture and risk before and during the relationship, using pen tests, right-to-audit clauses, evidence of internal audits, independent assessments and supply chain analysis.",
     "example": "A bank reviews a software vendor's ISO 27001 certificate, audit reports and pen test results before allowing it to connect to the network.",
     "category": "5.3 Third-party risk",
-    "keyPoints": "Five listed methods: penetration testing, right-to-audit clause, evidence of internal audits, independent assessments, supply chain analysis; Assessment is ongoing, not one-time; Higher-risk vendors get deeper assessment"
+    "keyPoints": "Five methods: ask for their own audit results (evidence of internal audits), bring in outsiders (independent assessments, penetration testing), keep the right to check them yourself (right-to-audit clause), and look past them to their suppliers (supply chain analysis); Assessment is ongoing, not one-time; Higher-risk vendors get deeper assessment"
   },
   {
     "obj": "5.3",
@@ -1325,7 +1325,7 @@
     "definition": "The protection of personal data and the rights of individuals over it, governed by laws at many levels and by roles such as data subject, controller and processor.",
     "example": "A company maps where customer personal data is stored, sets retention periods, and builds a process to delete data on request.",
     "category": "5.4 Security compliance",
-    "keyPoints": "Listed parts: legal implications, data subject, controller vs processor, ownership, data inventory and retention, right to be forgotten; GDPR is the main reference law; Privacy is about personal data rights, security is about protecting all data"
+    "keyPoints": "Covers who the data is about (the data subject) and their right to be forgotten; who decides and who handles it (controller vs processor) and who owns it; what you hold and how long (data inventory and retention); and the legal implications; GDPR is the main reference law; Privacy is about personal data rights, security is about protecting all data"
   },
   {
     "obj": "5.4",

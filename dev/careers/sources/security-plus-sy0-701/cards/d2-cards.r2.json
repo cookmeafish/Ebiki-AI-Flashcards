@@ -153,7 +153,7 @@
       "Motivations"
     ],
     "term": "Threat actor motivations",
-    "definition": "The reasons actors attack. SY0-701 lists data exfiltration, espionage, service disruption, blackmail, financial gain, philosophical/political beliefs, ethical, revenge, disruption/chaos and war.",
+    "definition": "Why attackers attack. Money drives most of it (financial gain, often through blackmail). Others want secrets (espionage, data exfiltration), to stop a service (service disruption, disruption/chaos), to make a point (philosophical/political beliefs), to get even (revenge), or to help (ethical hacking); nations may attack as an act of war.",
     "example": "A hacktivist is motivated by beliefs, organized crime by money, an angry ex-employee by revenge.",
     "category": "2.1 Threat actors and motivations",
     "keyPoints": "Questions often give the behavior and ask the motive; one actor can have several motives; match: money to organized crime, beliefs to hacktivists, espionage/war to nation-states, revenge to insiders"
@@ -537,7 +537,7 @@
     "definition": "Manipulating people into revealing information or performing actions that help an attacker, exploiting trust, urgency, authority or fear.",
     "example": "A caller posing as a senior manager pressures a new help desk worker to reset a password immediately.",
     "category": "2.2 Threat vectors and attack surfaces",
-    "keyPoints": "Listed types: phishing, vishing, smishing, misinformation/disinformation, impersonation, business email compromise, pretexting, watering hole, brand impersonation, typosquatting; levers: authority, urgency, scarcity, familiarity, trust; best defense: security awareness training plus verification procedures"
+    "keyPoints": "Messages that trick people: phishing (email), smishing (text), vishing (voice), business email compromise; pretending to be someone: impersonation, brand impersonation, pretexting (a made-up story); traps on the web: watering hole sites and typosquatted look-alike domains; false information: misinformation/disinformation; levers: authority, urgency, scarcity, familiarity, trust; best defense: security awareness training plus verification procedures"
   },
   {
     "obj": "2.2",
@@ -1014,7 +1014,7 @@
     "definition": "Objective 2.4 asks you to look at a scenario (symptoms, logs, behavior) and identify the attack: malware, physical, network, application, cryptographic and password attacks, plus general indicators of compromise.",
     "example": "Scenario: logs show one user logged in from New York and Tokyo within ten minutes. Indicator: impossible travel, suggesting stolen credentials.",
     "category": "2.4 Indicators of malicious activity",
-    "keyPoints": "Performance-based style: read the clues; know the distinguishing feature of each attack (worm self-spreads, virus needs a user, spraying uses one password on many accounts); indicators list: lockout, concurrent sessions, blocked content, impossible travel, resource consumption, resource inaccessibility, out-of-cycle logging, published/documented, missing logs"
+    "keyPoints": "Performance-based style: read the clues; know the distinguishing feature of each attack (worm self-spreads, virus needs a user, spraying uses one password on many accounts); account clues: lockouts, concurrent sessions, impossible travel; system clues: resource consumption, resources becoming inaccessible, blocked content; log clues: missing logs or out-of-cycle logging; outside clues: your data published/documented online"
   },
   {
     "obj": "2.4",
@@ -1462,7 +1462,7 @@
       "Indicators"
     ],
     "term": "Indicators of malicious activity (indicators of compromise)",
-    "definition": "Signs that an attack is happening or has happened. SY0-701 lists account lockout, concurrent session usage, blocked content, impossible travel, resource consumption, resource inaccessibility, out-of-cycle logging, published/documented and missing logs.",
+    "definition": "Signs that an attack is happening or has happened. Watch accounts (lockouts, the same user signed in twice at once, impossible travel between logins), systems (unusual resource consumption, resources suddenly inaccessible, security tools or updates being blocked), logs (missing logs, logging at odd times) and the outside world (your data published or documented online).",
     "example": "An analyst sees log files deleted for a two-hour window, plus an admin logged in from two countries at once.",
     "category": "2.4 Indicators of malicious activity",
     "keyPoints": "Indicators of compromise (IoCs) are evidence of an intrusion; combine several before concluding; know each indicator's likely cause"

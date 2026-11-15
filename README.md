@@ -7,7 +7,7 @@ A local-first study app built on Anki: AI-written study questions, an AI tutor, 
 ## Screens
 
 - **Study** - Anki sessions with AI-written questions, multiple choice, verified PBQ exercises for cert subjects, and insights. Ratings go back to Anki.
-- **Legends** - an adventure map per mode: areas of lessons, stories, rule drills and chats with Ebi, each ending in a named boss fight. Clear Weak spots first for an extra life; replay a cleared area as a Legendary challenge. A placement test, or **Use what Ebiki knows**, sets your level (A1 to C2 for languages, Beginner to Expert otherwise). **Change my map** (or ask Ebi) edits it; areas you started never change.
+- **Legends** - an adventure map per mode: areas of lessons, stories, rule drills and chats with Ebi, each ending in a named boss fight. Clear Weak spots first for an extra life; replay a cleared area as a Legendary challenge. A placement test, or **Use what Ebiki knows**, sets your level (A1 to C2 for languages, Beginner to Expert otherwise). **Change my map** (or ask Ebi) edits it; areas you started never change. **Courses** (career mode) turn a whole exam into a ready map: one island per domain, every objective as lessons and a checkpoint, a boss test per island. The first course is CompTIA Security+ (SY0-701), offered in a mode about it. Its 830 cards are written in our own words and checked twice for accuracy.
 - **Practice** - extra practice from your cards and mistakes:
   - **Daily raid** - your due cards as a boss fight against a roster of 27 bosses, each with its own ability; each card's first answer is a real Anki review. Bosses keep their wounds between days (healing a little overnight) and your hearts refill each day. Lose every heart and the boss heals back half that run's damage, but you can fight on at once. Each different boss you beat unlocks a **power** for good; bring up to three to a fight, each usable once.
   - **Ebi Call** - a chat that weaves your due cards into the conversation and grades each one you use.
@@ -150,5 +150,7 @@ To share, install the app on each computer, then point each at one **shared data
 - Anki + AnkiConnect (cards and studying)
 - Electron (optional dependency: app window and overlay)
 - For browser-tab mode, Chrome, Edge or Brave
+
+Course content is written in our own words. Ebiki is not affiliated with or endorsed by CompTIA; CompTIA and Security+ are trademarks of CompTIA, Inc.
 
 Developer notes: `CLAUDE.md`.

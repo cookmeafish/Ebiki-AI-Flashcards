@@ -70,7 +70,7 @@
       "Hardening targets"
     ],
     "term": "Hardening targets",
-    "definition": "Hardening targets are the kinds of systems that must be hardened, meaning their attack surface is reduced by removing unneeded services and software, changing defaults, patching and restricting access. Security+ lists mobile devices, workstations, switches, routers, cloud infrastructure, servers, ICS/SCADA, embedded systems, RTOS and IoT devices.",
+    "definition": "The kinds of systems that must be hardened, meaning their attack surface is reduced by removing unneeded services and software, changing defaults, patching and restricting access. They range from user devices (workstations, mobile devices) and network gear (routers, switches) to servers and cloud infrastructure, and to specialised systems that are hard to patch (ICS/SCADA, embedded systems, RTOS, IoT devices).",
     "example": "Before deployment, a team disables unused ports on switches, removes default accounts from routers, and turns off unneeded services on servers.",
     "category": "4.1 Security techniques for computing resources",
     "keyPoints": "Common steps for all: patch, change default credentials, disable unused services and ports, least privilege, logging; each target has its own constraints (ICS cannot be patched easily, IoT may not be patchable at all); hardening reduces attack surface"

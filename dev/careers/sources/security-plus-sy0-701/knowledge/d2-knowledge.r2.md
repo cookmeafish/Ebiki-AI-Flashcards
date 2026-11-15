@@ -89,7 +89,7 @@ How technically skilled an actor is, from running others' scripts to writing cus
 
 ### Motivations
 
-The reasons actors attack. SY0-701 lists data exfiltration, espionage, service disruption, blackmail, financial gain, philosophical/political beliefs, ethical, revenge, disruption/chaos and war.
+Why attackers attack. Money drives most of it (financial gain, often through blackmail). Others want secrets (espionage, data exfiltration), to stop a service (service disruption, disruption/chaos), to make a point (philosophical/political beliefs), to get even (revenge), or to help (ethical hacking); nations may attack as an act of war.
 
 - **Example:** A hacktivist is motivated by beliefs, organized crime by money, an angry ex-employee by revenge.
 - **Exam tip:** Questions often give the behavior and ask the motive; one actor can have several motives; match: money to organized crime, beliefs to hacktivists, espionage/war to nation-states, revenge to insiders.
@@ -346,7 +346,7 @@ Providers of hardware, components or materials. A tampered or counterfeit part c
 Manipulating people into revealing information or performing actions that help an attacker, exploiting trust, urgency, authority or fear.
 
 - **Example:** A caller posing as a senior manager pressures a new help desk worker to reset a password immediately.
-- **Exam tip:** Listed types: phishing, vishing, smishing, misinformation/disinformation, impersonation, business email compromise, pretexting, watering hole, brand impersonation, typosquatting; levers: authority, urgency, scarcity, familiarity, trust; best defense: security awareness training plus verification procedures.
+- **Exam tip:** Messages that trick people: phishing (email), smishing (text), vishing (voice), business email compromise; pretending to be someone: impersonation, brand impersonation, pretexting; traps on the web: watering hole sites and typosquatted domains; false information: misinformation/disinformation; levers: authority, urgency, scarcity, familiarity, trust; best defense: security awareness training plus verification procedures.
 
 #### Phishing
 
@@ -951,7 +951,7 @@ Trying every possible password combination, or a very large list, until one work
 
 ### Indicators
 
-Signs that an attack is happening or has happened. SY0-701 lists account lockout, concurrent session usage, blocked content, impossible travel, resource consumption, resource inaccessibility, out-of-cycle logging, published/documented and missing logs.
+Signs that an attack is happening or has happened. Watch accounts (lockouts, the same user signed in twice at once, impossible travel between logins), systems (unusual resource consumption, resources suddenly inaccessible, security tools or updates being blocked), logs (missing logs, logging at odd times) and the outside world (your data published or documented online).
 
 - **Example:** An analyst sees log files deleted for a two-hour window, plus an admin logged in from two countries at once.
 - **Exam tip:** Indicators of compromise (IoCs) are evidence of an intrusion; combine several before concluding; know each indicator's likely cause.
