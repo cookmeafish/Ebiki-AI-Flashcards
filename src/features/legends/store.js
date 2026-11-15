@@ -5,6 +5,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { featureStore } from '../storage'
 import { shapeMap } from './map'
+import { isCareerMap } from './career'
 
 export const LEGENDS_ID = 'legends'
 // The intent that opens the Legends screen (= the nav id); payload { edit: '<request>' } opens "Change my map". Here,
@@ -58,6 +59,86 @@ export function updateMap(modeId, fn) {
   })
   chain = run.catch(() => {})
   return run.catch(() => undefined)
+}
+
+// ── A mode keeps BOTH a course and its own adventure ─────────────────────────────────────────────────────────
+// One map is on screen per mode; the other kind waits PARKED (park-<mode>-course / park-<mode>-adventure), whole,
+// with its progress (the owner: leaving career mode for the adventure must not throw the course away).
+const parkKey = (modeId, kind) => `park-${keyFor(modeId).slice(4)}-${kind}`
+const kindOf = (map) => (isCareerMap(map) ? 'course' : 'adventure')
+const parked = new Map() // key -> map | null (last read)
+async function readPark(key) {
+  const r = await store.read(key)
+  if (!r.ok) return { ok: false, value: null }
+  const v = r.value == null ? null : shapeMap(r.value)
+  if (r.value != null && v == null) return { ok: false, value: null } // newer or damaged: never written over
+  parked.set(key, v); notify()
+  return { ok: true, value: v }
+}
+// Park a map in an EMPTY slot (the store writes only a key it has read; a slot already holding a map is never
+// overwritten). true = parked.
+async function park(key, map) {
+  const r = await readPark(key)
+  if (!r.ok || r.value) return false
+  if (!(await store.write(key, map))) return false
+  parked.set(key, map); notify()
+  return true
+}
+// { course, adventure } waiting for a mode (null = none), read once per mode.
+export function useParkedMaps(modeId) {
+  useSyncExternalStore((fn) => { listeners.add(fn); return () => listeners.delete(fn) }, () => version)
+  const kc = parkKey(modeId, 'course'); const ka = parkKey(modeId, 'adventure')
+  useEffect(() => { if (!parked.has(kc)) readPark(kc); if (!parked.has(ka)) readPark(ka) }, [kc, ka])
+  return { course: parked.get(kc) || null, adventure: parked.get(ka) || null }
+}
+// Swap the map on screen for the other kind: the shown one is parked FIRST (nothing is lost if a later write fails),
+// then the parked one (or none: the start screen) comes back. Resolves true when done.
+export function switchMapKind(modeId, to) {
+  const key = keyFor(modeId)
+  const run = chain.then(async () => {
+    const cur = await ensure(key, { fresh: true })
+    if (!cur.ok) return false
+    if (cur.value && kindOf(cur.value) === to) return true
+    const back = await readPark(parkKey(modeId, to))
+    if (!back.ok) return false
+    if (cur.value && !(await park(parkKey(modeId, kindOf(cur.value)), cur.value))) return false
+    if (!(await store.write(key, back.value ?? null))) return false
+    cache.set(key, back.value ?? null)
+    if (back.value) { await store.write(parkKey(modeId, to), null); parked.set(parkKey(modeId, to), null) }
+    notify()
+    return true
+  })
+  chain = run.catch(() => {})
+  return run.catch(() => false)
+}
+// Move a course that sits in the wrong mode (a language mode) to the mode it belongs to: it becomes that mode's map
+// (an adventure there is parked, never lost; a course already there wins and this copy is kept parked there), and
+// this mode gets its parked adventure back (or the start screen). Resolves true when done.
+export function moveCourse(fromId, toId) {
+  const from = keyFor(fromId); const to = keyFor(toId)
+  const run = chain.then(async () => {
+    const src = await ensure(from, { fresh: true })
+    if (!src.ok || !isCareerMap(src.value)) return false
+    const dst = await ensure(to, { fresh: true })
+    if (!dst.ok) return false
+    const course = { ...src.value, modeId: toId }
+    if (isCareerMap(dst.value)) {
+      if (!(await park(parkKey(toId, 'course'), course))) return false
+    } else {
+      if (dst.value && !(await park(parkKey(toId, 'adventure'), dst.value))) return false
+      if (!(await store.write(to, course))) return false
+      cache.set(to, course)
+    }
+    const back = await readPark(parkKey(fromId, 'adventure'))
+    const next = back.ok ? back.value : null
+    if (!(await store.write(from, next ?? null))) return false
+    cache.set(from, next ?? null)
+    if (next) await store.write(parkKey(fromId, 'adventure'), null)
+    parked.clear(); notify()
+    return true
+  })
+  chain = run.catch(() => {})
+  return run.catch(() => false)
 }
 
 // ── One-time rewards ────────────────────────────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import { newLearner, applyLearnerDelta, deltaFor, bandFor, LEVEL_MAX } from '../
 import { recordPractice } from '../kit'
 import { readEvidence, judgeLevelFromEvidence } from '../kit/evidenceJudge'
 import { knownTile, knownThinText } from './knownReason'
-import { useLegendsMap, updateMap, configureLegends, clearStep, claimReward, rewardKeyFor, LEGENDS_ID } from './store'
+import { useLegendsMap, updateMap, configureLegends, clearStep, claimReward, rewardKeyFor, LEGENDS_ID, useParkedMaps, switchMapKind, moveCourse } from './store'
 import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, journeyDay, OPTIONAL_KINDS, regradeItem } from './map'
 import { recheckStrike, fightCtx } from '../kit'
 import LearnItPanel from '../kit/LearnItPanel'
@@ -26,7 +26,7 @@ import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
 import { loadCareer, availableCareers } from './CareerMap'
-import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor } from './career'
+import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes } from './career'
 import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
@@ -200,9 +200,12 @@ const RUNNING_VIEWS = new Set(['node', 'placement', 'raid'])
 const navPage = (view) => (view === 'map' || view === 'intro' ? 'map' : view === 'assets' || view === 'edit' ? view : 'activity')
 const BUSY_VIEWS = new Set(['node', 'placement', 'inferring', 'questionnaire', 'raid', 'edit', 'result', 'placed'])
 export default function LegendsScreen() {
-  const ctx = useFeatureCtx()
-  const modeId = ctx?.subject?.modeId
+  const rawCtx = useFeatureCtx()
+  const modeId = rawCtx?.subject?.modeId
   const { map, loaded, failed, retry } = useLegendsMap(modeId)
+  // A course runs as a GENERAL subject in the app language, whatever mode holds it (never graded as the mode's language).
+  const ctx = courseCtx(rawCtx, map)
+  const parked = useParkedMaps(modeId) // the course or adventure waiting while the other is on screen
   const { model: learner } = useLearner(modeId)
   const [view, setView] = useState('map') // map | intro | questionnaire | placement | node | result | edit
   const [openStep, setOpenStep] = useState(null) // { area, node, misses }
@@ -452,6 +455,8 @@ export default function LegendsScreen() {
           {(() => {
             const fit = careers.filter((c) => careerMatches(c, subject))
             const other = careers.filter((c) => !careerMatches(c, subject))
+            const waiting = parked.course && fit.some((c) => c.id === parked.course.career?.id) ? parked.course : null
+            const goTo = other.flatMap((c) => courseModes(c, rawCtx.modes?.list?.()).map((m) => ({ c, m }))).slice(0, 3)
             const tile = { display: 'grid', gap: 8, alignContent: 'start', padding: '16px 18px', borderRadius: RADIUS.lg, background: C.surface, textAlign: 'left', fontFamily: FONT.body, color: C.ink }
             return (
               <div style={{ display: 'grid', gridTemplateColumns: fit.length ? 'repeat(auto-fit, minmax(240px, 1fr))' : '1fr', gap: 14 }}>
@@ -462,7 +467,9 @@ export default function LegendsScreen() {
                   {fit.map((c) => (
                     <div key={c.id} style={{ display: 'grid', gap: 6, marginTop: 4 }}>
                       <div style={{ fontWeight: 900, fontSize: 15 }}>{t(c.titleKey)}</div>
-                      <ChunkyButton color={C.success} onClick={() => saveStart({ reason: 'school', selfRating: 1, goal: 'normal', path: 'career', career: c.id })}>▶ {t('lg_startCourseShort')}</ChunkyButton>
+                      {waiting?.career?.id === c.id
+                        ? <ChunkyButton color={C.success} onClick={async () => { if (!(await switchMapKind(modeId, 'course'))) setError(t('lg_errSave')) }}>▶ {t('lg_resumeCourse')}</ChunkyButton>
+                        : <ChunkyButton color={C.success} onClick={() => saveStart({ reason: 'school', selfRating: 1, goal: 'normal', path: 'career', career: c.id })}>▶ {t('lg_startCourseShort')}</ChunkyButton>}
                       {c.noticeKey && <div style={{ fontSize: 11, color: C.inkFaint }}>{t(c.noticeKey)}</div>}
                     </div>
                   ))}
@@ -473,7 +480,13 @@ export default function LegendsScreen() {
                   <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_pickAdventureDesc', { subject: subject.name })}</div>
                   <ChunkyButton color={C.info} variant={fit.length ? 'ghost' : undefined} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>▶ {t('lg_pickAdventureGo')}</ChunkyButton>
                 </div>
-                {!fit.length && other.length > 0 && <div style={{ fontSize: 12.5, color: C.inkDim }}>🏝️ {t('lg_pickCareerNone', { courses: other.map((c) => t(c.titleKey)).join(', ') })}</div>}
+                {!fit.length && goTo.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 12.5, color: C.inkDim }}>
+                    <span>🏝️ {t('lg_courseElsewhere')}</span>
+                    {goTo.map(({ c, m }) => <ChunkyButton key={`${c.id}:${m.id}`} variant="ghost" color={C.success} style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => rawCtx.modes.switchTo(m.id)}>{t('lg_goToMode', { course: t(c.titleKey), mode: m.name })}</ChunkyButton>)}
+                  </div>
+                )}
+                {!fit.length && !goTo.length && other.length > 0 && <div style={{ fontSize: 12.5, color: C.inkDim }}>🏝️ {t('lg_pickCareerNone', { courses: other.map((c) => t(c.titleKey)).join(', ') })}</div>}
               </div>
             )
           })()}
@@ -666,8 +679,36 @@ export default function LegendsScreen() {
       },
       placement: () => { setStartAnswers(null); setView('placement') },
     }
+    // A course sitting in a mode it does not fit (a language mode: saved before courses were limited to fitting modes)
+    // is never played there: it moves, with its progress, to the mode it belongs to, or waits parked.
+    const course = isCareerMap(map) ? careerFor(map.career?.id) : null
+    if (course && !careerMatches(course, rawCtx.subject)) {
+      const homes = courseModes(course, rawCtx.modes?.list?.())
+      const move = async (m) => {
+        setBusy(t('lg_moving')); setError('')
+        const ok = await moveCourse(modeId, m.id)
+        setBusy('')
+        if (!ok) { setError(t('lg_errSave')); return }
+        if (!(await rawCtx.modes.switchTo(m.id))) setError(t('lg_switchFailed', { mode: m.name }))
+      }
+      return (
+        <div data-misplaced style={{ maxWidth: 600, margin: '30px auto', display: 'grid', gap: 16 }}>
+          <EbiSays pose={poseFile('book')}>{t('lg_courseMisplaced', { course: map.career?.title || t(course.titleKey), mode: rawCtx.subject.name })}</EbiSays>
+          {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <ChunkyButton variant="ghost" color={C.info} disabled={!!busy} onClick={async () => { if (!(await switchMapKind(modeId, 'adventure'))) setError(t('lg_errSave')) }}>🗺️ {t('lg_toAdventure')}</ChunkyButton>
+            {homes.map((m) => <ChunkyButton key={m.id} color={C.success} disabled={!!busy} onClick={() => move(m)}>▶ {t('lg_courseMoveTo', { mode: m.name })}</ChunkyButton>)}
+          </div>
+          {!homes.length && <div style={{ fontSize: 13, color: C.inkDim }}>{t('lg_courseNoMode', { course: map.career?.title || t(course.titleKey) })}</div>}
+        </div>
+      )
+    }
+    const kindSwitch = isCareerMap(map)
+      ? { label: `🗺️ ${t('lg_toAdventure')}`, to: 'adventure' }
+      : parked.course && careers.some((c) => c.id === parked.course.career?.id && careerMatches(c, subject)) ? { label: `🏝️ ${t('lg_backToCourse')}`, to: 'course' } : null
     return (
       <MapView ctx={ctx} map={map} learner={learner} busy={busy} error={error} cheat={cheat} onRaid={() => setView('raid')}
+        kindSwitch={kindSwitch && { label: kindSwitch.label, run: async () => { if (!(await switchMapKind(modeId, kindSwitch.to))) setError(t('lg_errSave')) } }}
         onRetry={() => { setError(''); updateMap(modeId, (m) => (m ? { ...m, updatedAt: Date.now() } : m)) }}
         onOpen={(area, node) => { if (!ai.hasKey) { setError(t('lg_needKey')); return } setOpenStep({ area, node }); setView('node') }}
         onLegendary={(area, node) => { if (!ai.hasKey) { setError(t('lg_needKey')); return } setOpenStep({ area, node }); setView('node') }}

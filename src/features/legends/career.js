@@ -28,7 +28,27 @@ export const CAREERS = [
   { id: 'security-plus-sy0-701', titleKey: 'lg_careerSecPlus', noticeKey: 'lg_careerSecPlusNotice', deck: 'Security+', url: '/careers/security-plus-sy0-701.json', match: /security\s*\+|security\s*plus|sy0-?701/i },
 ]
 export const careerFor = (id) => CAREERS.find((c) => c.id === id) || null
-export const careerMatches = (career, subject) => !!career?.match?.test(`${subject?.name || ''} ${subject?.description || ''}`)
+// A course fits a mode about it, and NEVER a language mode (a course in a Spanish mode was quizzed and graded as Spanish).
+export const careerMatches = (career, subject) => !subject?.isLanguage && subject?.type !== 'language' && !!career?.match?.test(`${subject?.name || ''} ${subject?.description || ''}`)
+// The modes a course fits ([{ id, name, ... }] from ctx.modes.list()), the one using the course's deck first.
+export const courseModes = (career, modes) => (Array.isArray(modes) ? modes : []).filter((m) => careerMatches(career, { ...m, isLanguage: m.type === 'language' }))
+  .sort((a, b) => (b.ankiDeck === career?.deck) - (a.ankiDeck === career?.deck))
+
+// The feature context a course runs with: ALWAYS a general subject in the app language, whatever mode holds it. Questions,
+// grading, hints and fights read ctx.subject and ctx.study.rules(); a language mode's learned language, dialect,
+// accents and slips never reach a course (the owner: an English answer was marked wrong for not being Spanish).
+export function courseCtx(ctx, map) {
+  if (!ctx?.subject || !isCareerMap(map)) return ctx
+  const s = ctx.subject
+  const title = map.career?.title || s.name
+  const subject = {
+    ...s, name: title, type: 'general', isLanguage: false, description: title,
+    learnLang: s.userLang || s.learnLang, learnLangIso: ctx.lang || '', rules: '', accents: false,
+    grammarSlips: () => '', grammarSlipList: () => [],
+  }
+  const study = ctx.study ? { ...ctx.study, rules: () => ({ ...(ctx.study.rules?.() || {}), studyLanguage: '', quizLanguage: '', dialect: '', wordHints: false, accentDrill: false }), setRules: () => false } : ctx.study
+  return { ...ctx, subject, study }
+}
 
 const str = (v, max = 4000) => String(v ?? '').replace(/\s+\n/g, '\n').trim().slice(0, max)
 

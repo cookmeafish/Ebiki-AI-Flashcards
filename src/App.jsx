@@ -13305,9 +13305,9 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   const endStudyForModeSwitchRef = useRef(endStudyForModeSwitch)
   endStudyForModeSwitchRef.current = endStudyForModeSwitch
   const switchActiveMode = async (id) => {
-    if (id === activeModeIdRef.current) return
-    if (!(await endStudyForModeSwitchRef.current())) return
-    if (!modesRef.current.some((m) => m.id === id)) return // deleted while the end-session question was open
+    if (id === activeModeIdRef.current) return true
+    if (!(await endStudyForModeSwitchRef.current())) return false
+    if (!modesRef.current.some((m) => m.id === id)) return false // deleted while the end-session question was open
     setActiveModeId(id); saveModes(modesRef.current, id, { changedIds: [] }) // a switch writes no mode (a stale copy undid other computers' edits)
     // The new mode's deck, else the first deck: keeping the old mode's deck on the start screen started a
     // session on the previous subject's cards under the new mode's prompts.
@@ -13316,6 +13316,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     const nm = modesRef.current.find((m) => m.id === id)
     const decksNow = ankiDecksRef.current.length ? ankiDecksRef.current : ankiDecks
     setStudyDeck((nm?.ankiDeck && (!decksNow.length || decksNow.includes(nm.ankiDeck))) ? nm.ankiDeck : (decksNow[0] || ''))
+    return true
   }
 
   // EVERY active-mode change (delete, create, Studio, "+ Default mode" too, not only the switcher) moves the
@@ -15456,6 +15457,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // The active mode's study settings (studyRules: learned language, "Ebi speaks", dialect, word hints, grammar
     // feedback, accent drill, Learn-it moments...): ONE setting shared by Study and features (a fight's setup panel).
     // rules() = the live rules with defaults; setRules(patch) merges into the LIVE copy of the mode pinned when called.
+    // The user's MODES, for a feature that must run in a fitting one (a course lives in its own mode): list() = plain
+    // facts, switchTo(id) = the ONE mode switch (ends a live study session first), resolves false when it did not move.
+    modes: {
+      list: () => modesRef.current.map((m) => ({ id: m.id, name: m.name, type: m.type, description: m.description || '', ankiDeck: m.ankiDeck || '' })),
+      activeId: () => activeModeIdRef.current,
+      switchTo: async (id) => (await switchActiveMode(id)) === true,
+    },
     study: {
       status: studyStatusForFeatures, open: () => pickTab('study'),
       rules: () => {

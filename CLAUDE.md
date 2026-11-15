@@ -1968,6 +1968,13 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     samples (tested).
   - **Lesson cards** (`ItemCard`): collapsed by default; sections from `itemSections.js` (📖 meaning, 💡 example box,
     ⭐ key points as bullets, 🏷️ category); 📖 Learn it and 🧠 Memory hook on every card, before the quiz.
+  - **A course is NEVER a language subject**: `careerMatches` refuses every language mode, and `courseCtx` gives a
+    course map a general subject in the app language (no learned language, dialect, accents, slips; `setRules` a
+    no-op) whatever mode holds it (an English answer was marked wrong "not Spanish"). A course found in a mode it
+    doesn't fit shows `data-misplaced`: move it to a fitting mode (`moveCourse`, `ctx.modes.switchTo`) or park it.
+  - **A mode keeps a course AND an adventure** (`switchMapKind`, slots `park-<mode>-course|adventure`, `park` writes
+    only an empty slot after reading it): "🗺️ My own adventure" / "🏝️ Back to the course" in the map header, "Resume
+    the course" on the start screen. Leaving a course never throws it away (`store-park.test.js`).
   - **Course cards can't be deleted** (`src/cards/protect.js`: tag `ebiki-course` or a course's own tag): the ONE
     delete in `srs.deleteNotes` refuses the whole call (code `courseCard`); the Deck tab shows 🔒.
   - **Extra cards** (`<prefix>-extras.rN.json`, `extra: true` + sources) cover what a learner needs that no outline

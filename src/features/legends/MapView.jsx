@@ -135,7 +135,7 @@ function AreaSection({ ctx, t, area, index, onOpen, onLegendary, preparing, refF
 }
 
 // `cheat`: cheat mode's actions (LegendsScreen), or null when it is off.
-export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpen, onLegendary, onEdit, onRestart, onRaid, cheat = null }) {
+export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpen, onLegendary, onEdit, onRestart, onRaid, kindSwitch = null, cheat = null }) {
   const { t, subject } = ctx
   const [passport, setPassport] = useState(false)
   const titleClick = useCheatToggle(ctx)
@@ -205,6 +205,7 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           {!career && <ChunkyButton variant="ghost" color={C.purple} onClick={onEdit} disabled={!ctx.ai.hasKey} style={{ fontSize: 12, padding: '7px 12px' }}>✏️ {t('lg_changeMap')}</ChunkyButton>}
+          {kindSwitch && <ChunkyButton variant="ghost" color={C.info} data-kind-switch onClick={kindSwitch.run} style={{ fontSize: 12, padding: '7px 12px' }}>{kindSwitch.label}</ChunkyButton>}
           <ChunkyButton variant="ghost" color={C.success} onClick={() => setPassport(true)} style={{ fontSize: 12, padding: '7px 12px' }}>🛂 {t('lg_passport')}</ChunkyButton>
           {onRaid && !career && <ChunkyButton variant="ghost" color={C.warning} onClick={onRaid} style={{ fontSize: 12, padding: '7px 12px' }}>⚔️ {t('lg_raid')}</ChunkyButton>}
           <ChunkyButton variant="ghost" color={C.danger} onClick={onRestart} style={{ fontSize: 12, padding: '7px 12px' }}>↺ {t('lg_restart')}</ChunkyButton>
