@@ -1,0 +1,1216 @@
+[
+  {
+    "obj": "4.6",
+    "path": [],
+    "term": "SY0-701 4.6: Given a scenario, implement and maintain identity and access management",
+    "definition": "Objective 4.6 covers managing who can get in and what they can do: creating and removing accounts, verifying identities, single sign-on and federation, access control models, multifactor authentication, password policy and privileged access management.",
+    "example": "A contractor still has VPN access a month after leaving; the company ties accounts to HR records so leavers are disabled the same day, adds MFA and moves admin rights into a PAM vault.",
+    "category": "4.6 Identity and access management",
+    "keyPoints": "Scenario objective: pick the right control for the situation; Know the access control models apart (MAC, DAC, RBAC, rule-based, ABAC); Know SAML vs OAuth vs LDAP and federation vs SSO; MFA factors include somewhere you are"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Provisioning/de-provisioning user accounts"
+    ],
+    "term": "Provisioning and de-provisioning user accounts",
+    "definition": "Provisioning creates an account and grants the access a person needs when they join or change roles. De-provisioning disables or removes the account and its access when they leave or no longer need it.",
+    "example": "HR marks an employee as terminated and the identity system disables their directory account, email and VPN access the same afternoon.",
+    "category": "4.6 Identity and access management > Provisioning/de-provisioning user accounts",
+    "keyPoints": "Grant only what the role needs at provisioning; De-provisioning promptly on departure prevents orphaned accounts; Disable first, delete later, so data and audit trails are kept; Often automated from the HR system"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Permission assignments and implications"
+    ],
+    "term": "Permission assignments and implications (IAM)",
+    "definition": "How rights are granted to users and groups, and the security effects of those choices. Excess or accumulated permissions widen the damage a compromised or careless account can do.",
+    "example": "An employee who moved from finance to marketing still has finance share access because old rights were never removed: privilege creep.",
+    "category": "4.6 Identity and access management > Permission assignments and implications",
+    "keyPoints": "Assign permissions to groups or roles, not individuals; Watch for privilege creep after role changes; Periodic access reviews catch excess rights; Over-permissioned accounts raise impact of compromise"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Identity proofing"
+    ],
+    "term": "Identity proofing",
+    "definition": "Verifying that a person really is who they claim to be before issuing them an identity or credentials, for example by checking government ID or confirming known personal details.",
+    "example": "A bank asks a new online customer to photograph their passport and take a live selfie before opening the account.",
+    "category": "4.6 Identity and access management > Identity proofing",
+    "keyPoints": "Happens before credentials are issued; Differs from authentication, which checks a credential each login; NIST SP 800-63A defines identity assurance levels for proofing; Also used for account recovery"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Federation"
+    ],
+    "term": "Federation (identity)",
+    "definition": "A trust relationship between separate organizations or domains that lets users authenticate with their home identity provider and access another party's services without a separate account there.",
+    "example": "Employees use their company login to access a partner's supplier portal, because the partner trusts the company's identity provider.",
+    "category": "4.6 Identity and access management > Federation",
+    "keyPoints": "Federation crosses organizational or domain boundaries; SSO is one login for many apps, usually within one organization; Built on standards like SAML, OAuth and OpenID Connect; 'Sign in with Google' on a third-party site is federation"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Single sign-on (SSO)"
+    ],
+    "term": "Single sign-on (SSO)",
+    "definition": "Authenticating once and then accessing many applications or systems without logging in again. Protocols that support it include LDAP-backed directories, Kerberos, OAuth and SAML.",
+    "example": "A user signs in to the company portal in the morning and opens email, HR and the ticketing system without further password prompts.",
+    "category": "4.6 Identity and access management > Single sign-on (SSO)",
+    "keyPoints": "One authentication, many resources; Convenient but a stolen SSO credential opens everything, so pair it with MFA; Listed protocols: LDAP, OAuth, SAML; Federation extends SSO-like access across organizations"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Single sign-on (SSO)",
+      "Lightweight Directory Access Protocol (LDAP)"
+    ],
+    "term": "Lightweight Directory Access Protocol (LDAP)",
+    "definition": "A protocol for reading and updating a directory of users, groups and devices, such as Active Directory. Applications query or bind to the directory to look up and verify identities.",
+    "example": "A web app checks a user's credentials and group membership against the company's Active Directory over LDAP.",
+    "category": "4.6 Identity and access management > Single sign-on (SSO) > LDAP",
+    "keyPoints": "LDAP uses TCP 389; LDAPS (LDAP over TLS) uses 636; Directory protocol, organized as a tree with distinguished names; Unlike SAML and OAuth it is not web-token based; Plain LDAP binds can send credentials in cleartext, so protect them with LDAPS or StartTLS"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Single sign-on (SSO)",
+      "Open authorization (OAuth)"
+    ],
+    "term": "Open Authorization (OAuth)",
+    "definition": "An authorization framework that lets a user grant an application limited access to their resources on another service using access tokens, without sharing their password. It handles authorization, not authentication by itself.",
+    "example": "A photo printing site asks permission to read your cloud photo album; you approve and it receives a token limited to that album.",
+    "category": "4.6 Identity and access management > Single sign-on (SSO) > OAuth",
+    "keyPoints": "OAuth is about authorization (delegated access via tokens); OpenID Connect adds authentication on top of OAuth 2.0; Common for web and mobile apps and APIs; Contrast SAML (XML assertions, authn and authz, enterprise web SSO)"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Single sign-on (SSO)",
+      "Security Assertions Markup Language (SAML)"
+    ],
+    "term": "Security Assertions Markup Language (SAML)",
+    "definition": "An XML-based open standard for exchanging authentication and authorization data between an identity provider (IdP) and a service provider (SP), commonly used for browser-based enterprise SSO and federation.",
+    "example": "An employee opens a cloud HR app, is redirected to the corporate IdP to log in, and returns with a signed SAML assertion that logs them in.",
+    "category": "4.6 Identity and access management > Single sign-on (SSO) > SAML",
+    "keyPoints": "XML assertions passed from IdP to SP; Provides authentication and authorization; Built mainly for browser-based SSO; native mobile apps and APIs usually use OAuth 2.0 with OpenID Connect instead; OAuth uses tokens for delegated authorization, LDAP queries a directory; The OASIS standard name is Security Assertion Markup Language (singular); the outline writes Assertions"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Interoperability"
+    ],
+    "term": "Interoperability (identity and access management)",
+    "definition": "The ability of different identity systems, vendors and platforms to work together, usually by supporting common standards so identities and access decisions can be shared.",
+    "example": "A company chooses a cloud app that supports SAML and SCIM so it works with their existing identity provider instead of needing separate accounts.",
+    "category": "4.6 Identity and access management > Interoperability",
+    "keyPoints": "Achieved through open standards (SAML, OAuth, OpenID Connect, LDAP); Required for federation and SSO across vendors; Check protocol support before buying a service; Poor interoperability leads to duplicate, unmanaged accounts"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Attestation"
+    ],
+    "term": "Attestation (identity and access management)",
+    "definition": "Confirming a claim with evidence. In SY0-701 identity management it means verifying a user's identity claims with extra details, such as a passport or driver's license, an in-person meeting or questions drawn from credit history. Study material also uses it for access attestation (managers periodically certify each user's access is still needed) and device attestation (a TPM proves a device and its boot state are trusted).",
+    "example": "Before a new remote employee's account is activated, they show their passport on a video call and answer questions about past addresses from their credit report.",
+    "category": "4.6 Identity and access management > Attestation",
+    "keyPoints": "Identity attestation: extra evidence (ID documents, in-person check, credit-history questions) that the person is who they claim; Works alongside identity proofing when an account is created; Access attestation: periodic review or recertification of who has access; Device attestation: a TPM-signed report proves the hardware and boot state"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls"
+    ],
+    "term": "Access controls (access control models)",
+    "definition": "The rules and models that decide what an authenticated subject may do with a resource. Listed models and constraints: mandatory, discretionary, role-based, rule-based, attribute-based, time-of-day restrictions and least privilege.",
+    "example": "A hospital uses roles for nurses and doctors, adds a rule that blocks logins outside shifts, and grants each role only the records it needs.",
+    "category": "4.6 Identity and access management > Access controls",
+    "keyPoints": "MAC: labels set by administrators; DAC: owner decides; RBAC: job role; Rule-based: admin rules applied to all; ABAC: many attributes; Time-of-day and least privilege restrict any model"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls",
+      "Mandatory"
+    ],
+    "term": "Mandatory access control (MAC)",
+    "definition": "An access control model where the operating system enforces access using security labels on data (such as Secret) and clearances on users. Only administrators set labels; users cannot change or share access.",
+    "example": "A government system lets an analyst with Secret clearance open Secret and Confidential files but not Top Secret ones.",
+    "category": "4.6 Identity and access management > Access controls > Mandatory",
+    "keyPoints": "Labels and clearance levels; Users cannot override or delegate; Most strict, common in military and government; Look for 'classification' or 'clearance' in the question"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls",
+      "Discretionary"
+    ],
+    "term": "Discretionary access control (DAC)",
+    "definition": "An access control model where the owner of a resource decides who can access it and with what rights.",
+    "example": "A user who created a file share grants read access to two colleagues and full control to their manager.",
+    "category": "4.6 Identity and access management > Access controls > Discretionary",
+    "keyPoints": "Owner sets permissions; Flexible but weak central control; Typical of Windows NTFS and Unix file permissions; Look for 'owner' or 'creator' in the question"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls",
+      "Role-based"
+    ],
+    "term": "Role-based access control (RBAC)",
+    "definition": "An access control model where permissions are assigned to roles that match job functions, and users get access by being placed in a role.",
+    "example": "Every new help desk technician is added to the Help Desk group and automatically gets password reset rights and ticket system access.",
+    "category": "4.6 Identity and access management > Access controls > Role-based",
+    "keyPoints": "Access follows job function; Usually implemented with groups; Simplifies onboarding and role changes; Do not confuse with rule-based, which uses admin-defined conditions for everyone"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls",
+      "Rule-based"
+    ],
+    "term": "Rule-based access control",
+    "definition": "An access control model where an administrator defines rules or conditions that are applied to all access attempts, regardless of who the user is.",
+    "example": "A firewall ACL allows traffic to the web server only on TCP 443, or a lab PC denies all logins after 6 p.m.",
+    "category": "4.6 Identity and access management > Access controls > Rule-based",
+    "keyPoints": "System-wide rules set by admins, not per role; Firewall ACLs are the classic example; Sometimes also abbreviated RBAC, so read the full name; Not role-based (job function) and not ABAC (many combined attributes)"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls",
+      "Attribute-based"
+    ],
+    "term": "Attribute-based access control (ABAC)",
+    "definition": "An access control model that decides access by evaluating attributes of the user, the resource, the action and the environment, such as department, data sensitivity, device, location and time.",
+    "example": "A policy allows access to a customer file only if the user is in Sales, on a managed device, inside the country and during business hours.",
+    "category": "4.6 Identity and access management > Access controls > Attribute-based",
+    "keyPoints": "Combines many attributes in one policy; Most granular and context-aware model; Look for several conditions evaluated together; Rule-based uses simple fixed rules, RBAC uses only the role"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls",
+      "Time-of-day restrictions"
+    ],
+    "term": "Time-of-day restrictions (access control)",
+    "definition": "Limiting when an account or resource can be used, such as allowing logins only during working hours or shifts.",
+    "example": "Training lab accounts can log in only between 8 a.m. and 5 p.m. on weekdays; a 2 a.m. login attempt is blocked.",
+    "category": "4.6 Identity and access management > Access controls > Time-of-day restrictions",
+    "keyPoints": "Reduces window for misuse of stolen credentials; Can be applied within any access model; A form of rule or attribute condition; Off-hours login attempts are also a useful alert"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Access controls",
+      "Least privilege"
+    ],
+    "term": "Least privilege (access control)",
+    "definition": "Granting users, services and processes only the minimum rights they need to do their job, and only for as long as they need them.",
+    "example": "A web application's service account can read and write its own database tables but cannot create users or access other databases.",
+    "category": "4.6 Identity and access management > Access controls > Least privilege",
+    "keyPoints": "Limits the impact of a compromised account; Remove rights when no longer needed (fights privilege creep); Admins use a normal account for daily work; Just-in-time permissions put least privilege into practice"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication"
+    ],
+    "term": "Multifactor authentication (MFA)",
+    "definition": "Authentication that requires two or more different factor types, such as something you know plus something you have. Two items from the same factor type do not count as MFA.",
+    "example": "A user enters their password and then approves a code from an authenticator app on their phone.",
+    "category": "4.6 Identity and access management > Multifactor authentication",
+    "keyPoints": "Factors must be different types: password plus PIN is still one factor; Factors: know, have, are, somewhere you are; Implementations: biometrics, hard or soft tokens, security keys; Defeats most password-only attacks"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Implementations"
+    ],
+    "term": "Implementations (multifactor authentication)",
+    "definition": "The concrete technologies used to deliver an MFA factor. The objectives list biometrics, hardware and software authentication tokens, and security keys.",
+    "example": "A company issues FIDO2 security keys to administrators and an authenticator app to everyone else.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Implementations",
+    "keyPoints": "Biometrics deliver something you are; Tokens and security keys deliver something you have; Security keys resist phishing best; Choose by cost, usability and risk"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Implementations",
+      "Biometrics"
+    ],
+    "term": "Biometrics (MFA implementation)",
+    "definition": "Authentication based on a measured physical or behavioral trait, such as a fingerprint, face, iris, voice or typing pattern.",
+    "example": "A laptop unlocks with a fingerprint reader after the user enters a PIN.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Implementations > Biometrics",
+    "keyPoints": "Delivers the something you are factor; False acceptance rate (FAR) vs false rejection rate (FRR), crossover error rate (CER) compares systems; A biometric cannot be changed if stolen; Often stored as a template, not an image"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Implementations",
+      "Hard/soft authentication tokens"
+    ],
+    "term": "Hard and soft authentication tokens",
+    "definition": "Tokens that generate one-time passcodes. A hard token is a dedicated physical device; a soft token is an app on a phone or computer. Codes are usually time-based (TOTP) or counter-based (HOTP).",
+    "example": "A user reads a six-digit code that changes every 30 seconds from an authenticator app and types it after their password.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Implementations > Hard/soft authentication tokens",
+    "keyPoints": "Both are something you have; Hard token: key fob device; soft token: authenticator app; TOTP changes with time, HOTP with each use; SMS codes are weaker (SIM swapping); NIST SP 800-63B-4 lists codes sent by SMS or voice call as a restricted authenticator; RFC 6238 recommends a 30-second time step for TOTP"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Implementations",
+      "Security keys"
+    ],
+    "term": "Security keys (MFA implementation)",
+    "definition": "Small physical devices, usually USB or NFC, that perform cryptographic authentication with standards such as FIDO2 or U2F. The private key never leaves the device.",
+    "example": "An administrator taps a USB security key when signing in to the cloud console; a fake phishing site cannot use the response.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Implementations > Security keys",
+    "keyPoints": "Something you have; Phishing-resistant because each credential is bound to the real site's domain; Uses public key cryptography, no code to type; Lost keys need a backup key or recovery process"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Factors"
+    ],
+    "term": "Factors (multifactor authentication)",
+    "definition": "The categories of evidence used to prove identity. SY0-701 lists something you know, something you have, something you are and somewhere you are.",
+    "example": "Password (know) plus phone app (have) plus login allowed only from the office network (somewhere you are).",
+    "category": "4.6 Identity and access management > Multifactor authentication > Factors",
+    "keyPoints": "MFA needs two or more different categories; Somewhere you are counts as a factor on SY0-701; Something you do (behavior) is sometimes discussed but is not on this list; Two passwords are still single-factor"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Factors",
+      "Something you know"
+    ],
+    "term": "Something you know (authentication factor)",
+    "definition": "A secret the user remembers, such as a password, PIN, passphrase or security question answer.",
+    "example": "Entering a PIN at an ATM after inserting the bank card.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Factors > Something you know",
+    "keyPoints": "Passwords, PINs, patterns, security questions; Weakest alone: can be guessed, phished or reused; A PIN is know, the card is have"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Factors",
+      "Something you have"
+    ],
+    "term": "Something you have (authentication factor)",
+    "definition": "A physical or digital item in the user's possession, such as a smart card, hardware token, security key or phone with an authenticator app.",
+    "example": "Inserting a smart card into a reader to log in to a workstation.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Factors > Something you have",
+    "keyPoints": "Smart cards, tokens, security keys, phones; Can be lost or stolen, so pair with another factor; An OTP from an app proves possession of the phone"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Factors",
+      "Something you are"
+    ],
+    "term": "Something you are (authentication factor)",
+    "definition": "A biometric characteristic of the user's body, such as fingerprint, face, iris, retina or voice.",
+    "example": "Unlocking a phone with facial recognition.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Factors > Something you are",
+    "keyPoints": "Biometrics; Cannot be changed if compromised; Accuracy measured with FAR, FRR and CER; Not the same as somewhere you are (location)"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Multifactor authentication",
+      "Factors",
+      "Somewhere you are"
+    ],
+    "term": "Somewhere you are (authentication factor)",
+    "definition": "A factor based on the user's location, determined by IP address, GPS or network, used to allow, deny or require extra checks for an authentication.",
+    "example": "A login from the office network is allowed, but the same account logging in from another country is blocked.",
+    "category": "4.6 Identity and access management > Multifactor authentication > Factors > Somewhere you are",
+    "keyPoints": "Counts as an authentication factor on SY0-701; Uses IP geolocation, GPS or the connected network; Usually supports other factors rather than standing alone; Basis for geofencing and impossible travel alerts"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts"
+    ],
+    "term": "Password concepts (SY0-701)",
+    "definition": "The objective's password topics: best practices for password policy (length, complexity, reuse, expiration, age), password managers, and passwordless authentication.",
+    "example": "A policy requires 14-character passphrases, blocks reuse of the last 24 passwords and encourages a company password manager.",
+    "category": "4.6 Identity and access management > Password concepts",
+    "keyPoints": "Length is the strongest single control; Expiration is maximum age, age is minimum age; Password managers enable unique passwords; Passwordless removes the shared secret entirely"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Password best practices"
+    ],
+    "term": "Password best practices (policy settings)",
+    "definition": "Policy settings that make passwords harder to guess or reuse: minimum length, complexity requirements, preventing reuse, expiration and minimum age.",
+    "example": "A domain password policy sets minimum length 12, remembers 10 previous passwords and has a minimum age of 1 day.",
+    "category": "4.6 Identity and access management > Password concepts > Password best practices",
+    "keyPoints": "Exam settings: length, complexity, reuse, expiration, age; NIST SP 800-63B-4 (2025): at least 15 characters when the password is the only factor (8 when part of MFA), check new passwords against a blocklist of common or breached ones, no character-mix rules, no forced periodic changes; Still know each setting for the exam"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Password best practices",
+      "Length"
+    ],
+    "term": "Length (password best practice)",
+    "definition": "The minimum number of characters a password must have. Each added character greatly increases the number of possible passwords, so length is the strongest defense against brute force.",
+    "example": "Raising the minimum from 8 to 14 characters so users choose passphrases like a short sentence.",
+    "category": "4.6 Identity and access management > Password concepts > Password best practices > Length",
+    "keyPoints": "Longer beats more complex; Passphrases make long passwords memorable; Brute force time grows exponentially with length; NIST SP 800-63B-4 sets a minimum of 15 characters for a password used alone and 8 for one used with another factor"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Password best practices",
+      "Complexity"
+    ],
+    "term": "Complexity (password best practice)",
+    "definition": "A requirement that passwords mix character types, such as uppercase, lowercase, numbers and symbols, to enlarge the character set an attacker must try.",
+    "example": "A policy rejects 'summertime' but accepts 'Summer!time7'.",
+    "category": "4.6 Identity and access management > Password concepts > Password best practices > Complexity",
+    "keyPoints": "Expands character set; Users fall into predictable patterns (Capital first, ! at the end); Length usually adds more strength than complexity; Distinct from complexity as an automation consideration; NIST SP 800-63B-4 says verifiers shall not require a mix of character types; the exam still lists complexity as a policy setting"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Password best practices",
+      "Reuse"
+    ],
+    "term": "Reuse (password best practice)",
+    "definition": "Preventing users from using the same password again, enforced by a password history, and discouraging the same password across different sites.",
+    "example": "The system remembers the last 12 passwords and rejects a change back to any of them.",
+    "category": "4.6 Identity and access management > Password concepts > Password best practices > Reuse",
+    "keyPoints": "Enforced with password history; Reuse across sites enables credential stuffing; Minimum age stops users cycling through history to get back to an old password"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Password best practices",
+      "Expiration"
+    ],
+    "term": "Expiration (password best practice)",
+    "definition": "The maximum time a password can be used before the user must change it, also called maximum password age.",
+    "example": "Passwords expire every 90 days and users are prompted to set a new one.",
+    "category": "4.6 Identity and access management > Password concepts > Password best practices > Expiration",
+    "keyPoints": "Expiration equals maximum age: forces a change; Age (minimum age) limits how soon a change is allowed; NIST SP 800-63B-4 forbids forced periodic changes but requires a change when there is evidence of compromise"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Password best practices",
+      "Age"
+    ],
+    "term": "Age (password best practice)",
+    "definition": "The minimum password age: how long a user must keep a new password before changing it again. It stops users from changing repeatedly to cycle past the history and reuse an old password.",
+    "example": "Minimum age is 1 day, so a user cannot change their password 12 times in an afternoon to get back to their favorite one.",
+    "category": "4.6 Identity and access management > Password concepts > Password best practices > Age",
+    "keyPoints": "Minimum age works with password history to prevent reuse; Not the same as expiration (maximum age); Classic exam trap: 'users keep reusing old passwords despite history' points to minimum age"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Password managers"
+    ],
+    "term": "Password managers",
+    "definition": "Applications that generate, store and fill strong unique passwords in an encrypted vault protected by one master password or other strong authentication.",
+    "example": "An employee uses the company password manager to create a random 24-character password for each vendor site.",
+    "category": "4.6 Identity and access management > Password concepts > Password managers",
+    "keyPoints": "Make unique, long passwords practical; Stop reuse across sites; Protect the vault with a strong master password and MFA; A user tool; PAM password vaulting is the enterprise version for privileged accounts; NIST SP 800-63B-4 requires sites to allow password managers and autofill, and recommends allowing paste"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Password concepts",
+      "Passwordless"
+    ],
+    "term": "Passwordless authentication",
+    "definition": "Authentication without a typed password, using methods such as biometrics, security keys, passkeys or a push approval on a trusted device.",
+    "example": "A user signs in to a laptop with Windows Hello face recognition and to websites with a passkey on their phone.",
+    "category": "4.6 Identity and access management > Password concepts > Passwordless",
+    "keyPoints": "Removes passwords that can be phished, guessed or reused; Often based on FIDO2 and public key cryptography; Can still be multifactor (device plus biometric or PIN); Requires a recovery plan for lost devices; Synced passkeys copy the private key across a user's devices through a cloud account; device-bound ones, such as a hardware security key, never leave the device"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Privileged access management tools"
+    ],
+    "term": "Privileged access management (PAM) tools",
+    "definition": "Tools that secure, control and monitor accounts with elevated rights, such as administrators and service accounts. Listed features: just-in-time permissions, password vaulting and ephemeral credentials.",
+    "example": "Admins request domain admin rights through the PAM tool, which checks out a vaulted password for one hour and records the session.",
+    "category": "4.6 Identity and access management > Privileged access management tools",
+    "keyPoints": "Protects the most valuable accounts; Features: JIT, vaulting, ephemeral credentials, session recording; Enforces least privilege for admins; Gives an audit trail of privileged actions"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Privileged access management tools",
+      "Just-in-time permissions"
+    ],
+    "term": "Just-in-time (JIT) permissions",
+    "definition": "Granting elevated permissions only when they are requested and approved, for a limited time, then removing them automatically.",
+    "example": "A database admin requests admin rights to apply a patch; access is approved for two hours and then revoked.",
+    "category": "4.6 Identity and access management > Privileged access management tools > Just-in-time permissions",
+    "keyPoints": "No standing admin rights; Time-limited and usually approved; Shrinks the window an attacker can use; Contrast ephemeral credentials, which are temporary accounts or secrets; Example product: Microsoft Entra Privileged Identity Management, where a user activates an eligible admin role for a set time"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Privileged access management tools",
+      "Password vaulting"
+    ],
+    "term": "Password vaulting (privileged access management)",
+    "definition": "Storing privileged account passwords in a secure, access-controlled vault where they are checked out when needed, often rotated after use, and every access is logged.",
+    "example": "No one knows the root password of the production servers; admins check it out from the vault, and it is changed automatically afterward.",
+    "category": "4.6 Identity and access management > Privileged access management tools > Password vaulting",
+    "keyPoints": "Central, encrypted, audited storage; Check-in and check-out with automatic rotation; Removes shared passwords in spreadsheets; Enterprise privileged counterpart of a password manager"
+  },
+  {
+    "obj": "4.6",
+    "path": [
+      "Privileged access management tools",
+      "Ephemeral credentials"
+    ],
+    "term": "Ephemeral credentials",
+    "definition": "Temporary credentials created for a single session or task that expire automatically after a short time and cannot be reused.",
+    "example": "A cloud automation job receives access keys valid for 15 minutes; after the job they are useless.",
+    "category": "4.6 Identity and access management > Privileged access management tools > Ephemeral credentials",
+    "keyPoints": "Short-lived, created on demand; Nothing long-term to steal; Common in cloud (temporary tokens) and PAM; JIT grants rights to an account, ephemeral creates a throwaway credential; Example: AWS STS AssumeRole credentials last from 15 minutes up to 12 hours (GetSessionToken credentials up to 36 hours)"
+  },
+  {
+    "obj": "4.7",
+    "path": [],
+    "term": "SY0-701 4.7: Explain the importance of automation and orchestration related to secure operations",
+    "definition": "Objective 4.7 covers why security teams automate repetitive tasks with scripts and orchestrate them across tools: the use cases, the benefits and the considerations or risks that come with automation.",
+    "example": "When HR enters a new hire, a script creates the account and groups; when the SIEM flags malware, an orchestration platform isolates the laptop, opens a ticket and blocks the bad IP on the firewall.",
+    "category": "4.7 Automation and orchestration",
+    "keyPoints": "Automation: one task done by script; orchestration: many automated tasks coordinated across systems; Know use cases, benefits and other considerations lists; Risks: complexity, cost, single point of failure, technical debt, supportability"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting"
+    ],
+    "term": "Use cases of automation and scripting (security operations)",
+    "definition": "Common security tasks worth automating: user and resource provisioning, guard rails, security groups, ticket creation, escalation, enabling or disabling services and access, continuous integration and testing, and integrations through APIs.",
+    "example": "A script creates a ticket, adds the new hire to the right security groups and builds their virtual desktop from a template.",
+    "category": "4.7 Automation and orchestration > Use cases of automation and scripting",
+    "keyPoints": "Best for repetitive, rule-based, high-volume tasks; Scripts and APIs connect tools; Reduce human error and delay"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "User provisioning"
+    ],
+    "term": "User provisioning (automation use case)",
+    "definition": "Automatically creating, changing and removing user accounts and their access based on a trusted source such as the HR system.",
+    "example": "When HR enters a new hire, a workflow creates the directory account, mailbox and group memberships before day one.",
+    "category": "4.7 Automation and orchestration > Use cases > User provisioning",
+    "keyPoints": "Consistent access for each role; Fast, reliable de-provisioning at exit; Removes manual errors and forgotten accounts"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Resource provisioning"
+    ],
+    "term": "Resource provisioning (automation use case)",
+    "definition": "Automatically creating and removing infrastructure such as virtual machines, storage, containers and network settings, often from templates or infrastructure as code.",
+    "example": "A developer requests a test server and a script builds a hardened VM from the approved image in minutes, then deletes it after the project.",
+    "category": "4.7 Automation and orchestration > Use cases > Resource provisioning",
+    "keyPoints": "Every build matches the secure template; Decommissioning stops unused, unpatched resources; Often done with infrastructure as code"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Guard rails"
+    ],
+    "term": "Guard rails (automation use case)",
+    "definition": "Automated checks and limits that keep actions within safe, approved boundaries, blocking or correcting changes that would break policy.",
+    "example": "A cloud policy automatically blocks anyone from making a storage bucket public and reverts the change if it happens.",
+    "category": "4.7 Automation and orchestration > Use cases > Guard rails",
+    "keyPoints": "Prevent mistakes before they happen; Enforce policy without a manual review every time; Examples: blocking public storage, denying unapproved regions or open ports; AWS Control Tower used the name guardrails for these rules and now calls them controls"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Security groups"
+    ],
+    "term": "Security groups (automation use case)",
+    "definition": "Automatically assigning and removing users or resources from security groups that control access, including cloud security groups that act as virtual firewalls.",
+    "example": "A script moves an employee from the Sales group to the Marketing group when HR records a transfer, removing old access at the same time.",
+    "category": "4.7 Automation and orchestration > Use cases > Security groups",
+    "keyPoints": "Group membership drives access, so automate it; Prevents privilege creep on role changes; Cloud security groups filter traffic to instances"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Ticket creation"
+    ],
+    "term": "Ticket creation (automation use case)",
+    "definition": "Automatically opening tickets in the help desk or incident system when an event occurs, filled with the relevant details.",
+    "example": "A SIEM alert for repeated failed logins automatically opens a ticket with the source IP, account and log excerpts.",
+    "category": "4.7 Automation and orchestration > Use cases > Ticket creation",
+    "keyPoints": "No alert is lost or forgotten; Tickets carry consistent details; Starts the tracking and audit trail at once"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Escalation"
+    ],
+    "term": "Escalation (automation use case)",
+    "definition": "Automatically routing an issue to a higher tier, a specialist or management when it meets set conditions such as severity or time unresolved.",
+    "example": "A critical malware alert that is not acknowledged within 15 minutes pages the on-call incident responder.",
+    "category": "4.7 Automation and orchestration > Use cases > Escalation",
+    "keyPoints": "Right people notified quickly; Based on severity and time rules; Prevents important alerts sitting in a queue"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Enabling/disabling services and access"
+    ],
+    "term": "Enabling and disabling services and access (automation use case)",
+    "definition": "Automatically turning services, ports or account access on or off in response to events, schedules or policy.",
+    "example": "When an endpoint tool detects ransomware behavior, automation disables the user's account and isolates the host from the network.",
+    "category": "4.7 Automation and orchestration > Use cases > Enabling/disabling services and access",
+    "keyPoints": "Fast containment response; Can enforce schedules (access only when needed); Often triggered by SOAR playbooks"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Continuous integration and testing"
+    ],
+    "term": "Continuous integration and testing (automation use case)",
+    "definition": "Automatically building and testing code each time developers commit changes, including security tests such as static analysis and dependency scanning.",
+    "example": "Every code commit triggers a pipeline that runs unit tests and a vulnerability scan; the build fails if a critical flaw is found.",
+    "category": "4.7 Automation and orchestration > Use cases > Continuous integration and testing",
+    "keyPoints": "Problems found early, when cheaper to fix; Security checks run every time, not occasionally; Part of a DevSecOps pipeline"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Use cases of automation and scripting",
+      "Integrations and Application programming interfaces (APIs)"
+    ],
+    "term": "Integrations and application programming interfaces (APIs) (automation use case)",
+    "definition": "Using APIs to connect different security and IT tools so they share data and trigger actions in each other without manual steps.",
+    "example": "A SOAR platform calls the firewall's API to block an IP address that the threat intelligence feed flagged.",
+    "category": "4.7 Automation and orchestration > Use cases > Integrations and APIs",
+    "keyPoints": "APIs are the glue of orchestration; Let tools from different vendors work together; Protect API keys and limit their permissions"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits"
+    ],
+    "term": "Benefits of security automation and orchestration",
+    "definition": "The gains from automating security work: efficiency and time saving, enforcing baselines, standard infrastructure configurations, scaling securely, employee retention, faster reaction time and acting as a workforce multiplier.",
+    "example": "After automating patch deployment and account changes, a small team handles twice the systems with fewer errors.",
+    "category": "4.7 Automation and orchestration > Benefits",
+    "keyPoints": "Speed and consistency are the core gains; Fewer human errors; Staff freed for higher-value work; Weigh against the other considerations (cost, complexity, debt)"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits",
+      "Efficiency/time saving"
+    ],
+    "term": "Efficiency and time saving (automation benefit)",
+    "definition": "Automation finishes repetitive tasks faster and with less effort than people doing them by hand.",
+    "example": "Account setup that took a technician 30 minutes now runs in under a minute.",
+    "category": "4.7 Automation and orchestration > Benefits > Efficiency/time saving",
+    "keyPoints": "Less manual work per task; Frees staff for analysis; Fewer mistakes from repetition"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits",
+      "Enforcing baselines"
+    ],
+    "term": "Enforcing baselines (automation benefit)",
+    "definition": "Automation checks systems against a security baseline and applies or restores the approved settings, keeping configurations from drifting.",
+    "example": "A configuration tool runs nightly and resets any server whose firewall settings have changed from the hardened baseline.",
+    "category": "4.7 Automation and orchestration > Benefits > Enforcing baselines",
+    "keyPoints": "Detects and fixes configuration drift; Applies the same security settings everywhere; Supports compliance evidence"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits",
+      "Standard infrastructure configurations"
+    ],
+    "term": "Standard infrastructure configurations (automation benefit)",
+    "definition": "Building systems from the same templates or code so every server, network device or cloud resource is configured identically.",
+    "example": "All web servers are deployed from one infrastructure-as-code template, so none is missing the logging agent.",
+    "category": "4.7 Automation and orchestration > Benefits > Standard infrastructure configurations",
+    "keyPoints": "Identical, predictable builds; Easier troubleshooting and auditing; Baselines keep them that way afterward"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits",
+      "Scaling in a secure manner"
+    ],
+    "term": "Scaling in a secure manner (automation benefit)",
+    "definition": "Automation lets an organization add many systems or users quickly while each one still receives the correct security settings.",
+    "example": "During a sales peak, auto-scaling adds 50 web servers, each built from the hardened image and joined to monitoring.",
+    "category": "4.7 Automation and orchestration > Benefits > Scaling in a secure manner",
+    "keyPoints": "Growth without skipping security steps; Every new instance gets the same controls; Manual processes break down at scale"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits",
+      "Employee retention"
+    ],
+    "term": "Employee retention (automation benefit)",
+    "definition": "Automating tedious, repetitive work reduces burnout and lets staff do more interesting work, so skilled people are more likely to stay.",
+    "example": "Analysts no longer spend their days closing duplicate alerts by hand and instead work on threat hunting.",
+    "category": "4.7 Automation and orchestration > Benefits > Employee retention",
+    "keyPoints": "Less boring repetitive work; Reduces burnout and turnover; Keeps skilled staff on valuable tasks"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits",
+      "Reaction time"
+    ],
+    "term": "Reaction time (automation benefit)",
+    "definition": "Automated detection and response acts in seconds, much faster than a person who must notice, decide and act.",
+    "example": "A playbook isolates an infected laptop seconds after the alert, before the malware spreads.",
+    "category": "4.7 Automation and orchestration > Benefits > Reaction time",
+    "keyPoints": "Response at machine speed, any hour; Limits damage and spread; Key value of SOAR playbooks"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Benefits",
+      "Workforce multiplier"
+    ],
+    "term": "Workforce multiplier (automation benefit)",
+    "definition": "Automation lets a fixed number of staff accomplish the work of a much larger team.",
+    "example": "A three-person SOC monitors thousands of endpoints because enrichment and triage are automated.",
+    "category": "4.7 Automation and orchestration > Benefits > Workforce multiplier",
+    "keyPoints": "Same team, more output; Helps with security staff shortages; Different from efficiency per task: it is about team capacity"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Other considerations"
+    ],
+    "term": "Other considerations (automation and orchestration)",
+    "definition": "The drawbacks and risks to weigh before automating: complexity, cost, single point of failure, technical debt and ongoing supportability.",
+    "example": "A team weighs whether a homegrown script that only one engineer understands is worth the maintenance burden.",
+    "category": "4.7 Automation and orchestration > Other considerations",
+    "keyPoints": "Automation is not free or risk-free; Plan for maintenance and failure; These are the 'cons' list on the exam"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Other considerations",
+      "Complexity"
+    ],
+    "term": "Complexity (automation consideration)",
+    "definition": "Automated workflows and integrations can become complicated to build, understand, troubleshoot and change, which can itself introduce errors.",
+    "example": "A chain of scripts across five tools fails silently and nobody can tell where the break is.",
+    "category": "4.7 Automation and orchestration > Other considerations > Complexity",
+    "keyPoints": "More moving parts, harder troubleshooting; Needs documentation and testing; Distinct from complexity as a password best practice"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Other considerations",
+      "Cost"
+    ],
+    "term": "Cost (automation consideration)",
+    "definition": "Automation requires spending on tools, licenses, development time and training before it pays back.",
+    "example": "A SOAR platform license and integration project cost more in the first year than the hours it saved.",
+    "category": "4.7 Automation and orchestration > Other considerations > Cost",
+    "keyPoints": "Upfront and ongoing costs; Compare to the time and risk saved; Includes staff time to build and maintain"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Other considerations",
+      "Single point of failure"
+    ],
+    "term": "Single point of failure (automation consideration)",
+    "definition": "When many processes depend on one automation system or script, its failure can stop all of them at once.",
+    "example": "The orchestration server goes down and no new accounts, tickets or firewall changes are processed until it is fixed.",
+    "category": "4.7 Automation and orchestration > Other considerations > Single point of failure",
+    "keyPoints": "Central automation can halt everything if it fails; Plan redundancy and manual fallback procedures; Also a risk if one person alone understands it"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Other considerations",
+      "Technical debt"
+    ],
+    "term": "Technical debt (automation consideration)",
+    "definition": "The future cost of quick fixes, shortcuts or poorly designed scripts that must later be reworked, patched or replaced.",
+    "example": "Hard-coded paths and credentials in old scripts break after a server migration and need a full rewrite.",
+    "category": "4.7 Automation and orchestration > Other considerations > Technical debt",
+    "keyPoints": "Shortcuts now, extra work later; Grows when scripts are not maintained; Can create security risks such as hard-coded secrets"
+  },
+  {
+    "obj": "4.7",
+    "path": [
+      "Other considerations",
+      "Ongoing supportability"
+    ],
+    "term": "Ongoing supportability (automation consideration)",
+    "definition": "Automation must be maintained over time as systems, APIs and staff change, and someone must be able to support and update it.",
+    "example": "A vendor changes its API and the integration stops working; the original author has left and there is no documentation.",
+    "category": "4.7 Automation and orchestration > Other considerations > Ongoing supportability",
+    "keyPoints": "Plan who maintains each script; Document and version-control automation; Updates are needed when tools change"
+  },
+  {
+    "obj": "4.8",
+    "path": [],
+    "term": "SY0-701 4.8: Explain appropriate incident response activities",
+    "definition": "Objective 4.8 covers the incident response process from preparation to lessons learned, training and testing the plan, root cause analysis, threat hunting and digital forensics activities.",
+    "example": "After an alert, an analyst confirms malware on a server, isolates it, removes the malware, restores from a clean backup, preserves a disk image with chain of custody, and the team holds a lessons-learned meeting.",
+    "category": "4.8 Incident response",
+    "keyPoints": "Memorize the process order: preparation, detection, analysis, containment, eradication, recovery, lessons learned; Tabletop is discussion, simulation is hands-on; Legal hold preserves, chain of custody documents handling"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process"
+    ],
+    "term": "Incident response process (SY0-701)",
+    "definition": "The ordered phases CompTIA lists for handling an incident: preparation, detection, analysis, containment, eradication, recovery and lessons learned.",
+    "example": "A phishing compromise is spotted, investigated, the account is locked, the malware removed, the user's laptop restored and the team then meets to improve email filtering.",
+    "category": "4.8 Incident response > Process",
+    "keyPoints": "Order matters: contain before eradicate, eradicate before recover; The older NIST SP 800-61 Rev. 2 grouped detection with analysis and containment with eradication and recovery (Rev. 3, April 2025, now follows the CSF 2.0 functions); The exam uses CompTIA's seven-phase list; Lessons learned feed back into preparation; In practice the phases loop: while eradicating, responders often go back to detection and analysis to find more infected hosts"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process",
+      "Preparation"
+    ],
+    "term": "Preparation (incident response process)",
+    "definition": "The phase before any incident: writing the plan, forming and training the team, setting up communication methods and getting tools, contact lists and baselines ready.",
+    "example": "The security team builds a jump kit with forensic laptops and write blockers and keeps an up-to-date call list.",
+    "category": "4.8 Incident response > Process > Preparation",
+    "keyPoints": "First phase; happens before an incident; Includes IR plan, roles, tools, training, communication plan; Lessons learned feed improvements back here"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process",
+      "Detection"
+    ],
+    "term": "Detection (incident response process)",
+    "definition": "Recognizing that an incident may be happening, from alerts, logs, monitoring tools or user reports.",
+    "example": "The SIEM raises an alert for a workstation contacting a known malicious domain.",
+    "category": "4.8 Incident response > Process > Detection",
+    "keyPoints": "Sources: SIEM, IDS/IPS, EDR, users, third parties; Many events, few true incidents; Comes before analysis confirms and scopes it"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process",
+      "Analysis"
+    ],
+    "term": "Analysis (incident response process)",
+    "definition": "Investigating detected events to confirm whether an incident is real, and determining its scope, type, impact and priority.",
+    "example": "An analyst correlates firewall and endpoint logs to confirm the alert is real malware and finds two more infected hosts.",
+    "category": "4.8 Incident response > Process > Analysis",
+    "keyPoints": "Separates true incidents from false positives; Determines scope and severity to prioritize; Indicators of compromise guide the investigation"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process",
+      "Containment"
+    ],
+    "term": "Containment (incident response process)",
+    "definition": "Limiting the spread and damage of an incident, for example by isolating systems, disabling accounts or blocking traffic, while preserving evidence.",
+    "example": "The infected hosts are moved to an isolated VLAN so they cannot reach other systems.",
+    "category": "4.8 Incident response > Process > Containment",
+    "keyPoints": "Stop the spread first; Comes before eradication; Isolation or segmentation, account lockout, blocking IPs; Sandboxing is also a containment technique: isolate a sample to study it, or redirect an attacker into a sandbox to watch them (only with legal approval)"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process",
+      "Eradication"
+    ],
+    "term": "Eradication (incident response process)",
+    "definition": "Removing the cause of the incident from the environment: deleting malware, closing exploited vulnerabilities, removing attacker accounts and backdoors.",
+    "example": "Technicians wipe the infected drives, patch the exploited VPN flaw and delete the rogue admin account.",
+    "category": "4.8 Incident response > Process > Eradication",
+    "keyPoints": "Containment stops spread, eradication removes the threat; Fix the vulnerability so it cannot recur; Comes before recovery"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process",
+      "Recovery"
+    ],
+    "term": "Recovery (incident response process)",
+    "definition": "Restoring affected systems to normal operation, such as rebuilding or restoring from clean backups, and monitoring to confirm the threat is gone.",
+    "example": "Servers are rebuilt from the golden image, data is restored from last night's backup and extra monitoring watches for reinfection.",
+    "category": "4.8 Incident response > Process > Recovery",
+    "keyPoints": "Return to normal operations; Restore from known-good backups and images; Verify and monitor before declaring done"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Process",
+      "Lessons learned"
+    ],
+    "term": "Lessons learned (incident response process)",
+    "definition": "The final phase: a post-incident review of what happened, what worked and what to improve, done soon after the incident while details are fresh.",
+    "example": "A week after the breach, the team meets and decides to add MFA to the VPN and update the IR plan's contact list.",
+    "category": "4.8 Incident response > Process > Lessons learned",
+    "keyPoints": "Last phase; also called post-incident activity; Hold it soon after the incident (the older NIST SP 800-61 Rev. 2 suggested within several days); Improvements go back into preparation"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Training"
+    ],
+    "term": "Training (incident response)",
+    "definition": "Teaching incident response team members and other staff their roles, procedures and tools so they can act correctly during a real incident.",
+    "example": "New SOC analysts complete training on the IR plan, evidence handling and escalation contacts before joining the on-call rotation.",
+    "category": "4.8 Incident response > Training",
+    "keyPoints": "Covers responders, management and general staff; Part of preparation; Differs from testing, which checks the plan works"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Testing"
+    ],
+    "term": "Testing (incident response plan)",
+    "definition": "Exercising the incident response plan to find gaps before a real incident. The objectives list tabletop exercises and simulations.",
+    "example": "Twice a year the organization runs one discussion-based exercise and one hands-on simulation of a ransomware attack.",
+    "category": "4.8 Incident response > Testing",
+    "keyPoints": "Validates the plan and the team's readiness; Tabletop: talk through it; Simulation: perform it; Results feed plan updates"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Testing",
+      "Tabletop exercise"
+    ],
+    "term": "Tabletop exercise (incident response testing)",
+    "definition": "A discussion-based exercise where key people walk through a hypothetical incident scenario step by step and talk about how they would respond, without touching real systems.",
+    "example": "Executives and IT sit in a conference room while a facilitator describes a ransomware outbreak and asks each person what they would do next.",
+    "category": "4.8 Incident response > Testing > Tabletop exercise",
+    "keyPoints": "Talk only, no systems affected; Low cost, low disruption; Good for checking roles and communication; Contrast simulation, which acts out the scenario; NIST SP 800-84 calls tabletops discussion-based; its functional exercises have staff perform their duties in a simulated setting, like a simulation"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Testing",
+      "Simulation"
+    ],
+    "term": "Simulation (incident response testing)",
+    "definition": "A hands-on exercise that mimics a real incident so responders carry out actual response steps with systems and tools, often in a test environment.",
+    "example": "A harmless test program that mimics ransomware is run on a lab server; responders must spot it in the SIEM, isolate the host, collect evidence and brief management as if it were real.",
+    "category": "4.8 Incident response > Testing > Simulation",
+    "keyPoints": "Hands-on, more realistic than a tabletop; Tests tools and technical procedures; Costs more and needs planning to avoid disrupting production"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Root cause analysis"
+    ],
+    "term": "Root cause analysis (incident response)",
+    "definition": "Determining the underlying reason an incident happened, not just its symptoms, so the real problem can be fixed and the incident does not recur.",
+    "example": "The malware came from a phishing email, but the root cause was that the mail gateway did not scan attachments of that file type.",
+    "category": "4.8 Incident response > Root cause analysis",
+    "keyPoints": "Find the cause, not the symptom; Methods include the five whys and cause-and-effect diagrams; Often done during or after eradication and in lessons learned"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Threat hunting"
+    ],
+    "term": "Threat hunting",
+    "definition": "Proactively searching networks and systems for signs of threats that existing tools have not detected, often starting from a hypothesis or threat intelligence.",
+    "example": "After reading a report on a new attacker technique, an analyst searches endpoint logs for that behavior and finds a dormant backdoor.",
+    "category": "4.8 Incident response > Threat hunting",
+    "keyPoints": "Proactive, assumes a breach may already exist; Driven by hypotheses and threat intelligence; Differs from responding to alerts (reactive detection)"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Digital forensics"
+    ],
+    "term": "Digital forensics",
+    "definition": "Collecting, preserving, analyzing and reporting digital evidence in a way that keeps it reliable and legally defensible. Listed activities: legal hold, chain of custody, acquisition, reporting, preservation and e-discovery.",
+    "example": "After an insider data theft, investigators image the employee's laptop, hash the image and document every person who handles it.",
+    "category": "4.8 Incident response > Digital forensics",
+    "keyPoints": "Evidence must stay unchanged and accounted for; Collect in order of volatility; Legal hold preserves data, chain of custody records handling; Work on copies, not originals"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Digital forensics",
+      "Legal hold"
+    ],
+    "term": "Legal hold (digital forensics)",
+    "definition": "A formal instruction, usually from legal counsel, to preserve all data related to a case, an expected lawsuit, a government investigation or an audit, and suspend normal deletion or retention policies.",
+    "example": "Legal tells IT to stop auto-deleting a former manager's mailbox because the company expects a wrongful termination lawsuit.",
+    "category": "4.8 Incident response > Digital forensics > Legal hold",
+    "keyPoints": "Preserve, do not delete: overrides retention schedules; Triggered by litigation, expected litigation, an investigation or an audit; Chain of custody is different: it documents who handled evidence"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Digital forensics",
+      "Chain of custody"
+    ],
+    "term": "Chain of custody (digital forensics)",
+    "definition": "Documentation that records every person who collected, handled, transferred or stored a piece of evidence, with dates and times, proving it was not tampered with.",
+    "example": "A hard drive's evidence form shows it went from the responder to the evidence locker to the forensic lab, signed at each step.",
+    "category": "4.8 Incident response > Digital forensics > Chain of custody",
+    "keyPoints": "Who, when, where, why for every handling; Gaps can make evidence inadmissible; Hashes help prove integrity; Legal hold preserves data, chain of custody tracks it"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Digital forensics",
+      "Acquisition"
+    ],
+    "term": "Acquisition (digital forensics)",
+    "definition": "Collecting evidence from systems, such as disk images, memory captures and logs, in a sound way and in order of volatility, from most to least volatile.",
+    "example": "A responder captures RAM from a running server first, then takes a bit-for-bit disk image using a write blocker.",
+    "category": "4.8 Incident response > Digital forensics > Acquisition",
+    "keyPoints": "Order of volatility (RFC 3227): CPU registers and cache, then routing table, ARP cache, process table, kernel statistics and memory, then temporary file systems, then disk, then remote logs and monitoring data, then physical configuration and network topology, then archival media; Bit-for-bit images, hashed; Use write blockers"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Digital forensics",
+      "Reporting"
+    ],
+    "term": "Reporting (digital forensics)",
+    "definition": "Documenting the forensic investigation and its findings: what was collected, how it was analyzed, the timeline and conclusions, written for its audience such as management or a court.",
+    "example": "The investigator writes a report with the timeline of the intrusion, the methods used and hashes proving the evidence was unaltered.",
+    "category": "4.8 Incident response > Digital forensics > Reporting",
+    "keyPoints": "Facts, methods, timeline, conclusions; Must be repeatable and defensible; Different from automated reports used as a data source in 4.9"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Digital forensics",
+      "Preservation"
+    ],
+    "term": "Preservation (digital forensics)",
+    "definition": "Protecting evidence so it stays unchanged and available, for example by working on verified copies, using write blockers, hashing and storing originals securely.",
+    "example": "The original drive is sealed in an evidence bag in a locked locker, and analysts work only on a hashed image.",
+    "category": "4.8 Incident response > Digital forensics > Preservation",
+    "keyPoints": "Keep evidence intact and unaltered; Hash originals and copies to prove integrity; Analyze copies, store originals securely"
+  },
+  {
+    "obj": "4.8",
+    "path": [
+      "Digital forensics",
+      "E-discovery"
+    ],
+    "term": "E-discovery (electronic discovery)",
+    "definition": "The legal process of identifying, collecting and producing electronically stored information, such as email and documents, for a lawsuit or investigation.",
+    "example": "In a contract dispute, the company searches and hands over all email between two managers about the deal for a date range.",
+    "category": "4.8 Incident response > Digital forensics > E-discovery",
+    "keyPoints": "Legal process of finding and handing over electronic data; Follows a legal hold that kept the data; Focuses on producing data, not on analyzing an attack"
+  },
+  {
+    "obj": "4.9",
+    "path": [],
+    "term": "SY0-701 4.9: Given a scenario, use data sources to support an investigation",
+    "definition": "Objective 4.9 covers choosing the right evidence for an investigation: the kinds of log data (firewall, application, endpoint, OS security, IDS/IPS, network, metadata) and other data sources (vulnerability scans, automated reports, dashboards, packet captures).",
+    "example": "To trace a suspected data theft, an analyst uses firewall logs to find the connection, endpoint logs to see which process made it, and a packet capture to see exactly which files left.",
+    "category": "4.9 Data sources for investigations",
+    "keyPoints": "Match the question to the source that holds that evidence; Logs show events, packet captures show full content; Metadata is data about data; A SIEM gathers many of these sources together"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data"
+    ],
+    "term": "Log data (investigation source)",
+    "definition": "Records of events written by devices, systems and applications. Listed types: firewall, application, endpoint, OS-specific security, IPS/IDS and network logs, plus metadata.",
+    "example": "An analyst lines up firewall, VPN and Windows security logs to build a timeline of an attacker's login and movement.",
+    "category": "4.9 Data sources > Log data",
+    "keyPoints": "Logs record events with timestamps; Correlating several logs builds the timeline; Time synchronization (NTP) is essential; Usually collected in a SIEM"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data",
+      "Firewall logs"
+    ],
+    "term": "Firewall logs",
+    "definition": "Records of traffic a firewall allowed or blocked, typically with source and destination IP addresses, ports, protocol, action and time.",
+    "example": "Firewall logs show an internal host making outbound connections to an unknown IP on port 4444 every few minutes.",
+    "category": "4.9 Data sources > Log data > Firewall logs",
+    "keyPoints": "Shows who talked to whom, on which port, allowed or denied; Good for spotting scans and command-and-control traffic; Next-generation firewalls may log application and user too"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data",
+      "Application logs"
+    ],
+    "term": "Application logs",
+    "definition": "Events recorded by a specific application, such as logins, errors, transactions and changes within that application.",
+    "example": "A web application's log shows hundreds of failed logins for different usernames from one IP address.",
+    "category": "4.9 Data sources > Log data > Application logs",
+    "keyPoints": "Specific to one app (web server, database, custom software); Show actions inside the application; Format varies by vendor"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data",
+      "Endpoint logs"
+    ],
+    "term": "Endpoint logs",
+    "definition": "Logs from user devices and servers, such as from endpoint protection or EDR agents, recording processes, file changes, logins and security detections on that host.",
+    "example": "EDR logs show a Word document launching PowerShell, which then downloaded a file to the user's temp folder.",
+    "category": "4.9 Data sources > Log data > Endpoint logs",
+    "keyPoints": "Host-level detail: processes, files, users; Often from antivirus or EDR agents; Shows what happened on the device itself"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data",
+      "OS-specific security logs"
+    ],
+    "term": "OS-specific security logs",
+    "definition": "Security events logged by the operating system itself, such as logons, privilege use, account changes and policy changes, for example the Windows Security event log or Linux authentication logs.",
+    "example": "The Windows Security log shows repeated failed logon events followed by a successful one for an admin account.",
+    "category": "4.9 Data sources > Log data > OS-specific security logs",
+    "keyPoints": "Windows: Event Viewer Security log; Linux: auth or secure logs, journald; Track logons, account and permission changes; Format depends on the OS"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data",
+      "IPS/IDS logs"
+    ],
+    "term": "Intrusion prevention system / intrusion detection system (IPS/IDS) logs",
+    "definition": "Records of traffic that matched attack signatures or anomalies, showing what was detected and, for an IPS, whether it was blocked.",
+    "example": "IPS logs show a SQL injection attempt against the web server from an external IP, which was dropped.",
+    "category": "4.9 Data sources > Log data > IPS/IDS logs",
+    "keyPoints": "Name the attack or signature matched; IDS only alerts, IPS can also block; Can include false positives that need analysis"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data",
+      "Network logs"
+    ],
+    "term": "Network logs",
+    "definition": "Logs from network infrastructure such as switches, routers, wireless controllers, DNS, DHCP and VPN servers, recording connections, changes and device events.",
+    "example": "DHCP and switch logs show which device had a suspicious IP address at the time of the attack and which switch port it used.",
+    "category": "4.9 Data sources > Log data > Network logs",
+    "keyPoints": "Infrastructure events: routing, interfaces, VPN, DHCP, DNS; Help locate a device and trace its path; Flow data (NetFlow) summarizes traffic without contents"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Log data",
+      "Metadata"
+    ],
+    "term": "Metadata (log data)",
+    "definition": "Data that describes other data, such as email headers, file creation dates and authors, photo location tags, or connection details without content.",
+    "example": "An email header shows the message really came from an overseas mail server, not the CEO's account it claimed.",
+    "category": "4.9 Data sources > Log data > Metadata",
+    "keyPoints": "Data about data, not the content itself; Examples: email headers, file properties, photo EXIF data, mobile call records; Useful when content is encrypted or unavailable"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Data sources"
+    ],
+    "term": "Data sources (investigation, other than logs)",
+    "definition": "Other information used in investigations besides logs: vulnerability scans, automated reports, dashboards and packet captures.",
+    "example": "An analyst uses the dashboard to spot a spike, a packet capture to see the traffic and the last vulnerability scan to see which flaw was exploited.",
+    "category": "4.9 Data sources > Data sources",
+    "keyPoints": "Pick the source that answers the question asked; Scans show weaknesses, captures show traffic content; Reports and dashboards summarize many sources"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Data sources",
+      "Vulnerability scans"
+    ],
+    "term": "Vulnerability scans (investigation data source)",
+    "definition": "Scan results listing systems, open ports, missing patches and known vulnerabilities, which help investigators see how an attacker may have gotten in.",
+    "example": "An investigation into a compromised server finds the last scan had flagged its unpatched remote access service as critical.",
+    "category": "4.9 Data sources > Data sources > Vulnerability scans",
+    "keyPoints": "Show weaknesses, not what an attacker actually did; Help explain the likely entry point; Compare scans before and after an incident"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Data sources",
+      "Automated reports"
+    ],
+    "term": "Automated reports (investigation data source)",
+    "definition": "Reports generated on a schedule or by trigger from tools such as a SIEM or vulnerability scanner, summarizing events, trends and findings.",
+    "example": "A daily SIEM report lists the top blocked IPs and accounts with the most failed logins, highlighting an ongoing password spray.",
+    "category": "4.9 Data sources > Data sources > Automated reports",
+    "keyPoints": "Created by tools, not written by hand; Summarize large volumes of data; Different from forensic reporting written by investigators"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Data sources",
+      "Dashboards"
+    ],
+    "term": "Dashboards (investigation data source)",
+    "definition": "Real-time visual displays, often in a SIEM, that summarize key security information so analysts can spot trends and anomalies at a glance.",
+    "example": "A SOC dashboard shows outbound traffic suddenly tripling, prompting an investigation into data exfiltration.",
+    "category": "4.9 Data sources > Data sources > Dashboards",
+    "keyPoints": "Visual, near real-time summary; Good for spotting anomalies quickly; A starting point: details come from the underlying logs"
+  },
+  {
+    "obj": "4.9",
+    "path": [
+      "Data sources",
+      "Packet captures"
+    ],
+    "term": "Packet captures (investigation data source)",
+    "definition": "Recordings of the actual network packets, including headers and payloads, collected with tools such as Wireshark or tcpdump.",
+    "example": "A packet capture shows an unencrypted file being sent to an external FTP server, revealing exactly what data left.",
+    "category": "4.9 Data sources > Data sources > Packet captures",
+    "keyPoints": "Full content of traffic, the most detailed network evidence; Large storage needs; Encrypted traffic hides payloads; Logs and flow data show only that a connection happened"
+  }
+]

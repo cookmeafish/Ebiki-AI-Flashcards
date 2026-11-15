@@ -4,7 +4,7 @@
     "path": [],
     "term": "SY0-701 4.6: Given a scenario, implement and maintain identity and access management",
     "definition": "Objective 4.6 covers managing who can get in and what they can do: creating and removing accounts, verifying identities, single sign-on and federation, access control models, multifactor authentication, password policy and privileged access management.",
-    "example": "A scenario describes a contractor who still has VPN access a month after leaving and asks which IAM process failed (de-provisioning).",
+    "example": "A contractor still has VPN access a month after leaving; the company ties accounts to HR records so leavers are disabled the same day, adds MFA and moves admin rights into a PAM vault.",
     "category": "4.6 Identity and access management",
     "keyPoints": "Scenario objective: pick the right control for the situation; Know the access control models apart (MAC, DAC, RBAC, rule-based, ABAC); Know SAML vs OAuth vs LDAP and federation vs SSO; MFA factors include somewhere you are"
   },
@@ -506,7 +506,7 @@
     "path": [],
     "term": "SY0-701 4.7: Explain the importance of automation and orchestration related to secure operations",
     "definition": "Objective 4.7 covers why security teams automate repetitive tasks with scripts and orchestrate them across tools: the use cases, the benefits and the considerations or risks that come with automation.",
-    "example": "A question asks which benefit an organization gains by scripting account creation from HR records (efficiency, enforcing baselines, reaction time).",
+    "example": "When HR enters a new hire, a script creates the account and groups; when the SIEM flags malware, an orchestration platform isolates the laptop, opens a ticket and blocks the bad IP on the firewall.",
     "category": "4.7 Automation and orchestration",
     "keyPoints": "Automation: one task done by script; orchestration: many automated tasks coordinated across systems; Know use cases, benefits and other considerations lists; Risks: complexity, cost, single point of failure, technical debt, supportability"
   },
@@ -800,7 +800,7 @@
     "path": [],
     "term": "SY0-701 4.8: Explain appropriate incident response activities",
     "definition": "Objective 4.8 covers the incident response process from preparation to lessons learned, training and testing the plan, root cause analysis, threat hunting and digital forensics activities.",
-    "example": "A question asks what an analyst should do right after isolating an infected server (eradication: remove the malware).",
+    "example": "After an alert, an analyst confirms malware on a server, isolates it, removes the malware, restores from a clean backup, preserves a disk image with chain of custody, and the team holds a lessons-learned meeting.",
     "category": "4.8 Incident response",
     "keyPoints": "Memorize the process order: preparation, detection, analysis, containment, eradication, recovery, lessons learned; Tabletop is discussion, simulation is hands-on; Legal hold preserves, chain of custody documents handling"
   },
@@ -941,7 +941,7 @@
     ],
     "term": "Simulation (incident response testing)",
     "definition": "A hands-on exercise that mimics a real incident so responders carry out actual response steps with systems and tools, often in a test environment.",
-    "example": "The security team sends a fake phishing campaign and responders must detect, report and contain it as if it were real.",
+    "example": "A harmless test program that mimics ransomware is run on a lab server; responders must spot it in the SIEM, isolate the host, collect evidence and brief management as if it were real.",
     "category": "4.8 Incident response > Testing > Simulation",
     "keyPoints": "Hands-on, more realistic than a tabletop; Tests tools and technical procedures; Costs more and needs planning to avoid disrupting production"
   },
@@ -1055,7 +1055,7 @@
     "path": [],
     "term": "SY0-701 4.9: Given a scenario, use data sources to support an investigation",
     "definition": "Objective 4.9 covers choosing the right evidence for an investigation: the kinds of log data (firewall, application, endpoint, OS security, IDS/IPS, network, metadata) and other data sources (vulnerability scans, automated reports, dashboards, packet captures).",
-    "example": "A question asks which source shows the actual contents of a suspicious data transfer (packet capture).",
+    "example": "To trace a suspected data theft, an analyst uses firewall logs to find the connection, endpoint logs to see which process made it, and a packet capture to see exactly which files left.",
     "category": "4.9 Data sources for investigations",
     "keyPoints": "Match the question to the source that holds that evidence; Logs show events, packet captures show full content; Metadata is data about data; A SIEM gathers many of these sources together"
   },

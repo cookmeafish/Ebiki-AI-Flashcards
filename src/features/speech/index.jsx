@@ -9,11 +9,11 @@ import { platform } from '../../platform'
 import { VOICE_CHAT_ID } from '../kit'
 
 const KEY_OF = { gemini: 'gemini', grok: 'grok', openai: 'openai' }
-const NAME = { browser: 'speech_browser', device: 'speech_device', gemini: 'Gemini', grok: 'Grok', openai: 'OpenAI' }
+const NAME = { local: 'speech_local', browser: 'speech_browser', device: 'speech_device', gemini: 'Gemini', grok: 'Grok', openai: 'OpenAI' }
 const perMin = (usd) => (usd === 0 ? null : `$${usd.toFixed(4).replace(/0+$/, '')}`)
 
 function EngineSelect({ kind, value, onChange, t, keys }) {
-  const usable = (e) => (e === 'browser' ? platform.speech.canRecognize() : e === 'device' ? true : !!keys?.[KEY_OF[e]])
+  const usable = (e) => (e === 'local' ? !!platform.speech.canTranscribeLocally?.() : e === 'browser' ? platform.speech.canRecognize() : e === 'device' ? true : !!keys?.[KEY_OF[e]])
   const label = (e) => {
     const name = NAME[e].startsWith('speech_') ? t(NAME[e]) : NAME[e]
     const price = perMin(COSTS[kind][e])

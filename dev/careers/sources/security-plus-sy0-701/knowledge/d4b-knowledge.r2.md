@@ -181,7 +181,7 @@ Teach responders, management and staff their roles, procedures and tools before 
 
 ### Testing
 - **Tabletop exercise:** a discussion walk-through of a scenario around a table. No systems touched, cheap, good for roles and communication.
-- **Simulation:** a hands-on exercise that acts out an incident (for example a fake phishing campaign). More realistic, more effort.
+- **Simulation:** a hands-on exercise that acts out an incident (for example a harmless ransomware-like test program that responders must detect and contain). More realistic, more effort.
 
 ### Root cause analysis
 Find the underlying cause, not the symptom, so it does not happen again. Methods include the five whys and cause-and-effect (fishbone) diagrams.

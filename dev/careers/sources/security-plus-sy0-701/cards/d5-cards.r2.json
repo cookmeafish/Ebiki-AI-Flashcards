@@ -693,9 +693,9 @@
     ],
     "term": "Risk tolerance",
     "definition": "The amount of deviation from the risk appetite an organization can accept for a specific risk or objective; the practical limit of risk it can handle.",
-    "example": "Appetite says low risk for patient data; tolerance allows critical patches to take up to 7 days before it is unacceptable.",
+    "example": "Appetite: the hospital takes little risk with patient data. Tolerance: the patient portal may be down at most 4 hours a month; beyond that, leadership must act.",
     "category": "5.2 Risk management",
-    "keyPoints": "Tolerance = specific acceptable variation, often measurable; Appetite = broad willingness to take risk; Tolerance is usually narrower and more concrete than appetite"
+    "keyPoints": "Tolerance = specific acceptable variation, often measurable; Appetite = broad willingness to take risk; Tolerance is usually narrower and more concrete than appetite; in vulnerability management (4.3) the same tolerance becomes patch deadlines and exception rules"
   },
   {
     "obj": "5.2",

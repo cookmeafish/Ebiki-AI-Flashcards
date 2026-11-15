@@ -10,6 +10,9 @@
 //   outline.md     "# 1.0 <domain> (12%)", "## 1.1 <objective>", then "- item" / "  - sub-item" (2 spaces a level)
 //   cards/         <prefix>-cards[.rN].json: [{ obj, path, term, definition, example, category, keyPoints }]
 //                  the HIGHEST review pass per prefix is used (d1-cards.r2.json over d1-cards.r1.json over d1-cards.json)
+//                  <prefix>-extras[.rN].json: EXTRA cards no outline line names but a learner needs (latest pass per
+//                  prefix): [{ obj, extra: true, term, definition, example, category, keyPoints, sources: ['url'] }],
+//                  each an item of its objective, taught in that objective's "Extras" lesson(s) before its checkpoint
 //   knowledge/     <prefix>-knowledge[.rN].md (latest pass per prefix), copied to the mode's knowledge folder
 //   acronyms.txt   optional "ACR|Expansion" lines
 // Writes: public/careers/<course-id>.json (in git: every clone gets the course; the app offers it when this answers),
@@ -77,13 +80,35 @@ for (const c of cards) {
   if (/[—–]/.test(JSON.stringify(c))) problems.push(`dash in card: ${c.term}`)
   if (/<[a-z][^>]*>/i.test(JSON.stringify(c))) problems.push(`HTML in card: ${c.term}`)
 }
+// ── extra cards: concepts a learner needs that no outline line names (reviewers' proposals), one objective each ──
+const extraFiles = latest(path.join(SRC, 'cards'), /^(\w+)-extras(?:\.r(\d+))?\.json$/)
+const extras = extraFiles.flatMap((x) => JSON.parse(fs.readFileSync(x.file, 'utf8')))
+const objectiveIds = new Set(expected.filter((e) => !e.path.length && !e.obj.endsWith('.0')).map((e) => e.obj))
+for (const c of extras) {
+  const f = String(c.term || '').trim().toLowerCase()
+  if (c.extra !== true) problems.push(`extra card without "extra": true: ${c.term}`)
+  if (!objectiveIds.has(c.obj)) problems.push(`extra card for an unknown objective ${c.obj}: ${c.term}`)
+  if (c.path) problems.push(`extra card with an outline path (extras name no outline line): ${c.term}`)
+  if (!Array.isArray(c.sources) || !c.sources.some((u) => /^https:\/\//.test(String(u)))) problems.push(`extra card without a source: ${c.term}`)
+  if (fronts.has(f)) problems.push(`duplicate front: ${c.term}`)
+  fronts.add(f)
+  if (!c.term || !c.definition || !c.example || !c.keyPoints || !c.category) problems.push(`extra card missing a field: ${c.term || c.obj}`)
+  if (/[—–]/.test(JSON.stringify(c))) problems.push(`dash in extra card: ${c.term}`)
+  if (/<[a-z][^>]*>/i.test(JSON.stringify(c))) problems.push(`HTML in extra card: ${c.term}`)
+}
 const unreviewed = cardFiles.filter((x) => x.pass < 2).map((x) => path.basename(x.file))
 if (unreviewed.length) problems.push(`not reviewed twice (need .r2 or later): ${unreviewed.join(', ')}`)
 
 // ── the package: islands = domains, sections = objectives, lessons = top-level bullets (parts of LESSON_MAX) ──
 const keyPoints = (c) => (Array.isArray(c.keyPoints) ? c.keyPoints.join('; ') : String(c.keyPoints || ''))
 const backText = (c) => [`Definition: ${c.definition}`, c.example ? `Example: ${c.example}` : '', `Category: ${c.category}`, `Key Points: ${keyPoints(c)}`].filter(Boolean).join('\n')
-const itemId = (c) => `i${c.obj.replace('.', '-')}-${crypto.createHash('sha1').update(key(c)).digest('hex').slice(0, 8)}`
+const itemId = (c) => `i${c.obj.replace('.', '-')}-${crypto.createHash('sha1').update(c.extra ? `extra|${c.obj}|${c.term}` : key(c)).digest('hex').slice(0, 8)}`
+// An objective's item ids as lessons of at most LESSON_MAX, split evenly ("Title (1/2)", "Title (2/2)").
+const lessonChunks = (section, title, ids) => {
+  const parts = Math.ceil(ids.length / LESSON_MAX)
+  return Array.from({ length: parts }, (_, p) => ({ section, title: parts > 1 ? `${title} (${p + 1}/${parts})` : title,
+    itemIds: ids.slice(Math.round((p * ids.length) / parts), Math.round(((p + 1) * ids.length) / parts)) }))
+}
 const areas = domains.map((d, di) => {
   const meta = course.areas?.[di] || {}
   const dn = d.number.split('.')[0]
@@ -91,37 +116,42 @@ const areas = domains.map((d, di) => {
   const items = []
   const sections = []
   const lessons = []
-  const add = (c, section) => { const it = { id: itemId(c), kind: 'term', front: c.term, back: backText(c), section }; items.push(it); return it.id }
+  // kind 'brief' = the domain's and each objective's OVERVIEW card: read as a briefing on the island and objective
+  // (the owner: background to know first, never quizzed like a flashcard), never a lesson item.
+  const add = (c, section, kind = 'term') => { const it = { id: itemId(c), kind, front: c.term, back: backText(c), section }; items.push(it); return it.id }
+  let brief = ''
   for (const o of objs) {
     const oc = byKey.get(key(o))
-    sections.push({ id: o.obj, title: o.title, short: String(oc?.category || o.title).replace(/^\d+\.\d+\s*/, '') })
-    const lead = []
-    if (sections.length === 1 && byKey.get(key({ obj: d.number, path: [] }))) lead.push(add(byKey.get(key({ obj: d.number, path: [] })), o.obj))
-    if (oc) lead.push(add(oc, o.obj))
     const lines = expected.filter((e) => e.obj === o.obj && e.path.length)
     const tops = lines.filter((e) => e.path.length === 1)
+    // An objective with no sub-items keeps its overview as its one lesson (else it would have nothing to learn).
+    const briefKind = tops.length ? 'brief' : 'term'
+    const lead = []
+    if (sections.length === 0 && byKey.get(key({ obj: d.number, path: [] }))) brief = add(byKey.get(key({ obj: d.number, path: [] })), o.obj, 'brief')
+    const sectionBrief = oc && briefKind === 'brief' ? add(oc, o.obj, 'brief') : ''
+    if (oc && briefKind === 'term') lead.push(add(oc, o.obj))
+    sections.push({ id: o.obj, title: o.title, short: String(oc?.category || o.title).replace(/^\d+\.\d+\s*/, ''), ...(sectionBrief ? { brief: sectionBrief } : {}) })
     tops.forEach((top, ti) => {
       const group = lines.filter((e) => e.path[0] === top.path[0]).map((e) => byKey.get(key(e))).filter(Boolean).map((c) => add(c, o.obj))
       const ids = ti === 0 ? [...lead, ...group] : group
-      const parts = Math.ceil(ids.length / LESSON_MAX)
-      for (let p = 0; p < parts; p++) {
-        const chunk = ids.slice(Math.round((p * ids.length) / parts), Math.round(((p + 1) * ids.length) / parts))
-        lessons.push({ section: o.obj, title: parts > 1 ? `${top.path[0]} (${p + 1}/${parts})` : top.path[0], itemIds: chunk })
-      }
+      lessons.push(...lessonChunks(o.obj, top.path[0], ids))
     })
     if (!tops.length && lead.length) lessons.push({ section: o.obj, title: o.title, itemIds: lead })
+    // EXTRAS: the objective's extra cards, after its outline lessons (so before its checkpoint), in their own lesson(s).
+    const extraIds = extras.filter((c) => c.obj === o.obj).map((c) => add(c, o.obj))
+    if (extraIds.length) lessons.push(...lessonChunks(o.obj, 'Extras', extraIds))
   }
   return { id: `${id.split('-')[0]}-d${dn}`, number: d.number, title: meta.title || d.title, weight: meta.weight ?? d.weight, theme: meta.theme || '', motif: meta.motif || 'castle',
-    palette: meta.palette || 'original', bossName: meta.bossName || '', story: meta.story || [], canDo: meta.canDo || [], sections, items, lessons }
+    palette: meta.palette || 'original', bossName: meta.bossName || '', story: meta.story || [], canDo: meta.canDo || [], ...(brief ? { brief } : {}), sections, items, lessons }
 })
 const counted = areas.reduce((n, a) => n + a.items.length, 0)
-if (counted !== cards.length) problems.push(`package holds ${counted} items, cards are ${cards.length}`)
+if (counted !== cards.length + extras.length) problems.push(`package holds ${counted} items, cards are ${cards.length + extras.length} (${cards.length} outline + ${extras.length} extra)`)
 for (const a of areas) for (const l of a.lessons) if (l.itemIds.length > LESSON_MAX) problems.push(`lesson over ${LESSON_MAX} items: ${a.number} ${l.title}`)
 const pkg = { id, title: course.title, version: course.version || '1', areas }
 
 // OWN WORDS ONLY (./verbatim.mjs; rule in docs/career-mode-guide.md): nothing shipped copies 12+ words of the outline.
 const chapterFiles = latest(path.join(SRC, 'knowledge'), /^(\w+)-knowledge(?:\.r(\d+))?\.md$/)
-const copied = verbatimProblems(courseTexts({ cards, pkg, chapters: chapterFiles.map((x) => ({ name: path.basename(x.file), text: fs.readFileSync(x.file, 'utf8') })) }),
+const copied = verbatimProblems(courseTexts({ cards: [...cards, ...extras], pkg, chapters: chapterFiles.map((x) => ({ name: path.basename(x.file), text: fs.readFileSync(x.file, 'utf8') })) }),
   outlineGrams(fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8')), areas.flatMap((a) => a.sections.map((s) => s.title)))
 for (const c of copied) problems.push(`copied from the outline (${RUN_WORDS}+ words), rewrite in our own words: ${c.where}: "${c.run}"`)
 
@@ -141,7 +171,7 @@ const acronymCards = [...acr].map(([a, xs]) => ({ obj: 'acr', term: `${a} (${cou
 // ── reports and files ──
 const outDir = path.join(ROOT, 'dev', 'careers', 'out')
 fs.mkdirSync(outDir, { recursive: true })
-const report = [`course ${id}: ${expected.length} outline lines, ${cards.length} cards (${cardFiles.map((x) => path.basename(x.file)).join(', ')}), ${acronymCards.length} acronym cards`,
+const report = [`course ${id}: ${expected.length} outline lines, ${cards.length} cards (${cardFiles.map((x) => path.basename(x.file)).join(', ')}), ${extras.length} extra cards (${extraFiles.map((x) => path.basename(x.file)).join(', ') || 'none'}), ${acronymCards.length} acronym cards`,
   ...areas.map((a) => `  ${a.number} ${a.title}: ${a.sections.length} objectives, ${a.lessons.length} lessons, ${a.items.length} items`),
   problems.length ? `PROBLEMS (${problems.length}):` : 'no problems', ...problems.slice(0, 200).map((p) => `  ${p}`)].join('\n')
 fs.writeFileSync(path.join(outDir, `${id}-report.txt`), report, 'utf8')
@@ -153,11 +183,11 @@ fs.writeFileSync(path.join(ROOT, 'public', 'careers', `${id}.json`), JSON.string
 const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const DECK = course.deck || course.title
 const domainName = Object.fromEntries(domains.map((d) => [d.number.split('.')[0], `${d.number} ${d.title}`]))
-const notes = [...cards, ...acronymCards].map((c) => ({
+const notes = [...cards, ...extras, ...acronymCards].map((c) => ({
   front: esc(c.term),
   back: [`<b>Definition:</b> ${esc(c.definition)}`, c.example ? `<b>Example:</b> ${esc(c.example)}` : '', `<b>Category:</b> ${esc(c.category)}`, `<b>Key Points:</b> ${esc(keyPoints(c))}`].filter(Boolean).join('<br>'),
   deck: c.obj === 'acr' ? `${DECK}::Acronyms` : `${DECK}::${domainName[c.obj.split('.')[0]]}`,
-  tags: c.obj === 'acr' ? `ebiki ${course.tagPrefix || id} acronym` : `ebiki ${course.tagPrefix || id} domain-${c.obj.split('.')[0]} obj-${c.obj.replace('.', '-')}`,
+  tags: c.obj === 'acr' ? `ebiki ebiki-course ${course.tagPrefix || id} acronym` : `ebiki ebiki-course ${course.tagPrefix || id} domain-${c.obj.split('.')[0]} obj-${c.obj.replace('.', '-')}${c.extra ? ' extra' : ''}`,
 }))
 const cell = (s) => String(s).replace(/[\t\r\n]+/g, ' ')
 fs.writeFileSync(path.join(outDir, `${id}-anki-import.txt`), ['#separator:tab', '#html:true', '#notetype:Basic', '#deck column:3', '#tags column:4',

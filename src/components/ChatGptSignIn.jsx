@@ -10,9 +10,35 @@ import { S } from '../styles/theme'
 // The server's sign-in errors, in words. Anything unknown reads as "did not finish".
 const ERROR_KEY = { denied: 'cg_errDenied', noPlan: 'cg_errNoPlan', timeout: 'cg_errTimeout', port: 'cg_errPort' }
 
-export const SubscriptionNote = ({ t }) => (
-  <div data-subscription-note="" style={{ fontSize: 11.5, color: C.inkDim, lineHeight: 1.45, marginTop: 10 }}>{t('cg_subscriptionNote')}</div>
-)
+// ONE TAB PER COMPANY (the owner: "each provider has its own login with subscription if they support it"). A
+// subscription sign-in is a way to pay INSIDE its company's tab (`subscriptionOf` in PROVIDERS), never a tab of its own
+// and never offered under another company. Pure helpers, used by Settings and onboarding alike.
+export const companyTabs = (providers) => Object.entries(providers).filter(([, p]) => !p.subscriptionOf)
+// The tab a provider id lives in ('chatgpt' → 'openai').
+export const companyOf = (providers, id) => providers[id]?.subscriptionOf || id
+// The subscription provider of a company, if it has one ('openai' → 'chatgpt').
+export const subscriptionFor = (providers, company) => Object.entries(providers).find(([, p]) => p.subscriptionOf === company)?.[0] || null
+
+// Inside a company's tab: how to use it. With a subscription sign-in: "API key" or "<plan> (sign in)". Without: one
+// line saying why that company needs a key (their own rules), named for THAT company only.
+export function SubscriptionNote({ t, providers, provider, onPick }) {
+  const company = companyOf(providers, provider)
+  const sub = subscriptionFor(providers, company)
+  if (!sub) return <div data-subscription-note={company} style={{ fontSize: 11.5, color: C.inkDim, lineHeight: 1.45, marginTop: 10 }}>{t(`cg_noSub_${company}`)}</div>
+  const seg = (id, label) => (
+    <button key={id} type="button" role="radio" aria-checked={provider === id} onClick={() => onPick?.(id)} className={provider === id ? 'ui-tab ui-tab-current' : 'ui-tab'}
+      style={{ ...S.ghostBtn, fontSize: 12.5, padding: '6px 12px', fontWeight: 700, cursor: provider === id ? 'default' : 'pointer', color: provider === id ? C.ink : C.inkDim, background: provider === id ? C.surfaceAlt : C.surface }}>{label}</button>
+  )
+  return (
+    <div data-subscription-note={company} style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: C.inkDim, marginBottom: 6 }}>{t('cg_howToUse', { company: providers[company]?.label || company })}</div>
+      <div role="radiogroup" aria-label={t('cg_howToUse', { company: providers[company]?.label || company })} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {seg(company, `🔑 ${t('cg_useKey')}`)}
+        {seg(sub, `💳 ${t('cg_usePlan', { plan: providers[sub].label })}`)}
+      </div>
+    </div>
+  )
+}
 
 export default function ChatGptSignIn({ t, status, waiting, onSignIn, onSignOut, onCancel, signingOut }) {
   const st = status || {}

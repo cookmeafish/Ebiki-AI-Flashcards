@@ -1,0 +1,38 @@
+[
+  {
+    "obj": "3.4",
+    "extra": true,
+    "term": "Full, incremental and differential backups",
+    "definition": "A full backup copies everything selected. An incremental backup copies what changed since the last backup of any kind. A differential backup copies what changed since the last full backup.",
+    "example": "A full backup runs on Sunday. With incrementals, a Thursday restore needs Sunday's full plus Monday, Tuesday and Wednesday's incrementals; with differentials it needs only Sunday's full plus Wednesday's differential.",
+    "category": "3.4 Resilience and recovery > Backups",
+    "keyPoints": [
+      "Full: slowest and largest to make, simplest to restore",
+      "Incremental: fastest and smallest each day, slowest restore (full plus every incremental in order)",
+      "Differential: grows each day until the next full, restore needs only the full plus the latest differential",
+      "Mixes are common, such as a weekly full with nightly differentials",
+      "Backups are still needed alongside high availability, since corrupted data is copied to every redundant system"
+    ],
+    "sources": [
+      "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-34r1.pdf"
+    ]
+  },
+  {
+    "obj": "3.4",
+    "extra": true,
+    "term": "Fault tolerance vs high availability",
+    "definition": "Fault tolerance is the ability of a system to keep running correctly while one or more of its parts fail, with no interruption. High availability is the wider goal of keeping a service up nearly all the time through redundancy and failover, which may allow a short interruption while a backup takes over.",
+    "example": "A RAID 1 mirror keeps a server running unchanged when one disk dies (fault tolerance); a database cluster that switches to a standby node within seconds after the main node crashes gives high availability.",
+    "category": "3.4 Resilience and recovery > High availability",
+    "keyPoints": [
+      "Fault tolerance aims for zero interruption when a part fails",
+      "High availability is measured in uptime, for example 99.999 percent (five nines), and may include a brief failover",
+      "Both rely on redundancy and removing single points of failure",
+      "Neither replaces backups: corruption or ransomware spreads to every copy"
+    ],
+    "sources": [
+      "https://csrc.nist.gov/glossary/term/fault_tolerance",
+      "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-34r1.pdf"
+    ]
+  }
+]

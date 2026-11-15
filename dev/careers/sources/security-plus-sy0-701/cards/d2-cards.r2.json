@@ -4,7 +4,7 @@
     "path": [],
     "term": "SY0-701 Domain 2.0: Threats, Vulnerabilities, and Mitigations (22%)",
     "definition": "The second Security+ SY0-701 domain, worth about 22% of the exam. It covers who attacks and why (2.1), how they get in (2.2), the weaknesses they exploit (2.3), how to recognize attacks in progress (2.4) and how organizations reduce the risk (2.5).",
-    "example": "A question gives a log excerpt showing many failed logins across hundreds of accounts with one password, and asks which attack it is (password spraying, 2.4) and which control helps (MFA, 2.5).",
+    "example": "A criminal group (threat actor) sends phishing emails (vector) to exploit an unpatched VPN (vulnerability); the SOC spots failed logins on hundreds of accounts (indicator) and responds by patching and enabling MFA (mitigation).",
     "category": "2.0 Threats, Vulnerabilities, and Mitigations",
     "keyPoints": "Five objectives: 2.1 actors and motivations, 2.2 vectors and attack surfaces, 2.3 vulnerabilities, 2.4 indicators of malicious activity, 2.5 mitigations; 2.4 is a \"given a scenario\" objective, so expect performance-based log and symptom questions; many terms repeat across objectives (buffer overflow, brute force, supply chain, encryption), so read which context the question asks about"
   },
@@ -13,7 +13,7 @@
     "path": [],
     "term": "SY0-701 2.1: Compare and contrast common threat actors and motivations",
     "definition": "Objective 2.1 asks you to tell threat actors apart by who they are, their attributes (internal or external, resources and funding, sophistication) and what motivates them.",
-    "example": "Scenario: a well funded group quietly steals defense research for years without asking for money. Answer: nation-state actor motivated by espionage.",
+    "example": "A well-funded government team quietly steals defense research for years without asking for money (nation-state, espionage), while a gang encrypts a hospital and demands payment (organized crime, financial gain).",
     "category": "2.1 Threat actors and motivations",
     "keyPoints": "Six actor types: nation-state, unskilled attacker, hacktivist, insider threat, organized crime, shadow IT; three attributes: internal/external, resources/funding, sophistication; match motive to actor: money points to organized crime, beliefs to hacktivists, espionage or war to nation-states, revenge often to insiders"
   },
@@ -283,7 +283,7 @@
     "path": [],
     "term": "SY0-701 2.2: Explain common threat vectors and attack surfaces",
     "definition": "Objective 2.2 covers threat vectors (the paths an attacker uses to get in) and attack surfaces (all the points where a system could be attacked), including human vectors and social engineering.",
-    "example": "Scenario: an attacker leaves infected USB sticks in a company parking lot. Vector: removable device; it relies on human curiosity.",
+    "example": "An attacker leaves infected USB sticks in a company parking lot (removable device vector); the company's open RDP port and unpatched web server are other parts of its attack surface.",
     "category": "2.2 Threat vectors and attack surfaces",
     "keyPoints": "Vector = the path or method; attack surface = the sum of exposed points; reduce the surface by removing unused services, software and accounts; social engineering items (phishing, vishing, smishing, BEC, pretexting, watering hole, typosquatting) are heavily tested"
   },
@@ -664,7 +664,7 @@
     "path": [],
     "term": "SY0-701 2.3: Explain various types of vulnerabilities",
     "definition": "Objective 2.3 covers the categories of weaknesses that attackers exploit: application, operating system, web, hardware, virtualization, cloud, supply chain, cryptographic, misconfiguration, mobile and zero-day.",
-    "example": "Scenario: a guest VM user breaks out and accesses the hypervisor. Vulnerability: VM escape (virtualization).",
+    "example": "A company's web form is open to SQL injection, its cloud storage bucket is public by mistake, and its hypervisor has a flaw that lets a guest VM break out to the host.",
     "category": "2.3 Types of vulnerabilities",
     "keyPoints": "A vulnerability is a weakness; a threat exploits it; know each category with its examples; tell apart: SQLi (database) vs XSS (browser), TOC vs TOU, side loading vs jailbreaking"
   },
@@ -1012,7 +1012,7 @@
     "path": [],
     "term": "SY0-701 2.4: Given a scenario, analyze indicators of malicious activity",
     "definition": "Objective 2.4 asks you to look at a scenario (symptoms, logs, behavior) and identify the attack: malware, physical, network, application, cryptographic and password attacks, plus general indicators of compromise.",
-    "example": "Scenario: logs show one user logged in from New York and Tokyo within ten minutes. Indicator: impossible travel, suggesting stolen credentials.",
+    "example": "An analyst sees one account log in from New York and Tokyo ten minutes apart, then a gap in that server's logs, and concludes stolen credentials were used and the attacker cleared the logs.",
     "category": "2.4 Indicators of malicious activity",
     "keyPoints": "Performance-based style: read the clues; know the distinguishing feature of each attack (worm self-spreads, virus needs a user, spraying uses one password on many accounts); account clues: lockouts, concurrent sessions, impossible travel; system clues: resource consumption, resources becoming inaccessible, blocked content; log clues: missing logs or out-of-cycle logging; outside clues: your data published/documented online"
   },
@@ -1191,7 +1191,7 @@
     "definition": "Attacks against network traffic and services: DDoS (amplified, reflected), DNS attacks, wireless attacks, on-path, credential replay and malicious code.",
     "example": "An attacker poisons ARP tables on a LAN so all traffic passes through their laptop.",
     "category": "2.4 Indicators of malicious activity",
-    "keyPoints": "Listed: DDoS, DNS attacks, wireless, on-path, credential replay, malicious code; look for traffic anomalies, unusual DNS answers, duplicate MAC addresses"
+    "keyPoints": "Listed: DDoS, DNS attacks, wireless, on-path, credential replay, malicious code; look for traffic anomalies, unusual DNS answers, and ARP tables where one MAC address answers for several IP addresses or the gateway IP suddenly has a new MAC (ARP poisoning)"
   },
   {
     "obj": "2.4",
@@ -1265,7 +1265,7 @@
     "definition": "An attacker secretly sits between two parties, reading or changing their traffic. Formerly called man-in-the-middle; ARP poisoning is a common LAN technique and on-path browser (man-in-the-browser) is a malware variant.",
     "example": "ARP poisoning on a café network makes a victim's laptop send all its traffic through the attacker's machine.",
     "category": "2.4 Indicators of malicious activity > Network attacks",
-    "keyPoints": "Old name: man-in-the-middle; indicators: duplicate MAC addresses in ARP tables, certificate warnings; defenses: encryption (TLS), certificate validation, dynamic ARP inspection"
+    "keyPoints": "Old name: man-in-the-middle; indicators: one MAC address mapped to several IP addresses in ARP tables, the gateway IP showing a new MAC, certificate warnings; defenses: encryption (TLS), certificate validation, dynamic ARP inspection"
   },
   {
     "obj": "2.4",
@@ -1309,10 +1309,10 @@
       "Injection"
     ],
     "term": "Injection (application attack)",
-    "definition": "Sending crafted input that the application passes to an interpreter as code: SQL, LDAP, XML, command or DLL injection.",
+    "definition": "Getting attacker-supplied code run by a system. Most kinds hide code in input that the application hands to an interpreter (a database for SQL, a directory for LDAP, an XML parser, an operating system shell for command injection). DLL injection is different: it makes a running process load a malicious library, so the code runs inside that process.",
     "example": "Logs show the input admin'; DROP TABLE users;-- submitted to a web form.",
     "category": "2.4 Indicators of malicious activity > Application attacks",
-    "keyPoints": "Indicators: code fragments in input fields and logs (quotes, semicolons, OR 1=1); types: SQL, LDAP, XML, command, DLL; defenses: input validation, parameterized queries, least privilege"
+    "keyPoints": "Interpreter kinds (SQL, LDAP, XML, command): indicators are code fragments in input fields and logs (quotes, semicolons, OR 1=1), defenses are input validation, parameterized queries and least privilege; DLL injection (MITRE ATT&CK T1055.001): no interpreter, the attacker writes a library path into another process and starts a thread that loads it, seen as unexpected DLLs or remote threads in a process, caught by EDR"
   },
   {
     "obj": "2.4",
@@ -1580,7 +1580,7 @@
     "path": [],
     "term": "SY0-701 2.5: Explain the purpose of mitigation techniques used to secure the enterprise",
     "definition": "Objective 2.5 covers why organizations use controls that reduce risk: segmentation, access control, application allow lists, isolation, patching, encryption, monitoring, least privilege, configuration enforcement, decommissioning and hardening techniques.",
-    "example": "Scenario: a company wants to stop employees running unapproved programs. Mitigation: application allow list.",
+    "example": "To stop staff running unapproved programs, a company enforces an application allow list; it also puts card terminals on their own segment and removes admin rights from users.",
     "category": "2.5 Mitigation techniques",
     "keyPoints": "Know the PURPOSE of each technique and which threat it reduces; segmentation vs isolation; allow list (only approved runs) vs deny list; hardening reduces attack surface on each system"
   },

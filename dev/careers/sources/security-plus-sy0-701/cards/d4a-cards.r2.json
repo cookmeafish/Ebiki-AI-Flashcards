@@ -13,7 +13,7 @@
     "path": [],
     "term": "SY0-701 4.1: Given a scenario, apply common security techniques to computing resources",
     "definition": "This objective covers how to secure individual computing resources: building and keeping secure baselines, hardening different device types, securing wireless and mobile devices, choosing wireless security settings, writing secure applications, sandboxing, and monitoring.",
-    "example": "Given a scenario where a company is rolling out tablets to field staff over public Wi-Fi, choose MDM, a COPE model, WPA3 on company networks and a VPN.",
+    "example": "A company rolling out tablets to field staff enrolls them in MDM under a COPE model, applies a hardened baseline, uses WPA3-Enterprise on office Wi-Fi and requires a VPN on public networks.",
     "category": "4.1 Security techniques for computing resources",
     "keyPoints": "Scenario objective: pick the right technique for the device or situation; know the baseline life cycle (establish, deploy, maintain); know BYOD vs COPE vs CYOD; know WPA3, RADIUS and EAP basics"
   },
@@ -617,10 +617,10 @@
       "Sanitization"
     ],
     "term": "Sanitization (media disposal)",
-    "definition": "Sanitization removes data from storage media so it cannot be recovered while the media may still be reused, for example by overwriting, secure erase commands or cryptographic erase. NIST SP 800-88 names three sanitization levels: clear and purge keep the media reusable, destroy does not.",
+    "definition": "Sanitization makes data on storage media unrecoverable for a chosen level of effort, while the media can usually be reused. NIST SP 800-88 names three methods: clear (overwrite or factory reset; stops simple recovery and normally keeps the media usable), purge (secure erase, cryptographic erase or degaussing; defeats even laboratory recovery and may keep the media usable) and destroy (the media can no longer store data).",
     "example": "Before donating old laptops, IT runs a secure erase on each SSD so the drives can be reused without exposing data.",
     "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
-    "keyPoints": "Sanitization can keep the device usable, destruction cannot; simple file deletion or quick formatting is not sanitization; degaussing wipes magnetic media (and usually ruins hard drives), it does not work on SSDs"
+    "keyPoints": "Sanitization can keep the device usable, destruction cannot; simple file deletion or quick formatting is not sanitization; overwriting an SSD is weak because of spare cells, so use its built-in sanitize or cryptographic erase; degaussing works only on magnetic media, can ruin hard drives and does nothing to SSDs"
   },
   {
     "obj": "4.2",
@@ -629,10 +629,10 @@
       "Destruction"
     ],
     "term": "Destruction (media disposal)",
-    "definition": "Destruction physically ruins storage media so data can never be read, for example by shredding, pulverizing, drilling or incinerating. It is used for the most sensitive data or media that cannot be reliably sanitized.",
-    "example": "Hard drives from a bank's card processing servers are sent through an industrial shredder.",
+    "definition": "Destruction physically ruins storage media so data cannot be recovered even in a laboratory and the media can never store data again, for example by disintegrating, incinerating, melting, pulverizing or shredding. It suits the most sensitive data and media that has failed or cannot be sanitized.",
+    "example": "Failed hard drives from a bank's card processing servers are sent to a vendor that disintegrates them into small particles.",
     "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
-    "keyPoints": "Physical, permanent, media not reusable; vs sanitization, which removes data but can keep the media usable; often done by a third party who then provides certification"
+    "keyPoints": "Physical, permanent, media not reusable; vs sanitization, which removes data but can keep the media usable; drilling a hole or bending a drive only partly damages it, so NIST does not count it as destroy; often done by a third party who then provides certification"
   },
   {
     "obj": "4.2",
@@ -644,7 +644,7 @@
     "definition": "Certification is documented proof that media was properly sanitized or destroyed, often a certificate of destruction from a disposal vendor listing the assets, method and date.",
     "example": "A recycling vendor provides a certificate of destruction listing the serial numbers of 200 shredded drives, which the company keeps for its auditors.",
     "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
-    "keyPoints": "Provides evidence for audits and compliance; especially important when a third party does the disposal; ties disposal back to inventory records"
+    "keyPoints": "Provides evidence for audits and compliance; NIST SP 800-88 calls it a certificate of sanitization and lists what it records (media details, method, technique, tool, verification, who did it and when); especially important when a third party does the disposal; ties disposal back to inventory records"
   },
   {
     "obj": "4.2",
@@ -994,10 +994,10 @@
       "Risk tolerance"
     ],
     "term": "Risk tolerance (vulnerability analysis)",
-    "definition": "Risk tolerance is how much risk an organization is willing to accept in a specific situation. It decides which vulnerabilities must be fixed immediately, which can wait, and which may be accepted.",
+    "definition": "In vulnerability management, risk tolerance decides how long a vulnerability of each severity may stay open and when an unfixed one may be accepted. It turns the organization's overall tolerance into remediation deadlines and exception rules.",
     "example": "A low-risk-tolerance bank requires critical vulnerabilities to be patched within 48 hours, while a startup allows 30 days.",
     "category": "4.3 Vulnerability management > Analysis",
-    "keyPoints": "Set by leadership; shapes remediation timelines and whether exceptions are allowed; risk appetite and risk tolerance are covered more in 5.2"
+    "keyPoints": "Set by leadership; shapes remediation timelines and whether exceptions are allowed; same idea as risk tolerance in 5.2 (the acceptable variation from risk appetite), applied here to deciding which findings must be fixed first and how fast"
   },
   {
     "obj": "4.3",
@@ -1417,7 +1417,7 @@
     "path": [],
     "term": "SY0-701 4.5: Given a scenario, modify enterprise capabilities to enhance security",
     "definition": "This objective covers changing and tuning enterprise security tools to improve protection: firewalls, IDS/IPS, web filters, operating system security, secure protocols, DNS filtering, email security, file integrity monitoring, DLP, NAC, EDR/XDR and user behavior analytics.",
-    "example": "Given a scenario where spoofed emails impersonate the CEO, publish SPF, DKIM and a DMARC reject policy for the company domain.",
+    "example": "After spoofed emails impersonate the CEO, the company publishes SPF and DKIM records and a DMARC reject policy, and adds a web filter rule blocking newly registered domains.",
     "category": "4.5 Enhancing enterprise security",
     "keyPoints": "Scenario objective: choose the right control and setting; know firewall rule order and implicit deny; know SPF vs DKIM vs DMARC; know secure protocol and port pairs"
   },
@@ -1619,7 +1619,7 @@
     "definition": "Group Policy is the Windows Active Directory feature that applies settings to many users and computers from one place, such as password rules, software restrictions, firewall settings and device controls, through Group Policy Objects (GPOs).",
     "example": "A GPO linked to the Finance organizational unit enforces screen lock after 5 minutes and blocks USB storage devices.",
     "category": "4.5 Enhancing enterprise security > Operating system security",
-    "keyPoints": "Windows and Active Directory; applied via GPOs to sites, domains and OUs; main tool to deploy Windows secure baselines; not used on Linux (that is SELinux in this list)"
+    "keyPoints": "Windows and Active Directory; applied via GPOs to sites, domains and OUs; main tool to deploy Windows secure baselines across a domain; do not confuse with SELinux: Group Policy pushes Windows settings to many machines, SELinux enforces mandatory access control on each Linux host"
   },
   {
     "obj": "4.5",

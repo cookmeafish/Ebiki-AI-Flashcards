@@ -1222,6 +1222,18 @@ mud": LatAm says "lodo"). Distinct from usage tags (where) and dialect (which va
   settings (cheapest usable; free browser/device fallback), so no new setup and no onboarding step. Every async step
   checks the panel's run token; closing releases the mic and cuts the voice. Next phases (live speech-to-speech, on
   device) are in the plan.
+  - **Hearing is FREE ON THIS COMPUTER first** (`src/speech/local/`: Whisper base via `@huggingface/transformers` in a
+    worker, ~80 MB downloaded once; engine `local`, ranked before `browser`): the browser recognizer heard NOTHING in
+    most Chromium builds and always fails in Electron, so an Anthropic-only user got "I didn't catch that". A live mic
+    level bar and "I can't hear anything" after 4 s of silence tell a dead mic from the app.
+  - **ONLY WHILE THE SESSION IS ACTIVE** (the owner: never "running in background and costing me performance or
+    tokens"): End, Esc, Back, leaving Chat, a mode switch and page hide close it; a hidden window pauses it; every exit
+    releases the recognizer, the mic and the voice, each step on its own (`release`); a transcription that finishes
+    after the close loads nothing (`keep`, `generation`); an idle recognizer unloads itself after `IDLE_UNLOAD_MS`.
+  - **Every voice change passes `node dev/voice/check-voice.mjs`** (agent server on 3001): Chromium's fake mic plays
+    REAL speech (`dev/voice/speech-pause.wav`, a plain 48 kHz PCM WAV: a WAV with an 18-byte fmt chunk played as
+    silence) through the owner's own path (Anthropic key, default settings), then counts live mic tracks, recognizer
+    workers and AI calls after leaving. A test that forces a paid engine is not a test of what the owner has.
 - **Offer-to-search**: with web search OFF the model emits `<offer-search>query</offer-search>` instead of guessing
   (`chatOfferSearchAccept` / `chatOfferSearchDecline`).
 - **Reply parsing**: `<sources>` via `parseCitedSources`, keeping only URLs the search returned (`keepRealSources`);
@@ -1947,6 +1959,19 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   `docs/career-mode-guide.md`** (one card per outline line, two independent reviews, `dev/careers/build-career.mjs`
   must print `no problems`, a coverage block in `career.test.js`). The package ships in `public/careers/`; the vendor's
   raw outline stays gitignored.
+  - **The first Legends screen is a CHOICE** (career mode or choose your own adventure; never straight into the intro);
+    a course is offered only to a mode it fits (`careerMatches`), with the mode it needs named otherwise; starting it
+    sets the mode's deck to the course's `deck`. A course map has its own header (course name, islands, steps; no
+    language level, journey or Raid) and a "Continue" card (`nextCareerStep`).
+  - **BRIEFINGS are never quizzed**: a domain's and an objective's overview card is `kind: 'brief'`, shown as a
+    dashed 📋 Briefing panel (never a flashcard, no Add/hook buttons), kept out of lessons, checkpoints, bosses and
+    samples (tested).
+  - **Lesson cards** (`ItemCard`): collapsed by default; sections from `itemSections.js` (📖 meaning, 💡 example box,
+    ⭐ key points as bullets, 🏷️ category); 📖 Learn it and 🧠 Memory hook on every card, before the quiz.
+  - **Course cards can't be deleted** (`src/cards/protect.js`: tag `ebiki-course` or a course's own tag): the ONE
+    delete in `srs.deleteNotes` refuses the whole call (code `courseCard`); the Deck tab shows 🔒.
+  - **Extra cards** (`<prefix>-extras.rN.json`, `extra: true` + sources) cover what a learner needs that no outline
+    line names; reviewed twice like every card.
 - Drive it with every AI host stubbed and `/api/feature-data` in memory (the real stores and credits untouched).
 
 ## Porting to phones (iOS / Android): keep these seams clean

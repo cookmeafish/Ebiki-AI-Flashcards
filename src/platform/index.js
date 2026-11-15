@@ -189,6 +189,11 @@ const web = {
         cancel: () => { wanted = false; text = ''; try { rec.abort() } catch { /* stopped */ } },
       }
     },
+    // FREE on-device speech to text (Whisper in a worker, src/speech/local/web.js): loaded only when first used.
+    canTranscribeLocally: () => hasWindow && typeof Worker !== 'undefined' && typeof WebAssembly !== 'undefined' && !!(window.AudioContext || window.webkitAudioContext),
+    transcribeLocally: async (blob, opts) => (localUsed = true, await import('../speech/local/web.js')).transcribeLocally(blob, opts),
+    // Unloads it (voice mode closed). Loads nothing when it was never used.
+    releaseLocal: () => { if (localUsed) import('../speech/local/web.js').then((m) => m.releaseLocal()).catch(() => {}) },
     // Microphone recording. Resolves to { stop(): Promise<Blob>, cancel() } or rejects when there is no mic.
     // `onLevel(level, ms)`: the microphone's loudness (0..1, RMS) about every 50 ms of real time, for hands-free turn
     // taking (Chat's voice mode). Absent = no analyser at all.
@@ -318,6 +323,7 @@ web.history = {
   },
 }
 
+let localUsed = false // the on-device recognizer was loaded this page life
 export const platform = { ...web, kv: { ...web.kv }, speech: { ...web.speech }, audio: { ...web.audio }, history: { ...web.history } }
 
 // Override adapters (a phone build, or tests). Nested objects merge, so a port can replace just kv.get.

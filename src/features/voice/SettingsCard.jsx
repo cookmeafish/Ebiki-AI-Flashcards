@@ -4,7 +4,7 @@ import { useFeatureCtx, featureCfg } from '../registry'
 import { speechEngines } from '../../speech'
 import { VOICE_FEATURE_ID } from './VoiceTyping'
 
-const ENGINE_HINT = { openai: 'voice_engineOpenai', gemini: 'voice_engineGemini', grok: 'voice_engineGrok', browser: 'voice_engineBrowser' }
+const ENGINE_HINT = { local: 'voice_engineLocal', openai: 'voice_engineOpenai', gemini: 'voice_engineGemini', grok: 'voice_engineGrok', browser: 'voice_engineBrowser' }
 const NO_ENGINE_HINT = 'voice_needKey'
 
 export default function VoiceSettingsCard({ card, fieldLabel, hint }) {

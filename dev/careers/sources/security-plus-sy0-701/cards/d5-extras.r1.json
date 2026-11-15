@@ -1,0 +1,78 @@
+[
+  {
+    "obj": "5.2",
+    "extra": true,
+    "term": "Inherent vs residual risk",
+    "definition": "Inherent risk is the risk as it stands before any controls are applied. Residual risk is what remains after controls are in place; it is then accepted, transferred or reduced further.",
+    "example": "A public web server faces high inherent risk of compromise; after a WAF, patching and MFA for admins, the leftover chance of a zero-day attack is the residual risk the owner signs off on.",
+    "category": "5.2 Risk management > Risk management strategies",
+    "keyPoints": [
+      "Inherent = no controls; residual = after controls",
+      "Risk is never zero, so some residual risk always remains",
+      "Residual risk should fall within the risk appetite, or more controls are needed",
+      "Accepting residual risk is a decision recorded by the risk owner",
+      "Controls that only move risk elsewhere (insurance) transfer it rather than remove it"
+    ],
+    "sources": [
+      "https://csrc.nist.gov/glossary/term/inherent_risk",
+      "https://csrc.nist.gov/glossary/term/residual_risk"
+    ]
+  },
+  {
+    "obj": "5.2",
+    "extra": true,
+    "term": "Mean time to failure (MTTF)",
+    "definition": "The average time a part that cannot be repaired runs before it fails and has to be replaced.",
+    "example": "A batch of SSDs has an MTTF of 1.5 million hours, so the team plans to replace drives before they reach the share of that life its policy sets.",
+    "category": "5.2 Risk management > Business impact analysis",
+    "keyPoints": [
+      "MTTF: parts that are replaced, not repaired",
+      "MTBF: repairable systems, time between one failure and the next",
+      "MTTR: average time to repair",
+      "Higher MTTF means more reliable",
+      "Used to swap parts out before they are expected to fail, ideally from figures for your own environment"
+    ],
+    "sources": [
+      "https://csf.tools/reference/nist-sp-800-53/r5/si/si-13/",
+      "https://help.reliasoft.com/articles/content/hotwire/issue94/relbasics94.htm"
+    ]
+  },
+  {
+    "obj": "5.4",
+    "extra": true,
+    "term": "Data protection officer (DPO)",
+    "definition": "A person who oversees an organization's compliance with data protection law, advises on it and is the contact for regulators and data subjects. The GDPR requires one for public bodies and for organizations whose core work involves large-scale monitoring of people or large-scale processing of sensitive data. CompTIA's acronym list calls the role data privacy officer.",
+    "example": "An online advertising firm that tracks millions of users' behavior appoints a DPO who reports to the board and reviews every new tracking project for GDPR compliance.",
+    "category": "5.4 Security compliance > Privacy",
+    "keyPoints": [
+      "Required under GDPR Article 37 for public bodies, large-scale systematic monitoring, or large-scale special category data",
+      "Reports to the highest level of management",
+      "Must not be told how to do the job or be penalized for doing it",
+      "May hold other duties only if they create no conflict of interest",
+      "Advises and monitors; the controller stays responsible for compliance"
+    ],
+    "sources": [
+      "https://gdpr-info.eu/art-37-gdpr/",
+      "https://gdpr-info.eu/art-38-gdpr/"
+    ]
+  },
+  {
+    "obj": "5.5",
+    "extra": true,
+    "term": "SOC reports (SOC 1, SOC 2, SOC 3; Type I vs Type II)",
+    "definition": "Independent auditor reports on a service organization's controls. SOC 1 covers controls that affect customers' financial reporting; SOC 2 covers security, availability, processing integrity, confidentiality and privacy; SOC 3 covers the same ground as SOC 2 in a shorter form anyone may read. A Type I report judges control design at one date; a Type II also tests whether the controls worked over a period.",
+    "example": "Before signing with a cloud backup vendor, a company asks for its SOC 2 Type II report, which shows the auditor tested the vendor's access controls over the past twelve months.",
+    "category": "5.5 Audits and assessments > External audits and assessments",
+    "keyPoints": [
+      "SOC 1: financial reporting controls, for customers and their auditors",
+      "SOC 2: the trust services criteria, shared only with specific readers such as customers",
+      "SOC 3: general use, no detailed test results, can be posted publicly",
+      "Type I: designed well as of a date; Type II: designed well and operating effectively over a period",
+      "Type II gives more assurance; it is what most customers ask for"
+    ],
+    "sources": [
+      "https://www.journalofaccountancy.com/newsletters/2016/jun/3-face-of-soc/",
+      "https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services"
+    ]
+  }
+]

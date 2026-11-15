@@ -26,7 +26,7 @@ import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
 import { loadCareer, availableCareers } from './CareerMap'
-import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap } from './career'
+import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor } from './career'
 import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
@@ -344,6 +344,9 @@ export default function LegendsScreen() {
         const pkg = await loadCareer(a.career)
         if (pinned !== modeIdRef.current) return
         if (!pkg) { setError(t('lg_careerLoadFailed')); setView('map'); return } // no map yet: the welcome screen shows it, with the offer to retry
+        // The course's own deck (the owner: the deck used must be the course's default one), when Anki has it.
+        const deck = careerFor(a.career)?.deck
+        if (deck && ctx.cards?.decks?.includes(deck) && subject.modeDeck !== deck) ctx.cards.setModeDeck?.(deck)
         const built = await updateMap(pinned, (m) => (m && m.areas?.length ? m : buildCareerMap(pkg, { modeId: pinned, subject, start })))
         if (pinned !== modeIdRef.current) return
         if (!built) { setError(t('lg_errSave')); setView('map'); return }
@@ -411,7 +414,7 @@ export default function LegendsScreen() {
         if (subject.accents && typeof answers.accents === 'boolean' && answers.accents !== (subject.strictAccents !== false)) subject.setStrictAccents?.(answers.accents)
         return saveStart(answers)
       }
-      return <Questionnaire t={t} subject={subject} evidence={evidence} careers={careers.map((c) => ({ ...c, recommended: careerMatches(c, subject) }))} onRecheck={recheckEvidence} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
+      return <Questionnaire t={t} subject={subject} evidence={evidence} careers={[]} onRecheck={recheckEvidence} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
     }
     if (view === 'placement') {
       return <Placement ctx={ctx} selfRating={startAnswers?.selfRating || map?.start?.selfRating || 1} onDone={placementDone} onQuit={() => setView('map')} />
@@ -441,25 +444,39 @@ export default function LegendsScreen() {
     if (!map) {
       return (
         <div style={{ maxWidth: 600, margin: '30px auto', display: 'grid', gap: 18 }}>
-          <EbiSays pose={poseFile('king')}>{t('lg_welcome', { subject: subject.name })}</EbiSays>
-          <div style={{ fontSize: 14.5, color: C.inkDim, lineHeight: 1.55 }}>{t('lg_welcomeBody')}</div>
+          {/* FIRST CHOICE (the owner: "make it an option of what to choose to load"): a ready COURSE (career mode) or
+              Ebi builds your own map (choose your own adventure). A course is offered only to a mode it fits. */}
+          <EbiSays pose={poseFile('king')}>{t('lg_pickTitle', { subject: subject.name })}</EbiSays>
           {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13 }}>{t('lg_needKey')}</div>}
           {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
-          {/* CAREER MODE: a course made for this mode is offered right here (the start screen's tile is 5 steps away). */}
-          {careers.filter((c) => careerMatches(c, subject)).map((c) => (
-            <Card key={c.id} style={{ display: 'grid', gap: 8, borderColor: C.success }}>
-              <div style={{ fontSize: 11.5, fontWeight: 900, color: C.success, textTransform: 'uppercase', letterSpacing: '.05em' }}>🏝️ {t('lg_careerRecommended')}</div>
-              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{t('lg_startCareer', { course: t(c.titleKey) })}</div>
-              <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_startCareerDesc')}</div>
-              {c.noticeKey && <div style={{ fontSize: 11.5, color: C.inkFaint }}>{t(c.noticeKey)}</div>}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <ChunkyButton color={C.success} onClick={() => saveStart({ reason: 'school', selfRating: 1, goal: 'normal', path: 'career', career: c.id })}>{t('lg_careerStart')}</ChunkyButton>
+          {(() => {
+            const fit = careers.filter((c) => careerMatches(c, subject))
+            const other = careers.filter((c) => !careerMatches(c, subject))
+            const tile = { display: 'grid', gap: 8, alignContent: 'start', padding: '16px 18px', borderRadius: RADIUS.lg, background: C.surface, textAlign: 'left', fontFamily: FONT.body, color: C.ink }
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: fit.length ? 'repeat(auto-fit, minmax(240px, 1fr))' : '1fr', gap: 14 }}>
+                {fit.length > 0 && <div data-pick="career" style={{ ...tile, border: `2px solid ${C.success}` }}>
+                  <div style={{ fontSize: 30 }}>🏝️</div>
+                  <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickCareer')}</div>
+                  <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_pickCareerDesc')}</div>
+                  {fit.map((c) => (
+                    <div key={c.id} style={{ display: 'grid', gap: 6, marginTop: 4 }}>
+                      <div style={{ fontWeight: 900, fontSize: 15 }}>{t(c.titleKey)}</div>
+                      <ChunkyButton color={C.success} onClick={() => saveStart({ reason: 'school', selfRating: 1, goal: 'normal', path: 'career', career: c.id })}>▶ {t('lg_startCourseShort')}</ChunkyButton>
+                      {c.noticeKey && <div style={{ fontSize: 11, color: C.inkFaint }}>{t(c.noticeKey)}</div>}
+                    </div>
+                  ))}
+                </div>}
+                <div data-pick="adventure" style={{ ...tile, border: `2px solid ${fit.length ? C.border : C.info}` }}>
+                  <div style={{ fontSize: 30 }}>🗺️</div>
+                  <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickAdventure')}</div>
+                  <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_pickAdventureDesc', { subject: subject.name })}</div>
+                  <ChunkyButton color={C.info} variant={fit.length ? 'ghost' : undefined} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>▶ {t('lg_pickAdventureGo')}</ChunkyButton>
+                </div>
+                {!fit.length && other.length > 0 && <div style={{ fontSize: 12.5, color: C.inkDim }}>🏝️ {t('lg_pickCareerNone', { courses: other.map((c) => t(c.titleKey)).join(', ') })}</div>}
               </div>
-            </Card>
-          ))}
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <ChunkyButton color={C.success} variant={careers.some((c) => careerMatches(c, subject)) ? 'ghost' : undefined} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>{t(careers.some((c) => careerMatches(c, subject)) ? 'lg_careerOwnMap' : 'lg_begin')}</ChunkyButton>
-          </div>
+            )
+          })()}
         </div>
       )
     }

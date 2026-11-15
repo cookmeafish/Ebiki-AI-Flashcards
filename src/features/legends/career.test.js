@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { shapePackage, buildCareerMap, careerSections, checkpointsLeft, currentSection, careerQuizItems, careerMatches, careerSampleMax, CAREERS, CAREER, CAREER_MAP_VERSION, isCareerMap } from './career'
+import { shapePackage, buildCareerMap, careerSections, checkpointsLeft, currentSection, careerQuizItems, careerMatches, careerSampleMax, CAREERS, CAREER, CAREER_MAP_VERSION, isCareerMap, nextCareerStep } from './career'
 import { normalizeMap, shapeMap, applyNodeResult, needsMoreAreas, needsDetail, passRatio, PASS, MAP_VERSION } from './map'
 
 const item = (id, section) => ({ id, kind: 'term', front: `Front ${id}`, back: `Back ${id}`, section })
@@ -182,15 +182,22 @@ describe('the shipped Security+ course', () => {
       expect(a.bossName).toBeTruthy()
     }
   })
-  it('holds 830 cards (one per outline line), every card in exactly one lesson of its own objective, no lesson over the limit', () => {
-    expect(pkg.areas.reduce((n, a) => n + a.items.length, 0)).toBe(830)
+  it('holds 853 cards (830, one per outline line, plus 23 extras), every card but a briefing in exactly one lesson of its own objective, no lesson over the limit', () => {
+    expect(pkg.areas.reduce((n, a) => n + a.items.length, 0)).toBe(853)
+    // The extras sit in each objective's "Extras" lesson(s), the objective's last lessons (before its checkpoint).
+    const extraLessons = pkg.areas.flatMap((a) => a.lessons.filter((l) => /^Extras( \(\d+\/\d+\))?$/.test(l.title)))
+    expect(extraLessons.reduce((n, l) => n + l.itemIds.length, 0)).toBe(23)
+    for (const a of pkg.areas) for (const l of a.lessons.filter((x) => x.title.startsWith('Extras'))) {
+      const own = a.lessons.filter((x) => x.section === l.section)
+      expect(own.slice(own.indexOf(l)).every((x) => x.title.startsWith('Extras'))).toBe(true)
+    }
     for (const a of pkg.areas) {
       const seen = new Map()
       for (const l of a.lessons) {
         expect(l.itemIds.length).toBeLessThanOrEqual(CAREER.lessonMax)
         for (const id of l.itemIds) { seen.set(id, (seen.get(id) || 0) + 1); expect(a.items.find((it) => it.id === id).section).toBe(l.section) }
       }
-      for (const it of a.items) expect(seen.get(it.id)).toBe(1)
+      for (const it of a.items) expect(seen.get(it.id) || 0).toBe(it.kind === 'brief' ? 0 : 1)
       expect(new Set(a.items.map((it) => it.front.toLowerCase())).size).toBe(a.items.length)
       for (const it of a.items) { expect(it.back).toMatch(/^Definition: /); expect(it.back).not.toMatch(/[—–]/) }
     }
@@ -201,12 +208,31 @@ describe('the shipped Security+ course', () => {
       for (const s of a.sections) {
         const own = a.nodes.filter((n) => n.section === s.id)
         expect(own.at(-1).kind).toBe('checkpoint')
-        expect([...own.at(-1).itemIds].sort()).toEqual(a.items.filter((it) => it.section === s.id).map((it) => it.id).sort())
+        expect([...own.at(-1).itemIds].sort()).toEqual(a.items.filter((it) => it.section === s.id && it.kind !== 'brief').map((it) => it.id).sort())
         expect(own[0].status).toBe('open')
       }
       expect(a.nodes.slice(-2).map((n) => n.kind)).toEqual(['weak', 'boss'])
-      expect(a.nodes.at(-1).itemIds).toHaveLength(a.items.length)
+      expect(a.nodes.at(-1).itemIds).toHaveLength(a.items.filter((it) => it.kind !== 'brief').length)
     }
+  })
+  it('BRIEFINGS: every domain and objective has its overview as a briefing, never in a lesson, a checkpoint, a boss or a quiz sample', () => {
+    const m = normalizeMap(buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }))
+    for (const a of m.areas) {
+      const briefs = new Set(a.items.filter((it) => it.kind === 'brief').map((it) => it.id))
+      expect(briefs.has(a.brief)).toBe(true)
+      for (const s of a.sections) expect(briefs.has(s.brief)).toBe(true)
+      for (const n of a.nodes) for (const id of n.itemIds || []) expect(briefs.has(id)).toBe(false)
+      const boss = a.nodes.find((n) => n.kind === 'boss')
+      for (const it of careerQuizItems(a, boss, { max: 999 })) expect(it.kind).not.toBe('brief')
+    }
+  })
+  it('CONTINUE leads to the first lesson of a new course, then the next open step', () => {
+    let m = normalizeMap(buildCareerMap(pkg, { modeId: 1, subject: { name: 'Security+' } }))
+    const first = nextCareerStep(m.areas)
+    expect(first.area.number).toBe('1.0')
+    expect(first.node.id).toBe(`${first.area.id}-1.1-l1`)
+    m = applyNodeResult(m, first.area.id, first.node.id, { total: 10, correct: 10 }).map
+    expect(nextCareerStep(m.areas).node.id).toBe(`${first.area.id}-1.1-l2`)
   })
 })
 

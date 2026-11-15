@@ -793,7 +793,7 @@ Attacking the environment systems support: power, heating and cooling (HVAC), hu
 Attacks against network traffic and services: DDoS (amplified, reflected), DNS attacks, wireless attacks, on-path, credential replay and malicious code.
 
 - **Example:** An attacker poisons ARP tables on a LAN so all traffic passes through their laptop.
-- **Exam tip:** Listed: DDoS, DNS attacks, wireless, on-path, credential replay, malicious code; look for traffic anomalies, unusual DNS answers, duplicate MAC addresses.
+- **Exam tip:** Listed: DDoS, DNS attacks, wireless, on-path, credential replay, malicious code; look for traffic anomalies, unusual DNS answers, and ARP tables where one MAC address answers for several IP addresses or the gateway IP suddenly has a new MAC (ARP poisoning).
 
 #### Distributed denial-of-service (DDoS)
 
@@ -835,7 +835,7 @@ Attacks on Wi-Fi networks, such as deauthentication (kicking users off), jamming
 An attacker secretly sits between two parties, reading or changing their traffic. Formerly called man-in-the-middle; ARP poisoning is a common LAN technique and on-path browser (man-in-the-browser) is a malware variant.
 
 - **Example:** ARP poisoning on a café network makes a victim's laptop send all its traffic through the attacker's machine.
-- **Exam tip:** Old name: man-in-the-middle; indicators: duplicate MAC addresses in ARP tables, certificate warnings; defenses: encryption (TLS), certificate validation, dynamic ARP inspection.
+- **Exam tip:** Old name: man-in-the-middle; indicators: one MAC address mapped to several IP addresses in ARP tables, the gateway IP showing a new MAC, certificate warnings; defenses: encryption (TLS), certificate validation, dynamic ARP inspection.
 
 #### Credential replay
 
@@ -860,10 +860,10 @@ Attacks against applications and their logic: injection, buffer overflow, replay
 
 #### Injection
 
-Sending crafted input that the application passes to an interpreter as code: SQL, LDAP, XML, command or DLL injection.
+Getting attacker-supplied code run by a system. Most kinds hide code in input that the application hands to an interpreter (a database for SQL, a directory for LDAP, an XML parser, an operating system shell for command injection). DLL injection is different: it makes a running process load a malicious library, so the code runs inside that process.
 
 - **Example:** Logs show the input admin'; DROP TABLE users;-- submitted to a web form.
-- **Exam tip:** Indicators: code fragments in input fields and logs (quotes, semicolons, OR 1=1); types: SQL, LDAP, XML, command, DLL; defenses: input validation, parameterized queries, least privilege.
+- **Exam tip:** Interpreter kinds (SQL, LDAP, XML, command): indicators are code fragments in input fields and logs (quotes, semicolons, OR 1=1), defenses are input validation, parameterized queries and least privilege; DLL injection (MITRE ATT&CK T1055.001): no interpreter, the attacker writes a library path into another process and starts a thread that loads it, seen as unexpected DLLs or remote threads in a process, caught by EDR.
 
 #### Buffer overflow
 
@@ -1045,7 +1045,7 @@ Gaps or deleted entries in log files, often a sign an attacker covered their tra
 | CSRF vs XSS | CSRF makes the browser send an unwanted request; XSS runs attacker script in the browser |
 
 ### Exam tips
-- Look for the distinguishing clue in logs: ../ = directory traversal, quotes and OR 1=1 = SQL injection, thousands of repeated characters = buffer overflow, duplicate MAC in ARP table = on-path.
+- Look for the distinguishing clue in logs: ../ = directory traversal, quotes and OR 1=1 = SQL injection, thousands of repeated characters = buffer overflow, one MAC answering for several IPs (or a changed gateway MAC) in the ARP table = on-path.
 - Many accounts with one failure each = spraying; one account with thousands of failures = brute force.
 - Deleted log entries (missing logs) and activity outside change windows (out-of-cycle logging) suggest an attacker hiding.
 - Deauthentication frames are a wireless attack; 802.11w (mandatory in WPA3) protects management frames.

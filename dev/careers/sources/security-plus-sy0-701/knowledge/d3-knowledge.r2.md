@@ -282,7 +282,7 @@ Enough resources for normal and peak demand and for disruptions.
 | Test | What happens | Risk to production |
 |---|---|---|
 | Tabletop exercises | People talk through a scenario in a meeting | None |
-| Simulation | Realistic practice event (simulated phishing, mock attack) acted out in a controlled way | Very low |
+| Simulation | Realistic practice of a disaster acted out in a controlled way (for example recovering systems in an isolated environment against the RTO) | Very low |
 | Parallel processing | Work is split across multiple processors or systems at once, so a faulty one is isolated while the rest keep processing; some guides also use it for running the backup beside production and comparing results | Low (production keeps running) |
 | Fail over | Actually switch to the redundant system or site, then back | Highest |
 

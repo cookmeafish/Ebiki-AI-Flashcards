@@ -4,6 +4,7 @@
 //   sentence by sentence (speakable.js) → listen again.
 // Ebi never listens while talking (no echo): tap Interrupt to cut him off and speak.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { platform } from '../../platform'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { shrimpUrl, poseFile } from '../../config/shrimp'
 import { useFeatureCtx } from '../registry'
@@ -13,7 +14,7 @@ import { voicePanelOpen, setVoicePanel, onVoicePanel } from './store'
 import { createTurnDetector } from './turnDetector'
 import { speakableText, speechChunks, chunkLang, speechCostPerHour } from './speakable'
 
-const ENGINE_NAME = { browser: 'speech_browser', device: 'speech_device', gemini: 'Gemini', grok: 'Grok', openai: 'OpenAI' }
+const ENGINE_NAME = { local: 'speech_local', browser: 'speech_browser', device: 'speech_device', gemini: 'Gemini', grok: 'Grok', openai: 'OpenAI' }
 
 export default function VoiceMount() {
   const open = useSyncExternalStore(onVoicePanel, voicePanelOpen, voicePanelOpen)
@@ -41,10 +42,13 @@ function VoicePanel() {
     run.current++
     try { mic.current?.cancel?.() } catch { /* already closed */ }
     mic.current = null
-    line.current?.stop?.()
+    try { line.current?.stop?.() } catch { /* already stopped */ }
     line.current = null
   }
-  const close = () => { stopAll(); setVoicePanel(false) }
+  // Every way out releases everything, in this order, each step on its own (one failing step never keeps the rest
+  // running): the on-device recognizer, the mic, the voice.
+  const release = () => { try { platform.speech.releaseLocal?.() } catch { /* nothing loaded */ } try { stopAll() } catch { /* closed */ } }
+  const close = () => { alive.current = false; release(); setVoicePanel(false) }
 
   const listenTurn = async (token, keepNote = false) => {
     const c = ctxRef.current
@@ -52,6 +56,10 @@ function VoicePanel() {
     setHeard(''); if (!keepNote) setNote(''); setLevel(0); setPhase('listening')
     const det = createTurnDetector()
     let ended = false
+    // No sound at all for a few seconds = the mic is muted, the wrong device or blocked: say so (a silent mic once
+    // looked like the app not hearing).
+    let loudest = 0
+    const silentCheck = setTimeout(() => { if (live(token) && !ended && loudest < 0.008 && mic.current?.levels) setNote(t('vm_cantHear')) }, 4000)
     try {
       // The free browser recognizer must be told the language (it assumes the page's): in a language mode, the learned
       // one. AI engines hear the language themselves.
@@ -59,8 +67,11 @@ function VoicePanel() {
       const h = await listen(c, {
         lang: sttLang,
         onFail: (code) => { if (live(token)) { setNote(t(code === 'nomic' ? 'vm_noMic' : 'vm_heardNothing')); setPhase('idle') } },
+        onProgress: (p) => { if (live(token) && p?.total) setNote(t('vm_downloading', { p: Math.min(99, Math.round((100 * p.loaded) / p.total)) })) },
         onLevel: (lv, ms) => {
-          if (!live(token) || ended) return
+          if (!live(token) || ended) { clearTimeout(silentCheck); return }
+          loudest = Math.max(loudest, lv)
+          if (lv > 0.02) setNote((n) => (n === t('vm_cantHear') ? '' : n))
           setLevel(lv)
           const r = det.feed(lv, ms)
           if (r === 'start') setPhase('hearing')
@@ -130,12 +141,27 @@ function VoicePanel() {
     if (live(token)) listenTurn(token)
   }
 
-  // Opening starts listening; leaving stops everything (mic released, voice cut), whatever was running.
+  // Opening starts listening; leaving stops everything (mic released, voice cut, the on-device recognizer unloaded),
+  // whatever was running. ONLY WHILE THE SESSION IS ACTIVE (the owner: never "bugged and running in background and
+  // costing me performance or tokens"): a reply still on its way when the panel closes is never spoken and starts no
+  // new turn (`live(token)`), and nothing listens again until the panel is opened again.
   useEffect(() => {
     alive.current = true
     const token = ++run.current
     listenTurn(token)
-    return () => { alive.current = false; stopAll() }
+    return () => { alive.current = false; release() }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Leaving Chat (another tab), switching mode, or the app going away closes the session.
+  const modeId = ctx?.activeMode?.id
+  const startMode = useRef(modeId)
+  useEffect(() => { if ((ctx?.activeTab && ctx.activeTab !== 'chat') || modeId !== startMode.current) close() }, [ctx?.activeTab, modeId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => platform.onPageHide?.(() => close()), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // The window hidden or minimized PAUSES it (mic off, voice cut); the learner taps Resume when back.
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+    const onVis = () => { if (document.hidden && alive.current) pause() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const restart = () => { stopAll(); listenTurn(run.current) }
@@ -182,6 +208,12 @@ function VoicePanel() {
                 borderTopColor: phase === 'thinking' || phase === 'transcribing' ? 'transparent' : ring }} />
               <img src={pose} alt="Ebi" style={{ position: 'absolute', inset: '11%', width: '78%', height: '78%', objectFit: 'contain' }} />
             </button>
+            {/* The live mic level: proof the mic hears you (the owner had no way to tell). */}
+            {levels && (phase === 'listening' || phase === 'hearing') && (
+              <div data-mic-level={Math.round(level * 1000)} aria-label={t('vm_micLevel')} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round(level * 400))} style={{ width: 220, height: 10, marginTop: 14, borderRadius: 99, background: C.surfaceSunken, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, Math.round(level * 400))}%`, height: '100%', background: phase === 'hearing' ? C.success : C.info, transition: 'width 60ms linear' }} />
+              </div>
+            )}
             <div role="status" aria-live="polite" style={{ fontWeight: 800, fontSize: 15, color: C.ink, minHeight: 22 }}>{status}</div>
             {heard && <div style={{ fontSize: 13.5, color: C.inkDim, maxWidth: 440 }}><b>{t('vm_you')}:</b> {heard}</div>}
             {said && (

@@ -4,7 +4,7 @@
     "path": [],
     "term": "SY0-701 Domain 3.0: Security Architecture (18%)",
     "definition": "The exam domain about designing and securing systems: architecture models (cloud, on-premises, IoT, ICS), secure enterprise network design, data protection, and resilience and recovery. It is 18% of the SY0-701 exam.",
-    "example": "A question asks which design keeps a factory control network safe from internet malware: the answer (air gap or segmentation) comes from this domain.",
+    "example": "A factory keeps its control network segmented from the office network, runs its web shop in the cloud across two regions, encrypts customer data at rest, and keeps offline backups for recovery.",
     "category": "3.0 Security architecture",
     "keyPoints": "Four objectives: 3.1 architecture models, 3.2 securing infrastructure, 3.3 protecting data, 3.4 resilience and recovery; mostly compare and contrast and scenario questions; tests trade-offs, not configuration syntax"
   },
@@ -1456,9 +1456,9 @@
     ],
     "term": "Simulation (recovery testing)",
     "definition": "A realistic practice run of an event where people carry out their actions as if it were real, but in a controlled way that does not affect production.",
-    "example": "IT sends a simulated phishing email and a fake malware alert to see if staff report it and the SOC responds correctly.",
+    "example": "The team acts out the loss of the main data center: staff follow the disaster recovery plan, bring up the systems in an isolated recovery environment and time it against the 4-hour RTO, while production keeps running.",
     "category": "3.4 Resilience and recovery > Testing",
-    "keyPoints": "More hands-on than a tabletop, less risky than real failover; tests people and processes; examples include phishing simulations and simulated attacks"
+    "keyPoints": "More hands-on than a tabletop, less risky than a real failover; tests whether the recovery plan, people and backups actually work; production is not switched over (that is fail over)"
   },
   {
     "obj": "3.4",

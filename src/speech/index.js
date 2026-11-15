@@ -13,7 +13,7 @@ const cache = new Map()
 export function speechEngines(ctx) {
   const prefs = ctx?.featureSettings?.[SPEECH_SETTINGS_ID] || {}
   return {
-    stt: pickStt(ctx?.apiKeys || {}, { browser: platform.speech.canRecognize(), pref: prefs.stt || 'auto' }),
+    stt: pickStt(ctx?.apiKeys || {}, { browser: platform.speech.canRecognize(), local: !!platform.speech.canTranscribeLocally?.(), pref: prefs.stt || 'auto' }),
     tts: pickTts(ctx?.apiKeys || {}, { pref: prefs.tts || 'auto' }),
   }
 }
@@ -22,7 +22,8 @@ export function speechEngines(ctx) {
 // `onFail(code)`: the browser recognizer died on its own mid-session ('nomic' = permission refused).
 // `onLevel(level, ms)`: microphone loudness for hands-free turn taking (recorded engines only; the browser recognizer
 // ends its own turns). The returned handle says which: `levels: true` when onLevel will be called.
-export async function listen(ctx, { lang = '', onFail, onLevel } = {}) {
+// `onProgress({ loaded, total })`: the on-device model downloading (its first use only).
+export async function listen(ctx, { lang = '', onFail, onLevel, onProgress } = {}) {
   const { stt } = speechEngines(ctx)
   if (!stt) throw new Error('no-engine')
   if (stt === 'browser') return { ...(await platform.speech.recognize({ lang, onFail })), levels: false, engine: stt }
@@ -32,6 +33,7 @@ export async function listen(ctx, { lang = '', onFail, onLevel } = {}) {
     stop: async ({ keep } = {}) => {
       const blob = await rec.stop()
       if (keep && !keep()) return ''
+      if (stt === 'local') return platform.speech.transcribeLocally(blob, { lang, onProgress, keep })
       return transcribe(blob, { engine: stt, keys: ctx.apiKeys, lang, geminiModel: ctx.presetModel?.('gemini', 'cheap'), model: ctx.speechModel?.('stt', stt) || '' })
     },
     cancel: () => rec.cancel(),

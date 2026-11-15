@@ -5,7 +5,7 @@ import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
 import { shrimpUrl, poseFile, DEFAULT_SHRIMP } from '../config/shrimp'
 import { LaunchModeOptions, choiceProps } from './LaunchModeChoice'
-import ChatGptSignIn, { SubscriptionNote } from './ChatGptSignIn'
+import ChatGptSignIn, { SubscriptionNote, companyTabs, companyOf } from './ChatGptSignIn'
 import { apiFetch } from '../platform'
 import { imeActive } from '../utils/keys'
 
@@ -237,19 +237,25 @@ export default function OnboardingWizard(p) {
           <div style={heading}>{t('obProviderTitle')}</div>
           <div style={sub}>{t('obProviderBody')}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 18 }}>
-            {Object.entries(PROVIDERS).map(([key, pr]) => (
-              <button key={key} aria-pressed={provider === key} onClick={() => setProvider(key)} style={{
-                ...S.ghostBtn, fontSize: 13, padding: '7px 14px',
-                color: provider === key ? C.ink : C.inkDim, // the provider's own color stays on the border and tint: as text it failed contrast (xAI's #e6e6e6 was invisible in light)
-                borderColor: provider === key ? `${pr.color}66` : C.border,
-                background: provider === key ? `${pr.color}14` : C.surface,
-              }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: apiKeys[key] ? C.success : C.inkFaint, display: 'inline-block', marginRight: 6 }} />
-                {pr.label}
-              </button>
-            ))}
+            {/* One tab per company (Object.entries(PROVIDERS) through companyTabs); a subscription sign-in is chosen
+                inside its company's tab, below. */}
+            {companyTabs(PROVIDERS).map(([key, pr]) => {
+              const on = companyOf(PROVIDERS, provider) === key
+              const ready = !!apiKeys[key] || Object.entries(PROVIDERS).some(([k, p]) => p.subscriptionOf === key && apiKeys[k])
+              return (
+                <button key={key} aria-pressed={on} onClick={() => { if (!on) setProvider(key) }} style={{
+                  ...S.ghostBtn, fontSize: 13, padding: '7px 14px',
+                  color: on ? C.ink : C.inkDim, // the provider's own color stays on the border and tint: as text it failed contrast (xAI's #e6e6e6 was invisible in light)
+                  borderColor: on ? `${pr.color}66` : C.border,
+                  background: on ? `${pr.color}14` : C.surface,
+                }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: ready ? C.success : C.inkFaint, display: 'inline-block', marginRight: 6 }} />
+                  {pr.label}
+                </button>
+              )
+            })}
           </div>
-          <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'center' }}><SubscriptionNote t={t} /></div>
+          <div style={{ maxWidth: 460, margin: '14px auto 0', display: 'flex', justifyContent: 'center' }}><SubscriptionNote t={t} providers={PROVIDERS} provider={provider} onPick={setProvider} /></div>
           {providerConfig.signIn ? (
             <div style={{ maxWidth: 460, margin: '16px auto 0', padding: '14px 16px', border: `1px solid ${C.border}`, borderRadius: RADIUS.md, background: C.surface }}>
               <ChatGptSignIn t={t} {...(chatgpt || {})} />
@@ -388,7 +394,8 @@ export default function OnboardingWizard(p) {
       }}>
         {step > 0 && (
           <div aria-hidden="true" style={{ display: 'flex', gap: 5, margin: '0 28px 18px' }}>
-            {steps.map((_, i) => <span key={i} style={{ flex: 1, height: 5, borderRadius: 99, background: i <= step ? C.brand : C.surfaceAlt, transition: 'background .3s ease' }} />)}
+            {/* One segment per step AFTER the welcome, so the bar and the footer's "step / total" count the same steps. */}
+            {steps.slice(1).map((_, i) => <span key={i} style={{ flex: 1, height: 5, borderRadius: 99, background: i < step ? C.brand : C.surfaceAlt, transition: 'background .3s ease' }} />)}
           </div>
         )}
         {onClose && (
@@ -414,7 +421,8 @@ export default function OnboardingWizard(p) {
         <Fragment key={step}>{Body()}</Fragment>
         {/* Footer nav (hidden on welcome/finish which have their own primary button) */}
         {step > 0 && step < last && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 28, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+          // Pinned to the bottom of the card while the step scrolls: Back / Next were cut off below the card's edge.
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 28, paddingTop: 14, paddingBottom: 4, borderTop: `1px solid ${C.border}`, position: 'sticky', bottom: 0, background: C.surface, zIndex: 1 }}>
             <button style={{ ...S.ghostBtn, fontSize: 13, padding: '9px 16px', borderRadius: 12, opacity: creatingFirst ? 0.5 : 1 }} disabled={creatingFirst} onClick={back}>{t('back')}</button>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.inkFaint, letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{step} / {steps.length - 1}</span>
             {steps[step] === 'mode'

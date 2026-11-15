@@ -181,16 +181,22 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
   return (
     <div style={{ maxWidth: MAX_W, margin: '0 auto' }}>
       <style>{'@keyframes lgPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.06) } } @media (prefers-reduced-motion: reduce) { [style*="lgPulse"] { animation: none !important } }'}</style>
-      <div ref={headRef} style={{ position: stick ? 'sticky' : 'relative', top: stick ? headTop : undefined, zIndex: 2, padding: `${8 - headTop}px 12px 10px`, margin: `${headTop}px -12px 0`, borderRadius: '0 0 16px 16px', background: `color-mix(in srgb, ${C.bg} 86%, transparent)`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+      <div ref={headRef} style={{ position: stick && !career ? 'sticky' : 'relative', top: stick && !career ? headTop : undefined, zIndex: 2, padding: `${8 - headTop}px 12px 10px`, margin: `${headTop}px -12px 0`, borderRadius: '0 0 16px 16px', background: `color-mix(in srgb, ${C.bg} 86%, transparent)`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-            <div onClick={titleClick} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.ink, lineHeight: 1.1, userSelect: 'none' }}>🗺️ {t('lg_title')}{cheat ? ' ⚡' : ''}</div>
-            <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 700 }}>{subject.name} · {t('lg_progress', { a: p.areasDone, n: p.areasTotal })} · ⭐ {p.stars}</div>
+            {career ? (<>
+              <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.07em', textTransform: 'uppercase', color: C.success }}>🏝️ {t('lg_pickCareer')}</div>
+              <div onClick={titleClick} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink, lineHeight: 1.15, userSelect: 'none' }}>{map.career?.title || t('lg_title')}{cheat ? ' ⚡' : ''}</div>
+              <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 700 }}>{t('lg_careerIslandsDone', { a: p.areasDone, n: p.areasTotal })}</div>
+            </>) : (<>
+              <div onClick={titleClick} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.ink, lineHeight: 1.1, userSelect: 'none' }}>🗺️ {t('lg_title')}{cheat ? ' ⚡' : ''}</div>
+              <div style={{ fontSize: 13, color: C.inkDim, fontWeight: 700 }}>{subject.name} · {t('lg_progress', { a: p.areasDone, n: p.areasTotal })} · ⭐ {p.stars}</div>
+            </>)}
           </div>
-          <div style={{ flex: '0 1 220px' }}><LevelChip t={t} learner={learner} isLanguage={subject.isLanguage} /></div>
+          {!career && <div style={{ flex: '0 1 220px' }}><LevelChip t={t} learner={learner} isLanguage={subject.isLanguage} /></div>}
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Journey t={t} days={map.days} />
+          {!career && <Journey t={t} days={map.days} />}
           {(map.helpers?.scroll > 0 || map.helpers?.shield > 0) && (
             <span className="tip" data-tip={t('lg_helpersTip')} style={{ fontSize: 13, fontWeight: 900, color: C.purple }}>
               {map.helpers.scroll > 0 ? `📜 ${map.helpers.scroll} ` : ''}{map.helpers.shield > 0 ? `🛡 ${map.helpers.shield}` : ''}
@@ -200,7 +206,7 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           {!career && <ChunkyButton variant="ghost" color={C.purple} onClick={onEdit} disabled={!ctx.ai.hasKey} style={{ fontSize: 12, padding: '7px 12px' }}>✏️ {t('lg_changeMap')}</ChunkyButton>}
           <ChunkyButton variant="ghost" color={C.success} onClick={() => setPassport(true)} style={{ fontSize: 12, padding: '7px 12px' }}>🛂 {t('lg_passport')}</ChunkyButton>
-          {onRaid && <ChunkyButton variant="ghost" color={C.warning} onClick={onRaid} style={{ fontSize: 12, padding: '7px 12px' }}>⚔️ {t('lg_raid')}</ChunkyButton>}
+          {onRaid && !career && <ChunkyButton variant="ghost" color={C.warning} onClick={onRaid} style={{ fontSize: 12, padding: '7px 12px' }}>⚔️ {t('lg_raid')}</ChunkyButton>}
           <ChunkyButton variant="ghost" color={C.danger} onClick={onRestart} style={{ fontSize: 12, padding: '7px 12px' }}>↺ {t('lg_restart')}</ChunkyButton>
         </div>
         {cheat && (

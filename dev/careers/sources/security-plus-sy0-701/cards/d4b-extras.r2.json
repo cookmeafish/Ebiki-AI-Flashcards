@@ -1,0 +1,57 @@
+[
+  {
+    "obj": "4.6",
+    "extra": true,
+    "term": "OpenID Connect (OIDC)",
+    "definition": "An identity layer built on OAuth 2.0 that adds authentication: after the user signs in at an identity provider, the app receives a signed ID token (a JSON Web Token) saying who the user is, which app it was issued for and when it was issued. It can also say when and how the user signed in.",
+    "example": "A website's \"Sign in with Google\" button uses OIDC: Google checks the password, then hands the site a signed ID token naming the user, so the site never sees the password.",
+    "category": "4.6 Identity and access management > Single sign-on (SSO)",
+    "keyPoints": [
+      "OAuth 2.0 = authorization (access tokens); OIDC adds authentication (ID token)",
+      "ID token is a signed JWT with claims such as issuer, subject (user ID), audience and expiry",
+      "The app asks for it by requesting the openid scope",
+      "Common in modern web and mobile SSO",
+      "Contrast SAML: XML assertions, older and common in enterprise web SSO"
+    ],
+    "sources": [
+      "https://openid.net/specs/openid-connect-core-1_0.html"
+    ]
+  },
+  {
+    "obj": "4.6",
+    "extra": true,
+    "term": "SCIM (System for Cross-domain Identity Management)",
+    "definition": "An open standard for creating, updating and removing user and group accounts automatically between systems, such as from a company's identity provider to its cloud apps, using a REST API over HTTP with JSON records.",
+    "example": "When HR marks an employee as departed, the identity provider sends SCIM requests that disable the person's accounts in the email, chat and CRM apps within minutes.",
+    "category": "4.6 Identity and access management > Provisioning/de-provisioning user accounts",
+    "keyPoints": [
+      "Automates provisioning and de-provisioning across domains",
+      "Common schema for Users and Groups (userName, emails, groups, active)",
+      "Prevents orphaned accounts left behind after someone leaves",
+      "SCIM manages accounts; SAML and OIDC sign users in. They work together",
+      "Defined in RFC 7643 (schema) and RFC 7644 (protocol)"
+    ],
+    "sources": [
+      "https://www.rfc-editor.org/rfc/rfc7644",
+      "https://www.rfc-editor.org/rfc/rfc7643"
+    ]
+  },
+  {
+    "obj": "4.7",
+    "extra": true,
+    "term": "SOAR (security orchestration, automation and response)",
+    "definition": "A platform that connects a security team's tools and runs playbooks automatically, so routine steps such as enriching an alert, blocking an address or opening a ticket happen without an analyst doing each by hand.",
+    "example": "When the SIEM raises a phishing alert, the SOAR playbook pulls the email from every mailbox, checks its links against threat intelligence, blocks the sender and opens a ticket for an analyst to confirm.",
+    "category": "4.7 Automation and orchestration",
+    "keyPoints": [
+      "Orchestration ties many tools together; automation runs the steps; response acts on incidents",
+      "Playbooks hold the steps, triggered automatically or on demand",
+      "SIEM detects and correlates; SOAR acts on what the SIEM raises",
+      "Frees analysts from repetitive triage and speeds reaction time",
+      "A bad playbook acts at machine speed too, so test it"
+    ],
+    "sources": [
+      "https://learn.microsoft.com/en-us/azure/sentinel/automation/automation"
+    ]
+  }
+]

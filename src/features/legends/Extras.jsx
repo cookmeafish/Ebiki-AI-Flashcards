@@ -302,6 +302,8 @@ export function PassportModal({ ctx, map, onClose }) {
 export function Journey({ t, days = {} }) {
   const cells = journeyCells(new Date(), days, JOURNEY_WEEKS)
   const played = cells.filter((c) => c.n > 0).length
+  // Nothing played yet: no grid (an empty grid of dim squares read as "still loading").
+  if (!played) return null
   const shadeFor = (n) => (!n ? 'var(--c-surface-sunken)' : n < 2 ? 'color-mix(in srgb, var(--c-success) 40%, var(--c-surface))' : n < 4 ? 'color-mix(in srgb, var(--c-success) 70%, var(--c-surface))' : 'var(--c-success)')
   return (
     <div className="tip" data-tip={tCount(t, 'lg_journeyTip', played)} style={{ display: 'grid', gridTemplateRows: 'repeat(7, 7px)', gridAutoFlow: 'column', gap: 2 }} role="img" aria-label={tCount(t, 'lg_journeyTip', played)}>

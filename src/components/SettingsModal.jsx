@@ -13,7 +13,7 @@ import { fileSizeLabel } from '../utils/fileSize'
 import { checkStateFor, updateResultState, verifyOutcome, restartOffered, pollUntilAnswered } from './updatesState'
 import { imeActive } from '../utils/keys'
 import JobModelSettings from './JobModelSettings'
-import ChatGptSignIn, { SubscriptionNote } from './ChatGptSignIn'
+import ChatGptSignIn, { SubscriptionNote, companyTabs, companyOf } from './ChatGptSignIn'
 import { UsageDetails } from './TokenUsageMeter'
 import { jobOverridesOf, chatModelsOnly } from '../config/aiJobs'
 
@@ -774,19 +774,26 @@ export default function SettingsModal(p) {
       {sectionTitle(t('setAICost'))}
       <div style={card}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-          {Object.entries(PROVIDERS).map(([key, pr]) => (
-            <button key={key} onClick={() => setProvider(key)} className={provider === key ? 'ui-tab-current' : undefined} style={{
-              ...S.ghostBtn, fontSize: 12, padding: '5px 12px',
-              color: provider === key ? C.ink : C.inkDim, // the provider's own color stays on the border and tint: as text it failed contrast (xAI's #e6e6e6 was invisible in light)
-              borderColor: provider === key ? `${pr.color}66` : C.border,
-              background: provider === key ? `${pr.color}14` : C.surface,
-              cursor: provider === key ? 'default' : 'pointer',
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: apiKeys[key] ? C.success : C.inkFaint, display: 'inline-block', marginRight: 6 }} />
-              {pr.label}
-            </button>
-          ))}
+          {/* One tab per company (Object.entries(PROVIDERS) through companyTabs): a subscription sign-in lives in its
+              company's tab. A company tab is current while its key OR its plan is in use. */}
+          {companyTabs(PROVIDERS).map(([key, pr]) => {
+            const on = companyOf(PROVIDERS, provider) === key
+            const ready = !!apiKeys[key] || Object.entries(PROVIDERS).some(([k, p]) => p.subscriptionOf === key && apiKeys[k])
+            return (
+              <button key={key} onClick={() => { if (!on) setProvider(key) }} className={on ? 'ui-tab-current' : undefined} style={{
+                ...S.ghostBtn, fontSize: 12, padding: '5px 12px',
+                color: on ? C.ink : C.inkDim, // the provider's own color stays on the border and tint: as text it failed contrast (xAI's #e6e6e6 was invisible in light)
+                borderColor: on ? `${pr.color}66` : C.border,
+                background: on ? `${pr.color}14` : C.surface,
+                cursor: on ? 'default' : 'pointer',
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: ready ? C.success : C.inkFaint, display: 'inline-block', marginRight: 6 }} />
+                {pr.label}
+              </button>
+            )
+          })}
         </div>
+        <SubscriptionNote t={t} providers={PROVIDERS} provider={provider} onPick={setProvider} />
         {providerConfig.signIn ? <ChatGptSignIn t={t} {...(chatgpt || {})} /> : (<>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* Visible while the user is typing THIS session so they can verify it; concealed once it
@@ -821,7 +828,6 @@ export default function SettingsModal(p) {
           : keyCheck?.state === 'unknown' ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyCheckUnknown')}</div>
           : <div style={hint}>{apiKey ? t('keysStored') : t('keyPasteHint')}</div>}
         </>)}
-        <SubscriptionNote t={t} />
       </div>
 
       {/* Intelligence preset: one switch that sets every feature's default model tier. */}

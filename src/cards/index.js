@@ -3,6 +3,8 @@
 // ./template.js), `registerBackend(yours)`, then `selectBackend('<id>')` before the app first uses it.
 import { REQUIRED_METHODS, OPTIONAL_METHODS, missingMethods } from './contract'
 import { ankiBackend } from './anki'
+import { splitProtected } from './protect'
+import { tr } from './i18n'
 
 export { sanitizeCardHtml, escapeStrayLt, isHtmlTagName, cardHtmlForText } from './html'
 export { setTranslator } from './i18n'
@@ -61,9 +63,19 @@ const serialized = (m) => (...args) => {
   return run
 }
 
+// COURSE CARDS ARE NEVER DELETED (./protect.js): the delete reads the notes first and refuses the WHOLE call when one
+// is a course card (code 'courseCard'), so no caller half-applies a merge or a session update.
+const guardedDelete = async (ids, ...rest) => {
+  const list = (ids || []).filter((x) => x != null)
+  if (!list.length) return active.deleteNotes(ids, ...rest)
+  const { kept } = splitProtected(list, await active.notesInfo(list))
+  if (kept.length) { const e = new Error(tr('card_errCourseCard', "This card belongs to a course and can't be deleted (the course needs it).")); e.code = 'courseCard'; e.kept = kept; throw e }
+  return active.deleteNotes(ids, ...rest)
+}
+
 // Late-bound: each call goes to whichever backend is active at call time.
 export const srs = Object.freeze(Object.fromEntries([
-  ...REQUIRED_METHODS.map((m) => [m, RATING_WRITES.includes(m) ? serialized(m) : (...args) => active[m](...args)]),
+  ...REQUIRED_METHODS.map((m) => [m, m === 'deleteNotes' ? guardedDelete : RATING_WRITES.includes(m) ? serialized(m) : (...args) => active[m](...args)]),
   ...Object.keys(OPTIONAL_METHODS).map((m) => [m, (...args) => (typeof active[m] === 'function' ? active[m] : DEFAULTS[m])(...args)]),
 ]))
 

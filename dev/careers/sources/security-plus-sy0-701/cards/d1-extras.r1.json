@@ -1,0 +1,95 @@
+[
+  {
+    "obj": "1.4",
+    "extra": true,
+    "term": "HMAC (hash-based message authentication code)",
+    "definition": "A message authentication code built by running a message and a secret key through a hash function. A receiver holding the same key recomputes it, and a match proves the message was not altered and came from someone who knows the key.",
+    "example": "An API signs each request with HMAC-SHA-256 using a key shared with the client; the server recomputes the value and rejects any request where it differs.",
+    "category": "1.4 Cryptographic solutions > Hashing",
+    "keyPoints": [
+      "Gives integrity and authenticity, not confidentiality",
+      "Both sides share one secret key (symmetric)",
+      "No non-repudiation: either key holder could have made the tag, unlike a digital signature made with a private key",
+      "A plain hash proves integrity only, since anyone can recompute it; HMAC adds the key",
+      "Works with any approved hash, for example HMAC-SHA-256"
+    ],
+    "sources": [
+      "https://www.rfc-editor.org/rfc/rfc2104",
+      "https://csrc.nist.gov/glossary/term/hash_based_message_authentication_code"
+    ]
+  },
+  {
+    "obj": "1.4",
+    "extra": true,
+    "term": "Perfect forward secrecy (PFS, DHE, ECDHE)",
+    "definition": "A property of a key exchange in which every session gets fresh keys from a new, short-lived (ephemeral) Diffie-Hellman exchange, so stealing a long-term key later cannot unlock sessions recorded earlier. DHE is ephemeral Diffie-Hellman; ECDHE is the elliptic curve version.",
+    "example": "An attacker records months of TLS traffic and later steals the server's private key, but cannot decrypt the recordings because each session used its own ECDHE key that was thrown away.",
+    "category": "1.4 Cryptographic solutions > Key exchange",
+    "keyPoints": [
+      "The E in DHE and ECDHE means ephemeral: a new key pair per session, then discarded",
+      "The server's long-term key only signs the exchange; it never protects the session key itself",
+      "Static RSA key exchange has no forward secrecy: one stolen key decrypts every recorded session",
+      "TLS 1.3 removed static RSA and static Diffie-Hellman, so all its key exchanges give forward secrecy",
+      "IPsec offers PFS as an option: a new Diffie-Hellman exchange for each security association"
+    ],
+    "sources": [
+      "https://www.rfc-editor.org/rfc/rfc8446#section-1.2",
+      "https://csrc.nist.gov/glossary/term/perfect_forward_secrecy"
+    ]
+  },
+  {
+    "obj": "1.4",
+    "extra": true,
+    "term": "Subject Alternative Name (SAN) certificate",
+    "definition": "A certificate whose Subject Alternative Name extension lists several identities it is valid for, such as specific DNS names, IP addresses or email addresses, so one certificate can cover many named hosts.",
+    "example": "One certificate lists example.com, www.example.com and shop.example.net in its SAN field and secures all three sites.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": [
+      "Names each covered host exactly, even across different domains",
+      "Wildcard (*.example.com) covers any single-level subdomain of one domain but not the bare domain; a SAN entry can add it",
+      "Browsers match the name you visit against the SAN entries",
+      "The CA must verify every name in the SAN before signing",
+      "Adding a name means reissuing the certificate"
+    ],
+    "sources": [
+      "https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.6"
+    ]
+  },
+  {
+    "obj": "1.4",
+    "extra": true,
+    "term": "Registration authority (RA)",
+    "definition": "An optional PKI component that checks the identity of people or devices asking for certificates and passes approved requests to the certificate authority, which then issues and signs the certificate.",
+    "example": "A company's help desk acts as the RA: it confirms an employee's badge and HR record, then forwards the request so the internal CA can issue the user's certificate.",
+    "category": "1.4 Cryptographic solutions > Certificates",
+    "keyPoints": [
+      "RA verifies identity; CA signs and issues",
+      "An RA never signs certificates",
+      "Takes administrative work off the CA",
+      "Can be a person, a team or software",
+      "Trap: the entity that signs a certificate is always the CA, never the RA"
+    ],
+    "sources": [
+      "https://csrc.nist.gov/glossary/term/registration_authority",
+      "https://www.rfc-editor.org/rfc/rfc5280"
+    ]
+  },
+  {
+    "obj": "1.4",
+    "extra": true,
+    "term": "Initialization vector (IV)",
+    "definition": "A starting value fed into a cipher alongside the key so that encrypting the same data twice with the same key gives different ciphertext. It does not need to be secret, but in many modes it must never repeat with the same key.",
+    "example": "AES-GCM uses a new 96-bit IV for every message; if a device reused an IV with the same key, an attacker could compare the two ciphertexts and forge messages.",
+    "category": "1.4 Cryptographic solutions > Encryption",
+    "keyPoints": [
+      "Adds randomness so identical plaintexts do not produce identical ciphertexts",
+      "Sent in the clear with the ciphertext; it is not a key",
+      "Reuse with the same key can break confidentiality and, in GCM, authentication",
+      "Often called a nonce (number used once)"
+    ],
+    "sources": [
+      "https://csrc.nist.gov/glossary/term/initialization_vector",
+      "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf"
+    ]
+  }
+]

@@ -1,0 +1,1808 @@
+[
+  {
+    "obj": "4.0",
+    "path": [],
+    "term": "SY0-701 Domain 4.0: Security Operations (28%)",
+    "definition": "The largest Security+ domain, covering the day-to-day work of keeping an organization secure: hardening and baselining systems, managing assets, finding and fixing vulnerabilities, monitoring and alerting, tuning enterprise security tools, identity and access management, automation, incident response, and investigation data sources.",
+    "example": "A security analyst who applies a hardened baseline to new laptops, reviews SIEM alerts, patches a critical CVE, and then documents an incident is doing Domain 4.0 work.",
+    "category": "4.0 Security Operations",
+    "keyPoints": "Worth 28% of the exam, the biggest single domain; objectives 4.1 to 4.9; many questions are \"given a scenario\" (4.1, 4.5, 4.6, 4.9), so expect to pick the right tool or action; ties together prevention (hardening), detection (monitoring) and response"
+  },
+  {
+    "obj": "4.1",
+    "path": [],
+    "term": "SY0-701 4.1: Given a scenario, apply common security techniques to computing resources",
+    "definition": "This objective covers how to secure individual computing resources: building and keeping secure baselines, hardening different device types, securing wireless and mobile devices, choosing wireless security settings, writing secure applications, sandboxing, and monitoring.",
+    "example": "A company rolling out tablets to field staff enrolls them in MDM under a COPE model, applies a hardened baseline, uses WPA3-Enterprise on office Wi-Fi and requires a VPN on public networks.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Scenario objective: pick the right technique for the device or situation; know the baseline life cycle (establish, deploy, maintain); know BYOD vs COPE vs CYOD; know WPA3, RADIUS and EAP basics"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Secure baselines"
+    ],
+    "term": "Secure baselines",
+    "definition": "A secure baseline is a documented, approved set of security settings (services, permissions, patches, policies) that a system type must meet. It gives every system of that type the same known-good starting point and a reference to measure drift against.",
+    "example": "A company defines a Windows 11 workstation baseline that disables SMBv1, enforces BitLocker and sets password policy, then checks every laptop against it.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Life cycle: establish, deploy, maintain; often built from CIS Benchmarks or vendor guides; drift from the baseline is a finding to fix; a baseline is per system type, not one for everything"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Secure baselines",
+      "Establish"
+    ],
+    "term": "Establish (secure baseline)",
+    "definition": "Establishing a baseline means deciding and documenting the secure configuration for a system type, usually starting from trusted guidance such as CIS Benchmarks or manufacturer security guides and adjusting it to business needs.",
+    "example": "The security team starts from the CIS Benchmark for Ubuntu Server, removes settings that would break the web app, and records the approved list as the server baseline.",
+    "category": "4.1 Security techniques for computing resources > Secure baselines",
+    "keyPoints": "First step of the baseline life cycle; based on industry or vendor guidance plus testing; must be documented and approved; output is the reference for deploy and maintain"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Secure baselines",
+      "Deploy"
+    ],
+    "term": "Deploy (secure baseline)",
+    "definition": "Deploying a baseline means applying the approved settings to systems consistently, usually with central tools such as Group Policy, MDM, configuration management or golden images rather than by hand.",
+    "example": "An administrator pushes the workstation baseline to 2,000 domain computers with Active Directory Group Policy objects.",
+    "category": "4.1 Security techniques for computing resources > Secure baselines",
+    "keyPoints": "Use automation for consistency at scale (Group Policy, MDM, Ansible, images); manual setup invites drift and mistakes; deployment happens after the baseline is established and tested"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Secure baselines",
+      "Maintain"
+    ],
+    "term": "Maintain (secure baseline)",
+    "definition": "Maintaining a baseline means keeping it current and keeping systems compliant with it: updating it for new patches, threats and software versions, and regularly checking systems for configuration drift.",
+    "example": "After a new OS release changes default settings, the team revises the baseline and runs a compliance scan that flags 40 servers which no longer match.",
+    "category": "4.1 Security techniques for computing resources > Secure baselines",
+    "keyPoints": "Baselines are not set and forget; update when software, threats or guidance change; scan for drift (SCAP and compliance tools help); changes to the baseline go through change management"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets"
+    ],
+    "term": "Hardening targets",
+    "definition": "The kinds of systems that must be hardened, meaning their attack surface is reduced by removing unneeded services and software, changing defaults, patching and restricting access. They range from user devices (workstations, mobile devices) and network gear (routers, switches) to servers and cloud infrastructure, and to specialised systems that are hard to patch (ICS/SCADA, embedded systems, RTOS, IoT devices).",
+    "example": "Before deployment, a team disables unused ports on switches, removes default accounts from routers, and turns off unneeded services on servers.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Common steps for all: patch, change default credentials, disable unused services and ports, least privilege, logging; each target has its own constraints (ICS cannot be patched easily, IoT may not be patchable at all); hardening reduces attack surface"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "Mobile devices"
+    ],
+    "term": "Mobile devices (hardening target)",
+    "definition": "Hardening phones and tablets means keeping the OS and apps updated, requiring screen locks and encryption, limiting app sources, and managing settings centrally through MDM so lost or stolen devices can be locked or wiped.",
+    "example": "An MDM policy forces a 6-digit passcode, full device encryption, automatic updates and remote wipe on all company phones.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "MDM is the main tool to enforce mobile hardening; segment work and personal data (containerization); updates depend on carrier and manufacturer support; remote wipe for loss or theft"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "Workstations"
+    ],
+    "term": "Workstations (hardening target)",
+    "definition": "Hardening desktops and laptops means applying regular OS and application patches, removing unnecessary software, enforcing least privilege (no daily admin rights), and running endpoint protection such as antivirus or EDR, plus host firewall and disk encryption.",
+    "example": "IT removes local admin rights from users, enables BitLocker, turns on the host firewall and installs EDR on every laptop.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Patch management and automatic updates; remove unneeded apps and services; standard user accounts, not admin; endpoint protection, host firewall and encryption, usually enforced with Group Policy"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "Switches"
+    ],
+    "term": "Switches (hardening target)",
+    "definition": "Hardening a network switch means changing default credentials, using secure management (SSH instead of Telnet, SNMPv3), disabling unused ports, keeping firmware updated, and using port security or 802.1X to control what connects.",
+    "example": "An administrator shuts down every unused switch port, enables 802.1X on user ports and disables Telnet in favor of SSH for management.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Default passwords and plaintext management (Telnet, HTTP, SNMPv1/v2c) are classic exam findings; disable unused ports; firmware updates; restrict management access to a management network"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "Routers"
+    ],
+    "term": "Routers (hardening target)",
+    "definition": "Hardening a router means changing default credentials, using encrypted management, disabling unused services and interfaces, applying firmware updates, and using access control lists to filter traffic and limit who can manage the device.",
+    "example": "A network engineer applies an ACL so only the IT management subnet can SSH to the edge router and updates its firmware to fix a known flaw.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Like switches: defaults, encrypted management, firmware; ACLs filter traffic and management access; routers sit at network boundaries, so a compromise affects many hosts"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "Cloud infrastructure"
+    ],
+    "term": "Cloud infrastructure (hardening target)",
+    "definition": "Hardening cloud infrastructure means securing the customer-controlled parts of the cloud: least-privilege identity and access policies, secure configuration of storage and network security groups, MFA on admin accounts, logging, and endpoint protection on cloud instances.",
+    "example": "A security review finds a storage bucket open to the public and an admin account without MFA; both are fixed and cloud audit logging is enabled.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Shared responsibility: the customer still secures its configuration, identities and data; misconfiguration (public buckets, open security groups) is the top cloud risk; least privilege on IAM roles; enable logging and monitoring"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "Servers"
+    ],
+    "term": "Servers (hardening target)",
+    "definition": "Hardening servers means patching the OS and applications, removing unneeded services and software, enforcing strong authentication and least privilege for administrators, using host firewalls and endpoint protection, and monitoring logs.",
+    "example": "A new web server is built with only the web service installed, remote desktop restricted to a jump host, and the host firewall allowing only ports 443 and management traffic.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Minimize installed roles and services; strict admin access and MFA; patching cadence plus monitoring; servers hold valuable data, so they are prime targets"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "ICS/SCADA"
+    ],
+    "term": "ICS/SCADA (hardening target)",
+    "definition": "Industrial control systems (ICS) and supervisory control and data acquisition (SCADA) systems run physical processes such as power, water and manufacturing. Because they often run old software that cannot be patched or rebooted easily, they are hardened mostly by network segmentation and strict access control.",
+    "example": "A water utility places its SCADA network on an isolated segment with no direct internet access and only one tightly controlled jump server.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Segmentation or air gaps are the main control; availability and safety come first, so patching is slow and must be planned; legacy protocols often lack authentication; compromise can cause physical harm"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "Embedded systems"
+    ],
+    "term": "Embedded systems (hardening target)",
+    "definition": "Embedded systems are computers built into a device for one purpose, such as a printer, medical device or car controller. They often have limited updates and resources, so hardening relies on firmware updates from the manufacturer where available, changing defaults, and isolating them on the network.",
+    "example": "A hospital puts its infusion pumps on a separate network segment because the manufacturer releases firmware updates only rarely.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Limited or no patching, so segment them; change default credentials; depend on the vendor for firmware; often overlooked in inventories"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "RTOS"
+    ],
+    "term": "RTOS (hardening target)",
+    "definition": "A real-time operating system (RTOS) is an operating system built to respond to inputs within strict, predictable time limits, used in things like industrial controllers, vehicles and medical equipment. It is hardened by isolating it on the network, applying vendor updates carefully, and limiting access, since added security software could affect timing.",
+    "example": "A factory robot controller runs an RTOS; it is placed on an isolated network and updates are tested before installation so timing is not disrupted.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "RTOS = deterministic timing; often embedded, so hard to patch; isolate it and limit access; security tools must not break timing guarantees"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Hardening targets",
+      "IoT devices"
+    ],
+    "term": "IoT devices (hardening target)",
+    "definition": "Internet of Things (IoT) devices are network-connected everyday devices such as cameras, smart sensors, thermostats and speakers. They often ship with weak defaults and poor update support, so they are hardened by changing default credentials, updating firmware, disabling unused features and placing them on a separate network segment.",
+    "example": "Smart cameras in an office are moved to their own VLAN with no access to the corporate network, and their default admin passwords are changed.",
+    "category": "4.1 Security techniques for computing resources > Hardening targets",
+    "keyPoints": "Default credentials are a classic IoT weakness (Mirai botnet); segment IoT onto its own network; update firmware where possible; buy from vendors with security support"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless devices"
+    ],
+    "term": "Wireless devices (secure installation)",
+    "definition": "Securing wireless devices starts with how access points are installed: planning placement, coverage and channels so the network performs well and does not leak signal where attackers can use it.",
+    "example": "Before installing access points in a new office, the network team does a site survey and reviews a heat map to place APs where coverage is good but signal does not spill into the parking lot.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Installation considerations include site surveys and heat maps; goal is good coverage, minimal interference and minimal signal leakage; also find rogue APs during surveys"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless devices",
+      "Installation considerations"
+    ],
+    "term": "Installation considerations (wireless devices)",
+    "definition": "Installation considerations are the planning steps before and after placing wireless access points, mainly site surveys and heat maps, to decide AP location, channels and power levels and to spot interference and unauthorized APs.",
+    "example": "A warehouse full of metal racks needs a site survey to see where signal is blocked before choosing AP locations.",
+    "category": "4.1 Security techniques for computing resources > Wireless devices",
+    "keyPoints": "Two listed tools: site surveys and heat maps; check for interference from other networks and devices; adjust channels and power; repeat surveys as the building or usage changes"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless devices",
+      "Installation considerations",
+      "Site surveys"
+    ],
+    "term": "Site surveys (wireless installation)",
+    "definition": "A wireless site survey examines a location to learn how radio signals behave there: existing networks, interference, obstacles and channel use. It guides where to place access points and can also reveal rogue or unknown access points.",
+    "example": "A technician walks a building with a wireless analyzer, finds a neighboring network on the same channel and an unauthorized AP plugged in by an employee.",
+    "category": "4.1 Security techniques for computing resources > Wireless devices > Installation considerations",
+    "keyPoints": "Done before installation and periodically after; identifies interference, channel overlap and rogue APs; often produces the data used for heat maps"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless devices",
+      "Installation considerations",
+      "Heat maps"
+    ],
+    "term": "Heat maps (wireless installation)",
+    "definition": "A wireless heat map is a visual floor plan that shows signal strength in colors, making it easy to see strong coverage, dead zones and places where signal leaks outside the intended area.",
+    "example": "A heat map shows strong red coverage reaching the street outside, so the team lowers AP power on that side of the building.",
+    "category": "4.1 Security techniques for computing resources > Wireless devices > Installation considerations",
+    "keyPoints": "Visual output of a site survey; shows coverage gaps and signal leakage; used to adjust AP placement and power; do not confuse with a SIEM dashboard"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions"
+    ],
+    "term": "Mobile solutions (securing computing resources)",
+    "definition": "Mobile solutions are the ways an organization secures smartphones and tablets: managing them with MDM, choosing a deployment (ownership) model such as BYOD, COPE or CYOD, and securing how they connect (cellular, Wi-Fi, Bluetooth).",
+    "example": "A company picks a COPE model, enrolls every phone in MDM, and requires a VPN when phones use public Wi-Fi.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Three parts: MDM, deployment models, connection methods; ownership model decides how much control the company has; MDM enforces policy whatever the model"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Mobile device management (MDM)"
+    ],
+    "term": "Mobile device management (MDM)",
+    "definition": "MDM is a centralized system for managing and securing mobile devices: enrolling them, pushing security policies (passcodes, encryption), controlling apps, separating work and personal data, tracking location, and remotely locking or wiping lost devices.",
+    "example": "An employee loses a company tablet in a taxi; IT uses the MDM console to locate it and then remotely wipe it.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions",
+    "keyPoints": "Enforces policy centrally on many devices; features: remote wipe, geolocation, app allow lists, containerization (work data separated from personal); works with BYOD, COPE and CYOD"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Deployment models"
+    ],
+    "term": "Deployment models (mobile devices)",
+    "definition": "Mobile deployment models define who owns a device and how it may be used. Security+ lists bring your own device (BYOD), corporate-owned personally enabled (COPE) and choose your own device (CYOD).",
+    "example": "A company weighs BYOD to save money against COPE for more control over the data on each phone.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions",
+    "keyPoints": "BYOD: user owns it; COPE: company owns and supplies it, personal use allowed; CYOD: user picks from an approved list, company owns it; more company ownership means more control and less user privacy concern"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Deployment models",
+      "Bring your own device (BYOD)"
+    ],
+    "term": "Bring your own device (BYOD)",
+    "definition": "BYOD is a model where employees use their own personal devices for work. It saves the company hardware costs but makes control harder, so work data is usually separated with MDM containerization and the user must accept company policies.",
+    "example": "Staff use their own iPhones for work email, with the company app container that IT can wipe without touching personal photos.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions > Deployment models",
+    "keyPoints": "User owns the device; hardest to control and secure, with many device types to support; privacy conflict when the company wants to wipe or monitor; containerization separates work data"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Deployment models",
+      "Corporate-owned, personally enabled (COPE)"
+    ],
+    "term": "Corporate-owned, personally enabled (COPE)",
+    "definition": "COPE is a model where the company buys, owns and manages the device but allows the employee to use it for personal activities too. The company keeps full control and can wipe it, since the device is company property.",
+    "example": "A firm hands every salesperson a company-owned phone that is fully managed but may also be used for personal apps and calls.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions > Deployment models",
+    "keyPoints": "Company owns and chooses the device; personal use allowed; company has full control; vs CYOD: in COPE the company picks the device, in CYOD the user picks from an approved list"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Deployment models",
+      "Choose your own device (CYOD)"
+    ],
+    "term": "Choose your own device (CYOD)",
+    "definition": "CYOD is a model where the employee chooses a device from a company-approved list, and the company buys, owns and manages it. It balances user choice with company control and support.",
+    "example": "New hires can pick either an approved Android or iPhone model; the company purchases it and enrolls it in MDM.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions > Deployment models",
+    "keyPoints": "User chooses, but only from an approved list; company owns and manages it; middle ground between BYOD and COPE; trap: CYOD does not mean the user owns it"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Connection methods"
+    ],
+    "term": "Connection methods (mobile devices)",
+    "definition": "Connection methods are the ways mobile devices communicate, each with its own risks. Security+ lists cellular, Wi-Fi and Bluetooth.",
+    "example": "A phone may be on the carrier network, then join hotel Wi-Fi, while paired to a Bluetooth headset, creating three separate attack paths.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions",
+    "keyPoints": "Cellular: carrier network, traffic bypasses corporate monitoring; Wi-Fi: rogue APs, evil twins, on-path attacks, use encryption or VPN; Bluetooth: short range, pairing attacks, disable when not needed"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Connection methods",
+      "Cellular"
+    ],
+    "term": "Cellular (mobile connection method)",
+    "definition": "Cellular connections use a mobile carrier network (such as 4G or 5G). Traffic between the phone and the tower is usually encrypted (in 4G the carrier can choose to turn this off), but it bypasses the company network, so corporate filtering and monitoring cannot see it, and devices can be tracked by location.",
+    "example": "An employee tethers a laptop to a phone hotspot, sending traffic over cellular and around the corporate web filter.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions > Connection methods",
+    "keyPoints": "Bypasses corporate security controls; location tracking risk; SIM swapping and fake cell towers are related threats; control with MDM and VPN policies"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Connection methods",
+      "Wi-Fi"
+    ],
+    "term": "Wi-Fi (mobile connection method)",
+    "definition": "Wi-Fi connects mobile devices to local wireless networks. Public or unknown networks risk eavesdropping, rogue access points, evil twins and on-path attacks, so devices should use strong wireless encryption and a VPN on untrusted networks.",
+    "example": "A user joins \"Free_Airport_WiFi\", which is actually an attacker's evil twin AP capturing their traffic.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions > Connection methods",
+    "keyPoints": "Prefer WPA3 or at least WPA2 encrypted networks; VPN on public Wi-Fi; watch for evil twin and rogue APs; MDM can restrict which networks devices join"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Mobile solutions",
+      "Connection methods",
+      "Bluetooth"
+    ],
+    "term": "Bluetooth (mobile connection method)",
+    "definition": "Bluetooth is a short-range wireless link used for headsets, watches and file transfer. Risks include unwanted pairing, bluejacking (sending unsolicited messages) and bluesnarfing (stealing data), so it should be turned off or set non-discoverable when not needed and pairing should be controlled.",
+    "example": "An attacker in a cafe uses a flaw in an unpatched phone's Bluetooth stack to read its contacts.",
+    "category": "4.1 Security techniques for computing resources > Mobile solutions > Connection methods",
+    "keyPoints": "Short range, but still an attack path; bluejacking = unsolicited messages, bluesnarfing = data theft; disable or make non-discoverable; keep devices patched"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless security settings"
+    ],
+    "term": "Wireless security settings",
+    "definition": "Wireless security settings decide how a Wi-Fi network authenticates users and protects traffic. Security+ covers WPA3, AAA with RADIUS, cryptographic protocols and authentication protocols.",
+    "example": "A company configures WPA3-Enterprise with 802.1X, authenticating users against a RADIUS server tied to Active Directory.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Personal mode uses a shared passphrase, enterprise mode uses 802.1X with RADIUS and individual credentials; WPA3 replaces WPA2; know which protocol does encryption vs authentication"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless security settings",
+      "Wi-Fi Protected Access 3 (WPA3)"
+    ],
+    "term": "Wi-Fi Protected Access 3 (WPA3)",
+    "definition": "WPA3 is the current Wi-Fi security standard. In personal mode it replaces the WPA2 pre-shared key exchange with Simultaneous Authentication of Equals (SAE), which resists offline password guessing and gives forward secrecy; it also requires protected management frames and offers a stronger 192-bit enterprise mode.",
+    "example": "An attacker captures a WPA3-Personal handshake but cannot run an offline dictionary attack on it, unlike with a WPA2-PSK handshake.",
+    "category": "4.1 Security techniques for computing resources > Wireless security settings",
+    "keyPoints": "SAE (dragonfly handshake) replaces the PSK 4-way handshake guessing weakness; forward secrecy: a later stolen password does not decrypt old captures; WPA3-Personal still requires at least AES-CCMP-128, like WPA2; the optional WPA3-Enterprise 192-bit mode uses AES-GCMP-256; study guides (including Professor Messer) teach \"WPA3 uses GCMP\", so pick GCMP if asked; WPA3 is the best answer for new Wi-Fi; on Wi-Fi 7 gear WPA3 moves to GCMP-256 with the SAE-EXT-KEY key management even in personal mode, so \"WPA3 uses GCMP\" is fully true there; in the 6 GHz band (Wi-Fi 6E and 7) WPA3 and protected management frames are mandatory and WPA2 is not allowed; transition mode lets WPA2 and WPA3 clients share one network name, but the WPA2 clients keep WPA2 protection"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless security settings",
+      "AAA/Remote Authentication Dial-In User Service (RADIUS)"
+    ],
+    "term": "AAA/RADIUS (wireless security setting)",
+    "definition": "AAA stands for authentication, authorization and accounting. RADIUS (Remote Authentication Dial-In User Service) is a common AAA protocol: the access point passes the user's login to a central RADIUS server, which checks credentials (often against Active Directory) and logs the session.",
+    "example": "With WPA3-Enterprise, each employee logs in to Wi-Fi with their own domain account, verified by the RADIUS server, so a departing employee is blocked by disabling one account.",
+    "category": "4.1 Security techniques for computing resources > Wireless security settings",
+    "keyPoints": "Used in enterprise Wi-Fi with 802.1X; RADIUS uses UDP (1812 authentication, 1813 accounting); it hides only the password, while TACACS+ (TCP 49) encrypts the whole message body (RFC 8907 calls this obfuscation and advises running it over a secure transport); early RADIUS used UDP 1645 and 1646; individual credentials beat a shared passphrase"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless security settings",
+      "Cryptographic protocols"
+    ],
+    "term": "Cryptographic protocols (wireless security setting)",
+    "definition": "Wireless cryptographic protocols encrypt and integrity-protect Wi-Fi traffic. WPA2 uses CCMP, based on AES; WPA3-Personal requires at least AES-CCMP-128, and the WPA3-Enterprise 192-bit mode uses the stronger AES-GCMP-256. Old options such as WEP and TKIP are broken and should not be used.",
+    "example": "An audit finds an old access point still offering TKIP; it is reconfigured to allow only AES-based encryption.",
+    "category": "4.1 Security techniques for computing resources > Wireless security settings",
+    "keyPoints": "CCMP-128 (AES) for WPA2 and the WPA3-Personal minimum, GCMP-256 for WPA3-Enterprise 192-bit (study guides shorten this to \"WPA3 uses GCMP\"); WEP and TKIP are insecure; cryptographic protocol = protects data, authentication protocol = proves identity; Wi-Fi 7 uses GCMP-256 for WPA3-Personal and WPA3-Enterprise, keeping CCMP-128 only for backward compatibility"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Wireless security settings",
+      "Authentication protocols"
+    ],
+    "term": "Authentication protocols (wireless security setting)",
+    "definition": "Wireless authentication protocols prove who is connecting. Enterprise Wi-Fi uses IEEE 802.1X port-based access control with the Extensible Authentication Protocol (EAP) family, such as EAP-TLS (certificates on both sides), PEAP and EAP-TTLS (a TLS tunnel protecting another login method) and EAP-FAST.",
+    "example": "A company uses EAP-TLS so each laptop presents its own certificate to the RADIUS server before joining Wi-Fi.",
+    "category": "4.1 Security techniques for computing resources > Wireless security settings",
+    "keyPoints": "802.1X is the framework, EAP carries the method, RADIUS checks the credentials; EAP-TLS needs client and server certificates and is the strongest; PEAP and EAP-TTLS need only a server certificate; EAP-FAST (designed by Cisco) builds its tunnel from a shared secret called a Protected Access Credential (PAC) instead of requiring certificates"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Application security"
+    ],
+    "term": "Application security (computing resource technique)",
+    "definition": "Application security means building software so it resists attack. Security+ 4.1 lists input validation, secure cookies, static code analysis and code signing as techniques.",
+    "example": "A development team validates all form input, sets secure cookie flags, runs a static analyzer in its build pipeline and signs its release installer.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Four techniques: input validation, secure cookies, static code analysis, code signing; these are developer-side protections; 4.3 covers application security as a way to find vulnerabilities"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Application security",
+      "Input validation"
+    ],
+    "term": "Input validation",
+    "definition": "Input validation checks every piece of data an application receives (type, length, format, allowed characters) and rejects or cleans anything unexpected before using it. It is a key defense against injection attacks such as SQL injection and cross-site scripting, working together with parameterized queries and output encoding, which OWASP names as the main fixes for those two.",
+    "example": "A login form rejects a username containing ' OR 1=1 -- because only letters and digits are allowed, stopping a SQL injection attempt.",
+    "category": "4.1 Security techniques for computing resources > Application security",
+    "keyPoints": "Validate on the server side (client-side checks are easy to bypass); prefer allow lists over deny lists; defends against SQL injection, XSS, buffer overflows; pair with parameterized queries (SQL injection) and output encoding (XSS); on the exam, input validation is the usual answer for stopping injection"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Application security",
+      "Secure cookies"
+    ],
+    "term": "Secure cookies",
+    "definition": "A secure cookie is a browser cookie protected with attributes: Secure (sent only over HTTPS), HttpOnly (not readable by page scripts, which limits theft through XSS) and SameSite (limits sending it with cross-site requests). They protect session tokens and other sensitive values stored in cookies.",
+    "example": "A web app marks its session cookie Secure and HttpOnly, so it is never sent over plain HTTP and an XSS script cannot read it.",
+    "category": "4.1 Security techniques for computing resources > Application security",
+    "keyPoints": "Secure flag = HTTPS only; HttpOnly = no JavaScript access; SameSite helps against cross-site request forgery; do not store sensitive data in cookies in plain text; SameSite values: Strict (sent only on requests from the same site), Lax (also sent when the user follows a link from another site; Chromium-based browsers use it when no value is set), None (always sent, and the cookie must also be Secure)"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Application security",
+      "Static code analysis"
+    ],
+    "term": "Static code analysis (application security technique)",
+    "definition": "Static code analysis, also called static application security testing (SAST), examines source code without running it to find security flaws such as injection risks, buffer overflows and hard-coded secrets, often automatically in the build pipeline.",
+    "example": "A static analyzer flags a line where user input is concatenated into a SQL query before the code is ever deployed.",
+    "category": "4.1 Security techniques for computing resources > Application security",
+    "keyPoints": "Code is not executed (vs dynamic analysis, which runs the app); finds issues early in development; produces false positives that need human review; cannot find runtime or configuration problems"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Application security",
+      "Code signing"
+    ],
+    "term": "Code signing",
+    "definition": "Code signing is when a developer digitally signs software with a private key tied to a certificate from a trusted certificate authority. Users and systems verify the signature with the public key to confirm who published the code and that it has not been changed since it was signed.",
+    "example": "Windows shows the verified publisher name when installing a signed application, and warns if a downloaded installer was altered after signing.",
+    "category": "4.1 Security techniques for computing resources > Application security",
+    "keyPoints": "Provides integrity and authenticity (who signed it, unchanged since); does not prove the code is safe or bug-free; relies on protecting the private signing key; uses public key infrastructure"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Sandboxing"
+    ],
+    "term": "Sandboxing (computing resource technique)",
+    "definition": "Sandboxing runs an application or file in an isolated, restricted environment so it cannot reach the rest of the system or network. It limits damage from untrusted code and is used for testing, malware analysis and in browsers and mobile apps.",
+    "example": "A suspicious email attachment is opened inside a sandbox, where analysts watch it try to contact a command-and-control server without risking the real network.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Isolation contains damage; used by browsers, mobile OSs, and malware analysis; test new code in a sandbox before production; virtual machines and containers are common ways to sandbox"
+  },
+  {
+    "obj": "4.1",
+    "path": [
+      "Monitoring"
+    ],
+    "term": "Monitoring (computing resource technique)",
+    "definition": "Monitoring computing resources means continuously collecting and reviewing logs, performance data and security events from systems so problems and attacks are detected quickly. Secure baselines and hardening reduce risk, and monitoring confirms they keep working.",
+    "example": "An admin sees in the logs that a hardened server suddenly has a new service listening and investigates.",
+    "category": "4.1 Security techniques for computing resources",
+    "keyPoints": "Detective control that complements preventive hardening; logs feed a SIEM; watch for configuration drift and unusual activity; 4.4 goes deeper into monitoring tools"
+  },
+  {
+    "obj": "4.2",
+    "path": [],
+    "term": "SY0-701 4.2: Explain the security implications of proper hardware, software, and data asset management",
+    "definition": "This objective covers managing assets through their whole life: buying them securely, assigning owners and classifications, tracking and inventorying them, and disposing of them so no data is left behind.",
+    "example": "An organization buys laptops only from approved vendors, tags each one to an owner, tracks it in an inventory, and gets a certificate of destruction when its drive is shredded.",
+    "category": "4.2 Hardware, software, and data asset management",
+    "keyPoints": "Asset life cycle: acquisition, assignment, tracking, disposal; you cannot protect what you do not know you have; know sanitization vs destruction vs certification"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Acquisition/procurement process"
+    ],
+    "term": "Acquisition/procurement process (asset management)",
+    "definition": "Acquisition or procurement is how an organization buys hardware, software and services. A secure process uses approved vendors, checks security requirements and supply chain risk before purchase, and records new assets so they enter management from day one.",
+    "example": "A purchase request for new network switches must go through IT and security approval, use a vetted vendor, and the switches are added to inventory on arrival.",
+    "category": "4.2 Hardware, software, and data asset management",
+    "keyPoints": "Security should be part of purchasing, not added later; approved vendor lists reduce supply chain risk; prevents shadow IT; new assets go straight into inventory"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Assignment/accounting"
+    ],
+    "term": "Assignment/accounting (asset management)",
+    "definition": "Assignment and accounting mean recording each asset against a responsible owner and a classification, so the organization knows who is accountable for it and how it must be protected.",
+    "example": "Each laptop record lists the employee responsible and the department that owns it, and each database is labeled with its data classification.",
+    "category": "4.2 Hardware, software, and data asset management",
+    "keyPoints": "Two parts: ownership and classification; supports accountability; classification drives which controls apply"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Assignment/accounting",
+      "Ownership"
+    ],
+    "term": "Ownership (asset assignment)",
+    "definition": "Ownership means a specific person or group is named as responsible for an asset, including its security, approving access and deciding how it is used.",
+    "example": "The HR director is listed as owner of the payroll system and must approve every access request to it.",
+    "category": "4.2 Hardware, software, and data asset management > Assignment/accounting",
+    "keyPoints": "Every asset needs a named owner; the owner is accountable, even if IT runs the system day to day; unowned assets tend to go unpatched and unmonitored"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Assignment/accounting",
+      "Classification"
+    ],
+    "term": "Classification (asset assignment)",
+    "definition": "Classification labels an asset or its data by sensitivity and importance (for example public, internal, confidential, restricted) so the right protection is applied.",
+    "example": "A server holding customer credit card data is classified as restricted, so it requires encryption, extra monitoring and limited access.",
+    "category": "4.2 Hardware, software, and data asset management > Assignment/accounting",
+    "keyPoints": "Classification decides controls, handling and disposal method; set by the owner; data classifications are covered more in 3.3"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Monitoring/asset tracking"
+    ],
+    "term": "Monitoring/asset tracking (asset management)",
+    "definition": "Asset tracking keeps an up-to-date view of every asset the organization has, where it is, who has it and its status, using inventory records and automated discovery (enumeration).",
+    "example": "An asset management system shows 1,050 laptops issued, while a network scan finds 1,080, revealing 30 unrecorded devices.",
+    "category": "4.2 Hardware, software, and data asset management",
+    "keyPoints": "Two parts: inventory and enumeration; finds lost, stolen and unauthorized devices; accurate tracking is the base for patching and vulnerability scanning"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Monitoring/asset tracking",
+      "Inventory"
+    ],
+    "term": "Inventory (asset tracking)",
+    "definition": "An inventory is the recorded list of assets with details such as asset tag, serial number, owner, location, configuration and software installed, kept current as assets change.",
+    "example": "Each laptop has an asset tag and a record listing its serial number, assigned user and OS version in the inventory database.",
+    "category": "4.2 Hardware, software, and data asset management > Monitoring/asset tracking",
+    "keyPoints": "The record of what you have; must be updated when assets move or change; supports audits, patching and incident response"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Monitoring/asset tracking",
+      "Enumeration"
+    ],
+    "term": "Enumeration (asset tracking)",
+    "definition": "Enumeration is actively discovering and listing assets, for example by scanning the network or querying management tools, to find what is really present, including devices and software missing from the inventory.",
+    "example": "A discovery scan enumerates all devices on the network and finds an unknown wireless access point an employee plugged in.",
+    "category": "4.2 Hardware, software, and data asset management > Monitoring/asset tracking",
+    "keyPoints": "Discovers what is actually there, compared with the inventory, which records what should be there; finds shadow IT and rogue devices; done with scanners and agents"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Disposal/decommissioning"
+    ],
+    "term": "Disposal/decommissioning (asset management)",
+    "definition": "Disposal or decommissioning is retiring an asset securely: removing it from service and inventory and making sure no data on it can be recovered, through sanitization or destruction, with proof (certification), while keeping any data the organization must retain.",
+    "example": "Old servers are retired: required records are archived, drives are wiped or shredded, a certificate of destruction is filed, and the inventory is updated.",
+    "category": "4.2 Hardware, software, and data asset management",
+    "keyPoints": "Four parts: sanitization, destruction, certification, data retention; data left on discarded drives is a common breach; NIST SP 800-88 guides media sanitization"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Disposal/decommissioning",
+      "Sanitization"
+    ],
+    "term": "Sanitization (media disposal)",
+    "definition": "Sanitization makes data on storage media unrecoverable for a chosen level of effort, while the media can usually be reused. NIST SP 800-88 (Rev. 2 of September 2025, which replaced the 2014 Rev. 1 and keeps the same three methods) names them: clear (overwrite or factory reset; stops simple recovery and normally keeps the media usable), purge (the drive's own sanitize commands such as block erase or cryptographic erase, or degaussing for magnetic media; defeats even laboratory recovery and may keep the media usable) and destroy (the media can no longer store data).",
+    "example": "Before donating old laptops, IT runs a secure erase on each SSD so the drives can be reused without exposing data.",
+    "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
+    "keyPoints": "Sanitization can keep the device usable, destruction cannot; simple file deletion or quick formatting is not sanitization; overwriting an SSD is weak because of spare cells, so use its built-in sanitize or cryptographic erase; degaussing works only on magnetic media, can ruin hard drives and does nothing to SSDs; Rev. 2 points to the IEEE 2883 standard for the right technique per media type; for cloud or other virtual storage, cryptographic erase may be the only purge option"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Disposal/decommissioning",
+      "Destruction"
+    ],
+    "term": "Destruction (media disposal)",
+    "definition": "Destruction physically ruins storage media so data cannot be recovered even in a laboratory and the media can never store data again, for example by disintegrating, incinerating, melting, pulverizing or shredding. It suits the most sensitive data and media that has failed or cannot be sanitized.",
+    "example": "Failed hard drives from a bank's card processing servers are sent to a vendor that disintegrates them into small particles.",
+    "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
+    "keyPoints": "Physical, permanent, media not reusable; vs sanitization, which removes data but can keep the media usable; drilling a hole or bending a drive only partly damages it, so NIST does not count it as destroy; often done by a third party who then provides certification; NIST SP 800-88 Rev. 2 warns that shredding and pulverizing lose effectiveness as media gets denser and should be used only for the lowest-sensitivity data, and that degaussing is not an approved destroy technique"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Disposal/decommissioning",
+      "Certification"
+    ],
+    "term": "Certification (media disposal)",
+    "definition": "Certification is documented proof that media was properly sanitized or destroyed, often a certificate of destruction from a disposal vendor listing the assets, method and date.",
+    "example": "A recycling vendor provides a certificate of destruction listing the serial numbers of 200 shredded drives, which the company keeps for its auditors.",
+    "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
+    "keyPoints": "Provides evidence for audits and compliance; NIST SP 800-88 Rev. 2 (September 2025, section 4.6) calls it a certificate of sanitization, completed for each sanitized device and kept on paper or electronically, and lists what it records (manufacturer, model and serial number, media type, method and technique, tool and version, verification method, who did it and when); especially important when a third party does the disposal; ties disposal back to inventory records"
+  },
+  {
+    "obj": "4.2",
+    "path": [
+      "Disposal/decommissioning",
+      "Data retention"
+    ],
+    "term": "Data retention (asset disposal)",
+    "definition": "Data retention means keeping data for the period required by law, regulation or business policy, and disposing of it once that period ends. Before an asset is destroyed, any data that must be kept is preserved elsewhere.",
+    "example": "Before wiping an old finance server, seven years of financial records required by regulation are moved to an archive.",
+    "category": "4.2 Hardware, software, and data asset management > Disposal/decommissioning",
+    "keyPoints": "Keep data as long as required, but not longer (extra data is extra risk); legal holds can override normal disposal; retention policy should be checked before sanitization or destruction"
+  },
+  {
+    "obj": "4.3",
+    "path": [],
+    "term": "SY0-701 4.3: Explain various activities associated with vulnerability management",
+    "definition": "This objective covers the vulnerability management cycle: finding vulnerabilities, analyzing and prioritizing them, responding and remediating, validating that fixes worked, and reporting.",
+    "example": "A team scans weekly, confirms findings, ranks them by CVSS and business impact, patches or applies compensating controls, rescans to verify, and reports progress to management.",
+    "category": "4.3 Vulnerability management",
+    "keyPoints": "Cycle: identify, analyze, respond, validate, report; know false positive vs false negative; CVE is the identifier, CVSS is the score; remediation options include patching, segmentation, compensating controls, insurance, exceptions"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods"
+    ],
+    "term": "Identification methods (vulnerability management)",
+    "definition": "Identification methods are the ways an organization discovers vulnerabilities: vulnerability scans, application security testing, threat feeds, penetration testing, responsible disclosure programs and system or process audits.",
+    "example": "A company combines automated scans, a yearly penetration test, a bug bounty program and threat intelligence feeds to find weaknesses.",
+    "category": "4.3 Vulnerability management",
+    "keyPoints": "No single method finds everything; scans are automated and broad, pen tests are manual and deep; threat feeds tell you about new threats; audits check processes as well as systems"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Vulnerability scan"
+    ],
+    "term": "Vulnerability scan (identification method)",
+    "definition": "A vulnerability scan uses an automated tool to check systems for known weaknesses such as missing patches, misconfigurations and open services, comparing what it finds against a database of known vulnerabilities. Scans can be credentialed or non-credentialed, and internal or external.",
+    "example": "A weekly scan reports that 12 servers are missing a critical OpenSSL patch.",
+    "category": "4.3 Vulnerability management > Identification methods",
+    "keyPoints": "Credentialed scans log in and see more (fewer false positives); non-credentialed shows the attacker view; scans identify, they do not exploit (that is pen testing); keep scanner signatures updated"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Application security"
+    ],
+    "term": "Application security (vulnerability identification method)",
+    "definition": "In vulnerability management, application security means finding flaws in software, through static analysis of code, dynamic analysis of the running application, and package monitoring of third-party components.",
+    "example": "A company runs SAST on each code commit, DAST against its staging site, and monitors its open-source libraries for new CVEs.",
+    "category": "4.3 Vulnerability management > Identification methods",
+    "keyPoints": "Three methods: static analysis, dynamic analysis, package monitoring; static = code not running, dynamic = running app; package monitoring covers dependencies and the software supply chain"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Application security",
+      "Static analysis"
+    ],
+    "term": "Static analysis (application security testing)",
+    "definition": "Static analysis (SAST) inspects source code or binaries without running them to find vulnerabilities such as injection flaws, unsafe functions and hard-coded credentials.",
+    "example": "A static analysis tool reports that a function uses strcpy without bounds checking, a possible buffer overflow.",
+    "category": "4.3 Vulnerability management > Identification methods > Application security",
+    "keyPoints": "No execution; finds flaws early and points to the exact line; can produce false positives; misses runtime and environment problems that dynamic analysis catches"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Application security",
+      "Dynamic analysis"
+    ],
+    "term": "Dynamic analysis (application security testing)",
+    "definition": "Dynamic analysis (DAST) tests an application while it is running, sending inputs and observing behavior to find vulnerabilities such as injection, authentication flaws and crashes. Fuzzing, which sends large amounts of random or malformed input, is a common form.",
+    "example": "A fuzzer sends thousands of malformed requests to a web API and finds one that crashes the service.",
+    "category": "4.3 Vulnerability management > Identification methods > Application security",
+    "keyPoints": "App is running (vs static: code only); finds runtime and configuration issues; fuzzing is a dynamic technique; does not point to the exact line of code"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Application security",
+      "Package monitoring"
+    ],
+    "term": "Package monitoring (application security)",
+    "definition": "Package monitoring tracks the third-party libraries and packages an application uses and alerts when one has a known vulnerability or is compromised, so it can be updated or replaced.",
+    "example": "A dependency monitoring tool alerts the team that a logging library in their app has a newly published critical CVE.",
+    "category": "4.3 Vulnerability management > Identification methods > Application security",
+    "keyPoints": "Covers software supply chain risk from open-source and third-party code; often uses a software bill of materials (SBOM) or software composition analysis; verify packages come from trusted sources"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Threat feed"
+    ],
+    "term": "Threat feed (vulnerability identification)",
+    "definition": "A threat feed is a stream of threat intelligence, such as new vulnerabilities, malicious IP addresses, domains and file hashes, and attacker techniques, that helps an organization learn about threats relevant to it. Feeds come from open sources, commercial vendors, sharing organizations and the dark web.",
+    "example": "A SIEM imports a threat feed of known malicious IPs and alerts when a workstation connects to one.",
+    "category": "4.3 Vulnerability management > Identification methods",
+    "keyPoints": "Sources: OSINT, proprietary/third-party, information-sharing organizations, dark web; often shared in standard formats such as STIX over TAXII; feeds are only useful if relevant and acted upon"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Threat feed",
+      "Open-source intelligence (OSINT)"
+    ],
+    "term": "Open-source intelligence (OSINT) (threat feed)",
+    "definition": "OSINT is intelligence gathered from publicly available sources such as websites, social media, news, public vulnerability databases, forums and government advisories. It is free but must be checked for accuracy.",
+    "example": "An analyst follows public vulnerability advisories and security researchers' blogs to learn about a new exploit the same day it is published.",
+    "category": "4.3 Vulnerability management > Identification methods > Threat feed",
+    "keyPoints": "Public and free (vs proprietary, paid); quality varies, so verify it; attackers use OSINT too, for reconnaissance"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Threat feed",
+      "Proprietary/third-party"
+    ],
+    "term": "Proprietary/third-party threat feed",
+    "definition": "A proprietary or third-party threat feed is commercial threat intelligence from a security vendor, usually paid, often curated, more timely and tailored, and delivered in formats ready to load into security tools.",
+    "example": "A company subscribes to a vendor feed that pushes newly seen malicious domains straight into its firewall and SIEM.",
+    "category": "4.3 Vulnerability management > Identification methods > Threat feed",
+    "keyPoints": "Paid and curated (vs OSINT, free and public); may include vendor research not available elsewhere; still needs tuning to be relevant"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Threat feed",
+      "Information-sharing organization"
+    ],
+    "term": "Information-sharing organization (threat feed)",
+    "definition": "An information-sharing organization is a group where members, often in the same industry or sector, share threat intelligence with each other, such as an Information Sharing and Analysis Center (ISAC) or government programs.",
+    "example": "A bank receives a warning from the financial sector ISAC about a phishing campaign that hit another member bank yesterday.",
+    "category": "4.3 Vulnerability management > Identification methods > Threat feed",
+    "keyPoints": "Industry focused, so very relevant; members share what they see; examples: sector ISACs, government partnerships such as CISA programs"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Threat feed",
+      "Dark web"
+    ],
+    "term": "Dark web (threat feed)",
+    "definition": "The dark web is the part of the internet reachable only through special software such as Tor. Monitoring it can reveal stolen credentials, leaked company data, or attackers planning or selling access to an organization.",
+    "example": "A dark web monitoring service finds employee usernames and passwords from the company for sale on a criminal forum, so passwords are reset.",
+    "category": "4.3 Vulnerability management > Identification methods > Threat feed",
+    "keyPoints": "Early warning of breaches and leaked credentials; often done by specialized services; content is hard to verify and access carries risks"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Penetration testing"
+    ],
+    "term": "Penetration testing (vulnerability identification)",
+    "definition": "A penetration test is an authorized, simulated attack where testers actively try to exploit vulnerabilities to show what a real attacker could achieve. It follows agreed rules of engagement and may be done with known, partially known or unknown knowledge of the environment.",
+    "example": "Hired testers exploit an unpatched web server, move to a database, and report how they reached customer data.",
+    "category": "4.3 Vulnerability management > Identification methods",
+    "keyPoints": "Exploits vulnerabilities (a scan only identifies them); needs written authorization and rules of engagement; known (white box), partially known (gray box), unknown (black box) environment; more in 5.5"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Responsible disclosure program"
+    ],
+    "term": "Responsible disclosure program",
+    "definition": "A responsible disclosure program gives outside researchers a clear, safe way to report vulnerabilities they find to the organization, which then has time to fix them before details are made public.",
+    "example": "A researcher finds a flaw in a company's website and reports it through the published security contact page instead of posting it online.",
+    "category": "4.3 Vulnerability management > Identification methods",
+    "keyPoints": "Defines how to report and what is allowed; gives the vendor time to patch before public disclosure; bug bounty programs add rewards; reduces chance of a flaw being made public before it is fixed"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "Responsible disclosure program",
+      "Bug bounty program"
+    ],
+    "term": "Bug bounty program",
+    "definition": "A bug bounty program pays rewards to outside researchers who find and responsibly report vulnerabilities in an organization's systems, within a defined scope and rules.",
+    "example": "A software company pays a researcher $5,000 for reporting an authentication bypass in its mobile app.",
+    "category": "4.3 Vulnerability management > Identification methods > Responsible disclosure program",
+    "keyPoints": "Rewarded form of responsible disclosure; scope and rules define what may be tested; adds many testers at low cost; out-of-scope testing is not authorized"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Identification methods",
+      "System/process audit"
+    ],
+    "term": "System/process audit (vulnerability identification)",
+    "definition": "A system or process audit reviews systems, configurations and procedures against policies, standards or regulations to find gaps, such as missing controls, weak processes or noncompliant settings.",
+    "example": "An internal audit finds that the account removal process takes weeks, so former employees keep access, a process vulnerability.",
+    "category": "4.3 Vulnerability management > Identification methods",
+    "keyPoints": "Finds process weaknesses that scanners cannot; compares against a standard or policy; can be internal or external"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis"
+    ],
+    "term": "Analysis (vulnerability management)",
+    "definition": "Analysis is deciding what each discovered vulnerability really means: confirming it is real, scoring and classifying it, and prioritizing it based on severity, exposure, the environment, business impact and the organization's risk tolerance.",
+    "example": "Two findings share a CVSS 9.8, but one is on an internet-facing server and the other on an isolated lab system, so the internet-facing one is fixed first.",
+    "category": "4.3 Vulnerability management",
+    "keyPoints": "Steps: confirm, classify, score, prioritize; CVSS alone is not enough, context matters; inputs include exposure factor, environmental variables, organizational impact, risk tolerance"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Confirmation"
+    ],
+    "term": "Confirmation (vulnerability analysis)",
+    "definition": "Confirmation checks whether a reported vulnerability actually exists before effort is spent fixing it, weeding out false positives and considering whether real issues were missed (false negatives).",
+    "example": "An analyst checks the server version by hand and finds the scanner wrongly flagged a patched service.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Verify before acting; false positive = reported but not real; false negative = real but not reported; credentialed scans and manual checks improve accuracy"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Confirmation",
+      "False positive"
+    ],
+    "term": "False positive (vulnerability scan)",
+    "definition": "A false positive is when a scanner or security tool reports a vulnerability or threat that does not actually exist. It wastes time but does not leave the organization exposed.",
+    "example": "A scanner reports a vulnerable Apache version because it reads the banner, but the server has a backported security patch.",
+    "category": "4.3 Vulnerability management > Analysis > Confirmation",
+    "keyPoints": "Reported but not real; wastes effort, causes alert fatigue; reduce with credentialed scans, updated signatures and tuning; less dangerous than a false negative"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Confirmation",
+      "False negative"
+    ],
+    "term": "False negative (vulnerability scan)",
+    "definition": "A false negative is when a real vulnerability or threat exists but the scanner or security tool does not detect it. It is more dangerous because the organization believes it is safe.",
+    "example": "A scan reports a server as clean, but it is vulnerable to a flaw the scanner's outdated signatures do not cover.",
+    "category": "4.3 Vulnerability management > Analysis > Confirmation",
+    "keyPoints": "Real but missed; most dangerous error because nothing gets fixed; caused by outdated signatures, non-credentialed scans, limited scope; combine methods (scans plus pen tests)"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Prioritize"
+    ],
+    "term": "Prioritize (vulnerability analysis)",
+    "definition": "Prioritizing means ordering vulnerabilities for remediation, since not everything can be fixed at once, based on severity scores, whether exploits exist, how exposed the system is and how important the affected asset is.",
+    "example": "A team fixes an actively exploited flaw on its public VPN gateway before a higher-scored flaw on an isolated internal test machine.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Fix highest risk first, not simply highest score; consider active exploitation, exposure and asset value; limited time and staff make prioritization necessary"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Common Vulnerability Scoring System (CVSS)"
+    ],
+    "term": "Common Vulnerability Scoring System (CVSS)",
+    "definition": "CVSS is a standard way to rate the severity of a vulnerability with a score from 0.0 to 10.0, built from metrics such as attack vector, complexity, privileges needed, user interaction and impact on confidentiality, integrity and availability. It is maintained by FIRST.",
+    "example": "A vulnerability that is remotely exploitable without credentials and gives full system control gets a CVSS v3.1 base score of 9.8, rated Critical.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Score, not an identifier (CVE is the identifier); v3.x and v4.0 (published November 2023) use the same ratings: None 0.0, Low 0.1 to 3.9, Medium 4.0 to 6.9, High 7.0 to 8.9, Critical 9.0 to 10.0; base score can be adjusted with environmental metrics (v4.0 metric groups: Base, Threat, Environmental, Supplemental); NVD publishes CVSS scores for CVEs"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Common Vulnerability Enumeration (CVE)"
+    ],
+    "term": "Common Vulnerability Enumeration (CVE)",
+    "definition": "CVE is a public list that gives each publicly known vulnerability a unique identifier, such as CVE-2021-44228, so everyone refers to the same flaw by the same name. The program is run by MITRE and sponsored by CISA, the US Cybersecurity and Infrastructure Security Agency.",
+    "example": "A vendor advisory, a scanner report and a news article all reference CVE-2021-44228, so the team knows they all mean the Log4Shell flaw.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Identifier, not a score (CVSS is the score); format CVE-year-number; officially named Common Vulnerabilities and Exposures, but CompTIA's acronym list writes Enumeration; scanners map findings to CVE IDs"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Vulnerability classification"
+    ],
+    "term": "Vulnerability classification",
+    "definition": "Vulnerability classification groups vulnerabilities by type or category, such as injection, misconfiguration, missing patch, or weak cryptography, and by severity, so similar issues can be handled together and root causes found.",
+    "example": "Classification shows that 60% of findings are misconfigurations, pointing to a weak baseline process rather than missing patches.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Classifies by type (for example using CWE categories) and severity; helps find root causes and patterns; supports reporting and prioritization"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Exposure factor"
+    ],
+    "term": "Exposure factor (vulnerability analysis)",
+    "definition": "Exposure factor (EF) is the percentage of an asset's value that would be lost if a specific threat succeeded, expressed from 0% to 100%. It is used in quantitative risk calculations: single loss expectancy (SLE) equals asset value times exposure factor.",
+    "example": "If a $100,000 database would lose 40% of its value in a breach, the EF is 0.4 and the SLE is $40,000.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "EF is a percentage of value lost; SLE = AV x EF; ALE = SLE x ARO; higher exposure means higher priority"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Environmental variables"
+    ],
+    "term": "Environmental variables (vulnerability analysis)",
+    "definition": "Environmental variables are facts about where a vulnerable system sits and how it is used, such as whether it is internet-facing, what data it holds, and which other controls protect it, that make the real risk higher or lower than the generic score. CVSS has environmental metrics for this.",
+    "example": "A critical flaw on a server that is offline, isolated and behind multiple controls is lower real risk than the same flaw on a public web server.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Adjusts generic severity to your environment; the same CVE can be urgent in one company and minor in another; CVSS environmental metrics capture it"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Industry/organizational impact"
+    ],
+    "term": "Industry/organizational impact (vulnerability analysis)",
+    "definition": "Industry or organizational impact is how much a vulnerability being exploited would hurt this particular organization, considering its industry, regulations, critical services, reputation and the data involved.",
+    "example": "A flaw in a patient records system has higher impact for a hospital, due to health data regulations and patient safety, than the same flaw would have elsewhere.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Business context drives priority; regulated industries (health, finance) face fines and legal impact; critical services and safety raise impact"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Analysis",
+      "Risk tolerance"
+    ],
+    "term": "Risk tolerance (vulnerability analysis)",
+    "definition": "In vulnerability management, risk tolerance decides how long a vulnerability of each severity may stay open and when an unfixed one may be accepted. It turns the organization's overall tolerance into remediation deadlines and exception rules.",
+    "example": "A low-risk-tolerance bank requires critical vulnerabilities to be patched within 48 hours, while a startup allows 30 days.",
+    "category": "4.3 Vulnerability management > Analysis",
+    "keyPoints": "Set by leadership; shapes remediation timelines and whether exceptions are allowed; same idea as risk tolerance in 5.2 (the acceptable variation from risk appetite), applied here to deciding which findings must be fixed first and how fast"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Vulnerability response and remediation"
+    ],
+    "term": "Vulnerability response and remediation",
+    "definition": "Response and remediation is deciding and carrying out what to do about each vulnerability: fix it by patching, reduce it with segmentation or compensating controls, transfer financial risk with insurance, or formally accept it with an exception or exemption.",
+    "example": "A legacy system that cannot be patched is placed on an isolated segment with extra monitoring, and a documented exception is approved.",
+    "category": "4.3 Vulnerability management",
+    "keyPoints": "Options: patching, insurance, segmentation, compensating controls, exceptions and exemptions; patching is preferred when possible; every option except patching leaves the flaw in place"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Vulnerability response and remediation",
+      "Patching"
+    ],
+    "term": "Patching (vulnerability remediation)",
+    "definition": "Patching applies vendor updates that fix the vulnerability itself. It is the most direct remediation, but patches should be tested and deployed through change management, with a rollback plan.",
+    "example": "After Microsoft releases a fix for a critical flaw, IT tests it on a pilot group and then deploys it to all servers.",
+    "category": "4.3 Vulnerability management > Vulnerability response and remediation",
+    "keyPoints": "Fixes the root cause; test before broad deployment; automate where possible; some systems (legacy, ICS, embedded) cannot be patched, so other controls are needed"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Vulnerability response and remediation",
+      "Insurance"
+    ],
+    "term": "Insurance (vulnerability remediation)",
+    "definition": "Cybersecurity insurance transfers some of the financial impact of a security incident to an insurer. It does not fix the vulnerability, but it helps cover costs such as recovery, legal fees and some losses.",
+    "example": "A company buys cyber insurance that helps pay for incident response and customer notification after a ransomware attack.",
+    "category": "4.3 Vulnerability management > Vulnerability response and remediation",
+    "keyPoints": "Risk transfer, not risk reduction; does not remove the vulnerability; insurers often require baseline controls such as MFA and backups; policies may exclude some events"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Vulnerability response and remediation",
+      "Segmentation"
+    ],
+    "term": "Segmentation (vulnerability remediation)",
+    "definition": "Segmentation places a vulnerable system on a separate, restricted network segment so attackers have fewer paths to reach it and a compromise cannot spread easily. It is often used when a system cannot be patched.",
+    "example": "An old manufacturing PC running an unsupported OS is moved to its own VLAN that can reach only the machine it controls.",
+    "category": "4.3 Vulnerability management > Vulnerability response and remediation",
+    "keyPoints": "Limits exposure without fixing the flaw; common for legacy, ICS and IoT systems; implemented with VLANs, firewalls, ACLs"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Vulnerability response and remediation",
+      "Compensating controls"
+    ],
+    "term": "Compensating controls (vulnerability remediation)",
+    "definition": "A compensating control is an alternative safeguard used when the normal fix is not possible, reducing the risk to an acceptable level by other means.",
+    "example": "Since a vulnerable application cannot be patched until next quarter, a web application firewall rule is added to block the known exploit.",
+    "category": "4.3 Vulnerability management > Vulnerability response and remediation",
+    "keyPoints": "Used when the primary control (often patching) is not possible; examples: WAF rules, extra monitoring, segmentation, disabling a feature; should be documented and reviewed"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Vulnerability response and remediation",
+      "Exceptions and exemptions"
+    ],
+    "term": "Exceptions and exemptions (vulnerability remediation)",
+    "definition": "An exception or exemption is a formal, documented approval to leave a vulnerability unremediated, or not follow a policy, for a stated reason and usually for a limited time, with the risk accepted by someone with authority.",
+    "example": "A critical medical device cannot be updated without vendor approval, so management signs a six-month exception while compensating controls are applied.",
+    "category": "4.3 Vulnerability management > Vulnerability response and remediation",
+    "keyPoints": "Formal risk acceptance; must be documented, approved, time limited and reviewed; often paired with compensating controls; an undocumented unpatched system is not an exception; NIST SP 800-40 Rev. 4 asks that exceptions be tracked closely and suggests putting unpatchable assets in their own maintenance group with other mitigations rather than leaving them as open-ended exceptions"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Validation of remediation"
+    ],
+    "term": "Validation of remediation",
+    "definition": "Validation of remediation confirms that a fix actually worked and did not create new problems, by rescanning, auditing and verifying the system's state.",
+    "example": "After patching, the team rescans the servers, confirms the finding is gone, and closes the ticket.",
+    "category": "4.3 Vulnerability management",
+    "keyPoints": "Three methods: rescanning, audit, verification; never assume a patch worked; validation closes the loop before reporting"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Validation of remediation",
+      "Rescanning"
+    ],
+    "term": "Rescanning (validation of remediation)",
+    "definition": "Rescanning means running the vulnerability scan again after remediation to confirm the vulnerability no longer appears and no new issues were introduced.",
+    "example": "A rescan after patching shows the critical finding has disappeared from all but one server, where the patch failed.",
+    "category": "4.3 Vulnerability management > Validation of remediation",
+    "keyPoints": "Fastest way to confirm a fix; use the same scan settings as the original scan; can reveal failed patches or new findings"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Validation of remediation",
+      "Audit"
+    ],
+    "term": "Audit (validation of remediation)",
+    "definition": "An audit, as validation, reviews records, configurations and remediation evidence to confirm fixes were done correctly and according to policy and compliance requirements.",
+    "example": "An auditor checks change tickets and system configurations to confirm every critical vulnerability was fixed within the policy deadline.",
+    "category": "4.3 Vulnerability management > Validation of remediation",
+    "keyPoints": "Checks that the process was followed and documented, not only that a scan is clean; supports compliance; can be internal or external"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Validation of remediation",
+      "Verification"
+    ],
+    "term": "Verification (validation of remediation)",
+    "definition": "Verification confirms by direct checking that a remediation is in place and effective, for example by checking the installed version, testing that the exploit no longer works, or confirming a compensating control is active.",
+    "example": "A tester tries the original exploit against the patched server and confirms it now fails.",
+    "category": "4.3 Vulnerability management > Validation of remediation",
+    "keyPoints": "Direct confirmation the fix is effective; can include manual testing or retesting by the pen tester; complements rescans"
+  },
+  {
+    "obj": "4.3",
+    "path": [
+      "Reporting"
+    ],
+    "term": "Reporting (vulnerability management)",
+    "definition": "Vulnerability reporting communicates findings, risk levels, remediation progress and trends to the right audiences, from technical detail for administrators to summary metrics for management and compliance.",
+    "example": "A monthly report shows management that critical vulnerabilities dropped from 45 to 8 and average time to patch fell to 6 days.",
+    "category": "4.3 Vulnerability management",
+    "keyPoints": "Tailor to the audience (technical vs executive); track metrics such as open criticals and time to remediate; supports compliance and accountability; final step of the cycle"
+  },
+  {
+    "obj": "4.4",
+    "path": [],
+    "term": "SY0-701 4.4: Explain security alerting and monitoring concepts and tools",
+    "definition": "This objective covers what to monitor (systems, applications, infrastructure), the monitoring activities (log aggregation, alerting, scanning, reporting, archiving, alert response) and the tools used (SCAP, benchmarks, agents, SIEM, antivirus, DLP, SNMP traps, NetFlow, vulnerability scanners).",
+    "example": "A SOC collects logs from servers, apps and firewalls into a SIEM, tunes its alerts, quarantines an infected laptop, and archives logs for a year.",
+    "category": "4.4 Security alerting and monitoring",
+    "keyPoints": "Know what each tool does and its look-alikes (SIEM vs NetFlow vs SNMP; agent vs agentless); alert tuning reduces false positives; quarantine is a response action"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Monitoring computing resources"
+    ],
+    "term": "Monitoring computing resources (alerting and monitoring)",
+    "definition": "Monitoring computing resources means watching the health, performance and security events of systems, applications and infrastructure so that problems and attacks are noticed and handled quickly.",
+    "example": "A monitoring dashboard shows a server's CPU at 100%, a spike of failed application logins and a router interface going down, all at the same time.",
+    "category": "4.4 Security alerting and monitoring",
+    "keyPoints": "Three areas: systems, applications, infrastructure; covers both availability and security; feeds log aggregation and alerting"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Monitoring computing resources",
+      "Systems"
+    ],
+    "term": "Systems (monitored resource)",
+    "definition": "Monitoring systems means watching servers and endpoints: their availability, resource use (CPU, memory, disk), security logs, logins, running processes and configuration changes.",
+    "example": "Monitoring alerts when a domain controller logs hundreds of failed logins from one account in a minute.",
+    "category": "4.4 Security alerting and monitoring > Monitoring computing resources",
+    "keyPoints": "Watch OS logs, authentication events, resource use and changes; sudden changes can indicate compromise or failure"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Monitoring computing resources",
+      "Applications"
+    ],
+    "term": "Applications (monitored resource)",
+    "definition": "Monitoring applications means watching application availability, response times, errors and application logs, including security events such as failed logins, access to sensitive functions and unusual transactions.",
+    "example": "Application logs show a single user downloading thousands of customer records, triggering an alert.",
+    "category": "4.4 Security alerting and monitoring > Monitoring computing resources",
+    "keyPoints": "App logs show what users do inside the app; watch errors and unusual usage; uptime and performance matter for availability too"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Monitoring computing resources",
+      "Infrastructure"
+    ],
+    "term": "Infrastructure (monitored resource)",
+    "definition": "Monitoring infrastructure means watching the network devices and supporting systems, such as routers, switches, firewalls, wireless controllers, and cloud and virtualization platforms, for availability, performance and security events.",
+    "example": "An alert fires when a core switch reports an interface error spike and the firewall shows a flood of blocked connections.",
+    "category": "4.4 Security alerting and monitoring > Monitoring computing resources",
+    "keyPoints": "Covers network and platform components; uses SNMP, NetFlow, device logs; infrastructure failure affects many systems at once"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities"
+    ],
+    "term": "Activities (alerting and monitoring)",
+    "definition": "The alerting and monitoring activities are log aggregation, alerting, scanning, reporting, archiving, and alert response and remediation or validation (including quarantine and alert tuning).",
+    "example": "A SOC collects logs, alerts on suspicious events, runs scans, reports metrics, archives old logs, and responds to alerts by quarantining hosts.",
+    "category": "4.4 Security alerting and monitoring",
+    "keyPoints": "Think of a pipeline: collect, alert, respond, report, keep; each activity has a separate card; SIEM supports most of them"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Log aggregation"
+    ],
+    "term": "Log aggregation",
+    "definition": "Log aggregation collects logs from many sources, such as servers, applications, firewalls and endpoints, into one central place, usually a SIEM or log server, where they can be searched, correlated and kept safe from tampering.",
+    "example": "Firewall, VPN and Active Directory logs are all sent to a SIEM, so an analyst can see a VPN login followed by unusual file access in one view.",
+    "category": "4.4 Security alerting and monitoring > Activities",
+    "keyPoints": "Centralizes logs for correlation and search; protects logs from being erased on a compromised host; often uses syslog; accurate time sync (NTP) is needed to correlate events"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Alerting"
+    ],
+    "term": "Alerting (monitoring activity)",
+    "definition": "Alerting automatically notifies staff when monitored data matches a rule or threshold that suggests a problem or attack, so it can be investigated quickly.",
+    "example": "The SIEM sends an alert when an administrator account logs in at 3 a.m. from another country.",
+    "category": "4.4 Security alerting and monitoring > Activities",
+    "keyPoints": "Rules and thresholds trigger alerts; too many alerts cause alert fatigue; tuning keeps alerts useful; alerts lead to response"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Scanning"
+    ],
+    "term": "Scanning (monitoring activity)",
+    "definition": "Scanning as a monitoring activity regularly checks systems and networks for vulnerabilities, misconfigurations, unauthorized devices and compliance with baselines.",
+    "example": "A nightly scan finds a server whose configuration no longer matches its secure baseline.",
+    "category": "4.4 Security alerting and monitoring > Activities",
+    "keyPoints": "Regular and automated; finds vulnerabilities, rogue devices and drift; results feed alerts and reports"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Reporting"
+    ],
+    "term": "Reporting (alerting and monitoring activity)",
+    "definition": "Reporting summarizes monitoring data into useful information, such as security events, trends, compliance status and incidents handled, for analysts, managers and auditors.",
+    "example": "A weekly SIEM report shows the top attacked systems and the number of blocked malware events.",
+    "category": "4.4 Security alerting and monitoring > Activities",
+    "keyPoints": "Turns raw data into decisions; scheduled or on demand; supports compliance; dashboards show near-real-time views"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Archiving"
+    ],
+    "term": "Archiving (log and monitoring data)",
+    "definition": "Archiving stores older logs and monitoring data long term, protected from change, to meet legal and compliance retention requirements and to support later investigations.",
+    "example": "Logs older than 90 days move from the SIEM to cheaper archive storage and are kept for one year as required by policy.",
+    "category": "4.4 Security alerting and monitoring > Activities",
+    "keyPoints": "Retention set by policy or regulation; archived data must stay intact and searchable when needed; helps investigate incidents discovered long after they began"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Alert response and remediation/validation"
+    ],
+    "term": "Alert response and remediation/validation",
+    "definition": "Alert response is what happens after an alert: investigating it, containing the problem (for example quarantine), fixing it, validating the fix, and improving the alerts themselves through tuning.",
+    "example": "An alert on a malware detection leads an analyst to quarantine the laptop, clean it, confirm it is clean and adjust the rule that fired late.",
+    "category": "4.4 Security alerting and monitoring > Activities",
+    "keyPoints": "Listed parts: quarantine and alert tuning; validate before closing; feedback from each alert improves detection"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Alert response and remediation/validation",
+      "Quarantine"
+    ],
+    "term": "Quarantine (alert response)",
+    "definition": "Quarantine isolates a suspicious file, device or system so it cannot spread malware or reach other resources while it is investigated and fixed.",
+    "example": "EDR automatically cuts an infected laptop off from the network, allowing only communication with the security console.",
+    "category": "4.4 Security alerting and monitoring > Activities > Alert response and remediation/validation",
+    "keyPoints": "Containment action; can apply to files (antivirus moves them) or to whole hosts (network isolation); keeps evidence for investigation"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Activities",
+      "Alert response and remediation/validation",
+      "Alert tuning"
+    ],
+    "term": "Alert tuning",
+    "definition": "Alert tuning adjusts detection rules and thresholds to cut false positives while still catching real threats, so analysts are not overwhelmed and important alerts are not missed.",
+    "example": "A rule alerting on every failed login is tuned to alert only after 10 failures in 5 minutes from one source.",
+    "category": "4.4 Security alerting and monitoring > Activities > Alert response and remediation/validation",
+    "keyPoints": "Reduces false positives and alert fatigue; over-tuning can create false negatives; an ongoing process, not a one-time fix"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools"
+    ],
+    "term": "Tools (alerting and monitoring)",
+    "definition": "The alerting and monitoring tools listed are SCAP, benchmarks, agents or agentless collection, SIEM, antivirus, DLP, SNMP traps, NetFlow and vulnerability scanners.",
+    "example": "A SOC uses a SIEM for correlation, NetFlow for traffic patterns, SNMP traps for device faults and scanners for vulnerabilities.",
+    "category": "4.4 Security alerting and monitoring",
+    "keyPoints": "Correlation across logs = SIEM; traffic metadata = NetFlow, device fault alerts = SNMP traps; configuration checks = SCAP and benchmarks, known flaws = vulnerability scanners; malware = antivirus, sensitive data leaving = DLP"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Security Content Automation Protocol (SCAP)"
+    ],
+    "term": "Security Content Automation Protocol (SCAP)",
+    "definition": "SCAP is a NIST suite of open standards that lets security tools describe vulnerabilities and configuration checks in a common format, so different tools can automatically check systems for compliance and known flaws. It includes standards such as CVE, CVSS, CPE, CCE, XCCDF and OVAL.",
+    "example": "A compliance tool loads a SCAP content file for a benchmark and automatically checks 500 servers against it.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Created by NIST; enables automated, tool-independent compliance and vulnerability checks; common language between scanners; pairs with benchmarks; current release SCAP 1.4 (2026), which prefers CVSS v4.0; XCCDF holds the checklists, OVAL describes how to test a system, CPE names platforms and CCE names configuration settings"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Benchmarks"
+    ],
+    "term": "Benchmarks (security configuration)",
+    "definition": "Benchmarks are published, recommended secure configuration settings for specific operating systems, applications and devices, such as CIS Benchmarks and DISA STIGs. Systems are compared against them to find weak settings.",
+    "example": "A scan compares a Linux server with the CIS Benchmark and reports that SSH root login is still allowed.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Common sources: CIS Benchmarks, DISA STIGs, vendor guides; used to establish secure baselines; often checked automatically with SCAP"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Agents/agentless"
+    ],
+    "term": "Agents/agentless (monitoring tools)",
+    "definition": "Agent-based monitoring installs software on each system to collect data and enforce settings continuously; agentless monitoring collects data remotely, for example over the network or through management interfaces, with nothing installed on the system.",
+    "example": "An EDR agent runs on every laptop, while network devices that cannot run agents are monitored agentlessly through SNMP and syslog.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Agent: more detail, works offline and off network, but must be installed and maintained; agentless: nothing to install, good for devices that cannot run agents, but less detail and needs network access; NAC can use persistent or dissolvable agents too"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Security information and event management (SIEM)"
+    ],
+    "term": "Security information and event management (SIEM)",
+    "definition": "A SIEM collects and aggregates logs and events from across the organization, correlates them to find suspicious patterns, raises alerts, provides dashboards and reports, and keeps data for investigations and compliance.",
+    "example": "The SIEM correlates a phishing email click, a new process on the same laptop, and a connection to a known bad IP into one high-priority alert.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Key functions: aggregation, correlation, alerting, dashboards, retention; correlation across sources is what sets it apart; needs tuning; SOAR (4.7) automates response on top"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Antivirus"
+    ],
+    "term": "Antivirus (monitoring tool)",
+    "definition": "Antivirus software detects, blocks and removes malware on endpoints using signatures of known malware plus heuristic and behavior-based detection, and reports detections to central monitoring.",
+    "example": "Antivirus quarantines a malicious attachment and the central console alerts the security team.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Signature-based detection misses new malware, so heuristics and behavior help; keep definitions updated; EDR goes further with recording and response; alerts feed the SIEM"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Data loss prevention (DLP)"
+    ],
+    "term": "Data loss prevention (DLP) (monitoring tool)",
+    "definition": "As a monitoring tool, DLP watches data in use, in motion and at rest for sensitive information, such as card numbers or confidential documents, and alerts on or blocks attempts to send or copy it where it should not go.",
+    "example": "DLP alerts the security team when an employee tries to email a spreadsheet full of Social Security numbers to a personal address.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Monitors data in use, in motion, at rest; detects patterns and labels of sensitive data; can alert or block; 4.5 covers DLP as a capability to configure"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Simple Network Management Protocol (SNMP) traps"
+    ],
+    "term": "Simple Network Management Protocol (SNMP) traps",
+    "definition": "An SNMP trap is an unsolicited alert message that a network device's SNMP agent sends to the management station when a specific event occurs, such as an interface going down or a threshold being crossed, instead of waiting to be polled.",
+    "example": "A switch sends an SNMP trap to the network management system the moment a link to a server goes down.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Trap = device pushes an alert (vs polling, where the manager asks); traps use UDP 162, polling UDP 161; use SNMPv3 for authentication and encryption, v1 and v2c send community strings in clear text"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "NetFlow"
+    ],
+    "term": "NetFlow",
+    "definition": "NetFlow is a protocol, originally from Cisco, that collects metadata about network traffic flows, such as source and destination addresses, ports, protocol, times and byte counts, and sends it to a collector for analysis. It shows who talked to whom and how much, not packet contents.",
+    "example": "NetFlow data shows a workstation sending 20 GB to an unknown external IP overnight, suggesting data exfiltration.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Flow metadata, not full packet capture; good for baselining traffic, spotting exfiltration and DDoS; uses probes and collectors; IPFIX is the related open standard"
+  },
+  {
+    "obj": "4.4",
+    "path": [
+      "Tools",
+      "Vulnerability scanners"
+    ],
+    "term": "Vulnerability scanners (monitoring tool)",
+    "definition": "Vulnerability scanners are tools that automatically probe systems and applications for known vulnerabilities, missing patches and misconfigurations, and report findings with severity ratings, often mapped to CVE and CVSS.",
+    "example": "A scheduled scanner run finds a web server with an expired TLS certificate and an outdated, vulnerable PHP version.",
+    "category": "4.4 Security alerting and monitoring > Tools",
+    "keyPoints": "Identifies, does not exploit; credentialed vs non-credentialed; keep plugins updated; results can contain false positives that need confirmation"
+  },
+  {
+    "obj": "4.5",
+    "path": [],
+    "term": "SY0-701 4.5: Given a scenario, modify enterprise capabilities to enhance security",
+    "definition": "This objective covers changing and tuning enterprise security tools to improve protection: firewalls, IDS/IPS, web filters, operating system security, secure protocols, DNS filtering, email security, file integrity monitoring, DLP, NAC, EDR/XDR and user behavior analytics.",
+    "example": "After spoofed emails impersonate the CEO, the company publishes SPF and DKIM records and a DMARC reject policy, and adds a web filter rule blocking newly registered domains.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Scenario objective: choose the right control and setting; know firewall rule order and implicit deny; know SPF vs DKIM vs DMARC; know secure protocol and port pairs"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Firewall"
+    ],
+    "term": "Firewall (enterprise capability)",
+    "definition": "A firewall controls traffic between networks or hosts by allowing or blocking it according to rules based on addresses, ports, protocols and, for next-generation firewalls, applications and users. Enhancing security means tuning its rules, access lists, allowed ports and protocols, and network zones such as screened subnets.",
+    "example": "An admin replaces an \"allow any\" rule with rules that permit only HTTPS to the web server and block everything else.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Rules read top to bottom, first match wins, implicit deny at the end; least privilege for traffic; NGFW adds application awareness; screened subnet isolates public-facing servers"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Firewall",
+      "Rules"
+    ],
+    "term": "Rules (firewall)",
+    "definition": "Firewall rules are the individual statements that say which traffic to allow or deny, defined by source, destination, port, protocol and action. They are processed in order, the first match is applied, and traffic matching no rule is denied by an implicit deny.",
+    "example": "A broad \"allow all from LAN\" rule placed above a specific \"deny LAN to finance server\" rule means the deny never takes effect.",
+    "category": "4.5 Enhancing enterprise security > Firewall",
+    "keyPoints": "Order matters: specific rules above general ones; first match wins; implicit deny at the bottom; remove unused and overly broad rules; NIST SP 800-41 notes rule handling varies by product: on sequential first-match firewalls, rules that match the most traffic should sit as high as correct ordering allows, for speed; NIST recommends deny by default"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Firewall",
+      "Access lists"
+    ],
+    "term": "Access lists (firewall)",
+    "definition": "Access control lists (ACLs) are ordered lists of permit and deny entries applied to an interface or traffic direction on a firewall or router, filtering packets by criteria such as IP address, port and protocol.",
+    "example": "A router ACL permits traffic from the management subnet to port 22 and denies SSH from everywhere else.",
+    "category": "4.5 Enhancing enterprise security > Firewall",
+    "keyPoints": "Same logic as rules: ordered, first match, implicit deny; often stateless on routers; applied inbound or outbound per interface"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Firewall",
+      "Ports/protocols"
+    ],
+    "term": "Ports/protocols (firewall)",
+    "definition": "Firewalls filter by port number and protocol (TCP, UDP, ICMP) to allow only the services that are needed, for example TCP 443 for HTTPS, while blocking others such as Telnet on TCP 23.",
+    "example": "The firewall allows TCP 443 to the web server, but blocks TCP 3389 so Remote Desktop is not exposed to the internet.",
+    "category": "4.5 Enhancing enterprise security > Firewall",
+    "keyPoints": "Allow only needed ports and protocols; know common ports (22 SSH, 23 Telnet, 25 SMTP, 53 DNS, 80 HTTP, 443 HTTPS, 3389 RDP); port alone does not prove which application is in use, NGFWs inspect the application"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Firewall",
+      "Screened subnets"
+    ],
+    "term": "Screened subnets",
+    "definition": "A screened subnet, formerly called a DMZ, is a separate network zone between the internet and the internal network that holds public-facing servers. Firewalls control traffic so outsiders reach only those servers, and a compromised server cannot freely reach the internal network.",
+    "example": "The company web and email gateways sit in a screened subnet, and the firewall blocks them from starting connections to the internal database network.",
+    "category": "4.5 Enhancing enterprise security > Firewall",
+    "keyPoints": "Same idea as the older term DMZ; holds public services (web, email relay, DNS); limits damage if a public server is compromised; uses one firewall with three interfaces or two firewalls"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "IDS/IPS"
+    ],
+    "term": "IDS/IPS (enterprise capability)",
+    "definition": "An intrusion detection system (IDS) watches traffic or host activity and alerts on attacks; an intrusion prevention system (IPS) sits inline and can also block them. They detect using signatures and anomaly or behavior analysis, and show trends over time.",
+    "example": "An inline IPS drops packets matching a known exploit signature, while an IDS on a mirror port only alerts.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "IDS = detect and alert (passive, out of band); IPS = inline, can block; signature-based misses new attacks, anomaly-based catches them but has more false positives; network-based vs host-based"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "IDS/IPS",
+      "Trends"
+    ],
+    "term": "Trends (IDS/IPS)",
+    "definition": "IDS/IPS trends are patterns in detections over time, such as rising attack types, top sources or most targeted systems, usually shown on dashboards. They help spot campaigns and decide where to strengthen defenses or tune rules.",
+    "example": "The IPS dashboard shows a steady rise in attempts against the VPN gateway over two weeks, so the team prioritizes patching it.",
+    "category": "4.5 Enhancing enterprise security > IDS/IPS",
+    "keyPoints": "Look at patterns, not single alerts; helps prioritize and tune; changes from normal can signal a new campaign"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "IDS/IPS",
+      "Signatures"
+    ],
+    "term": "Signatures (IDS/IPS)",
+    "definition": "IDS/IPS signatures are patterns that match known attacks, such as specific byte sequences or request formats. Signature detection is accurate for known threats but cannot catch new attacks without a signature, so signatures must be kept updated.",
+    "example": "A new signature for a recently published exploit lets the IPS block attempts against an unpatched server.",
+    "category": "4.5 Enhancing enterprise security > IDS/IPS",
+    "keyPoints": "Matches known attacks; needs frequent updates; misses zero-days; vs anomaly or behavior-based detection, which compares to a baseline of normal"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Web filter"
+    ],
+    "term": "Web filter",
+    "definition": "A web filter controls which websites users can reach, blocking malicious or inappropriate sites. It can run as an agent on each device or as a central proxy, and uses URL scanning, content categories, block rules and reputation.",
+    "example": "The web filter blocks gambling and known malware sites and warns users before they open newly registered domains.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Agent-based follows the device anywhere; centralized proxy covers traffic through the network; techniques: URL scanning, categorization, block rules, reputation"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Web filter",
+      "Agent-based"
+    ],
+    "term": "Agent-based (web filter)",
+    "definition": "Agent-based web filtering installs software on each device that enforces web policy locally, so filtering works wherever the device is, including at home or on public Wi-Fi, without routing traffic through the office.",
+    "example": "A remote employee's laptop still blocks malicious sites at a hotel because the filtering agent runs on the laptop.",
+    "category": "4.5 Enhancing enterprise security > Web filter",
+    "keyPoints": "Works on and off the corporate network; must be installed and updated on every device; vs centralized proxy, which only filters traffic that passes through it"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Web filter",
+      "Centralized proxy"
+    ],
+    "term": "Centralized proxy (web filter)",
+    "definition": "A centralized proxy is a server that user web traffic passes through, where requests are checked against policy, filtered, logged and sometimes cached, before reaching the internet.",
+    "example": "All office browsers send traffic through the company proxy, which blocks malware sites and logs every visited URL.",
+    "category": "4.5 Enhancing enterprise security > Web filter",
+    "keyPoints": "One place to manage and log; only filters traffic routed through it (remote users may bypass it); inspecting HTTPS needs TLS decryption; can be explicit or transparent"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Web filter",
+      "Universal Resource Locator (URL) scanning"
+    ],
+    "term": "Universal Resource Locator (URL) scanning (web filter)",
+    "definition": "URL scanning checks the web address a user requests against lists and analysis of known malicious, phishing or disallowed sites, allowing or blocking the request.",
+    "example": "A user clicks a link in an email; the filter scans the URL, recognizes a known phishing page and blocks it.",
+    "category": "4.5 Enhancing enterprise security > Web filter",
+    "keyPoints": "Checks the address itself; often combined with reputation and categories; CompTIA writes Universal, the standard term is Uniform Resource Locator"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Web filter",
+      "Content categorization"
+    ],
+    "term": "Content categorization (web filter)",
+    "definition": "Content categorization groups websites into categories such as news, social media, gambling, adult or malware, so policy can allow or block whole categories instead of individual sites.",
+    "example": "The company blocks the gambling and adult categories and limits social media to the marketing team.",
+    "category": "4.5 Enhancing enterprise security > Web filter",
+    "keyPoints": "Policy by category is easier to manage than per site; categories are maintained by the filter vendor; miscategorized sites may need manual overrides"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Web filter",
+      "Block rules"
+    ],
+    "term": "Block rules (web filter)",
+    "definition": "Block rules are web filter policies that deny access to specific URLs, domains, categories or content types, sometimes for specific users or groups.",
+    "example": "A block rule stops downloads of executable files from file-sharing sites for all users except IT.",
+    "category": "4.5 Enhancing enterprise security > Web filter",
+    "keyPoints": "Can target URLs, categories, file types, users or groups; exceptions should be documented; deny lists can be bypassed by new sites, so pair with reputation"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Web filter",
+      "Reputation"
+    ],
+    "term": "Reputation (web filter)",
+    "definition": "Reputation filtering rates a site, domain or IP address by its history and characteristics, such as age, past malware hosting or spam, and blocks or warns about risky ones even if they are not yet on a known bad list.",
+    "example": "A domain registered yesterday has no history and a poor reputation score, so the filter blocks it.",
+    "category": "4.5 Enhancing enterprise security > Web filter",
+    "keyPoints": "Catches new or unknown bad sites better than static lists; scores come from vendors and threat intelligence; good sites can occasionally get poor scores"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Operating system security"
+    ],
+    "term": "Operating system security (enterprise capability)",
+    "definition": "Operating system security means centrally hardening and controlling operating systems, for example with Group Policy on Windows domains and SELinux mandatory access control on Linux.",
+    "example": "An admin uses Group Policy to block USB storage on Windows PCs and enables SELinux in enforcing mode on Linux servers.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Group Policy = Windows Active Directory central settings; SELinux = Linux mandatory access control; both enforce secure baselines at scale"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Operating system security",
+      "Group Policy"
+    ],
+    "term": "Group Policy",
+    "definition": "Group Policy is the Windows Active Directory feature that applies settings to many users and computers from one place, such as password rules, software restrictions, firewall settings and device controls, through Group Policy Objects (GPOs).",
+    "example": "A GPO linked to the Finance organizational unit enforces screen lock after 5 minutes and blocks USB storage devices.",
+    "category": "4.5 Enhancing enterprise security > Operating system security",
+    "keyPoints": "Windows and Active Directory; applied via GPOs to sites, domains and OUs; main tool to deploy Windows secure baselines across a domain; do not confuse with SELinux: Group Policy pushes Windows settings to many machines, SELinux enforces mandatory access control on each Linux host"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Operating system security",
+      "SELinux"
+    ],
+    "term": "SELinux",
+    "definition": "Security-Enhanced Linux (SELinux) is a Linux security module that enforces mandatory access control: a central policy decides what each process and user may access, even if normal file permissions would allow more. It was originally developed by the NSA.",
+    "example": "A compromised web server process cannot read users' home directories because the SELinux policy restricts it to web content.",
+    "category": "4.5 Enhancing enterprise security > Operating system security",
+    "keyPoints": "Mandatory access control (MAC), not discretionary; limits damage from compromised services; modes: enforcing, permissive (blocks nothing, only logs what would be denied), disabled; Linux, not Windows"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Implementation of secure protocols"
+    ],
+    "term": "Implementation of secure protocols",
+    "definition": "Implementing secure protocols means choosing encrypted, authenticated protocols instead of insecure ones, using their proper ports, and deciding how traffic is protected in transit.",
+    "example": "An organization replaces Telnet with SSH, FTP with SFTP, and HTTP with HTTPS across all systems.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Three parts: protocol selection, port selection, transport method; prefer encrypted versions; know insecure to secure pairs"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Implementation of secure protocols",
+      "Protocol selection"
+    ],
+    "term": "Protocol selection (secure protocols)",
+    "definition": "Protocol selection is choosing the secure version of a protocol for a task, one that encrypts data and authenticates the parties, such as SSH over Telnet, HTTPS over HTTP, SFTP or FTPS over FTP, LDAPS over LDAP, SNMPv3 over SNMPv1/v2c, and IMAPS or POP3S over IMAP or POP3.",
+    "example": "A scan finds LDAP traffic sending passwords in clear text, so directory queries are moved to LDAPS.",
+    "category": "4.5 Enhancing enterprise security > Implementation of secure protocols",
+    "keyPoints": "Insecure protocols send data, including passwords, in clear text; know pairs: Telnet to SSH, HTTP to HTTPS, FTP to SFTP or FTPS, LDAP to LDAPS, SNMPv1/v2c to SNMPv3; a protocol choice is the real security decision, not the port"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Implementation of secure protocols",
+      "Port selection"
+    ],
+    "term": "Port selection (secure protocols)",
+    "definition": "Port selection means using the right, standard port for each secure protocol and opening only those ports, such as 22 for SSH and SFTP, 443 for HTTPS, 636 for LDAPS, 993 for IMAPS, 995 for POP3S, and 465 (implicit TLS) or 587 (STARTTLS) for mail submission.",
+    "example": "The firewall allows TCP 993 for IMAPS but blocks TCP 143, so mail clients must use the encrypted protocol.",
+    "category": "4.5 Enhancing enterprise security > Implementation of secure protocols",
+    "keyPoints": "Know secure ports: SSH/SFTP 22, HTTPS 443, LDAPS 636, IMAPS 993, POP3S 995, FTPS 989/990; a nonstandard port is not real security; the port number does not guarantee the protocol is secure"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Implementation of secure protocols",
+      "Transport method"
+    ],
+    "term": "Transport method (secure protocols)",
+    "definition": "Transport method is how data is protected while it travels, for example by using TLS for an application's connection, a VPN tunnel such as IPsec to protect all traffic between sites, or strong wireless encryption on Wi-Fi.",
+    "example": "Branch offices connect to headquarters through an IPsec VPN so all traffic between sites is encrypted, even for older applications.",
+    "category": "4.5 Enhancing enterprise security > Implementation of secure protocols",
+    "keyPoints": "TLS protects one application connection; a VPN (IPsec, TLS VPN) protects everything in the tunnel; choose based on what needs protecting; protects data in transit"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "DNS filtering"
+    ],
+    "term": "DNS filtering",
+    "definition": "DNS filtering blocks access to malicious or disallowed domains by refusing to resolve their names, or by returning a safe address instead, so devices never connect to them. It works for any application that uses DNS, not only web browsers.",
+    "example": "Malware on a laptop tries to look up its command-and-control domain, but the DNS filter returns no address, so the connection fails.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Blocks at name resolution, before any connection; covers all applications that use DNS; can be bypassed by direct IP addresses or outside DNS servers, so block other DNS; vs web filter, which inspects web requests; encrypted DNS (DNS over HTTPS on port 443) from a browser or malware can skip the company resolver unseen, so NSA advises sending all DNS only to the designated enterprise resolver and blocking other DoH and DoT (port 853) resolvers"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Email security"
+    ],
+    "term": "Email security (enterprise capability)",
+    "definition": "Email security protects against spoofing, phishing, spam and malware in email. Security+ lists DMARC, DKIM and SPF, which are DNS-published records that help receivers verify who really sent a message, plus email gateways that filter mail.",
+    "example": "A company publishes SPF and DKIM records, sets a DMARC reject policy, and routes all mail through a secure email gateway.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "SPF = which servers may send for the domain; DKIM = cryptographic signature proves the message is from the domain and unchanged; DMARC = policy for failures plus reporting, needs SPF or DKIM to pass and align; gateway = filtering"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Email security",
+      "Domain-based Message Authentication Reporting and Conformance (DMARC)"
+    ],
+    "term": "Domain-based Message Authentication Reporting and Conformance (DMARC)",
+    "definition": "DMARC is a DNS TXT record that tells receiving mail servers what to do with messages that fail authentication for a domain (none, quarantine or reject) and where to send reports. A message passes DMARC when SPF or DKIM passes and the passing domain matches (aligns with) the visible From domain.",
+    "example": "A company publishes a DMARC policy of p=reject, so spoofed emails claiming to be from its domain are rejected, and it receives daily reports of the failures.",
+    "category": "4.5 Enhancing enterprise security > Email security",
+    "keyPoints": "Builds on SPF and DKIM, does not replace them; policies: none (monitor), quarantine, reject; adds reporting and From-domain alignment; published at _dmarc.domain; RFC 9989 (May 2026) replaced the original RFC 7489, keeping the _dmarc record, the three policies and alignment, and moved reporting into RFC 9990 (aggregate) and RFC 9991 (failure); CompTIA's acronym list writes Domain Message Authentication Reporting and Conformance"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Email security",
+      "DomainKeys Identified Mail (DKIM)"
+    ],
+    "term": "DomainKeys Identified Mail (DKIM)",
+    "definition": "DKIM lets the sending mail server add a digital signature to each message using a private key; the receiver gets the matching public key from the sender's DNS and verifies that the message came from that domain and the signed parts were not altered.",
+    "example": "A receiving server checks the DKIM signature on an invoice email and finds it valid, confirming it was signed by the vendor's domain and not changed in transit.",
+    "category": "4.5 Enhancing enterprise security > Email security",
+    "keyPoints": "Signature in the email header, public key in DNS (selector._domainkey); proves domain origin and integrity of signed content; does not encrypt the message; vs SPF, which checks the sending server's IP"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Email security",
+      "Sender Policy Framework (SPF)"
+    ],
+    "term": "Sender Policy Framework (SPF)",
+    "definition": "SPF is a DNS TXT record listing which mail servers or IP addresses are allowed to send email for a domain. Receivers check whether the sending server is on the list and can treat mail from other servers as suspicious.",
+    "example": "Spam claiming to be from the company is sent from an IP not in the company's SPF record, so receiving servers fail the SPF check.",
+    "category": "4.5 Enhancing enterprise security > Email security",
+    "keyPoints": "Checks the sending server IP against an authorized list published as a DNS TXT record; checks the envelope sender (MAIL FROM) domain and the HELO name, not the visible From address (DMARC alignment covers that); forwarding can break SPF; \"-all\" means hard fail, \"~all\" soft fail (receivers should not reject on that alone)"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Email security",
+      "Gateway"
+    ],
+    "term": "Gateway (email security)",
+    "definition": "An email gateway (secure email gateway) is a system that all inbound and outbound mail passes through, filtering spam, phishing and malware, checking SPF, DKIM and DMARC, and often applying DLP and encryption policies.",
+    "example": "The email gateway strips a malicious macro attachment and quarantines a phishing message before it reaches the user's inbox.",
+    "category": "4.5 Enhancing enterprise security > Email security",
+    "keyPoints": "Can be on premises or cloud based; filters in both directions; enforces SPF/DKIM/DMARC results; may sandbox attachments and rewrite links"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "File integrity monitoring"
+    ],
+    "term": "File integrity monitoring (FIM)",
+    "definition": "File integrity monitoring watches important files, such as system files, configuration files and application binaries, for unauthorized changes, usually by comparing hashes to a known-good baseline, and alerts when something changes.",
+    "example": "FIM alerts that a web server's login page file changed outside a maintenance window, revealing an attacker's inserted credential stealer.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Detects changes using hashes compared to a baseline; examples: Tripwire, Windows System File Checker; PCI DSS v4 requirement 11.5.2 demands a change-detection tool that alerts on unauthorized changes to critical files and compares them at least weekly; legitimate changes must be expected to avoid false alerts; CompTIA's acronym list expands FIM as File Integrity Management"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "DLP"
+    ],
+    "term": "DLP (enterprise capability)",
+    "definition": "As an enterprise capability, data loss prevention (DLP) is configured with policies that find sensitive data on endpoints, in network traffic, in email and in cloud services, and then block, encrypt, quarantine or alert when it would leave the organization improperly.",
+    "example": "A DLP policy blocks copying files labeled Confidential to USB drives and encrypts outbound emails containing credit card numbers.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Modify policies for the data types the business holds (card numbers, health data, labels); endpoint, network, email and cloud DLP; actions: block, alert, encrypt, quarantine; 4.4 covers DLP as a monitoring tool"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Network access control (NAC)"
+    ],
+    "term": "Network access control (NAC)",
+    "definition": "NAC decides whether a device may join the network, and which part of it, by checking identity and posture (for example patch level, antivirus status, encryption) before granting access. Noncompliant devices can be blocked or sent to a remediation network.",
+    "example": "A visitor's laptop without current antivirus is placed on a quarantine VLAN until it is updated, while compliant company laptops get full access.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Uses 802.1X for identity plus posture assessment; persistent agent, dissolvable agent or agentless checks; noncompliant goes to quarantine or remediation VLAN; controls access before and after connection"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "Endpoint detection and response (EDR)/extended detection and response (XDR)"
+    ],
+    "term": "EDR/XDR",
+    "definition": "Endpoint detection and response (EDR) records detailed activity on endpoints, detects threats with behavior analysis rather than only signatures, and lets responders investigate and act, for example isolating a host or rolling back changes. Extended detection and response (XDR) correlates data from endpoints plus network, cloud, email and identity sources for a broader view.",
+    "example": "EDR detects ransomware-like file encryption behavior on a laptop, kills the process, isolates the device and shows the attack timeline.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "EDR = endpoints only, behavior-based, investigation and automated response; XDR = many sources (endpoint, network, cloud, email); both go beyond signature antivirus"
+  },
+  {
+    "obj": "4.5",
+    "path": [
+      "User behavior analytics"
+    ],
+    "term": "User behavior analytics (UBA)",
+    "definition": "User behavior analytics builds a baseline of normal activity for each user, such as login times, locations, systems used and data volumes, and flags significant deviations that could indicate compromised accounts or insider threats. When it also covers devices and other entities it is called UEBA.",
+    "example": "UBA flags an accountant who normally works 9 to 5 locally but is suddenly downloading large amounts of engineering data at 2 a.m. from a new country.",
+    "category": "4.5 Enhancing enterprise security",
+    "keyPoints": "Baseline of normal, then alert on anomalies; good at finding compromised credentials and insider threats; often uses machine learning; UEBA adds entities such as devices"
+  }
+]

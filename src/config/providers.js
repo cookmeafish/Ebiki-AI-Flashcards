@@ -468,6 +468,8 @@ export const PROVIDERS = {
   chatgpt: {
     label: 'ChatGPT plan',
     signIn: true,
+    // Shown INSIDE this provider's tab as its subscription sign-in (Settings and onboarding have one tab per company).
+    subscriptionOf: 'openai',
     fixedModels: true,
     placeholder: '',
     keyPrefix: '',

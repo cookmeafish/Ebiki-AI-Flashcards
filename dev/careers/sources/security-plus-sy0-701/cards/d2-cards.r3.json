@@ -1,0 +1,1816 @@
+[
+  {
+    "obj": "2.0",
+    "path": [],
+    "term": "SY0-701 Domain 2.0: Threats, Vulnerabilities, and Mitigations (22%)",
+    "definition": "The second Security+ SY0-701 domain, worth about 22% of the exam. It covers who attacks and why (2.1), how they get in (2.2), the weaknesses they exploit (2.3), how to recognize attacks in progress (2.4) and how organizations reduce the risk (2.5).",
+    "example": "A criminal group (threat actor) sends phishing emails (vector) to exploit an unpatched VPN (vulnerability); the SOC spots failed logins on hundreds of accounts (indicator) and responds by patching and enabling MFA (mitigation).",
+    "category": "2.0 Threats, Vulnerabilities, and Mitigations",
+    "keyPoints": "Five objectives: 2.1 actors and motivations, 2.2 vectors and attack surfaces, 2.3 vulnerabilities, 2.4 indicators of malicious activity, 2.5 mitigations; 2.4 is a \"given a scenario\" objective, so expect performance-based log and symptom questions; many terms repeat across objectives (buffer overflow, brute force, supply chain, encryption), so read which context the question asks about"
+  },
+  {
+    "obj": "2.1",
+    "path": [],
+    "term": "SY0-701 2.1: Compare and contrast common threat actors and motivations",
+    "definition": "Objective 2.1 asks you to tell threat actors apart by who they are, their attributes (internal or external, resources and funding, sophistication) and what motivates them.",
+    "example": "A well-funded government team quietly steals defense research for years without asking for money (nation-state, espionage), while a gang encrypts a hospital and demands payment (organized crime, financial gain).",
+    "category": "2.1 Threat actors and motivations",
+    "keyPoints": "Six actor types: nation-state, unskilled attacker, hacktivist, insider threat, organized crime, shadow IT; three attributes: internal/external, resources/funding, sophistication; match motive to actor: money points to organized crime, beliefs to hacktivists, espionage or war to nation-states, revenge often to insiders"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Threat actors"
+    ],
+    "term": "Threat actors (types of attackers)",
+    "definition": "A threat actor is the person or group responsible for a security event. SY0-701 lists six: nation-state, unskilled attacker, hacktivist, insider threat, organized crime and shadow IT.",
+    "example": "A ransomware gang, a disgruntled employee and a government hacking unit are all threat actors with very different skills and goals.",
+    "category": "2.1 Threat actors and motivations",
+    "keyPoints": "Compare actors by attributes (internal/external, funding, sophistication) and motivation; insiders and shadow IT are internal, the rest usually external; highest capability: nation-states; lowest: unskilled attackers"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Threat actors",
+      "Nation-state"
+    ],
+    "term": "Nation-state (threat actor)",
+    "definition": "A government or government-sponsored group that attacks other countries, organizations or people. It has the most resources and sophistication and often runs long, stealthy campaigns called advanced persistent threats (APTs).",
+    "example": "Stuxnet, the worm that damaged Iranian uranium centrifuges, is widely attributed to nation-states.",
+    "category": "2.1 Threat actors and motivations > Threat actors",
+    "keyPoints": "Highest funding and capability; usual motives: espionage, data exfiltration, disruption, war; often linked to APTs that persist undetected for long periods; trap: a well funded criminal gang after money is organized crime, not a nation-state; nuance: some governments also steal money through state hacking units (CISA notes North Korea uses cyber operations to raise revenue), so decide by who is behind the attack, not by the motive alone"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Threat actors",
+      "Unskilled attacker"
+    ],
+    "term": "Unskilled attacker (threat actor)",
+    "definition": "An attacker with little technical skill who runs tools, scripts or exploits written by others. SY0-701 uses this term for what was once called a script kiddie.",
+    "example": "A teenager downloads a ready-made DDoS tool and points it at a school website.",
+    "category": "2.1 Threat actors and motivations > Threat actors",
+    "keyPoints": "Low sophistication and low funding, usually external; motives: notoriety, disruption, curiosity; can still do real damage with ready-made tools; old name: script kiddie"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Threat actors",
+      "Hacktivist"
+    ],
+    "term": "Hacktivist (threat actor)",
+    "definition": "A hacker who attacks to promote a political, social or philosophical cause. Common methods are website defacement, DDoS and leaking documents.",
+    "example": "A group defaces a company website with a protest message after the company announces a controversial policy.",
+    "category": "2.1 Threat actors and motivations > Threat actors",
+    "keyPoints": "Motive: philosophical or political beliefs, not money; sophistication varies widely; usually external; Anonymous is the classic example"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Threat actors",
+      "Insider threat"
+    ],
+    "term": "Insider threat (threat actor)",
+    "definition": "A current or former employee, contractor or partner who misuses legitimate access to harm the organization, on purpose or by carelessness.",
+    "example": "A system administrator who was passed over for promotion copies the customer database before resigning.",
+    "category": "2.1 Threat actors and motivations > Threat actors",
+    "keyPoints": "Internal actor with existing access and knowledge, so perimeter controls do not stop them; motives: revenge, financial gain, being bribed; mitigations: least privilege, separation of duties, monitoring, offboarding"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Threat actors",
+      "Organized crime"
+    ],
+    "term": "Organized crime (threat actor)",
+    "definition": "Professional criminal groups that attack for profit. They are well funded, organized like businesses and often skilled.",
+    "example": "A ransomware group encrypts a hospital network and demands payment in cryptocurrency.",
+    "category": "2.1 Threat actors and motivations > Threat actors",
+    "keyPoints": "Motive: financial gain above all; high resources and sophistication; typical activities: ransomware, fraud, data theft for sale, extortion; tell apart from nation-state by the money motive"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Threat actors",
+      "Shadow IT"
+    ],
+    "term": "Shadow IT (threat actor)",
+    "definition": "Employees or departments using hardware, software or cloud services without approval from the IT or security team. It is usually not malicious but creates unmanaged, unpatched and unmonitored risk.",
+    "example": "The marketing team signs up for an unapproved file sharing service and uploads customer lists to it.",
+    "category": "2.1 Threat actors and motivations > Threat actors",
+    "keyPoints": "Internal, usually not malicious; risk comes from systems IT does not know about, patch or secure; often driven by convenience or a slow approval process; fix with clear policy and approved alternatives"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Attributes of actors"
+    ],
+    "term": "Attributes of threat actors",
+    "definition": "The characteristics used to compare threat actors: whether they are internal or external, how much resources and funding they have, and their level of sophistication or capability.",
+    "example": "A nation-state is external, very well funded and highly capable; an unskilled attacker is external, poorly funded and low capability.",
+    "category": "2.1 Threat actors and motivations",
+    "keyPoints": "Three attributes on the exam: internal/external, resources/funding, sophistication/capability; funding usually drives capability; used to predict what an actor can do and how persistent it will be"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Attributes of actors",
+      "Internal/external"
+    ],
+    "term": "Internal vs external threat actor (attribute)",
+    "definition": "Describes where the actor sits relative to the organization. Internal actors (insiders, shadow IT) already have access inside; external actors must first get in from outside.",
+    "example": "An employee abusing database rights is internal; a criminal sending phishing emails from abroad is external.",
+    "category": "2.1 Threat actors and motivations > Attributes of actors",
+    "keyPoints": "Internal actors bypass perimeter defenses and know the environment; external actors need an initial access vector; an external attacker using stolen credentials is still external"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Attributes of actors",
+      "Resources/funding"
+    ],
+    "term": "Resources/funding (threat actor attribute)",
+    "definition": "How much money, people, time and tooling a threat actor can spend on attacks. More resources allow custom tools, zero-day exploits and long campaigns.",
+    "example": "A nation-state can buy or develop zero-day exploits; a lone hacktivist relies on free tools.",
+    "category": "2.1 Threat actors and motivations > Attributes of actors",
+    "keyPoints": "Highest: nation-states and organized crime; lowest: unskilled attackers and many hacktivists; high funding enables persistence and APT-style operations"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Attributes of actors",
+      "Level of sophistication/capability"
+    ],
+    "term": "Level of sophistication/capability (threat actor attribute)",
+    "definition": "How technically skilled an actor is, from running others' scripts to writing custom malware and discovering zero-day vulnerabilities.",
+    "example": "An APT group writes custom implants that evade antivirus, while an unskilled attacker uses a public exploit kit.",
+    "category": "2.1 Threat actors and motivations > Attributes of actors",
+    "keyPoints": "Ranges from unskilled attacker (lowest) to nation-state (highest); often follows funding; sophisticated attacks are stealthy and persistent"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations"
+    ],
+    "term": "Threat actor motivations",
+    "definition": "Why attackers attack. Money drives most of it (financial gain, often through blackmail). Others want secrets (espionage, data exfiltration), to stop a service (service disruption, disruption/chaos), to make a point (philosophical/political beliefs), to get even (revenge), or to help (ethical hacking); nations may attack as an act of war.",
+    "example": "A hacktivist is motivated by beliefs, organized crime by money, an angry ex-employee by revenge.",
+    "category": "2.1 Threat actors and motivations",
+    "keyPoints": "Questions often give the behavior and ask the motive; one actor can have several motives; match: money to organized crime, beliefs to hacktivists, espionage/war to nation-states, revenge to insiders"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Data exfiltration"
+    ],
+    "term": "Data exfiltration (attacker motivation)",
+    "definition": "Stealing data by moving it out of the organization without authorization, for sale, leverage or intelligence.",
+    "example": "Attackers copy millions of customer records and credit card numbers and sell them on a dark web market.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "Exfiltration is the unauthorized transfer out; data can be sold, used for blackmail or espionage; detected by unusual outbound traffic volume (see resource consumption); mitigated by DLP and encryption"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Espionage"
+    ],
+    "term": "Espionage (attacker motivation)",
+    "definition": "Spying to gain secret information, such as government intelligence or a competitor's trade secrets.",
+    "example": "A foreign intelligence unit breaks into a defense contractor to steal aircraft designs.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "Typical of nation-states (and corporate competitors); stealth matters more than speed; differs from data exfiltration for profit by its intelligence goal"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Service disruption"
+    ],
+    "term": "Service disruption (attacker motivation)",
+    "definition": "Making a system or service unavailable to its users, attacking availability.",
+    "example": "A DDoS attack takes an online bank offline during a holiday weekend.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "Targets availability in the CIA triad; methods: DDoS, ransomware, sabotage; used by hacktivists, nation-states and extortionists"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Blackmail"
+    ],
+    "term": "Blackmail (attacker motivation)",
+    "definition": "Forcing a victim to pay or act by threatening to release damaging information or keep harming them.",
+    "example": "Attackers steal embarrassing executive emails and threaten to publish them unless paid.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "Closely tied to stolen data and double-extortion ransomware (encrypt plus threaten to leak); ultimately often financial"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Financial gain"
+    ],
+    "term": "Financial gain (attacker motivation)",
+    "definition": "Attacking to make money through ransom, fraud, theft or selling stolen data.",
+    "example": "A criminal group runs business email compromise to trick finance staff into wiring money.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "The most common motive overall; the defining motive of organized crime; can also drive insiders"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Philosophical/political beliefs"
+    ],
+    "term": "Philosophical/political beliefs (attacker motivation)",
+    "definition": "Attacking to advance a cause, ideology or political position rather than for money.",
+    "example": "A group leaks an energy company's internal documents to protest its environmental record.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "The defining motive of hacktivists; often public actions such as defacement, DDoS and leaks"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Ethical"
+    ],
+    "term": "Ethical (attacker motivation)",
+    "definition": "Hacking with good intentions: finding weaknesses to get them fixed, with permission or through responsible disclosure.",
+    "example": "A researcher finds a flaw in a web app through the vendor's bug bounty program and reports it.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "White-hat or authorized hacking: penetration testers, bug bounty hunters; goal is improving security; permission and disclosure separate it from malicious hacking"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Revenge"
+    ],
+    "term": "Revenge (attacker motivation)",
+    "definition": "Attacking to get back at a person or organization for a perceived wrong.",
+    "example": "A fired employee uses an account that was never disabled to delete project files.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "Typical of insider threats, especially disgruntled or terminated staff; mitigate with prompt offboarding and least privilege"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "Disruption/chaos"
+    ],
+    "term": "Disruption/chaos (attacker motivation)",
+    "definition": "Attacking simply to cause trouble, confusion or damage, with no financial or political goal.",
+    "example": "An attacker floods a gaming server with traffic just to watch players get disconnected.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "Common with unskilled attackers seeking notoriety; differs from service disruption by having no further goal; differs from hacktivism by having no cause"
+  },
+  {
+    "obj": "2.1",
+    "path": [
+      "Motivations",
+      "War"
+    ],
+    "term": "War (attacker motivation)",
+    "definition": "Cyber attacks used by one nation against another as part of armed conflict or military strategy, often against critical infrastructure.",
+    "example": "Malware takes down parts of a country's power grid during a military conflict.",
+    "category": "2.1 Threat actors and motivations > Motivations",
+    "keyPoints": "Nation-state motive; targets: power, communications, government, military systems; cyberwarfare can accompany physical conflict"
+  },
+  {
+    "obj": "2.2",
+    "path": [],
+    "term": "SY0-701 2.2: Explain common threat vectors and attack surfaces",
+    "definition": "Objective 2.2 covers threat vectors (the paths an attacker uses to get in) and attack surfaces (all the points where a system could be attacked), including human vectors and social engineering.",
+    "example": "An attacker leaves infected USB sticks in a company parking lot (removable device vector); the company's open RDP port and unpatched web server are other parts of its attack surface.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Vector = the path or method; attack surface = the sum of exposed points; reduce the surface by removing unused services, software and accounts; social engineering items (phishing, vishing, smishing, BEC, pretexting, watering hole, typosquatting) are heavily tested"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Message-based"
+    ],
+    "term": "Message-based threat vectors",
+    "definition": "Attacks delivered through messaging: email, Short Message Service (SMS) and instant messaging (IM). They carry malicious links, attachments or social engineering.",
+    "example": "A fake package-delivery text asks the user to tap a link and pay a \"redelivery fee\".",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Three channels: email, SMS, IM; email-based is phishing, SMS-based is smishing; filtering and user training are the main defenses"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Message-based",
+      "Email"
+    ],
+    "term": "Email (threat vector)",
+    "definition": "One of the most common attack vectors: messages carrying phishing links, malicious attachments or fraudulent requests. Breach studies rank phishing among the top three ways attackers first get in, alongside stolen credentials and exploited vulnerabilities.",
+    "example": "An email that appears to come from IT asks users to \"verify your password\" on a fake login page.",
+    "category": "2.2 Threat vectors and attack surfaces > Message-based",
+    "keyPoints": "Defenses: spam and malware filtering, SPF, DKIM and DMARC, link rewriting, user training; vector for phishing and business email compromise"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Message-based",
+      "Short Message Service (SMS)"
+    ],
+    "term": "Short Message Service (SMS) (threat vector)",
+    "definition": "Text messages to phones used to deliver malicious links or social engineering. Phishing by SMS is called smishing.",
+    "example": "A text claims your bank account is locked and links to a fake bank site.",
+    "category": "2.2 Threat vectors and attack surfaces > Message-based",
+    "keyPoints": "SMS has no built-in sender authentication, so spoofing is easy; mobile screens hide full URLs; attack name: smishing"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Message-based",
+      "Instant messaging (IM)"
+    ],
+    "term": "Instant messaging (IM) (threat vector)",
+    "definition": "Chat platforms (workplace chat, consumer messengers, social media DMs) used to send malicious links, files or impersonation messages.",
+    "example": "An attacker with a compromised colleague's chat account sends coworkers a \"shared document\" link that installs malware.",
+    "category": "2.2 Threat vectors and attack surfaces > Message-based",
+    "keyPoints": "Messages from known contacts are trusted more, which attackers exploit; may bypass email filtering; files and links in chat need scanning too"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Image-based"
+    ],
+    "term": "Image-based (threat vector)",
+    "definition": "Malicious content hidden in or delivered by image files, such as scripts embedded in SVG images or data concealed with steganography.",
+    "example": "An SVG \"image\" attached to an email contains embedded JavaScript that redirects the viewer to a phishing page.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "SVG is XML and can carry HTML and JavaScript; steganography hides data inside images; images may slip past filters that trust picture formats"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "File-based"
+    ],
+    "term": "File-based (threat vector)",
+    "definition": "Malicious code delivered inside files such as executables, documents with macros, PDFs, scripts or compressed archives.",
+    "example": "A Word document asks the user to \"enable content\", which runs a macro that downloads malware.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Common carriers: Office macros, PDFs, ZIP/RAR archives, executables; defenses: attachment scanning, sandboxing, disabling macros, application allow lists"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Voice call"
+    ],
+    "term": "Voice call (threat vector)",
+    "definition": "Phone calls used to deceive victims into revealing information or taking actions. Phishing by voice is called vishing.",
+    "example": "A caller claiming to be from the help desk asks an employee to read out the MFA code just sent to their phone.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Attack name: vishing; caller ID is easily spoofed; also includes war dialing (dialing number ranges to find systems and modems that answer), spam over internet telephony (SPIT, automated VoIP spam calls) and call tampering (disrupting or denying calls); verify by calling back a known number"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Removable device"
+    ],
+    "term": "Removable device (threat vector)",
+    "definition": "USB drives and other removable media used to bring malware in or carry data out, including across air gaps.",
+    "example": "An attacker drops USB sticks labeled \"Salaries 2026\" in the lobby; an employee plugs one in and malware runs.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Can cross air-gapped networks (Stuxnet spread this way); some devices act as keyboards (USB keystroke injection); defenses: disable USB storage, device control policies, training"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Vulnerable software"
+    ],
+    "term": "Vulnerable software (threat vector)",
+    "definition": "Software with flaws an attacker can exploit, on clients, servers or apps. Every installed program adds to the attack surface.",
+    "example": "An unpatched browser plugin lets a malicious website run code on the visitor's computer.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Patch and update; remove unneeded software to shrink the attack surface; scan for known vulnerabilities; contrast client-based (installed) vs agentless"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Vulnerable software",
+      "Client-based vs. agentless"
+    ],
+    "term": "Client-based vs. agentless software (vulnerable software vector)",
+    "definition": "Two ways vulnerable software reaches users. Client-based software is installed on each device, so a flaw or infected executable sits on every endpoint and every copy needs updates. Agentless software installs nothing locally: users connect to a central system (such as a web app) each time, so one compromised server can infect every client that connects.",
+    "example": "A flawed desktop chat app must be patched on all 2,000 laptops (client-based); a hacked web portal serves malicious code to every employee who signs in (agentless).",
+    "category": "2.2 Threat vectors and attack surfaces > Vulnerable software",
+    "keyPoints": "Client-based: risk spread across every endpoint, each copy must be updated; agentless: nothing to patch on the client, but one compromised central system reaches every user; the difference is where the code runs and where it gets fixed"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Unsupported systems and applications"
+    ],
+    "term": "Unsupported systems and applications (threat vector)",
+    "definition": "Systems or software past their support period that no longer get security patches, so new vulnerabilities stay open forever.",
+    "example": "A factory still runs Windows XP on a control workstation, which receives no updates.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "No patches means known exploits keep working; related to end-of-life and legacy hardware (2.3); mitigate with upgrade, isolation or segmentation and compensating controls"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Unsecure networks"
+    ],
+    "term": "Unsecure networks (threat vector)",
+    "definition": "Networks that let attackers listen in, connect without authorization or tamper with traffic: wireless, wired and Bluetooth.",
+    "example": "A user joins open coffee-shop Wi-Fi where an attacker captures unencrypted traffic.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Three types listed: wireless, wired, Bluetooth; fixes: strong encryption (WPA3), 802.1X network access control, disabling unused ports and pairing"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Unsecure networks",
+      "Wireless"
+    ],
+    "term": "Wireless (unsecure network vector)",
+    "definition": "Wi-Fi networks that are open, use weak encryption such as WEP, or allow rogue and evil twin access points.",
+    "example": "An attacker sets up an evil twin access point named like the hotel Wi-Fi to capture guests' traffic.",
+    "category": "2.2 Threat vectors and attack surfaces > Unsecure networks",
+    "keyPoints": "Weak or no encryption (open, WEP, old WPA) is the problem; use WPA3 and 802.1X; watch for rogue APs and evil twins"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Unsecure networks",
+      "Wired"
+    ],
+    "term": "Wired (unsecure network vector)",
+    "definition": "Physical network ports and cabling that let anyone who plugs in reach the network when there is no port security or network access control.",
+    "example": "A visitor plugs a laptop into an open Ethernet jack in a conference room and gets an IP address on the internal network.",
+    "category": "2.2 Threat vectors and attack surfaces > Unsecure networks",
+    "keyPoints": "Physical access to a jack equals network access without 802.1X or port security; disable unused switch ports; monitor for unknown devices"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Unsecure networks",
+      "Bluetooth"
+    ],
+    "term": "Bluetooth (unsecure network vector)",
+    "definition": "Short-range wireless connections that can be abused when devices are discoverable, use weak pairing or have unpatched Bluetooth flaws. Some flaws need no pairing at all.",
+    "example": "An attacker in a train station exploits an unpatched phone's Bluetooth stack to take control of it (as with BlueBorne).",
+    "category": "2.2 Threat vectors and attack surfaces > Unsecure networks",
+    "keyPoints": "Attacks: bluejacking (unsolicited messages), bluesnarfing (data theft); reduce risk by turning off discoverability and patching; BlueBorne (2017) needed no pairing and also reached devices that were not discoverable, so patching (or turning Bluetooth off) protects more than hiding the device"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Open service ports"
+    ],
+    "term": "Open service ports (threat vector)",
+    "definition": "Network ports listening for connections. Each open port is a service that can be attacked, so unneeded ones enlarge the attack surface.",
+    "example": "A scan finds Telnet (port 23) open on a router; an attacker connects and tries default credentials.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Every open port is a potential entry point; close or firewall unused services; find them with port scans (nmap); related mitigation: disabling ports/protocols"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Default credentials"
+    ],
+    "term": "Default credentials (threat vector)",
+    "definition": "Factory-set usernames and passwords (such as admin/admin) that are publicly documented. Leaving them unchanged lets anyone log in.",
+    "example": "The Mirai botnet took over hundreds of thousands of IoT cameras and routers by logging in with default passwords.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Default passwords are published in manuals and online lists; change them at installation; Mirai is the classic example (it tried a built-in list of 62 common factory username and password pairs, mostly over Telnet on TCP 23 and 2323); mitigation: default password changes (2.5)"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Supply chain"
+    ],
+    "term": "Supply chain (threat vector)",
+    "definition": "Attacking an organization through the third parties it relies on: managed service providers (MSPs), vendors and suppliers.",
+    "example": "Attackers compromise an IT management vendor and push malware to all its customers through a software update.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Exploits trust in a third party; examples: SolarWinds Orion (2020), Target breach via an HVAC vendor (2013); mitigate with vendor risk assessment and least privilege for third parties; 2.3 lists supply chain as a vulnerability too"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Supply chain",
+      "Managed service providers (MSPs)"
+    ],
+    "term": "Managed service providers (MSPs) (supply chain vector)",
+    "definition": "Companies that remotely manage customers' IT. Compromising one MSP can give an attacker access to every client it manages.",
+    "example": "In July 2021, attackers exploited a flaw in on-premises Kaseya VSA, a remote monitoring and management (RMM) tool that many MSPs use, and pushed ransomware through those MSPs to their downstream customers.",
+    "category": "2.2 Threat vectors and attack surfaces > Supply chain",
+    "keyPoints": "One breach, many victims; MSPs often hold privileged remote access; limit and monitor their access and require MFA"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Supply chain",
+      "Vendors"
+    ],
+    "term": "Vendors (supply chain vector)",
+    "definition": "Third parties that provide products or services and may have network access or supply software, creating a path into the customer.",
+    "example": "In the 2013 Target breach, attackers used credentials stolen from an HVAC vendor to enter Target's network.",
+    "category": "2.2 Threat vectors and attack surfaces > Supply chain",
+    "keyPoints": "Vendor access must follow least privilege and be segmented; assess vendor security before onboarding; monitor vendor accounts"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Supply chain",
+      "Suppliers"
+    ],
+    "term": "Suppliers (supply chain vector)",
+    "definition": "Providers of hardware, components or materials. A tampered or counterfeit part can introduce a hidden weakness before the product even arrives.",
+    "example": "Counterfeit network switches bought from an unauthorized reseller contain modified firmware.",
+    "category": "2.2 Threat vectors and attack surfaces > Supply chain",
+    "keyPoints": "Risks: counterfeit or tampered hardware; buy from trusted, authorized sources; verify integrity on receipt"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering"
+    ],
+    "term": "Human vectors/social engineering",
+    "definition": "Manipulating people into revealing information or performing actions that help an attacker, exploiting trust, urgency, authority or fear.",
+    "example": "A caller posing as a senior manager pressures a new help desk worker to reset a password immediately.",
+    "category": "2.2 Threat vectors and attack surfaces",
+    "keyPoints": "Messages that trick people: phishing (email), smishing (text), vishing (voice), business email compromise; pretending to be someone: impersonation, brand impersonation, pretexting (a made-up story); traps on the web: watering hole sites and typosquatted look-alike domains; false information: misinformation/disinformation; levers: authority, urgency, scarcity, familiarity, trust; best defense: security awareness training plus verification procedures"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Phishing"
+    ],
+    "term": "Phishing (social engineering)",
+    "definition": "Fraudulent messages, usually email, that pretend to be from a trusted source to steal credentials, money or install malware. Spear phishing targets specific people; whaling targets executives.",
+    "example": "An email that looks like a Microsoft 365 alert links to a fake sign-in page that captures passwords.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Email channel; vishing is voice, smishing is SMS; spear phishing = targeted, whaling = high-level executives; signs: urgency, mismatched links and sender domains"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Vishing"
+    ],
+    "term": "Vishing (social engineering)",
+    "definition": "Voice phishing: using phone calls or voicemail to trick people into giving information or taking action.",
+    "example": "A caller spoofing the bank's number asks the victim to confirm their card PIN to \"stop fraud\".",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Vishing = voice; smishing = SMS; caller ID can be spoofed; AI voice cloning makes it more convincing; verify by calling a known number"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Smishing"
+    ],
+    "term": "Smishing (social engineering)",
+    "definition": "SMS phishing: text messages that lure victims to malicious links or ask for personal information.",
+    "example": "A text says \"Your toll payment is overdue, pay now\" with a link to a fake payment site.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Smishing = SMS text; vishing = voice call; phishing = email; short links hide the real destination"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Misinformation/disinformation"
+    ],
+    "term": "Misinformation/disinformation (social engineering)",
+    "definition": "False information spread to influence people. Misinformation is false but shared without intent to deceive; disinformation is created and spread deliberately to mislead.",
+    "example": "A coordinated campaign of fake social media accounts spreads a false story that a company's product is dangerous.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Key difference is intent: disinformation is deliberate, misinformation is not; spread via social media, bots, fake reviews; aimed at reputation, elections or public opinion; a related term, malinformation, is true information used out of context to mislead or harm; typical campaign: fake accounts post the story, likes and shares amplify it, real users and then media repeat it"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Impersonation"
+    ],
+    "term": "Impersonation (social engineering)",
+    "definition": "Pretending to be someone else, such as IT support, an executive, a vendor or a delivery person, to gain trust or access.",
+    "example": "An attacker in a high-visibility vest says he is from the electricity company and is let into the server room.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Often uses authority or familiarity; usually part of pretexting; defense: verify identity through a separate known channel"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Business email compromise"
+    ],
+    "term": "Business email compromise (BEC) (social engineering)",
+    "definition": "An attack using a compromised or spoofed business email account, often an executive's or vendor's, to trick staff into wiring money or sending sensitive data.",
+    "example": "A finance clerk gets an email from the CFO's real (hacked) mailbox asking to urgently change a supplier's bank details.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Goal is usually financial fraud through wire transfers or invoice changes; may use a real compromised account, so the sender looks legitimate; defense: out-of-band verification of payment changes, MFA"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Pretexting"
+    ],
+    "term": "Pretexting (social engineering)",
+    "definition": "Creating a made-up scenario (a pretext) with a believable story to get the victim to give information or access.",
+    "example": "A caller says, \"Hi, I'm from your car insurer, we just need to confirm your address and date of birth for your claim.\"",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "The invented story is the defining feature; often combined with impersonation; attacker may have done research to sound credible"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Watering hole"
+    ],
+    "term": "Watering hole (social engineering attack)",
+    "definition": "An attacker compromises a website that the target group is known to visit and infects it, then waits for the victims to come.",
+    "example": "Attackers infect an industry association's website frequented by engineers at defense companies.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Attacker does not contact the victim directly; targets a group via a trusted third-party site; defense: patching, web filtering, layered endpoint protection; real case (2017): attackers planted code on financial regulators' websites in Poland and Mexico and served it only to visitors coming from targeted banks' IP addresses"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Brand impersonation"
+    ],
+    "term": "Brand impersonation (social engineering)",
+    "definition": "Pretending to be a well known company, using its logos, look and style in emails, ads or websites to fool people.",
+    "example": "A fake \"PayPal\" email with the real logo says your account is limited and links to a fake login page.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Copies trusted brands to lower suspicion; often in phishing and fake ads; differs from typosquatting, which relies on a misspelled domain; fake brand sites can rank in search results and push prize pop-ups or downloads that install malware"
+  },
+  {
+    "obj": "2.2",
+    "path": [
+      "Human vectors/social engineering",
+      "Typosquatting"
+    ],
+    "term": "Typosquatting (social engineering)",
+    "definition": "Registering domain names that are common misspellings of legitimate ones, so users who mistype land on the attacker's site. Also called URL hijacking.",
+    "example": "An attacker registers \"gooogle.com\" or \"micorsoft.com\" to host a phishing page.",
+    "category": "2.2 Threat vectors and attack surfaces > Human vectors/social engineering",
+    "keyPoints": "Relies on typing mistakes or look-alike names; also known as URL hijacking; defenses: register common misspellings, DNS filtering, user care"
+  },
+  {
+    "obj": "2.3",
+    "path": [],
+    "term": "SY0-701 2.3: Explain various types of vulnerabilities",
+    "definition": "Objective 2.3 covers the categories of weaknesses that attackers exploit: application, operating system, web, hardware, virtualization, cloud, supply chain, cryptographic, misconfiguration, mobile and zero-day.",
+    "example": "A company's web form is open to SQL injection, its cloud storage bucket is public by mistake, and its hypervisor has a flaw that lets a guest VM break out to the host.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "A vulnerability is a weakness; a threat exploits it; know each category with its examples; tell apart: SQLi (database) vs XSS (browser), TOC vs TOU, side loading vs jailbreaking"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Application"
+    ],
+    "term": "Application vulnerabilities",
+    "definition": "Flaws in how software is written or updated that let attackers run code or change its behavior: memory injection, buffer overflow, race conditions and malicious updates.",
+    "example": "A program that does not check input length lets an attacker overwrite memory and run code.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Listed: memory injection, buffer overflow, race conditions (TOC/TOU), malicious update; fixes: secure coding, input validation, code review, patching"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Application",
+      "Memory injection"
+    ],
+    "term": "Memory injection (application vulnerability)",
+    "definition": "Inserting malicious code into the memory of a running, often trusted, process so it runs with that process's rights. DLL injection is a common form.",
+    "example": "Malware injects a DLL into a legitimate browser process so its activity looks like normal browser traffic.",
+    "category": "2.3 Types of vulnerabilities > Application",
+    "keyPoints": "Code runs inside a legitimate process, helping it hide and evade detection; often fileless; DLL injection is the usual example; detected by EDR behavior monitoring"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Application",
+      "Buffer overflow"
+    ],
+    "term": "Buffer overflow (application vulnerability)",
+    "definition": "A flaw where a program writes more data into a memory buffer than it can hold, overwriting nearby memory. Attackers use it to crash the program or run their own code.",
+    "example": "A login field accepts 5,000 characters into a 64-byte buffer, overwriting the return address so the attacker's code runs.",
+    "category": "2.3 Types of vulnerabilities > Application",
+    "keyPoints": "Cause: no bounds or input-length checking; result: crash (DoS) or code execution; defenses: input validation, safe functions, DEP and ASLR; as a 2.4 indicator it appears as crashes and odd long inputs"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Application",
+      "Race conditions"
+    ],
+    "term": "Race conditions (application vulnerability)",
+    "definition": "A flaw where the result depends on the timing of two or more events, so an attacker can act in the gap between them. The classic form is time-of-check to time-of-use (TOCTOU).",
+    "example": "Two simultaneous withdrawal requests both check the same balance before either deducts it, allowing the account to be overdrawn.",
+    "category": "2.3 Types of vulnerabilities > Application",
+    "keyPoints": "Exploits the window between checking a condition and using the result; TOC = check moment, TOU = use moment; fix with locking and atomic operations; real case: at Pwn2Own Vancouver 2023 a research team used a TOCTOU attack against a Tesla Model 3's Gateway and won the car"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Application",
+      "Race conditions",
+      "Time-of-check (TOC)"
+    ],
+    "term": "Time-of-check (TOC) (race condition)",
+    "definition": "The moment a program verifies something, such as a file's permissions or an account balance, before acting on it. The race condition exists if that result can change before it is used.",
+    "example": "A program checks that a user may write to /tmp/report at 10:00:00.000.",
+    "category": "2.3 Types of vulnerabilities > Application > Race conditions",
+    "keyPoints": "TOC is the CHECK; TOU is the USE that follows; vulnerability is the gap between them (TOCTOU); trap: TOC itself is not the attack, the change in the gap is"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Application",
+      "Race conditions",
+      "Time-of-use (TOU)"
+    ],
+    "term": "Time-of-use (TOU) (race condition)",
+    "definition": "The moment a program acts on the result of an earlier check. If the attacker changed things after the check, the program uses something it never verified.",
+    "example": "After the permission check, the attacker swaps /tmp/report for a link to /etc/passwd, and the program writes to that file at time of use.",
+    "category": "2.3 Types of vulnerabilities > Application > Race conditions",
+    "keyPoints": "TOU comes after TOC; the attacker strikes between the two; prevent by making check and use one atomic step or locking the resource"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Application",
+      "Malicious update"
+    ],
+    "term": "Malicious update (application vulnerability)",
+    "definition": "A software update that has been tampered with to include malware, so trusted update channels deliver the attack.",
+    "example": "In 2020 attackers inserted a backdoor into SolarWinds Orion updates; the updates were digitally signed and fewer than 18,000 customers installed them (SolarWinds' own SEC filing).",
+    "category": "2.3 Types of vulnerabilities > Application",
+    "keyPoints": "Abuses trust in vendor updates; ties to supply chain; defenses: verify digital signatures and hashes, test updates, monitor vendor advisories; even signed updates can be malicious if the vendor's build is compromised"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Operating system (OS)-based"
+    ],
+    "term": "Operating system (OS)-based vulnerabilities",
+    "definition": "Weaknesses in the operating system itself, such as kernel flaws or privilege escalation bugs. The OS is a large, complex attack surface that touches everything on the system.",
+    "example": "Microsoft Patch Tuesday regularly fixes Windows flaws that would let a normal user gain SYSTEM rights.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Mitigate by patching quickly (test first), hardening and removing unneeded features; OS bugs can expose every application on the host"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Web-based"
+    ],
+    "term": "Web-based vulnerabilities",
+    "definition": "Flaws in web applications, mainly from failing to validate input, that let attackers inject commands or scripts. SY0-701 lists SQL injection and cross-site scripting.",
+    "example": "A search box that passes text straight into a database query lets an attacker dump the user table.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Two listed: SQLi (attacks the database/server) and XSS (attacks other users' browsers); root cause: untrusted input not validated or encoded; OWASP Top 10 is the reference"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Web-based",
+      "Structured Query Language injection (SQLi)"
+    ],
+    "term": "Structured Query Language injection (SQLi) (web vulnerability)",
+    "definition": "An attack where SQL code is inserted into an application's input so the database runs the attacker's commands, exposing or changing data.",
+    "example": "Typing ' OR 1=1 -- into a login field makes the query return every row, logging the attacker in without a password.",
+    "category": "2.3 Types of vulnerabilities > Web-based",
+    "keyPoints": "Targets the database behind the app; look for quote characters, OR 1=1, UNION SELECT in logs; fix: parameterized queries (prepared statements), input validation, least privilege for the DB account; XSS targets browsers instead"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Web-based",
+      "Cross-site scripting (XSS)"
+    ],
+    "term": "Cross-site scripting (XSS) (web vulnerability)",
+    "definition": "A flaw where a site includes untrusted input in its pages without encoding it, so an attacker's script runs in other users' browsers. Types: reflected (non-persistent), stored (persistent) and DOM-based.",
+    "example": "An attacker posts a comment containing a script tag on a forum; every visitor's browser runs it and sends their session cookie to the attacker.",
+    "category": "2.3 Types of vulnerabilities > Web-based",
+    "keyPoints": "Script runs in the victim's browser, trusting the site; stored XSS is saved on the server, reflected XSS comes back in a crafted link; look for script tags in input; fix: output encoding, input validation, Content Security Policy"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Hardware"
+    ],
+    "term": "Hardware vulnerabilities",
+    "definition": "Weaknesses in physical devices and their low-level software: firmware flaws and devices that are end-of-life or legacy.",
+    "example": "A network printer's firmware has a known flaw the manufacturer never fixed.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Listed: firmware, end-of-life, legacy; hardware is often hard or impossible to patch; isolate devices you cannot update"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Hardware",
+      "Firmware"
+    ],
+    "term": "Firmware (hardware vulnerability)",
+    "definition": "Flaws in the embedded software that controls hardware (BIOS/UEFI, device controllers). Only the manufacturer can fix it, and updates are often rare or ignored.",
+    "example": "A flaw in a server's management controller firmware lets attackers take remote control below the operating system.",
+    "category": "2.3 Types of vulnerabilities > Hardware",
+    "keyPoints": "Runs below the OS, so OS security tools may not see it; fix depends on the vendor releasing updates; keep firmware updated and verify its integrity (secure boot)"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Hardware",
+      "End-of-life"
+    ],
+    "term": "End-of-life (EOL) (hardware vulnerability)",
+    "definition": "Hardware the manufacturer no longer sells. Support and patches may continue for a set time; once support ends (end of service life, EOSL), new flaws stay unfixed.",
+    "example": "A router model reached end of life years ago and its support has now ended; a new remote-code flaw is found but no firmware fix is released.",
+    "category": "2.3 Types of vulnerabilities > Hardware",
+    "keyPoints": "EOL = no longer sold, support may continue for a while; EOSL = support and patches have stopped; plan replacement before support ends; legacy hardware is often EOL too"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Hardware",
+      "Legacy"
+    ],
+    "term": "Legacy (hardware vulnerability)",
+    "definition": "Old hardware still in use, often because a critical system depends on it, that may be outdated, unsupported or unable to run modern security controls.",
+    "example": "A hospital keeps a 20-year-old MRI controller running an old OS because replacing it costs millions.",
+    "category": "2.3 Types of vulnerabilities > Hardware",
+    "keyPoints": "Often kept for business reasons; may be EOL too; mitigate with segmentation, isolation and compensating controls"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Virtualization"
+    ],
+    "term": "Virtualization vulnerabilities",
+    "definition": "Weaknesses in hypervisors and virtual machines that break the separation between VMs or between a VM and the host: VM escape and resource reuse.",
+    "example": "A flaw in a hypervisor's virtual device driver lets code in one VM read another VM's memory.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Listed: VM escape, resource reuse; the hypervisor is a high-value target because it controls every VM; patch hypervisors and limit VM sprawl"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Virtualization",
+      "Virtual machine (VM) escape"
+    ],
+    "term": "Virtual machine (VM) escape (virtualization vulnerability)",
+    "definition": "Breaking out of a virtual machine to reach the hypervisor or host, and from there other VMs. It is one of the most serious virtualization flaws.",
+    "example": "At Pwn2Own 2017, a team chained a browser bug and a Windows kernel bug inside a guest VM, then exploited a flaw in VMware Workstation's emulated graphics hardware to run code on the host.",
+    "category": "2.3 Types of vulnerabilities > Virtualization",
+    "keyPoints": "Defeats VM isolation; attacker gains control of host and other guests; mitigate by patching hypervisors and limiting guest features"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Virtualization",
+      "Resource reuse"
+    ],
+    "term": "Resource reuse (virtualization vulnerability)",
+    "definition": "When memory, storage or other resources are reassigned from one VM to another without being fully cleared, so leftover data can be read by the new VM.",
+    "example": "A new VM is given disk blocks that previously belonged to another customer and recovers fragments of their files.",
+    "category": "2.3 Types of vulnerabilities > Virtualization",
+    "keyPoints": "Risk from shared, overcommitted or reallocated resources; leaks data between tenants or VMs; hypervisor must wipe resources before reuse"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Cloud-specific"
+    ],
+    "term": "Cloud-specific vulnerabilities",
+    "definition": "Weaknesses that arise in cloud environments: misconfigured storage or permissions, insecure APIs, weak authentication, and confusion over the shared responsibility model.",
+    "example": "A company leaves a cloud storage bucket publicly readable, exposing customer records to anyone with the URL.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Most cloud breaches come from customer misconfiguration, not the provider; know the shared responsibility model; protect APIs and identities with MFA"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Supply chain"
+    ],
+    "term": "Supply chain vulnerabilities",
+    "definition": "Weaknesses introduced by the third parties an organization depends on: service providers, hardware providers and software providers.",
+    "example": "A widely used open-source library contains a flaw, making every application that includes it vulnerable (as with Log4j in 2021).",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Trust in third parties extends the attack surface; listed: service, hardware and software providers; mitigate with vendor assessments, SBOMs, integrity checks; 2.2 lists supply chain as a vector too"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Supply chain",
+      "Service provider"
+    ],
+    "term": "Service provider (supply chain vulnerability)",
+    "definition": "Risk from external providers of services, such as cloud, payroll or IT support, that hold your data or access. Their weaknesses become yours.",
+    "example": "A payroll processing company is breached, exposing every client's employee bank details.",
+    "category": "2.3 Types of vulnerabilities > Supply chain",
+    "keyPoints": "You cannot outsource accountability; assess providers and set security terms in contracts; limit what access and data they get"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Supply chain",
+      "Hardware provider"
+    ],
+    "term": "Hardware provider (supply chain vulnerability)",
+    "definition": "Risk that hardware is counterfeit, tampered with or built with flawed components before it reaches you.",
+    "example": "In 2020, F-Secure found counterfeit Cisco Catalyst 2960-X switches that were built to bypass Cisco's software authentication checks; they were found when they failed after an update.",
+    "category": "2.3 Types of vulnerabilities > Supply chain",
+    "keyPoints": "Buy from trusted, authorized sources; check device integrity and firmware; hard to detect after deployment"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Supply chain",
+      "Software provider"
+    ],
+    "term": "Software provider (supply chain vulnerability)",
+    "definition": "Risk that software you buy or include contains vulnerabilities, malicious code or compromised updates, including open-source components and libraries.",
+    "example": "The Log4j flaw affected thousands of products that bundled the logging library without their users knowing.",
+    "category": "2.3 Types of vulnerabilities > Supply chain",
+    "keyPoints": "Includes third-party libraries and dependencies; track components with a software bill of materials (SBOM); verify code signatures; malicious update is a related 2.3 item"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Cryptographic"
+    ],
+    "term": "Cryptographic vulnerabilities",
+    "definition": "Weaknesses in how cryptography is chosen or used: outdated algorithms, short keys, poor key management, weak random numbers or bad certificates.",
+    "example": "A site still accepts SSL 3.0 and uses MD5 hashes, letting attackers break or forge protected data.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Examples: weak algorithms (DES, RC4, MD5, SHA-1), short keys, exposed private keys, expired or self-signed certs; usually the implementation fails, not the math; ties to downgrade, collision and birthday attacks (2.4)"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Misconfiguration"
+    ],
+    "term": "Misconfiguration (vulnerability)",
+    "definition": "Insecure settings on otherwise sound systems: open permissions, unnecessary services, default settings or accounts, or disabled security features.",
+    "example": "A database server is exposed to the internet with no password because remote access was enabled for testing and never turned off.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Among the most common causes of breaches, especially in the cloud; fixes: secure baselines, configuration management and enforcement, regular audits"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Mobile device"
+    ],
+    "term": "Mobile device vulnerabilities",
+    "definition": "Weaknesses in smartphones and tablets, especially from installing apps outside official stores (side loading) and removing built-in restrictions (jailbreaking or rooting).",
+    "example": "An employee jailbreaks a company iPhone to install an unofficial app, which turns out to contain spyware.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "Listed: side loading, jailbreaking; both bypass the platform's security model; control with mobile device management (MDM) that detects and blocks them"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Mobile device",
+      "Side loading"
+    ],
+    "term": "Side loading (mobile device vulnerability)",
+    "definition": "Installing apps from outside the official app store, skipping the store's security review.",
+    "example": "A user installs an Android APK downloaded from a forum to get a \"free premium\" version of an app; it contains malware.",
+    "category": "2.3 Types of vulnerabilities > Mobile device",
+    "keyPoints": "Bypasses app store vetting; easier on Android than iOS; does not require jailbreaking; block with MDM; since iOS 17.4, users in the EU may also install apps from approved alternative marketplaces, but Apple still notarizes those apps"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Mobile device",
+      "Jailbreaking"
+    ],
+    "term": "Jailbreaking (mobile device vulnerability)",
+    "definition": "Removing the manufacturer's restrictions on a mobile device (on iOS; the Android equivalent is rooting) to gain full control and install anything.",
+    "example": "A user jailbreaks an iPhone, which disables protections and lets any app reach system files.",
+    "category": "2.3 Types of vulnerabilities > Mobile device",
+    "keyPoints": "Jailbreaking = iOS, rooting = Android; gives root-level access and weakens the security model; side loading only installs outside apps, jailbreaking removes OS limits; MDM can detect it"
+  },
+  {
+    "obj": "2.3",
+    "path": [
+      "Zero-day"
+    ],
+    "term": "Zero-day (vulnerability)",
+    "definition": "A vulnerability unknown to the vendor or with no patch available yet, so defenders have had zero days to fix it. An exploit for it is a zero-day exploit.",
+    "example": "Attackers exploit an unknown browser flaw for weeks before the vendor learns of it and releases a fix.",
+    "category": "2.3 Types of vulnerabilities",
+    "keyPoints": "No patch exists, so signature-based tools miss it; defenses: layered security, behavior-based detection, least privilege, rapid patching once released; valuable to nation-states"
+  },
+  {
+    "obj": "2.4",
+    "path": [],
+    "term": "SY0-701 2.4: Given a scenario, analyze indicators of malicious activity",
+    "definition": "Objective 2.4 asks you to look at a scenario (symptoms, logs, behavior) and identify the attack: malware, physical, network, application, cryptographic and password attacks, plus general indicators of compromise.",
+    "example": "An analyst sees one account log in from New York and Tokyo ten minutes apart, then a gap in that server's logs, and concludes stolen credentials were used and the attacker cleared the logs.",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Performance-based style: read the clues; know the distinguishing feature of each attack (worm self-spreads, virus needs a user, spraying tries one or a few common passwords on many accounts); account clues: lockouts, concurrent sessions, impossible travel; system clues: resource consumption, resources becoming inaccessible, blocked content; log clues: missing logs or out-of-cycle logging; outside clues: your data published/documented online"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks"
+    ],
+    "term": "Malware attacks",
+    "definition": "Malicious software designed to harm systems or steal data. SY0-701 lists ransomware, Trojan, worm, spyware, bloatware, virus, keylogger, logic bomb and rootkit.",
+    "example": "A user opens a fake invoice, a Trojan installs, and it later drops ransomware across the network.",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Tell apart: virus needs user action and a host file, worm spreads by itself over networks, Trojan disguises itself as legitimate, rootkit hides deep in the OS, logic bomb waits for a trigger; bloatware is unwanted preinstalled software, often not malicious"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Ransomware"
+    ],
+    "term": "Ransomware (malware)",
+    "definition": "Malware that encrypts the victim's files (or locks the system) and demands payment, usually in cryptocurrency, for the key. Many groups also steal data and threaten to leak it (double extortion).",
+    "example": "WannaCry (May 2017) hit more than 200,000 victims in more than 150 countries (Europol's estimate) and demanded about $300 in Bitcoin per computer, doubling if not paid within three days.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Indicators: files renamed with odd extensions, ransom notes, mass file changes; best recovery: tested offline backups; defenses: patching, EDR, least privilege; paying does not guarantee recovery"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Trojan"
+    ],
+    "term": "Trojan (malware)",
+    "definition": "Malware disguised as legitimate or desirable software. It does not replicate itself; it relies on the user installing it, then opens access or runs harmful code.",
+    "example": "A \"free video converter\" installs fine but also installs a remote access Trojan (RAT) giving the attacker control.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Disguise is the defining feature; does not self-replicate (unlike worms and viruses); RAT = remote access Trojan, a backdoor; common source: pirated or free software"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Worm"
+    ],
+    "term": "Worm (malware)",
+    "definition": "Self-replicating malware that spreads across networks on its own by exploiting vulnerabilities, with no user action and no host file needed.",
+    "example": "WannaCry spread worm-style through an SMBv1 vulnerability (the EternalBlue exploit, MS17-010, over TCP 445), jumping from computer to computer inside networks.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Spreads automatically without user action (virus needs a user and a host file); indicators: sudden network traffic spikes, many infected hosts quickly; defenses: patching, firewalls, segmentation"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Spyware"
+    ],
+    "term": "Spyware (malware)",
+    "definition": "Malware that secretly watches the user and collects information such as browsing, keystrokes, location or credentials, and sends it to the attacker.",
+    "example": "A free browser toolbar records every website visited and sells the data, while also capturing form entries.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Purpose is surveillance and data theft; often bundled with free software or Trojans; keyloggers are a type of spyware; differs from bloatware, which is unwanted but not spying"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Bloatware"
+    ],
+    "term": "Bloatware (malware category)",
+    "definition": "Unnecessary software preinstalled by the manufacturer or bundled with other apps. It uses storage and resources and can add vulnerabilities, even if it is not malicious.",
+    "example": "A new laptop arrives with trial antivirus, games and a vendor updater that has a known security flaw.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Usually not malicious, just unwanted; risk: wasted resources and extra attack surface; fix: uninstall it (removal of unnecessary software, 2.5)"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Virus"
+    ],
+    "term": "Virus (malware)",
+    "definition": "Malware that attaches to a host file or program and spreads when the user runs or opens it. Types include program, boot sector, script, macro and fileless viruses.",
+    "example": "A macro virus in a spreadsheet infects other documents each time an infected file is opened.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Needs user action and a host to spread; a worm needs neither; fileless viruses live in memory and use tools like PowerShell; defense: antivirus/EDR with current signatures"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Keylogger"
+    ],
+    "term": "Keylogger (malware)",
+    "definition": "Malware (or a hardware device) that records keystrokes to capture passwords, card numbers and messages, then sends them to the attacker.",
+    "example": "A keylogger on a hotel business center PC captures a guest's webmail password.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Captures input before encryption, so HTTPS does not help; can be software or a USB hardware dongle; MFA limits the value of stolen passwords"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Logic bomb"
+    ],
+    "term": "Logic bomb (malware)",
+    "definition": "Malicious code that waits until a specific condition is met, such as a date, an event or a user being removed, then runs its payload.",
+    "example": "An administrator plants code that deletes the payroll database if his account is ever disabled.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Defined by its trigger (time, event, condition); often planted by insiders; hard to detect with signatures because it is custom; defense: change management, code review, monitoring of critical files, least privilege; real case: in March 2013 a logic bomb at South Korean banks and broadcasters wiped drives and boot records at a set time, taking ATMs offline"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Malware attacks",
+      "Rootkit"
+    ],
+    "term": "Rootkit (malware)",
+    "definition": "Malware that hides deep in the operating system, often in the kernel, to conceal itself and other malware while keeping privileged access.",
+    "example": "A rootkit modifies the kernel so its files and processes do not show in Task Manager or antivirus scans.",
+    "category": "2.4 Indicators of malicious activity > Malware attacks",
+    "keyPoints": "Main feature is stealth at the kernel level; normal tools may not see it; defenses: secure boot, UEFI, scanning from outside the OS, often reimaging the system"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Physical attacks"
+    ],
+    "term": "Physical attacks",
+    "definition": "Attacks on physical security: forcing entry (brute force), copying access badges (RFID cloning) and attacking the environment (power, heating, cooling).",
+    "example": "An attacker clones a staff badge from a few centimeters away in a coffee line and walks into the office.",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Listed: brute force, RFID cloning, environmental; physical access often defeats digital controls; defenses: locks, guards, cameras, badge plus PIN, environmental monitoring"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Physical attacks",
+      "Brute force"
+    ],
+    "term": "Brute force (physical attack)",
+    "definition": "Using physical force to get in: breaking doors, windows, locks or barriers, or forcing open equipment.",
+    "example": "An intruder pries open a rear fire door and kicks in the wiring closet door.",
+    "category": "2.4 Indicators of malicious activity > Physical attacks",
+    "keyPoints": "Physical force, not password guessing (that is brute force under password attacks); indicators: damaged doors, broken locks, alarms; defenses: reinforced doors, bollards, alarms, cameras"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Physical attacks",
+      "Radio frequency identification (RFID) cloning"
+    ],
+    "term": "Radio frequency identification (RFID) cloning (physical attack)",
+    "definition": "Copying the data from an RFID access badge or key fob with a reader, then writing it to a blank card to impersonate the owner.",
+    "example": "An attacker uses a hidden reader to capture an employee's badge ID in an elevator, then opens the server room with a clone.",
+    "category": "2.4 Indicators of malicious activity > Physical attacks",
+    "keyPoints": "Many badges send a fixed ID without encryption, so they are easy to copy; indicator: badge used in two places at once or at odd hours; defenses: encrypted badges, MFA (badge plus PIN or biometric), shielded sleeves; cloners cost under about $50 and copy a card in seconds"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Physical attacks",
+      "Environmental"
+    ],
+    "term": "Environmental (physical attack)",
+    "definition": "Attacking the environment systems support: power, heating and cooling (HVAC), humidity or fire suppression, to cause outages or damage.",
+    "example": "Attackers hack a data center's HVAC controls and turn off cooling, causing servers to overheat and shut down.",
+    "category": "2.4 Indicators of malicious activity > Physical attacks",
+    "keyPoints": "Targets availability; HVAC and building systems are often networked and poorly secured; defenses: segment building systems, monitor temperature and power, backup power"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks"
+    ],
+    "term": "Network attacks",
+    "definition": "Attacks against network traffic and services: DDoS (amplified, reflected), DNS attacks, wireless attacks, on-path, credential replay and malicious code.",
+    "example": "An attacker poisons ARP tables on a LAN so all traffic passes through their laptop.",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Listed: DDoS, DNS attacks, wireless, on-path, credential replay, malicious code; look for traffic anomalies, unusual DNS answers, and ARP tables where one MAC address answers for several IP addresses or the gateway IP suddenly has a new MAC (ARP poisoning)"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "Distributed denial-of-service (DDoS)"
+    ],
+    "term": "Distributed denial-of-service (DDoS) (network attack)",
+    "definition": "Overwhelming a target with traffic or requests from many sources, often a botnet, so legitimate users cannot reach it. A DoS uses one source; a DDoS uses many.",
+    "example": "The 2016 Mirai botnet of hacked IoT devices flooded DNS provider Dyn, knocking major websites offline.",
+    "category": "2.4 Indicators of malicious activity > Network attacks",
+    "keyPoints": "Attacks availability; DoS = one source, DDoS = many (botnet); variants: amplified and reflected; defenses: upstream filtering, scrubbing services, CDN, rate limiting"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "Distributed denial-of-service (DDoS)",
+      "Amplified"
+    ],
+    "term": "Amplified DDoS (network attack)",
+    "definition": "A DDoS that sends small requests to services that return much larger responses, multiplying the traffic the attacker generates. DNS, NTP and memcached are common amplifiers.",
+    "example": "Attackers send tiny NTP \"monlist\" queries that each trigger a response hundreds of times larger, aimed at the victim.",
+    "category": "2.4 Indicators of malicious activity > Network attacks > Distributed denial-of-service (DDoS)",
+    "keyPoints": "Amplified = small request, big response (traffic multiplied); usually combined with reflection (spoofed source IP); UDP protocols are favored because they need no handshake; measured amplification factors (CISA): DNS about 28 to 54 times, NTP about 557 times, memcached up to about 51,000 times"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "Distributed denial-of-service (DDoS)",
+      "Reflected"
+    ],
+    "term": "Reflected DDoS (network attack)",
+    "definition": "A DDoS where the attacker spoofs the victim's IP as the source of requests to third-party servers, so those servers send their replies to the victim. It hides the attacker and spreads the traffic across many sources.",
+    "example": "Attackers send DNS queries with the victim's IP as the source to thousands of open resolvers, which all answer the victim.",
+    "category": "2.4 Indicators of malicious activity > Network attacks > Distributed denial-of-service (DDoS)",
+    "keyPoints": "Reflected = spoofed source makes others reply to the victim (hides the attacker); amplified = responses bigger than requests; most real attacks are both (\"reflected amplification\")"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "Domain Name System (DNS) attacks"
+    ],
+    "term": "Domain Name System (DNS) attacks (network attack)",
+    "definition": "Attacks that tamper with name resolution to send users to the wrong place: DNS poisoning or spoofing, domain hijacking, and abusing DNS for amplification or tunneling.",
+    "example": "Attackers poison a resolver's cache so the bank's domain points to a phishing server, and users see the right URL but the wrong site.",
+    "category": "2.4 Indicators of malicious activity > Network attacks",
+    "keyPoints": "DNS poisoning = false records in cache or hosts file; domain hijacking = taking over the domain registration; defenses: DNSSEC, registrar locks and MFA, monitoring DNS changes"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "Wireless"
+    ],
+    "term": "Wireless (network attack)",
+    "definition": "Attacks on Wi-Fi networks, such as deauthentication (kicking users off), jamming (radio interference), rogue access points and evil twins.",
+    "example": "An attacker sends forged deauthentication frames so clients disconnect and reconnect to his evil twin access point.",
+    "category": "2.4 Indicators of malicious activity > Network attacks",
+    "keyPoints": "Deauth uses unprotected 802.11 management frames (802.11w protects them, required in WPA3); jamming is radio interference (DoS); evil twin mimics a legitimate SSID; rogue AP is unauthorized"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "On-path"
+    ],
+    "term": "On-path attack (network attack)",
+    "definition": "An attacker secretly sits between two parties, reading or changing their traffic. Formerly called man-in-the-middle; ARP poisoning is a common LAN technique and on-path browser (man-in-the-browser) is a malware variant.",
+    "example": "ARP poisoning on a café network makes a victim's laptop send all its traffic through the attacker's machine.",
+    "category": "2.4 Indicators of malicious activity > Network attacks",
+    "keyPoints": "Old name: man-in-the-middle; indicators: one MAC address mapped to several IP addresses in ARP tables, the gateway IP showing a new MAC, certificate warnings; defenses: encryption (TLS), certificate validation, dynamic ARP inspection"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "Credential replay"
+    ],
+    "term": "Credential replay (network attack)",
+    "definition": "Capturing valid credentials, password hashes or authentication tokens and reusing them to log in as the victim, without needing to know the plaintext password.",
+    "example": "An attacker dumps an administrator's NTLM password hash from a compromised workstation's memory and uses it to sign in to other servers without ever cracking it (pass the hash).",
+    "category": "2.4 Indicators of malicious activity > Network attacks",
+    "keyPoints": "Reuses captured authentication data; pass the hash is the classic example; defenses: encryption, MFA, timestamps and nonces, Kerberos instead of NTLM; differs from application replay of session tokens/cookies; the reused data can come from network traffic (cleartext logins, captured authentication exchanges) or from a compromised host's memory"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Network attacks",
+      "Malicious code"
+    ],
+    "term": "Malicious code (network attack)",
+    "definition": "Harmful code in any form (executables, scripts, macros, injected website code) used to exploit systems over the network.",
+    "example": "Attackers injected card-skimming JavaScript into an airline's payment page, stealing customers' card details (a Magecart attack).",
+    "category": "2.4 Indicators of malicious activity > Network attacks",
+    "keyPoints": "Broad category: scripts, executables, macros, injected web code; can arrive by email, web or worm; defenses: anti-malware, patching, application allow lists, input validation"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Application attacks"
+    ],
+    "term": "Application attacks",
+    "definition": "Attacks against applications and their logic: injection, buffer overflow, replay, privilege escalation, forgery and directory traversal.",
+    "example": "A web server log shows requests containing ../../ and SQL keywords against the login page.",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Listed: injection, buffer overflow, replay, privilege escalation, forgery, directory traversal; root causes: poor input validation and weak session handling; defenses: secure coding, WAF, patching"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Application attacks",
+      "Injection"
+    ],
+    "term": "Injection (application attack)",
+    "definition": "Getting attacker-supplied code run by a system. Most kinds hide code in input that the application hands to an interpreter (a database for SQL, a directory for LDAP, an XML parser, an operating system shell for command injection). DLL injection is different: it makes a running process load a malicious library, so the code runs inside that process.",
+    "example": "Logs show the input admin'; DROP TABLE users;-- submitted to a web form.",
+    "category": "2.4 Indicators of malicious activity > Application attacks",
+    "keyPoints": "Interpreter kinds (SQL, LDAP, XML, command): indicators are code fragments in input fields and logs (quotes, semicolons, OR 1=1), defenses are input validation, parameterized queries and least privilege; DLL injection (MITRE ATT&CK T1055.001): no interpreter, the attacker writes a library path into another process and starts a thread that loads it, seen as unexpected DLLs or remote threads in a process, caught by EDR"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Application attacks",
+      "Buffer overflow"
+    ],
+    "term": "Buffer overflow (application attack)",
+    "definition": "An attack that sends more data than an input buffer can hold, to crash the application or run attacker code.",
+    "example": "An application keeps crashing and logs show requests with thousands of \"A\" characters in a username field.",
+    "category": "2.4 Indicators of malicious activity > Application attacks",
+    "keyPoints": "Indicators: crashes or restarts, very long input strings, unexpected code execution; defenses: input validation, patching, DEP and ASLR; the 2.3 card covers the vulnerability itself"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Application attacks",
+      "Replay"
+    ],
+    "term": "Replay (application attack)",
+    "definition": "Capturing a valid session token, cookie or transaction and sending it again to impersonate the user or repeat the action.",
+    "example": "An attacker steals a session cookie over unencrypted Wi-Fi and uses it to take over the victim's logged-in session (session hijacking).",
+    "category": "2.4 Indicators of malicious activity > Application attacks",
+    "keyPoints": "Reuses captured session data; defenses: encryption (HTTPS), session timeouts, tokens tied to one use, nonces and timestamps; network credential replay is the 2.4 network version"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Application attacks",
+      "Privilege escalation"
+    ],
+    "term": "Privilege escalation (application attack)",
+    "definition": "Gaining higher access than intended. Vertical escalation moves to a higher privilege level (user to admin); horizontal escalation accesses another user's resources at the same level.",
+    "example": "A standard user exploits a flaw in a service running as SYSTEM to get administrator rights.",
+    "category": "2.4 Indicators of malicious activity > Application attacks",
+    "keyPoints": "Vertical = up a level; horizontal = sideways to another user; indicators: unexpected admin rights or new admin accounts; defenses: patching, least privilege, monitoring"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Application attacks",
+      "Forgery"
+    ],
+    "term": "Forgery (application attack)",
+    "definition": "Tricking a system into sending a request it should not. Cross-site request forgery (CSRF) makes a logged-in user's browser send unwanted requests; server-side request forgery (SSRF) makes a server request internal or external resources for the attacker.",
+    "example": "A malicious page silently submits a funds-transfer form to the victim's bank while the victim is logged in (CSRF).",
+    "category": "2.4 Indicators of malicious activity > Application attacks",
+    "keyPoints": "CSRF abuses the trust a site has in the user's browser, which adds the session cookie to the forged request by itself; SSRF abuses the server to reach internal systems; defenses: anti-CSRF tokens, same-site cookies, validating server-side URLs; XSS runs script, CSRF sends requests; SSRF defenses: allow lists of permitted destinations, no raw user-supplied URLs, block internal addresses and cloud metadata endpoints"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Application attacks",
+      "Directory traversal"
+    ],
+    "term": "Directory traversal (application attack)",
+    "definition": "Manipulating file paths in input (for example with ../) to read files outside the folder the application is supposed to serve.",
+    "example": "A request for /download?file=../../../../etc/passwd returns the server's password file.",
+    "category": "2.4 Indicators of malicious activity > Application attacks",
+    "keyPoints": "Indicator: ../ or encoded %2e%2e%2f sequences in URLs or logs; defenses: input validation, least privilege file permissions, no direct user-controlled paths; stripping ../ alone is easy to bypass (backslashes, double encoding), so resolve the full path first (canonicalize) and check it against an allow list"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Cryptographic attacks"
+    ],
+    "term": "Cryptographic attacks",
+    "definition": "Attacks that weaken or bypass encryption and hashing: downgrade, collision and birthday attacks.",
+    "example": "An on-path attacker forces a browser and server to use an old, breakable protocol version.",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Listed: downgrade, collision, birthday; defenses: modern protocols and algorithms, disabling legacy options, longer hashes"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Cryptographic attacks",
+      "Downgrade"
+    ],
+    "term": "Downgrade (cryptographic attack)",
+    "definition": "Forcing two systems to fall back to an older, weaker protocol or cipher that the attacker can break. SSL stripping, which turns HTTPS into HTTP, is a related on-path technique.",
+    "example": "The POODLE attack (2014) forced connections to fall back to SSL 3.0, whose padding flaw let the attacker decrypt data such as session cookies.",
+    "category": "2.4 Indicators of malicious activity > Cryptographic attacks",
+    "keyPoints": "Requires an on-path position; defenses: disable old protocols and ciphers (every SSL version, plus TLS 1.0 and 1.1, which RFC 8996 deprecated in 2021), TLS_FALLBACK_SCSV to refuse forced fallback, HSTS against SSL stripping"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Cryptographic attacks",
+      "Collision"
+    ],
+    "term": "Collision (cryptographic attack)",
+    "definition": "Finding two different inputs that produce the same hash value, so a forged item can pass as legitimate.",
+    "example": "Researchers created two different PDF files with the same SHA-1 hash (SHAttered, 2017); in 2008 researchers used an MD5 collision to forge a certificate that looked signed by a real certificate authority.",
+    "category": "2.4 Indicators of malicious activity > Cryptographic attacks",
+    "keyPoints": "Breaks the integrity guarantee of hashing; MD5 and SHA-1 are vulnerable; use SHA-256 or stronger; the birthday attack is the math that makes collisions easier to find"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Cryptographic attacks",
+      "Birthday"
+    ],
+    "term": "Birthday (cryptographic attack)",
+    "definition": "An attack based on the birthday paradox: finding any two inputs with the same hash takes far fewer tries than finding a match for one specific hash (about the square root of the possible outputs).",
+    "example": "In a room of 23 people there is about a 50% chance two share a birthday; similarly, a 64-bit hash yields a collision after about 2^32 attempts.",
+    "category": "2.4 Indicators of malicious activity > Cryptographic attacks",
+    "keyPoints": "Explains why collisions are easier than expected; defense: longer hash outputs (SHA-256 or more); collision = the result, birthday = the method that finds it"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Password attacks"
+    ],
+    "term": "Password attacks",
+    "definition": "Attempts to guess or crack passwords. SY0-701 lists spraying (few passwords, many accounts) and brute force (many passwords against one account or hash).",
+    "example": "Logs show failed logins for 500 different accounts, each tried with \"Spring2026!\".",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Spraying = one or a few common passwords across many accounts, avoids lockout; brute force = many guesses per account, triggers lockout online; offline brute force cracks stolen hashes; defenses: MFA, lockout, strong password policy, salted hashing"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Password attacks",
+      "Spraying"
+    ],
+    "term": "Password spraying (password attack)",
+    "definition": "Trying one or a few common passwords against many accounts, staying under each account's lockout threshold.",
+    "example": "An attacker tries \"Welcome1\" once against every account in a company's directory, then waits an hour and tries \"Password123\".",
+    "category": "2.4 Indicators of malicious activity > Password attacks",
+    "keyPoints": "Few passwords, many accounts; avoids account lockout; indicator: many accounts with one or two failures each from the same source; defenses: MFA, banning common passwords, monitoring"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Password attacks",
+      "Brute force"
+    ],
+    "term": "Brute force (password attack)",
+    "definition": "Trying every possible password combination, or a very large list, until one works. Online brute force targets a live login; offline brute force cracks a stolen password hash file.",
+    "example": "An attacker steals a hash database and runs billions of guesses per second on GPUs to recover passwords.",
+    "category": "2.4 Indicators of malicious activity > Password attacks",
+    "keyPoints": "Online: slow and triggers account lockout; offline: no lockout, limited only by computing power; defenses: lockout, long passwords, salted slow hashes; physical brute force is forcing doors"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators"
+    ],
+    "term": "Indicators of malicious activity (indicators of compromise)",
+    "definition": "Signs that an attack is happening or has happened. Watch accounts (lockouts, the same user signed in twice at once, impossible travel between logins), systems (unusual resource consumption, resources suddenly inaccessible, security tools or updates being blocked), logs (missing logs, logging at odd times) and the outside world (your data published or documented online).",
+    "example": "An analyst sees log files deleted for a two-hour window, plus an admin logged in from two countries at once.",
+    "category": "2.4 Indicators of malicious activity",
+    "keyPoints": "Indicators of compromise (IoCs) are evidence of an intrusion; combine several before concluding; know each indicator's likely cause"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Account lockout"
+    ],
+    "term": "Account lockout (indicator)",
+    "definition": "Accounts getting locked after too many failed logins, which may mean someone is trying to guess passwords.",
+    "example": "Several users call the help desk the same morning because their accounts are locked, though they did not mistype anything.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Suggests brute force (spraying deliberately avoids lockout); attacker may also lock accounts on purpose as a DoS, or lock one and then call the help desk posing as the user to get a reset; check the source of failed attempts"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Concurrent session usage"
+    ],
+    "term": "Concurrent session usage (indicator)",
+    "definition": "One account logged in more than once at the same time from different places or devices, when that is not normal for the user.",
+    "example": "A user's account shows active sessions on her office PC and on an unknown laptop at the same time.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Suggests stolen credentials or session hijacking; compare with impossible travel (logins too far apart in too little time); several sessions can be normal (phone plus laptop, service accounts), so check the IP addresses and times before concluding"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Blocked content"
+    ],
+    "term": "Blocked content (indicator)",
+    "definition": "Content being blocked in a suspicious way. Malware often blocks antivirus updates and security websites so it can stay on the host. Security tools may also log repeated blocked downloads or connections from an infected host.",
+    "example": "The web proxy logs repeated blocked connections from one PC to a known command-and-control domain.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "A host that suddenly cannot reach antivirus updates or security sites suggests malware protecting itself; repeated proxy blocks from one host suggest malware calling out"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Impossible travel"
+    ],
+    "term": "Impossible travel (indicator)",
+    "definition": "Logins for the same account from locations so far apart in so short a time that no one could physically travel between them.",
+    "example": "A user logs in from Chicago at 9:00 and from Moscow at 9:20.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Strong sign of compromised credentials; VPNs can cause false positives; differs from concurrent sessions: impossible travel is about time and distance between logins"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Resource consumption"
+    ],
+    "term": "Resource consumption (indicator)",
+    "definition": "Unusual use of CPU, memory, disk or network bandwidth, which can signal malware, cryptomining, data exfiltration or a DoS.",
+    "example": "A file server sends 50 GB to an unknown external IP at 2 a.m.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Spikes in outbound traffic suggest exfiltration; constant high CPU suggests cryptomining; compare to a baseline of normal use"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Resource inaccessibility"
+    ],
+    "term": "Resource inaccessibility (indicator)",
+    "definition": "Systems, services or files that suddenly cannot be reached or opened.",
+    "example": "Users cannot open shared files, which now have strange extensions and a ransom note in each folder.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Can indicate ransomware (encrypted files), DoS, or an attacker locking out admins; differs from resource consumption, which is about unusual usage"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Out-of-cycle logging"
+    ],
+    "term": "Out-of-cycle logging (indicator)",
+    "definition": "Log activity at unexpected times or outside normal schedules, such as updates, backups or admin actions that should not be happening then.",
+    "example": "Logs show an OS patch installed at 3 a.m. on a Sunday, though patching only happens on Tuesday nights.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Activity outside the normal schedule or change window is suspicious; compare to change management records"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Published/documented"
+    ],
+    "term": "Published/documented (indicator)",
+    "definition": "Evidence of an attack that is made public: the attacker publishing stolen data, or researchers or vendors documenting the attack and its indicators.",
+    "example": "The company learns of its breach when its customer database appears for sale on a dark web forum.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Sometimes the first a victim hears of a breach; threat intelligence feeds publish IoCs to check against your systems"
+  },
+  {
+    "obj": "2.4",
+    "path": [
+      "Indicators",
+      "Missing logs"
+    ],
+    "term": "Missing logs (indicator)",
+    "definition": "Gaps or deleted entries in log files, often a sign an attacker covered their tracks.",
+    "example": "The security log on a domain controller has no entries between 1:00 and 3:00 a.m., and the log-clear event appears at 3:01.",
+    "category": "2.4 Indicators of malicious activity > Indicators",
+    "keyPoints": "Attackers delete or alter logs to hide activity; defenses: send logs to a central SIEM or write-once storage, alert on log clearing"
+  },
+  {
+    "obj": "2.5",
+    "path": [],
+    "term": "SY0-701 2.5: Explain the purpose of mitigation techniques used to secure the enterprise",
+    "definition": "Objective 2.5 covers why organizations use controls that reduce risk: segmentation, access control, application allow lists, isolation, patching, encryption, monitoring, least privilege, configuration enforcement, decommissioning and hardening techniques.",
+    "example": "To stop staff running unapproved programs, a company enforces an application allow list; it also puts card terminals on their own segment and removes admin rights from users.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Know the PURPOSE of each technique and which threat it reduces; segmentation vs isolation; allow list (only approved runs) vs deny list; hardening reduces attack surface on each system"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Segmentation"
+    ],
+    "term": "Segmentation (mitigation technique)",
+    "definition": "Dividing a network into separate zones (with VLANs, subnets, firewalls) so systems with different risk or roles are separated and traffic between them is controlled.",
+    "example": "Point-of-sale terminals are placed on their own VLAN so a breach of office PCs cannot reach card systems.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Limits lateral movement and contains breaches; improves performance and compliance (PCI DSS); segmentation controls traffic between zones, isolation cuts a system off completely; can be physical (separate hardware), logical (VLANs) or virtual (cloud and VM networks)"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Access control"
+    ],
+    "term": "Access control (mitigation technique)",
+    "definition": "Controlling who or what can reach which resources and what they can do there, using access control lists and permissions.",
+    "example": "Only HR staff can open the personnel folder; everyone else is denied.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Listed: access control list (ACL), permissions; enforces least privilege; covers network and file system access"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Access control",
+      "Access control list (ACL)"
+    ],
+    "term": "Access control list (ACL) (mitigation technique)",
+    "definition": "A list of rules that allow or deny access to a resource. On network devices it filters traffic by IP, port and protocol; on file systems it lists which users or groups may access an object.",
+    "example": "A router ACL blocks all inbound traffic to the database subnet except TCP 1433 from the application servers.",
+    "category": "2.5 Mitigation techniques > Access control",
+    "keyPoints": "Rules are checked from the top and the first match wins, with an implicit deny at the end on most devices; used on firewalls, routers and file systems"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Access control",
+      "Permissions"
+    ],
+    "term": "Permissions (mitigation technique)",
+    "definition": "The specific rights granted to a user or group on a resource, such as read, write, modify, execute or full control.",
+    "example": "Interns get read-only access to the policy library so they cannot change documents.",
+    "category": "2.5 Mitigation techniques > Access control",
+    "keyPoints": "Grant the minimum needed (least privilege); assign to groups rather than individuals; review regularly to remove permission creep"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Application allow list"
+    ],
+    "term": "Application allow list (mitigation technique)",
+    "definition": "A policy that lets only approved applications run; anything not on the list is blocked by default. Formerly called whitelisting.",
+    "example": "A kiosk PC only allows the browser and the check-in app to run, so downloaded malware cannot execute.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Default deny, very strong against unknown malware; deny list (blocklist) blocks only known bad apps; harder to manage where software changes often; operating systems can identify approved apps by file hash, digital signature, file path or network zone"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Isolation"
+    ],
+    "term": "Isolation (mitigation technique)",
+    "definition": "Separating a system, process or device completely so it cannot interact with others, either as protection or to contain a threat.",
+    "example": "An infected laptop is moved to a quarantine network with no access to company resources; a browser runs untrusted pages in an isolated sandbox.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Contains compromised systems and protects sensitive ones (air gap, sandbox, quarantine); stronger than segmentation, which allows controlled traffic"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Patching"
+    ],
+    "term": "Patching (mitigation technique)",
+    "definition": "Applying vendor updates that fix security flaws in operating systems, applications and firmware.",
+    "example": "IT deploys an emergency browser patch within 24 hours of a zero-day exploit being reported.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Closes known vulnerabilities; test before production, but prioritize critical fixes; automate where possible; does not help against unpatched zero-days"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Encryption"
+    ],
+    "term": "Encryption (mitigation technique)",
+    "definition": "Encoding data so only authorized parties with the key can read it, protecting it at rest and in transit.",
+    "example": "Full disk encryption keeps data safe when a laptop is stolen; TLS protects web traffic.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Protects confidentiality even if data is stolen; at rest (disk, database) and in transit (TLS, VPN); key management is critical"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Monitoring"
+    ],
+    "term": "Monitoring (mitigation technique)",
+    "definition": "Continuously watching systems, networks and logs to detect suspicious activity and respond quickly.",
+    "example": "A SIEM alerts the security team when an admin account logs in from a new country.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Detective, not preventive; tools: SIEM, IDS/IPS, EDR, log aggregation; needs a baseline to spot anomalies"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Least privilege"
+    ],
+    "term": "Least privilege (mitigation technique)",
+    "definition": "Giving users, processes and systems only the minimum access needed to do their job, and nothing more.",
+    "example": "A help desk technician can reset passwords but cannot change domain admin group membership.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Limits damage from compromised accounts and insiders; reduces privilege escalation impact; review access regularly"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Configuration enforcement"
+    ],
+    "term": "Configuration enforcement (mitigation technique)",
+    "definition": "Making sure systems match an approved secure baseline configuration and correcting or blocking those that drift, often checked before devices are allowed on the network.",
+    "example": "Network access control checks that a laptop has current antivirus and patches before letting it connect, sending it to remediation otherwise.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Uses secure baselines and tools like group policy, MDM and posture assessment; detects and fixes configuration drift"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Decommissioning"
+    ],
+    "term": "Decommissioning (mitigation technique)",
+    "definition": "Retiring systems securely: removing them from service, wiping or destroying data and storage, and updating inventories and access.",
+    "example": "Before old servers are recycled, their drives are wiped and shredded, and their DNS records and firewall rules are removed.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Prevents data leaks from discarded hardware and forgotten systems still running; sanitize or destroy media; document the process"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques"
+    ],
+    "term": "Hardening techniques (mitigation)",
+    "definition": "Steps that reduce a system's attack surface and strengthen its defenses: encryption, endpoint protection, host-based firewall, HIPS, disabling ports and protocols, changing default passwords and removing unnecessary software.",
+    "example": "A new web server gets unused services removed, the admin password changed, a host firewall turned on and EDR installed before going live.",
+    "category": "2.5 Mitigation techniques",
+    "keyPoints": "Goal: smallest possible attack surface per system; use vendor or CIS benchmarks as baselines; seven listed techniques"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques",
+      "Encryption"
+    ],
+    "term": "Encryption (hardening technique)",
+    "definition": "Encrypting a system's storage and communications as part of hardening, such as full disk encryption, encrypted file systems and encrypted protocols.",
+    "example": "Every company laptop is configured with BitLocker full disk encryption before being issued.",
+    "category": "2.5 Mitigation techniques > Hardening techniques",
+    "keyPoints": "Applied per device: full disk encryption, file encryption, encrypted protocols (SSH instead of Telnet); protects data if the device is lost"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques",
+      "Installation of endpoint protection"
+    ],
+    "term": "Installation of endpoint protection (hardening technique)",
+    "definition": "Installing security software such as antivirus, anti-malware or endpoint detection and response (EDR) on each device to detect and block threats.",
+    "example": "An EDR agent spots a process encrypting many files rapidly and isolates the laptop automatically.",
+    "category": "2.5 Mitigation techniques > Hardening techniques",
+    "keyPoints": "EDR adds behavior detection and response beyond signature-based antivirus; covers servers, laptops and mobile devices"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques",
+      "Host-based firewall"
+    ],
+    "term": "Host-based firewall (hardening technique)",
+    "definition": "A software firewall running on the individual device that controls traffic in and out of that host, regardless of the network it is on.",
+    "example": "Windows Defender Firewall blocks inbound file sharing on a laptop when it connects to public Wi-Fi.",
+    "category": "2.5 Mitigation techniques > Hardening techniques",
+    "keyPoints": "Protects the device even off the corporate network; can be application-aware; complements network firewalls"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques",
+      "Host-based intrusion prevention system (HIPS)"
+    ],
+    "term": "Host-based intrusion prevention system (HIPS) (hardening technique)",
+    "definition": "Software on a host that watches system and network activity for attacks and actively blocks them, not just alerts.",
+    "example": "HIPS stops a program that tries to modify system files and inject code into another process.",
+    "category": "2.5 Mitigation techniques > Hardening techniques",
+    "keyPoints": "Prevention (blocks), unlike HIDS which only detects and alerts; uses signatures and behavior; often built into endpoint protection suites"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques",
+      "Disabling ports/protocols"
+    ],
+    "term": "Disabling ports/protocols (hardening technique)",
+    "definition": "Turning off network ports, services and protocols that are not needed, so they cannot be attacked.",
+    "example": "Telnet and FTP are disabled on a server, leaving only SSH (TCP 22) and HTTPS (TCP 443) open.",
+    "category": "2.5 Mitigation techniques > Hardening techniques",
+    "keyPoints": "Reduces the attack surface (open service ports are a 2.2 vector); also disable insecure protocols; includes disabling unused physical switch ports"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques",
+      "Default password changes"
+    ],
+    "term": "Default password changes (hardening technique)",
+    "definition": "Replacing factory-set default passwords on devices, applications and accounts with strong unique ones at installation.",
+    "example": "A new IP camera's admin/admin login is changed to a long unique password before it is mounted.",
+    "category": "2.5 Mitigation techniques > Hardening techniques",
+    "keyPoints": "Directly counters the default credentials vector (Mirai botnet); applies to routers, IoT, databases and apps; also rename or disable default accounts"
+  },
+  {
+    "obj": "2.5",
+    "path": [
+      "Hardening techniques",
+      "Removal of unnecessary software"
+    ],
+    "term": "Removal of unnecessary software (hardening technique)",
+    "definition": "Uninstalling applications, services and features a system does not need, since every program can contain vulnerabilities.",
+    "example": "A new laptop has its preinstalled trial apps and games (bloatware) removed before being issued.",
+    "category": "2.5 Mitigation techniques > Hardening techniques",
+    "keyPoints": "Fewer programs means fewer vulnerabilities to patch; removes bloatware; part of building a minimal secure baseline"
+  }
+]

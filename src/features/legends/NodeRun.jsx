@@ -24,6 +24,7 @@ import { powerHint } from './powers'
 import { DAMAGE } from './abilities/_rules'
 import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundRunningFight, strikeCost } from './fight'
 import LearnItPanel from '../kit/LearnItPanel'
+import { itemSections, SECTION_ICON } from './itemSections'
 import { islandVoice } from '../kit/taunt'
 import { RAID_VOICE_RULES, STOCK_WORDS } from './raidVoices'
 import { useFightCheck, useBossTaunt, useArenaPin, TauntBubble, FightNotice, MissTools } from './FightExtras'
@@ -79,19 +80,68 @@ function AddOne({ ctx, modeId, areaId, it }) {
 }
 
 // With `ctx`, the card offers its own "Add to deck".
-export function ItemCard({ it, t, ctx, modeId, areaId }) {
+// One taught item, READABLE (the owner: walls of "Definition: ... Key Points: a; b; c" were "so hard and awful to
+// read"): its back as sections (itemSections.js): 📖 what it is, 💡 an example in its own box, ⭐ key points as
+// bullets, the category as a small tag. Buttons: 📖 Learn it (the Learn-it panel: the card, a memory hook, a chat with
+// Ebi, before any quiz), 🧠 Memory hook (made here, saved like every other hook) and Add to deck.
+// COLLAPSED by default (the owner): the title shows, a click opens the rest.
+export function ItemCard({ it, t, ctx, modeId, areaId, startOpen = false }) {
+  const [open, setOpen] = useState(startOpen)
+  const [learnOpen, setLearnOpen] = useState(false)
+  const [hooks, setHooks] = useState(() => { try { return ctx?.learn?.savedHooks?.(it.cardNoteId || null, it.front) || [] } catch { return [] } })
+  const [hookBusy, setHookBusy] = useState(false)
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const makeHook = async () => {
+    if (hookBusy || !ctx?.learn?.makeHook || !ctx.ai?.hasKey) return
+    setHookBusy(true)
+    try { const h = await ctx.learn.makeHook(it.front, it.back || '', hooks, 'auto', it.cardNoteId || null); if (alive.current && h) setHooks((l) => (l.includes(h) ? l : [...l, h])) } catch { /* fail soft */ } finally { if (alive.current) setHookBusy(false) }
+  }
+  const sections = itemSections(it.back)
+  const category = sections.find((x) => x.role === 'category')
+  const body = sections.filter((x) => x.role !== 'category')
+  const label = (sec) => <span style={{ fontWeight: 900, color: C.ink }}>{SECTION_ICON[sec.role] ? `${SECTION_ICON[sec.role]} ` : ''}{sec.label}</span>
+  const small = { fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '6px 12px', borderRadius: RADIUS.pill, background: 'transparent', cursor: 'pointer' }
   return (
-    <div style={{ padding: '12px 14px', borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        {it.kind === 'rule' && <span style={{ fontSize: 11, fontWeight: 800, color: C.purple, textTransform: 'uppercase', letterSpacing: '.05em' }}>📐 {t('lg_itemRule')}</span>}
-        {it.kind === 'skill' && <span style={{ fontSize: 11, fontWeight: 800, color: C.info, textTransform: 'uppercase', letterSpacing: '.05em' }}>🛠 {t('lg_itemSkill')}</span>}
+    <div data-item-card="" style={{ padding: '14px 16px', borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface, display: 'grid', gap: 10 }}>
+      <div role="button" tabIndex={0} aria-expanded={open} className="card-head" onClick={() => setOpen((o) => !o)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((o) => !o) } }}
+        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: '-4px -6px', padding: '4px 6px', borderRadius: RADIUS.sm }}>
+        <span aria-hidden style={{ fontSize: 13, marginTop: 5, color: C.inkDim, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>▶</span>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          {it.kind === 'rule' && <div style={{ fontSize: 11, fontWeight: 800, color: C.purple, textTransform: 'uppercase', letterSpacing: '.05em' }}>📐 {t('lg_itemRule')}</div>}
+          {it.kind === 'skill' && <div style={{ fontSize: 11, fontWeight: 800, color: C.info, textTransform: 'uppercase', letterSpacing: '.05em' }}>🛠 {t('lg_itemSkill')}</div>}
+          <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 18.5, color: C.ink, lineHeight: 1.25 }}>{it.front}</div>
+          {open && category && <span style={{ display: 'inline-block', marginTop: 4, fontSize: 11.5, fontWeight: 700, color: C.inkDim, padding: '2px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}` }}>🏷️ {category.text}</span>}
+        </div>
+      </div>
+      {open && body.map((sec, i) => (
+        sec.role === 'example' ? (
+          <div key={i} style={{ fontSize: 14, lineHeight: 1.5, color: C.ink, padding: '8px 12px', borderRadius: RADIUS.sm, background: `color-mix(in srgb, ${C.info} 9%, ${C.surface})`, borderLeft: `3px solid ${C.info}` }}>
+            {label(sec)}<div style={{ whiteSpace: 'pre-wrap', marginTop: 2 }}>{sec.text}</div>
+          </div>
+        ) : sec.role === 'points' ? (
+          <div key={i} style={{ fontSize: 14, lineHeight: 1.5, color: C.ink }}>
+            {label(sec)}
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20, display: 'grid', gap: 3 }}>{sec.points.map((p, k) => <li key={k}>{p}</li>)}</ul>
+          </div>
+        ) : (
+          <div key={i} style={{ fontSize: 14.5, lineHeight: 1.55, color: C.ink }}>
+            {sec.label && <>{label(sec)}<br /></>}<span style={{ whiteSpace: 'pre-wrap' }}>{sec.text}</span>
+          </div>
+        )
+      ))}
+      {open && hooks.map((h, i) => (
+        <div key={i} style={{ fontSize: 13.5, color: C.ink, background: `color-mix(in srgb, ${C.purple} 8%, ${C.surface})`, border: `1px solid color-mix(in srgb, ${C.purple} 30%, transparent)`, borderRadius: RADIUS.sm, padding: '8px 10px', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>🧠 {h.replace(/\*\*/g, '')}</div>
+      ))}
+      {open && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {ctx && <button type="button" onClick={() => setLearnOpen(true)} style={{ ...small, color: C.brandText, border: `1.5px solid color-mix(in srgb, ${C.brand} 45%, transparent)` }}>📖 {t('lg_learnIt')}</button>}
+        {ctx?.learn?.makeHook && <button type="button" onClick={makeHook} disabled={hookBusy || !ctx.ai?.hasKey} style={{ ...small, color: C.purple, border: `1.5px solid color-mix(in srgb, ${C.purple} 45%, transparent)`, opacity: hookBusy || !ctx.ai?.hasKey ? 0.5 : 1, cursor: hookBusy || !ctx.ai?.hasKey ? 'default' : 'pointer' }}>🧠 {hookBusy ? t('lg_hookMaking') : hooks.length ? t('lg_hookAnother') : t('lg_hookMake')}</button>}
         <span style={{ marginLeft: 'auto' }}>
           {ctx ? <AddOne ctx={ctx} modeId={modeId} areaId={areaId} it={it} />
             : it.cardNoteId && <span style={{ fontSize: 11.5, fontWeight: 800, color: C.success }}>✓ {t('lg_inDeck')}</span>}
         </span>
-      </div>
-      <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 18, color: C.ink }}>{it.front}</div>
-      <div style={{ fontSize: 14, color: C.inkDim, whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: 4 }}>{it.back}</div>
+      </div>}
+      {learnOpen && ctx && <LearnItPanel ctx={ctx} item={{ front: it.front, back: it.back, noteId: it.cardNoteId || null }} onClose={() => setLearnOpen(false)} />}
     </div>
   )
 }
@@ -432,9 +482,11 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
         <button onClick={onQuit} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>← {t('lg_toMap')}</button>
         <EbiSays pose={poseFile(node.kind === 'rule' ? 'science' : 'book')}>{node.kind === 'rule' ? t('lg_teachRule') : tCount(t, 'lg_teachLearn', teachItems.length)}</EbiSays>
         <div style={{ display: 'grid', gap: 10 }}>{liveItems(modeId, area.id, teachItems.map((it) => it.id)).map((it) => <ItemCard key={it.id} it={it} t={t} ctx={ctx} modeId={modeId} areaId={area.id} />)}</div>
-        <AddToDeck ctx={ctx} modeId={modeId} areaId={area.id} itemIds={teachItems.map((it) => it.id)} />
+        <details style={{ fontSize: 13, color: C.inkDim }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>➕ {t('lg_addCardsLater')}</summary>
+          <div style={{ marginTop: 8 }}><AddToDeck ctx={ctx} modeId={modeId} areaId={area.id} itemIds={teachItems.map((it) => it.id)} /></div>
+        </details>
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {renew && <NewQuestionsButton t={t} onClick={renew} />}
           <ChunkyButton onClick={load} color={C.success} disabled={!ai.hasKey}>{t('lg_startQuestions')}</ChunkyButton>
         </div>
       </div>

@@ -157,7 +157,7 @@ The central list of risks with description, likelihood, impact, score, owner, KR
 | Term | Meaning | Example |
 |---|---|---|
 | Risk appetite | Overall willingness to take risk to reach goals, set by leadership | "We take low risk with patient data." |
-| Risk tolerance | Acceptable deviation for a specific risk | "Critical patches may take up to 7 days." |
+| Risk tolerance | Acceptable deviation for a specific risk | "The patient portal may be down at most 4 hours a month." |
 | Risk threshold | Trigger point for action | "Escalate if expected loss exceeds $25,000." |
 
 Appetite postures:

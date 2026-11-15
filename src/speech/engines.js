@@ -7,7 +7,9 @@
 // Anthropic has no audio API.
 
 export const COSTS = {
-  stt: { browser: 0, gemini: 0.0015, grok: 0.0017, openai: 0.003 },
+  // local = free on-device Whisper (src/speech/local): listed before `browser`, so a tie picks it (the browser
+  // recognizer returns nothing in most Chromium builds and always fails in Electron).
+  stt: { local: 0, browser: 0, gemini: 0.0015, grok: 0.0017, openai: 0.003 },
   tts: { device: 0, gemini: 0.0135, grok: 0.0135, openai: 0.015 },
 }
 // Every speech request gives up after this long: a stalled connection left Talk on "Hearing..." for good (TTS falls
@@ -15,7 +17,7 @@ export const COSTS = {
 export const SPEECH_TIMEOUT_MS = 60000
 const timeoutSignal = () => (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(SPEECH_TIMEOUT_MS) : undefined)
 // Which stored key each engine needs (null = none).
-const NEEDS = { browser: null, device: null, gemini: 'gemini', grok: 'grok', openai: 'openai' }
+const NEEDS = { local: null, browser: null, device: null, gemini: 'gemini', grok: 'grok', openai: 'openai' }
 
 export const MODELS = {
   stt: { openai: 'gpt-4o-mini-transcribe', grok: 'grok-voice-transcribe-2.0' },
@@ -28,13 +30,13 @@ export const VOICES = {
   gemini: ['Kore', 'Puck'],
 }
 
-const available = (engine, keys, { browser }) => (engine === 'browser' ? !!browser : !NEEDS[engine] || !!keys?.[NEEDS[engine]])
+const available = (engine, keys, { browser, local }) => (engine === 'browser' ? !!browser : engine === 'local' ? !!local : !NEEDS[engine] || !!keys?.[NEEDS[engine]])
 const cheapestFirst = (table) => Object.keys(table).sort((a, b) => table[a] - table[b])
 
 // Speech to text: the preferred engine when usable, else the cheapest usable one; null = none.
-export function pickStt(keys = {}, { browser = false, pref = 'auto' } = {}) {
-  if (pref && pref !== 'auto' && COSTS.stt[pref] != null && available(pref, keys, { browser })) return pref
-  return cheapestFirst(COSTS.stt).find((e) => available(e, keys, { browser })) || null
+export function pickStt(keys = {}, { browser = false, local = false, pref = 'auto' } = {}) {
+  if (pref && pref !== 'auto' && COSTS.stt[pref] != null && available(pref, keys, { browser, local })) return pref
+  return cheapestFirst(COSTS.stt).find((e) => available(e, keys, { browser, local })) || null
 }
 
 // Text to speech: 'auto' = the cheapest NATURAL (AI) voice the user has a key for, else the free device

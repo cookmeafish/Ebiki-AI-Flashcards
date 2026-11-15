@@ -25,7 +25,7 @@ export const careerSampleMax = (kind) => (kind === 'checkpoint' ? CAREER.checkpo
 // The courses this build knows. `match`: a mode whose name or description is about it gets the tile first.
 export const CAREERS = [
   // `noticeKey`: the course's trademark line, shown on its screens (we name the exam only to describe it).
-  { id: 'security-plus-sy0-701', titleKey: 'lg_careerSecPlus', noticeKey: 'lg_careerSecPlusNotice', url: '/careers/security-plus-sy0-701.json', match: /security\s*\+|security\s*plus|sy0-?701/i },
+  { id: 'security-plus-sy0-701', titleKey: 'lg_careerSecPlus', noticeKey: 'lg_careerSecPlusNotice', deck: 'Security+', url: '/careers/security-plus-sy0-701.json', match: /security\s*\+|security\s*plus|sy0-?701/i },
 ]
 export const careerFor = (id) => CAREERS.find((c) => c.id === id) || null
 export const careerMatches = (career, subject) => !!career?.match?.test(`${subject?.name || ''} ${subject?.description || ''}`)
@@ -37,9 +37,9 @@ export function shapePackage(raw) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.areas) || !raw.areas.length || !raw.id) return null
   const areas = raw.areas.map((a) => {
     const items = (Array.isArray(a?.items) ? a.items : []).filter((it) => it?.id && it.front && it.back && it.section)
-      .map((it) => ({ id: String(it.id), kind: ['term', 'rule', 'skill'].includes(it.kind) ? it.kind : 'term', front: str(it.front, 200), back: str(it.back, 2000), section: String(it.section) }))
+      .map((it) => ({ id: String(it.id), kind: ['term', 'rule', 'skill', 'brief'].includes(it.kind) ? it.kind : 'term', front: str(it.front, 200), back: str(it.back, 2000), section: String(it.section) }))
     const ids = new Set(items.map((it) => it.id))
-    const sections = (Array.isArray(a?.sections) ? a.sections : []).filter((s) => s?.id && s.title).map((s) => ({ id: String(s.id), title: str(s.title, 200), short: str(s.short || s.title, 60) }))
+    const sections = (Array.isArray(a?.sections) ? a.sections : []).filter((s) => s?.id && s.title).map((s) => ({ id: String(s.id), title: str(s.title, 200), short: str(s.short || s.title, 60), ...(s.brief && ids.has(String(s.brief)) ? { brief: String(s.brief) } : {}) }))
     const lessons = (Array.isArray(a?.lessons) ? a.lessons : [])
       .map((l) => ({ section: String(l?.section || ''), title: str(l?.title, 80), itemIds: (Array.isArray(l?.itemIds) ? l.itemIds : []).map(String).filter((id) => ids.has(id)) }))
       .filter((l) => l.itemIds.length && sections.some((s) => s.id === l.section))
@@ -47,6 +47,7 @@ export function shapePackage(raw) {
       id: String(a?.id || ''), number: str(a?.number, 10), title: str(a?.title, 120), weight: Number(a?.weight) || 0, theme: str(a?.theme, 300),
       motif: str(a?.motif, 30), palette: str(a?.palette, 30), bossName: str(a?.bossName, 60), story: (a?.story || []).map((s) => str(s, 220)).filter(Boolean).slice(0, 3),
       canDo: (a?.canDo || []).map((s) => str(s, 140)).filter(Boolean).slice(0, 4), sections, items, lessons,
+      ...(a?.brief && ids.has(String(a.brief)) ? { brief: String(a.brief) } : {}),
     }
   }).filter((a) => a.id && a.title && a.items.length && a.sections.length && a.lessons.length)
   if (areas.length !== raw.areas.length) return null
@@ -62,14 +63,15 @@ export function buildCareerMap(pkg, { modeId, subject, start = null }, now = Dat
     const nodes = []
     for (const s of a.sections) {
       a.lessons.filter((l) => l.section === s.id).forEach((l, i) => nodes.push(node(a.id, `${s.id}-l${i + 1}`, { kind: 'learn', section: s.id, title: l.title, itemIds: l.itemIds })))
-      const ids = a.items.filter((it) => it.section === s.id).map((it) => it.id)
+      // BRIEFINGS (kind 'brief': the domain's and objectives' overviews) are read, never quizzed.
+      const ids = a.items.filter((it) => it.section === s.id && it.kind !== 'brief').map((it) => it.id)
       if (ids.length) nodes.push(node(a.id, `${s.id}-check`, { kind: 'checkpoint', section: s.id, title: '', itemIds: ids }))
     }
     nodes.push(node(a.id, 'weak', { kind: 'weak', itemIds: [], optional: true }))
-    nodes.push(node(a.id, 'boss', { kind: 'boss', itemIds: a.items.map((it) => it.id) }))
+    nodes.push(node(a.id, 'boss', { kind: 'boss', itemIds: a.items.filter((it) => it.kind !== 'brief').map((it) => it.id) }))
     return {
       id: a.id, title: a.title, theme: a.theme, motif: a.motif, palette: a.palette || 'original', status: 'open', detailed: true, frozen: false,
-      number: a.number, weight: a.weight, sections: a.sections, bossName: a.bossName, story: a.story, canDo: a.canDo,
+      number: a.number, weight: a.weight, sections: a.sections, ...(a.brief ? { brief: a.brief } : {}), bossName: a.bossName, story: a.story, canDo: a.canDo,
       // Ready to show as built (the first lesson of every objective open): the store caches what is written.
       items: a.items.map((it) => ({ ...it, cardNoteId: null, seen: 0, right: 0 })), nodes: normalizeCareerNodes(nodes, 'open'),
     }
@@ -121,6 +123,22 @@ export function currentSection(area) {
 // The island a learner is on: one in progress, else the first unfinished, else the first (the map screen and Help).
 export const currentIsland = (areas) => (areas || []).find((a) => a.status !== 'done' && (a.nodes || []).some((n) => n.status === 'done')) || (areas || []).find((a) => a.status !== 'done') || (areas || [])[0] || null
 
+// THE NEXT STEP (the owner found the course map overwhelming: one obvious "Continue" now leads): on the island in
+// progress, the first open step of the objective in progress (its lessons in order, then its checkpoint), else the
+// boss when it is open. → { area, node, section } | null (everything done).
+export function nextCareerStep(areas) {
+  const area = currentIsland(areas)
+  if (!area || area.status === 'done') return null
+  const sections = careerSections(area)
+  const order = [...sections.filter((x) => x.id === currentSection(area)), ...sections.filter((x) => x.id !== currentSection(area))]
+  for (const sec of order) {
+    const node = sec.nodes.find((n) => n.status === 'open' && !n.optional)
+    if (node) return { area, node, section: sec }
+  }
+  const boss = (area.nodes || []).find((n) => n.kind === 'boss' && n.status === 'open')
+  return boss ? { area, node: boss, section: null } : null
+}
+
 // How shaky an item is (lower = shakier): never asked counts as shaky, then the share answered right.
 const shaky = (it) => (it.seen ? (it.right || 0) / it.seen : -1)
 
@@ -128,7 +146,7 @@ const shaky = (it) => (it.seen ? (it.right || 0) / it.seen : -1)
 // objectives by their size (every objective gets at least one). `rand` makes ties and the boss's spread vary per attempt.
 export function careerQuizItems(area, node, { max, rand = Math.random } = {}) {
   const byId = new Map((area?.items || []).map((it) => [it.id, it]))
-  const pool = (node?.itemIds || []).map((id) => byId.get(id)).filter(Boolean)
+  const pool = (node?.itemIds || []).map((id) => byId.get(id)).filter((it) => it && it.kind !== 'brief') // a briefing is never quizzed
   if (pool.length <= max) return pool
   // A checkpoint keeps the same sample while the tallies stay the same (its saved question set is keyed by the sample;
   // a lesson or an attempt that moves a tally picks a new sample). Only fights, written fresh every attempt, vary ties.

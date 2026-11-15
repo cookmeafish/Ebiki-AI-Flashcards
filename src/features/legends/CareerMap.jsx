@@ -11,7 +11,8 @@ import { ChunkyButton, ProgressBar, depthBorder, shade } from '../ui'
 import { AreaArt, BossArt, paletteColors } from './art'
 import { AreaExtras } from './Extras'
 import { CheatButton, CheatRow } from './CheatUI'
-import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, CAREER } from './career'
+import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER } from './career'
+import { itemSections } from './itemSections'
 import { QUIZ_SIZE } from './prompt'
 
 // The package file of a course, shaped (null when missing or broken).
@@ -59,6 +60,58 @@ function IslandCard({ t, area, selected, onPick }) {
         <div style={{ fontSize: 11.5, color: C.inkDim, fontWeight: 700 }}>{t('lg_stepsDone', { i: p.done, n: p.total })}</div>
       </div>
     </button>
+  )
+}
+
+// A BRIEFING (the domain's or an objective's overview, kind 'brief'): background to read first, laid out like a
+// mission briefing, never like a flashcard (the owner: "make sure it looks like a briefer"): no card front, no Add to
+// deck, no hook, never quizzed. Collapsible; `open` = shown open at first.
+function Briefing({ t, item, colors, label, open: startOpen = false }) {
+  const [open, setOpen] = useState(startOpen)
+  if (!item) return null
+  const secs = itemSections(item.back)
+  const what = secs.find((x) => x.role === 'meaning')?.text || ''
+  const example = secs.find((x) => x.role === 'example')?.text || ''
+  const points = secs.find((x) => x.role === 'points')?.points || []
+  return (
+    <div data-briefing="" style={{ borderRadius: RADIUS.md, background: C.surface, border: `2px dashed color-mix(in srgb, ${colors.deep} 60%, ${C.border})` }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="card-head" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, color: C.ink }}>
+        <span aria-hidden="true" style={{ fontSize: 18 }}>📋</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: colors.deep }}>{label}</span>
+          <span style={{ display: 'block', fontSize: 12.5, color: C.inkDim }}>{t('lg_briefingSub')}</span>
+        </span>
+        <span aria-hidden="true" style={{ fontSize: 13, color: C.inkDim, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>▸</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 16px 14px', fontSize: 14, lineHeight: 1.6, color: C.ink, display: 'grid', gap: 8 }}>
+          {what && <div>{what}</div>}
+          {points.length > 0 && <ul style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 2 }}>{points.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+          {example && <div><b>{t('lg_briefingInPractice')}</b> {example}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// THE NEXT STEP, one obvious button (the owner found the course map overwhelming).
+function ContinueCard({ t, map, onOpen, onShow }) {
+  const next = nextCareerStep(map.areas)
+  if (!next) return null
+  const { area, node, section } = next
+  const colors = paletteColors(area.palette)
+  const label = node.kind === 'boss' ? `⚔️ ${t('lg_careerBoss')}: ${area.bossName || t('lg_boss')}` : node.kind === 'checkpoint' ? `🚩 ${t('lg_careerCheckpoint')}: ${section?.short || ''}` : `📘 ${t('lg_continueLesson', { title: node.title })}`
+  return (
+    <div data-continue="" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '14px 16px', borderRadius: RADIUS.lg, background: C.surface, ...depthBorder(C.success, { bottomColor: shade(C.success, 30) }) }}>
+      <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.success }}>{t('lg_continueNext')}</div>
+        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{label}</div>
+        <div style={{ fontSize: 12.5, color: C.inkDim, fontWeight: 700 }}>
+          <span style={{ color: colors.deep }}>{t('lg_careerDomain', { n: area.number })}</span>{section ? ` · ${section.id} ${section.short}` : ''}
+        </div>
+      </div>
+      <ChunkyButton color={C.success} onClick={() => { onShow(area.id); onOpen(area, node) }}>▶ {t('lg_continue')}</ChunkyButton>
+    </div>
   )
 }
 
@@ -117,6 +170,7 @@ function ObjectiveCard({ t, area, section, open, onToggle, onOpen, colors, cheat
       </button>
       {open && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 14px 14px' }}>
+          {section.brief && <div style={{ flex: '1 1 100%' }}><Briefing t={t} colors={colors} label={t('lg_briefingObjective', { id: section.id })} item={(area.items || []).find((it) => it.id === section.brief)} /></div>}
           {section.nodes.map((n) => <StepChip key={n.id} t={t} node={n} area={area} colors={colors} cheat={cheat} onOpen={(node) => onOpen(area, node)} />)}
         </div>
       )}
@@ -185,6 +239,7 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
   const legendary = (a) => onLegendary?.(a, { id: `${a.id}-legendary`, kind: 'legendary', title: '', itemIds: (a.items || []).map((x) => x.id) })
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 0 24px' }}>
+      <ContinueCard t={t} map={map} onOpen={onOpen} onShow={(id) => setIslandId(id)} />
       <div>
         <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase', marginBottom: 8 }}>🏝️ {t('lg_careerIslands', { course: map.career?.title || '' })}</div>
         <div role="group" aria-label={t('lg_careerIslandsAria')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
@@ -208,6 +263,7 @@ export default function CareerMap({ ctx, map, onOpen, onLegendary, cheat }) {
             <AreaExtras ctx={ctx} modeId={ctx.subject.modeId} area={area} />
           </div>
         </div>
+        {area.brief && <Briefing key={area.id} t={t} colors={colors} label={t('lg_briefingDomain', { n: area.number })} item={(area.items || []).find((it) => it.id === area.brief)} open={!(area.nodes || []).some((n) => n.status === 'done')} />}
         <div style={{ fontSize: 12.5, fontWeight: 900, color: C.inkDim, letterSpacing: '.05em', textTransform: 'uppercase' }}>{t('lg_careerObjectives', { n: sections.length })}</div>
         {sections.map((s) => (
           <ObjectiveCard key={s.id} t={t} area={area} section={s} colors={colors} cheat={cheat} open={openId === s.id}

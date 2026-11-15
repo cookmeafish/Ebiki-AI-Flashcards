@@ -4,7 +4,7 @@
     "path": [],
     "term": "SY0-701 Domain 1.0: General Security Concepts (12%)",
     "definition": "The first and smallest Security+ SY0-701 domain, about 12% of the exam. It covers the building blocks the rest of the exam relies on: security control categories and types, core concepts such as CIA, AAA and Zero Trust, change management, and cryptographic solutions.",
-    "example": "A question asking whether a door lock is a physical preventive control, or which PKI component checks certificate status in real time, comes from Domain 1.0.",
+    "example": "A company protects its server room with a badge reader (physical, preventive control), reviews firewall changes through a change board, and encrypts laptops with keys held in each TPM: controls, change management and cryptography working together.",
     "category": "1.0 General Security Concepts",
     "keyPoints": "Four objectives: 1.1 security controls, 1.2 fundamental concepts, 1.3 change management, 1.4 cryptographic solutions; weighted 12%, the lowest of the five domains; its vocabulary is reused in every other domain"
   },
@@ -164,7 +164,7 @@
     "path": [],
     "term": "SY0-701 1.2: Summarize fundamental security concepts",
     "definition": "Objective 1.2 covers the core ideas of security: the CIA triad, non-repudiation, AAA, gap analysis, Zero Trust architecture, physical security controls, and deception and disruption technology.",
-    "example": "A question asking which Zero Trust component makes the allow or deny decision, or what a honeytoken is, belongs to objective 1.2.",
+    "example": "A hospital keeps patient records available on redundant servers, logs who opened each record, checks every access request against a Zero Trust policy, and plants a fake patient file that alerts security when opened.",
     "category": "1.2 Fundamental security concepts",
     "keyPoints": "Zero Trust components and physical sensors are frequently tested details; know honeypot vs honeynet vs honeyfile vs honeytoken"
   },
@@ -867,7 +867,7 @@
     "path": [],
     "term": "SY0-701 1.4: Explain the importance of using appropriate cryptographic solutions",
     "definition": "Objective 1.4 covers PKI and keys, encryption levels and types, cryptographic hardware and tools, obfuscation, hashing, salting, digital signatures, key stretching, blockchain and digital certificates.",
-    "example": "Choosing full-disk encryption for laptops, an HSM for a CA's keys, or OCSP for real-time certificate checks are all objective 1.4 decisions.",
+    "example": "A company encrypts its laptops with full-disk encryption, keeps its certificate authority's root key in an HSM, stores passwords as salted hashes, and has browsers check certificate status with OCSP.",
     "category": "1.4 Cryptographic solutions",
     "keyPoints": "Largest objective in Domain 1 by item count; symmetric vs asymmetric and hashing vs encryption are core distinctions; know certificate status checking (CRL vs OCSP)"
   },

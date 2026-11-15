@@ -109,9 +109,9 @@ Buy through a controlled process: approved vendors, security requirements checke
 ### Disposal/decommissioning
 | Item | What it means | Media reusable? |
 |---|---|---|
-| Sanitization | Remove data so it cannot be recovered: overwriting, secure erase, cryptographic erase, degaussing magnetic media. NIST SP 800-88 levels: clear and purge keep the media usable, destroy does not | Often yes (degaussing usually ruins hard drives) |
-| Destruction | Physically ruin the media: shredding, pulverizing, drilling, incineration | No |
-| Certification | Documented proof of sanitization or destruction, such as a certificate of destruction from a vendor | Not applicable |
+| Sanitization | Make data unrecoverable: overwriting or factory reset (clear), secure erase, cryptographic erase or degaussing magnetic media (purge). NIST SP 800-88 methods: clear and purge can leave the media usable, destroy does not | Often yes (degaussing can ruin hard drives) |
+| Destruction | Physically ruin the media: disintegrating, incinerating, melting, pulverizing, shredding (a drilled hole only partly destroys it) | No |
+| Certification | Documented proof of sanitization or destruction, such as a certificate of sanitization or destruction from a vendor | Not applicable |
 | Data retention | Keep required data for its mandated period before disposal; legal holds override normal disposal | Not applicable |
 
 Traps: deleting files or a quick format is not sanitization. Degaussing does not work on SSDs. Keeping data longer than required adds risk.
@@ -166,7 +166,7 @@ CVSS v3.x ratings: None 0.0, Low 0.1 to 3.9, Medium 4.0 to 6.9, High 7.0 to 8.9,
 - **Exposure factor:** percentage of asset value lost if the threat succeeds. SLE = asset value x EF.
 - **Environmental variables:** internet-facing or isolated, data held, other controls in place. The same CVE can be urgent in one place and minor in another.
 - **Industry/organizational impact:** regulation, critical services, safety and reputation for this specific organization.
-- **Risk tolerance:** how much risk leadership accepts; sets remediation deadlines and whether exceptions are allowed.
+- **Risk tolerance:** how much risk leadership accepts; here it sets remediation deadlines and whether exceptions are allowed. It is the same tolerance as in 5.2, applied to vulnerabilities.
 
 ### Vulnerability response and remediation
 | Option | Effect | Flaw still there? |
@@ -259,7 +259,7 @@ An IDS detects and alerts (out of band); an IPS sits inline and can block.
 - **Reputation:** scores sites by history and age, so new or unknown risky sites are caught.
 
 ### Operating system security
-- **Group Policy:** Windows Active Directory central settings applied through GPOs (password rules, USB control, firewall).
+- **Group Policy:** Windows Active Directory central settings applied through GPOs (password rules, USB control, firewall). It pushes Windows settings across a domain; it is not the Windows version of SELinux, which enforces mandatory access control on each Linux host.
 - **SELinux:** Linux mandatory access control; policy limits what each process can touch, even beyond file permissions. Modes: enforcing, permissive, disabled.
 
 ### Implementation of secure protocols

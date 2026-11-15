@@ -67,6 +67,7 @@ import { buildDistractorCheckPrompt, parseDistractorCheck, swapFlagged } from '.
 import { cardGoal, goalLine, goalField, shapeGoal } from './utils/questionGoal'
 import { prefixHint, hintAnswer, hintTokens, longerPrefix } from './utils/prefixHint'
 import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, cardHtmlForText, setTranslator as setCardTranslator, CHANGE_MAYBE_APPLIED } from './cards'
+import { isCourseNote } from './cards/protect'
 import { flattenConfig, diffConfig } from './utils/configDiff'
 import { modePatch } from './utils/modePatch'
 import { readBlob, readBlobChecked, writeBlob, setBlobWritesPaused, storageKey as blobStoreKey, DEFAULT_LEDGER } from './discover/storage'
@@ -13693,6 +13694,7 @@ learner's goals or interests that already exist.`
       pullNewCard()
     } catch (err) {
       console.error('[Study] delete failed:', err.message)
+      if (err?.code === 'courseCard') alertDialog(err.message) // a course card: say why it stayed
       setStudyDeleteConfirm(null)
       studyDeletingRef.current.delete(delKey) // not deleted: a retry is allowed
     }
@@ -16858,14 +16860,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 setDeckBrowserCopyStatus(null)
                                 setDeckBrowserCopyTarget(ankiDecks.find(d => d !== deckBrowserDeck) || '')
                               }} style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: deckBrowserCopying === note.noteId ? 'var(--c-border)' : 'transparent', color: 'var(--c-ink-dim)' }}>{t('copyTo')}</button>
-                              <button onClick={async () => {
-                                if (deletingNotesRef.current.has(note.noteId)) return
+                              <button disabled={isCourseNote(note)} data-tip={isCourseNote(note) ? t('card_errCourseCard') : undefined} className={isCourseNote(note) ? 'tip tip-l' : undefined} onClick={async () => {
+                                if (isCourseNote(note) || deletingNotesRef.current.has(note.noteId)) return
                                 deletingNotesRef.current.add(note.noteId) // claimed BEFORE the question (see deleteNote)
                                 let ok = false
                                 try { ok = await confirmDialog(t('deck_deleteConfirm', { front })) } finally { deletingNotesRef.current.delete(note.noteId) }
                                 if (ok) deleteNote(note.noteId)
                               }}
-                                style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-danger)' }}>{t('deck_del')}</button>
+                                style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-danger)', ...(isCourseNote(note) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{isCourseNote(note) ? '🔒 ' : ''}{t('deck_del')}</button>
                             </div>
                           </div>
                           {/* Expanded card — the full back with bold labels, tags, and scheduling info */}
