@@ -158,7 +158,7 @@ function TaskRow({ t, task, provider, fixed, overrides, defaults, presetModel, p
           {deciding ? t('mp_choosing') : (nameOf(t, model) || '?')}
           {!deciding && model && nameOf(t, model) !== model && <span style={srOnly}> ({model})</span>}
         </span>
-        {tier && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.inkDim, border: `1px solid ${C.border}`, borderRadius: 999, padding: '0 7px' }}>{levelText(t, tier)}</span>}
+        {!deciding && tier && <span style={{ fontSize: 10.5, fontWeight: 700, color: C.inkDim, border: `1px solid ${C.border}`, borderRadius: 999, padding: '0 7px' }}>{levelText(t, tier)}</span>}
       </div>
       {groups.slice(1).map((g) => (
         <div key={g.model} data-also="" style={{ fontSize: 11, color: C.inkDim, marginTop: 2, lineHeight: 1.45 }}>
@@ -167,8 +167,9 @@ function TaskRow({ t, task, provider, fixed, overrides, defaults, presetModel, p
       ))}
       <div style={{ fontSize: 11, color: C.inkDim, marginTop: 2, lineHeight: 1.45 }}>{t('mp_whyLine', { why: t('mp_why_' + task.id) })}</div>
       <div style={{ fontSize: 11, color: C.inkDim, marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span>{cost || t('mp_priceUnknown')}</span>
-        {!cost && !pricing && model && <button onClick={() => setPricing(true)} style={{ ...S.ghostBtn, fontSize: 11, padding: '2px 8px', minHeight: 28, color: C.inkDim }}>{t('mp_setPrice')}</button>}
+        {/* While Ebi is choosing, the old model's level and cost are not shown beside "Choosing…". */}
+        <span>{deciding ? '' : cost || t('mp_priceUnknown')}</span>
+        {!deciding && !cost && !pricing && model && <button onClick={() => setPricing(true)} style={{ ...S.ghostBtn, fontSize: 11, padding: '2px 8px', minHeight: 28, color: C.inkDim }}>{t('mp_setPrice')}</button>}
       </div>
       {pricing && <PriceForm t={t} provider={provider} model={model} onSaved={onPriceSaved} onClose={() => setPricing(false)} />}
       {last && last.model && last.model !== model && !groups.some((g) => g.model === last.model) && (
@@ -184,7 +185,7 @@ function TaskRow({ t, task, provider, fixed, overrides, defaults, presetModel, p
             placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: '1 1 200px', minWidth: 0, fontSize: 12, padding: '7px 9px' }} />
         ) : (
           <select aria-label={t('mp_pickFor', { task: name })} value={own} onChange={(e) => { if (e.target.value === '__custom__') setCustom(true); else setTaskModel(task, e.target.value) }}
-            style={{ ...S.select, flex: '1 1 200px', minWidth: 0, maxWidth: '100%', fontSize: 12, padding: '7px 9px' }}>
+            style={{ ...S.select, flex: '1 1 100%', width: '100%', minWidth: 0, maxWidth: '100%', fontSize: 12, padding: '7px 9px' }}>
             {/* The model is named just above; with it here a phone cut the option off mid-name. */}
             <option value="">{rolePick ? t('mp_rolePickOption') : t('mp_recommended')}</option>
             {listed.map((m) => <option key={m} value={m}>{optLabel(m)}</option>)}

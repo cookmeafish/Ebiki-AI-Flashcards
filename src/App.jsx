@@ -8218,6 +8218,26 @@ Return ONLY a JSON array (no markdown):
       refreshModeKnowledge()
     } finally { knowledgeBusyRef.current.delete(fileName); setKnowledgeBusyFiles(new Set(knowledgeBusyRef.current)) }
   }
+  // A course's study guide into a mode's knowledge base (src/server/courseKnowledge.js): the mode NAME is resolved at
+  // write time from the pinned id; refused while a data switch runs. → { ok, installed, updated, ... } | { ok: false }.
+  const installCourseKnowledge = async (modeId, course, { restore = false } = {}) => {
+    if (dataSwitchingRef.current) return { ok: false }
+    await settleModesSaves()
+    const name = modesRef.current.find((m) => String(m.id) === String(modeId))?.name
+    if (!name || dataSwitchingRef.current) return { ok: false }
+    try {
+      const r = await apiFetch(`/api/modes/knowledge/course?mode=${encodeURIComponent(name)}&course=${encodeURIComponent(course)}${restore ? '&restore=1' : ''}`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) return { ok: false, error: d.error }
+      if (String(modeId) === String(activeModeIdRef.current)) { refreshModeKnowledgeRef.current(); loadKnowledgeFiles() }
+      return { ok: true, ...d }
+    } catch { return { ok: false } }
+  }
+  // Settings > Knowledge "Restore": deleted chapters back, the newest version in.
+  const restoreCourseGuide = async (course) => {
+    const r = await installCourseKnowledge(activeModeIdRef.current, course, { restore: true })
+    if (r.ok) setSuccessNotice(tLiveRef.current('kb_guideRestored')); else setAiErrorNotice(tLiveRef.current('knowledgeActionFailed'))
+  }
   // `disabled`: which copy (a share can hold both "notes.txt" and "notes.txt.disabled"; deleting the struck-through
   // row also deleted the live file).
   const deleteKnowledgeFile = (fileName, disabled) => knowledgeFileRequest(fileName, 'DELETE', typeof disabled === 'boolean' ? `&disabled=${disabled ? 1 : 0}` : '')
@@ -15637,6 +15657,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       list: () => modesRef.current.map((m) => ({ id: m.id, name: m.name, type: m.type, description: m.description || '', ankiDeck: m.ankiDeck || '' })),
       activeId: () => activeModeIdRef.current,
       switchTo: async (id) => (await switchActiveMode(id)) === true,
+      installCourseKnowledge, // a course's study guide into a mode's knowledge base
     },
     study: {
       status: studyStatusForFeatures, open: () => pickTab('study'),
@@ -16180,7 +16201,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           // THIS computer only: setting onboarded:false was saved to config.json, which a shared data folder
           // shares, so every other computer on it opened the setup wizard on its next launch.
           onRunSetup={() => { setSettingsOpen(false); setRerunSetup(true) }}
-          confirmDialog={confirmDialog} alertDialog={alertDialog} knowledgeBusyFiles={knowledgeBusyFiles}
+          confirmDialog={confirmDialog} alertDialog={alertDialog} knowledgeBusyFiles={knowledgeBusyFiles} restoreCourseGuide={restoreCourseGuide}
           onDataFolderChanged={() => { dataSwitchingRef.current = true; setBlobWritesPaused(true); configHealthyRef.current = false; setTimeout(() => window.location.reload(), 1500) }}
           provider={provider} setProvider={setProvider} chatgpt={chatgptProps}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} validateKey={validateKey} providerConfig={providerConfig}
@@ -20080,7 +20101,15 @@ ${PALETTE_CSS}
           <button type="button" onClick={() => {
             setModelsMoved(false); setSettingsCategory('models'); setSettingsOpen(true)
             // Straight to the changes list (the pane opens at its top, the list sat out of view).
-            setTimeout(() => document.querySelector('[data-plan-changes]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 500)
+            // Inside the pane's OWN scroll box, never scrollIntoView (it also moved the dialog itself: Close was cut off).
+            setTimeout(() => {
+              const el = document.querySelector('[data-plan-changes]')
+              let box = el?.parentElement
+              while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement
+              if (!el || !box) return
+              const z = getZoom() || 1
+              box.scrollTo({ top: box.scrollTop + (el.getBoundingClientRect().top - box.getBoundingClientRect().top) / z - 24, behavior: 'smooth' })
+            }, 500)
           }}
             style={{ ...S.ghostBtn, fontSize: 12, minHeight: 32, color: C.info, borderColor: 'color-mix(in srgb, var(--c-info) 35%, transparent)' }}>{t('mp_seeChanges')}</button>
           <button type="button" onClick={() => { setModelsMoved(false); undoReplan() }}

@@ -2810,7 +2810,7 @@ function apiPlugin() {
       // ── Knowledge outline & section slicing ─────────────────────────────
       // Huge knowledge bases (whole books) are served as an OUTLINE plus sections on demand (a toc.txt overrides
       // heading detection). Routes: src/server/knowledgeRoute.js; outline code: src/server/knowledgeOutline.js (both tested).
-      const knowledgeRoutes = createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs, path })
+      const knowledgeRoutes = createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs, path, courseRoot: path.join(SELF_DIR, 'public', 'careers') })
 
       server.middlewares.use('/api/knowledge-sections', knowledgeRoutes.sections)
 

@@ -15,6 +15,7 @@ import { imeActive } from '../utils/keys'
 import JobModelSettings from './JobModelSettings'
 import ModelPlanCard from './ModelPlanCard'
 import { modelName } from '../config/modelPlan'
+import CourseGuideGroup, { splitCourseFiles } from './CourseGuideGroup'
 import ChatGptSignIn, { SubscriptionNote, companyTabs, companyOf } from './ChatGptSignIn'
 import { UsageDetails } from './TokenUsageMeter'
 import { jobOverridesOf, chatModelsOnly } from '../config/aiJobs'
@@ -481,7 +482,7 @@ export function clampTyped(text, min, max) {
 
 export default function SettingsModal(p) {
   const {
-    t, category, setCategory, onClose, onDataFolderChanged, confirmDialog, alertDialog, knowledgeBusyFiles, learnLangDefault,
+    t, category, setCategory, onClose, onDataFolderChanged, confirmDialog, alertDialog, knowledgeBusyFiles, restoreCourseGuide, learnLangDefault,
     // General (global)
     appTheme, setAppTheme, appZoom, setAppZoom, appLanguage, setAppLanguage,
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
@@ -508,6 +509,7 @@ export default function SettingsModal(p) {
     // Pronunciation audio (global)
     pronunciationCfg, setPronunciationCfg,
   } = p
+  const courseSplit = splitCourseFiles(knowledgeFiles) // a course's study guide chapters vs the learner's own files
   // One text state backs three unrelated boxes (Study Ask AI, Cards Ask AI, Create mode). Carried
   // across panes, a study tweak landed in Create mode, where "Design in depth with Ebi" auto-sends it
   // as a paid mode-design request. Each pane starts empty.
@@ -1278,7 +1280,14 @@ export default function SettingsModal(p) {
         </div>
         {knowledgeFiles.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
-            {knowledgeFiles.map((f) => (
+            {/* A course's study guide is ONE group with readable chapter titles; the learner's own files follow. */}
+            {Object.entries(courseSplit.groups).map(([course, files]) => (
+              <CourseGuideGroup key={course} t={t} course={course} files={files} busyFiles={knowledgeBusyFiles}
+                onToggle={(name, disable) => toggleKnowledgeFile(name, disable)}
+                onDelete={async (f, title) => { const id = activeModeId; if (!(await confirmDialog(t('kb_guideDeleteConfirm', { title })))) return; if (getActiveModeId && getActiveModeId() !== id) return; deleteKnowledgeFile(f.name, !!f.disabled) }}
+                onRestore={(c) => restoreCourseGuide?.(c)} />
+            ))}
+            {courseSplit.own.map((f) => (
               <div key={`${f.name}|${f.disabled ? 1 : 0}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: f.disabled ? C.surfaceSunken : C.successTint, border: `1px solid ${f.disabled ? C.border : 'color-mix(in srgb, var(--c-success) 20%, transparent)'}`, borderRadius: RADIUS.sm, fontSize: 12 }}>
                 {/* A long name ("Network+ Study Guide, chapter 12 ...") wraps instead of pushing the buttons out. */}
                 <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', color: f.disabled ? C.inkFaint : C.ink, textDecoration: f.disabled ? 'line-through' : 'none' }}>{f.name}</span>

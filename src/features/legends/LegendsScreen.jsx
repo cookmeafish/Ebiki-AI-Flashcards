@@ -214,6 +214,7 @@ export default function LegendsScreen() {
   // the current one (regions with their bosses, island raids, the final raid). One with progress keeps its layout.
   // A course saved before the acronym track gets it added (progress untouched).
   const careerCheckedRef = useRef(new Set())
+  const guideCheckedRef = useRef(new Set())
   useEffect(() => {
     if (!isCareerMap(map)) return undefined
     const rebuild = (map.career?.layout || 1) < CAREER_LAYOUT && !careerHasProgress(map)
@@ -222,6 +223,15 @@ export default function LegendsScreen() {
     const current = map.career?.acronyms && (map.career.acronymOrder || 0) >= ACRONYM_ORDER && map.career.acronymCount
     const checkKey = `${modeId}|${map.career?.id}`
     if (!rebuild && current && careerCheckedRef.current.has(checkKey)) return undefined
+    // The course's STUDY GUIDE in the mode's knowledge base (Ebi reads it everywhere), once per mode and page life:
+    // installed on the first visit, updated when a newer one ships, never brought back after the learner deleted it
+    // (src/server/courseKnowledge.js). In the background; a failure says so once and never blocks the course.
+    if (!guideCheckedRef.current.has(checkKey) && rawCtx?.modes?.installCourseKnowledge) {
+      guideCheckedRef.current.add(checkKey)
+      rawCtx.modes.installCourseKnowledge(modeId, map.career.id).then((r) => {
+        if (r && !r.ok && r.error !== 'no study guide') rawCtx.notify?.(rawCtx.t('lg_guideInstallFailed'))
+      })
+    }
     careerCheckedRef.current.add(checkKey)
     let alive = true
     const pinned = modeId

@@ -8,6 +8,7 @@
 // with the files and sections are sliced on demand (src/server/knowledgeOutline.js). Outline indices match between the two.
 // Pure of the dev server: the caller passes the data-folder helpers, so tests run it on a temp folder.
 import { TOC_NAME_RE, extractOutline, sliceSections } from './knowledgeOutline.js'
+import { installCourseKnowledge, COURSE_ID_RE } from './courseKnowledge.js'
 
 // The stored name of an uploaded knowledge file. Characters no file system takes are dropped, control characters too
 // (a newline made a file Windows lists but cannot open). A Windows DEVICE name before the first dot ("con.txt",
@@ -19,7 +20,12 @@ export function knowledgeFileName(name) {
   return String(name || 'file.txt').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '').replace(WIN_DEVICE_STEM, '$1_')
 }
 
-export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs, path }) {
+// The outline route keeps up to OUTLINE_MAX entries; past that it drops the deepest levels. 1000 keeps a course guide's
+// per-term sections pickable (at 400 every term heading of the Security+ guide was dropped).
+export const OUTLINE_MAX = 1000
+
+// courseRoot: the folder holding shipped course packages (public/careers), for the study guide install.
+export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs, path, courseRoot = '' }) {
   // Only a folder that is really not there is "no knowledge base". existsSync answers false on ANY stat error (an
   // SMB blip, EPERM, EBUSY on a share): read as empty, the list said "No files" and every AI call dropped the
   // material. Any other error throws (a 500 the client keeps its copy on).
@@ -75,6 +81,21 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
 
     if (!sanitized) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
 
+    // POST /api/modes/knowledge/course?mode=X&course=<id>[&restore=1]: install or update a course's study guide
+    // (./courseKnowledge.js). Reads only the course's own shipped folder; writes only `course-<id>-*` files.
+    if (url.pathname === '/course') {
+      if (req.method !== 'POST' || !courseRoot) { res.statusCode = 405; res.end(''); return }
+      try {
+        const course = url.searchParams.get('course') || ''
+        if (!COURSE_ID_RE.test(course)) { res.statusCode = 400; res.end('{"error":"bad course"}'); return }
+        const srcDir = path.join(courseRoot, course, 'knowledge')
+        if (!fs.existsSync(path.join(srcDir, 'manifest.json'))) { res.statusCode = 404; res.end('{"error":"no study guide"}'); return }
+        const r = installCourseKnowledge({ course, srcDir, destDir: knowledgeDir, restore: url.searchParams.get('restore') === '1', fs, path, writeFileAtomic, readUtf8 })
+        res.end(JSON.stringify({ ok: true, ...r }))
+      } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
+      return
+    }
+
     if (req.method === 'GET') {
       try {
         if (folderMissing(knowledgeDir)) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
@@ -102,8 +123,8 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
         // a straight slice made every chapter after entry 400 unreachable. Each entry carries its
         // original index `i`, which is what /api/knowledge-sections slices by.
         let full = extractOutline(texts).map((h, i) => ({ ...h, i }))
-        for (let maxLevel = 3; full.length > 400 && maxLevel >= 1; maxLevel--) full = full.filter((h) => h.level <= maxLevel)
-        const outline = full.slice(0, 400).map(({ file, title, level, i }) => ({ file, title, level, i }))
+        for (let maxLevel = 3; full.length > OUTLINE_MAX && maxLevel >= 1; maxLevel--) full = full.filter((h) => h.level <= maxLevel)
+        const outline = full.slice(0, OUTLINE_MAX).map(({ file, title, level, i }) => ({ file, title, level, i }))
         res.end(JSON.stringify({ files, content: content || null, fileCount: enabledFiles.length, outline }))
       } catch (e) {
         // A read that FAILED is not an empty knowledge base: answered as one (200, no files), the list showed

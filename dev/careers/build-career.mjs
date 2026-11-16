@@ -151,12 +151,47 @@ for (const a of areas) for (const l of a.lessons) if (l.itemIds.length > LESSON_
 const pkg = { id, title: course.title, version: course.version || '1', areas }
 
 // OWN WORDS ONLY (./verbatim.mjs; rule in docs/career-mode-guide.md): nothing shipped copies 12+ words of the outline.
+// course.json `knowledge: [{ prefix, title }]` names the chapters that SHIP (the study guide the app installs into the
+// mode's knowledge base: src/server/courseKnowledge.js); a prefix not listed is retired. Without the list: every prefix.
+const guideList = Array.isArray(course.knowledge) ? course.knowledge : null
 const chapterFiles = latest(path.join(SRC, 'knowledge'), /^(\w+)-knowledge(?:\.r(\d+))?\.md$/)
-const copied = verbatimProblems(courseTexts({ cards: [...cards, ...extras], pkg, chapters: chapterFiles.map((x) => ({ name: path.basename(x.file), text: fs.readFileSync(x.file, 'utf8') })) }),
+  .filter((x) => !guideList || guideList.some((g) => path.basename(x.file).startsWith(`${g.prefix}-knowledge`)))
+const chapterTexts = chapterFiles.map((x) => ({ name: path.basename(x.file), text: fs.readFileSync(x.file, 'utf8'), pass: x.pass }))
+if (guideList) {
+  for (const g of guideList) if (!chapterTexts.some((c) => c.name.startsWith(`${g.prefix}-knowledge`))) problems.push(`course.json knowledge: no chapter file for "${g.prefix}"`)
+  // THE GUIDE'S SHAPE (docs/plans/2026-11-15-security-plus-knowledge.md): Ebi sees sections picked by TITLE, each read
+  // alone and cut at 4,000 characters, so: every title unique across the guide, no section over the limit, no dashes,
+  // no links, the as-of line.
+  const SECTION_MAX = 4000
+  const titles = new Map()
+  for (const c of chapterTexts) {
+    const lines = c.text.split(/\r?\n/)
+    if (!/^# \S/.test(lines[0] || '')) problems.push(`${c.name}: the first line must be "# <chapter title>"`)
+    if (!/^Checked as of \d{4}-\d{2}/.test(lines[1] || '')) problems.push(`${c.name}: the second line must be "Checked as of YYYY-MM ..."`)
+    if (/[–—]/.test(c.text)) problems.push(`${c.name}: has an em or en dash`)
+    if (/https?:\/\//.test(c.text)) problems.push(`${c.name}: has a link (none in the guide)`)
+    let head = null; let size = 0
+    const close = () => { if (head && size > SECTION_MAX) problems.push(`${c.name}: section over ${SECTION_MAX} characters (${size}): ${head}`) }
+    for (const l of lines) {
+      const m = l.match(/^(#{1,6})\s+(.*\S)\s*$/)
+      if (m) {
+        close(); head = m[2]; size = 0
+        // The app's outline reader takes a heading of at most 120 characters (src/server/knowledgeOutline.js): a
+        // longer one is not in the table of contents, so its section could never be picked.
+        if (m[2].length > 110) problems.push(`${c.name}: heading over 110 characters (the app would drop it): ${m[2].slice(0, 60)}...`)
+        const k = m[2].toLowerCase()
+        if (titles.has(k)) problems.push(`duplicate guide title "${m[2]}" (${titles.get(k)} and ${c.name})`)
+        titles.set(k, c.name)
+      } else size += l.length + 1
+    }
+    close()
+  }
+}
+const copied = verbatimProblems(courseTexts({ cards: [...cards, ...extras], pkg, chapters: chapterTexts }),
   outlineGrams(fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8')), areas.flatMap((a) => a.sections.map((s) => s.title)))
 for (const c of copied) problems.push(`copied from the outline (${RUN_WORDS}+ words), rewrite in our own words: ${c.where}: "${c.run}"`)
 // Not traceable either: no shorter shared PHRASE (PROSE_WORDS+ words that read as a sentence, not a list of term names).
-for (const c of proseProblems(courseTexts({ pkg }), fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8'), areas.flatMap((a) => a.sections.map((s) => s.title))))
+for (const c of proseProblems(courseTexts({ pkg, chapters: guideList ? chapterTexts : [] }), fs.readFileSync(path.join(SRC, 'outline.md'), 'utf8'), areas.flatMap((a) => a.sections.map((s) => s.title))))
   problems.push(`shares a ${PROSE_WORDS}+ word phrase with the outline, reword it: ${c.where}: "${c.run}"`)
 
 // ── acronym cards (Anki only; not on the map) ──
@@ -273,7 +308,24 @@ fs.writeFileSync(path.join(outDir, `${id}-anki-import.txt`), ['#separator:tab', 
   ...notes.map((n) => [n.front, n.back, n.deck, n.tags].map(cell).join('\t'))].join('\n'), 'utf8')
 console.log(`\nBUILT public/careers/${id}.json and dev/careers/out/${id}-anki-import.txt (${notes.length} notes)`)
 
-// ── the knowledge base: one chapter per prefix into the mode's knowledge folder ──
+// ── the study guide ships with the course: public/careers/<id>/knowledge/<prefix>.md + manifest.json. The app installs
+// it into the mode's knowledge base when the course is opened (src/server/courseKnowledge.js): every user gets it, on a
+// shared folder too. A chapter's version = its pass and a hash of its text (a changed chapter updates installs).
+if (guideList) {
+  const kdir = path.join(ROOT, 'public', 'careers', id, 'knowledge')
+  fs.mkdirSync(kdir, { recursive: true })
+  const files = guideList.map((g) => {
+    const c = chapterTexts.find((x) => x.name.startsWith(`${g.prefix}-knowledge`))
+    const file = `${g.prefix}.md`
+    fs.writeFileSync(path.join(kdir, file), c.text, 'utf8')
+    return { file, title: g.title, version: `r${c.pass}-${crypto.createHash('sha1').update(c.text).digest('hex').slice(0, 8)}` }
+  })
+  for (const f of fs.readdirSync(kdir)) if (f !== 'manifest.json' && !files.some((x) => x.file === f)) fs.rmSync(path.join(kdir, f))
+  fs.writeFileSync(path.join(kdir, 'manifest.json'), JSON.stringify({ course: id, files }, null, 2) + '\n', 'utf8')
+  console.log(`study guide: public/careers/${id}/knowledge/ (${files.length} chapters, ${chapterTexts.reduce((n, c) => n + c.text.length, 0)} characters)`)
+}
+
+// ── (developer shortcut) copy the chapters into one app-folder mode; users get them through the app's install ──
 const ki = process.argv.indexOf('--knowledge')
 if (ki > 0 && process.argv[ki + 1]) {
   const mode = process.argv[ki + 1]
