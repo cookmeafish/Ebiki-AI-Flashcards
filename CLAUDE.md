@@ -2013,6 +2013,17 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     deck named after the course (`pickCourseDeck`: a same-named deck holding cards gets a "(my cards)" sibling). The
     map's `LibraryNote` explains the split in two tiles. Nothing pushes a course into Anki (the build's `--anki` and
     the course delete lock were removed: the learner owns the deck).
+  - **THE STUDY GUIDE** (the owner: fill the knowledge base "so that ebi can be a master at security+"): a course
+    ships chapters (`public/careers/<id>/knowledge/<prefix>.md` + `manifest.json`, built from the chapters `course.json`
+    `knowledge` lists) and opening the course installs them into the mode's knowledge base, once per mode and page
+    life (`ctx.modes.installCourseKnowledge` → POST `/api/modes/knowledge/course`, `src/server/courseKnowledge.js`,
+    tested): files `course-<id>-*`, the learner's own notes never touched, a newer version replaces in place (a
+    switched-off chapter stays off), a DELETED chapter is never put back unless "Restore" (Settings > Knowledge shows
+    the guide as ONE group, `CourseGuideGroup.jsx`). The outline keeps up to `OUTLINE_MAX` (1,000) headings, and a big
+    outline is narrowed locally before the section pick (`utils/knowledgePick.js`). Chapter rules (each `###` names its
+    term, stands alone, at most 4,000 characters; headings unique and at most 110 characters; no question-and-answer
+    blocks, links or dashes; two independent accuracy reviews) are checked by the build. How to make one:
+    `docs/career-mode-guide.md` "The study guide".
   - **Extra cards** (`<prefix>-extras.rN.json`, `extra: true` + sources) cover what a learner needs that no outline
     line names; reviewed twice like every card.
   - **Acronyms per domain** (the owner: learning the acronyms is a big part of the exam): the build assigns each entry of

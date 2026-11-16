@@ -57,9 +57,9 @@ This is a cautious standard, not legal advice.
    - **Writers:** one per domain (split a big domain), each writing `cards/<prefix>-cards.json`.
    - **Card fields:** `{ obj, path, term, definition, example, category, keyPoints }`.
      - Plain and fluff free (`TEACHING_STYLE_RULE`), no dashes, no HTML.
-     - `keyPoints` holds the exam traps.
+     - `keyPoints` holds common mix-ups and how to tell things apart. Never wording that implies knowledge of what the real exam asks ("frequently tested", "exam trap"): nobody may know the questions.
      - When the vendor's wording differs from the standard name, the card gives both.
-   - **Chapters:** each writer also writes a knowledge chapter, `knowledge/<prefix>-knowledge.md`, with headings per objective and item (Ebiki's table-of-contents retrieval uses them) and links to free videos.
+   - **The study guide** (the chapters Ebi reads as the mode's knowledge base): see "The study guide" below.
 3. **Review twice, independently** (the reviewer briefs used for Security+ are reproduced in the plan's checklist):
    - **Pass 1:** an agent that did not write the cards checks every card against primary sources (standards bodies, RFCs, vendor docs, a well-known course's free notes). It fixes errors and writes `<prefix>-cards.r1.json` and `-knowledge.r1.md`, plus a change log with the source for each change.
    - **Pass 2:** a different agent re-checks every pass-1 change (and reverts wrong ones), then reads every card again from scratch. It writes `.r2` files.
@@ -88,6 +88,28 @@ This is a cautious standard, not legal advice.
    - Seed progress by importing `/src/features/legends/map.js` in the page and calling `normalizeMap` first. A raw built map is all locked until normalized.
    - Look at every screenshot.
 9. **Independent review** of the diff and the screenshots. Then `npx vitest run` and `npx vite build`. Bump the version and commit.
+
+## The study guide (the course's knowledge base)
+A course ships a guide that Ebi reads everywhere (Chat, Help, question writing, grading, Learn it). Design and the three
+user angles: `docs/plans/2026-11-15-security-plus-knowledge.md`.
+1. **Write** one chapter per domain part plus a reference chapter (`d0`: the one home of exact numbers), as
+   `knowledge/<prefix>-knowledge.rN.md`. One agent per chapter, at most three at a time (more drains the usage limit).
+   The writer's brief used for Security+ is the model: every `###` section names its term, stands alone, is 1,500 to
+   4,000 characters, and holds a core, how it works, why it matters, common confusions and a self-written scenario;
+   "X vs Y" tables for confusable clusters; no question-and-answer blocks; every heading unique and at most 110
+   characters; every fact traced to a source read that session, with source notes in `reviews/<prefix>-kb-rN-sources.md`.
+2. **Review twice, independently**: each reviewer checks every fact against primary sources, compares with the cards,
+   and writes the next pass plus `reviews/<prefix>-kb-review<K>.md`. Review the reference chapter first: the others
+   are compared against it.
+3. **List the chapters** in `course.json`: `"knowledge": [{ "prefix": "d1", "title": "Domain 1: ..." }]`. Only listed
+   prefixes ship; an unlisted one is retired.
+4. **Build.** The build checks the guide's shape (first two lines, unique titles, heading and section size, no dashes
+   or links) and both overlap checks, then writes `public/careers/<id>/knowledge/<prefix>.md` and `manifest.json`.
+5. **Delivery is automatic**: opening the course installs or updates the guide in the mode's knowledge base
+   (`src/server/courseKnowledge.js`: files named `course-<id>-*`, the learner's notes untouched, a deleted chapter
+   stays deleted, Settings > Knowledge shows one group with Restore).
+6. **Judge on real replies**: an independent agent asks Chat and Learn it real questions and grades real answers with
+   the guide installed, on the owner's own setup, and checks the section picker finds the right section.
 
 ## Done when
 - [ ] `node dev/careers/build-career.mjs <id>` prints `no problems`. Coverage is one card per outline line, every domain reviewed twice (`.r2` files).
