@@ -64,6 +64,8 @@ export default {
   cg_noSub_anthropic: "API キーを使います。Anthropic は他のアプリが Claude のプランでサインインすることを認めていません。",
   cg_noSub_gemini: "API キーを使います（無料枠あり）。Google は他のアプリが Gemini のプランでサインインすることを認めていません。",
   cg_noSub_grok: "API キーを使います。xAI には他のアプリ向けのプランのサインインがありません。",
+  cg_source: "公式の規約",
+  cg_unverified: "新機能：実際の ChatGPT アカウントではまだ試していません。サインインできない場合は API キーを使ってください。",
   cg_welcomeTitle: "ChatGPT プランを使用しています",
   cg_welcomeBody: "このアプリでの対象となる利用には ChatGPT プランが使われます。利用状況は ChatGPT の設定で管理できます。",
   cg_welcomeOk: "OK",

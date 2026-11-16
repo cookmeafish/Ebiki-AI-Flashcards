@@ -239,6 +239,8 @@ export default {
   cg_noSub_anthropic: "Uses an API key: Anthropic doesn't let other apps sign in with a Claude plan.",
   cg_noSub_gemini: "Uses an API key (free tier available): Google doesn't let other apps sign in with a Gemini plan.",
   cg_noSub_grok: "Uses an API key: xAI has no plan sign-in for other apps.",
+  cg_source: "Their rules",
+  cg_unverified: "New: not yet tried with a real ChatGPT account. If sign-in does not work, use an API key.",
   cg_welcomeTitle: "You’re using your ChatGPT plan",
   cg_welcomeBody: "Eligible usage in this app uses your ChatGPT plan. Manage usage in your ChatGPT settings.",
   cg_welcomeOk: "Got it",

@@ -64,6 +64,8 @@ export default {
   cg_noSub_anthropic: "Usa una clave de API: Anthropic no deja que otras apps inicien sesión con un plan de Claude.",
   cg_noSub_gemini: "Usa una clave de API (con nivel gratuito): Google no deja que otras apps inicien sesión con un plan de Gemini.",
   cg_noSub_grok: "Usa una clave de API: xAI no tiene inicio de sesión con plan para otras apps.",
+  cg_source: "Sus normas",
+  cg_unverified: "Nuevo: aún no se ha probado con una cuenta real de ChatGPT. Si el inicio de sesión no funciona, usa una clave de API.",
   cg_welcomeTitle: "Estás usando tu plan de ChatGPT",
   cg_welcomeBody: "El uso elegible en esta app usa tu plan de ChatGPT. Administra el uso en la configuración de ChatGPT.",
   cg_welcomeOk: "Entendido",

@@ -21,10 +21,22 @@ export const subscriptionFor = (providers, company) => Object.entries(providers)
 
 // Inside a company's tab: how to use it. With a subscription sign-in: "API key" or "<plan> (sign in)". Without: one
 // line saying why that company needs a key (their own rules), named for THAT company only.
+// Where each company says so (checked 2026-11-14, docs/plans/2026-11-14-subscription-sign-in.md): the learner can read
+// the rule for themselves instead of taking the app's word.
+export const NO_SUB_SOURCE = {
+  anthropic: 'https://code.claude.com/docs/en/legal-and-compliance',
+  gemini: 'https://geminicli.com/docs/resources/tos-privacy',
+  grok: 'https://docs.x.ai',
+}
 export function SubscriptionNote({ t, providers, provider, onPick }) {
   const company = companyOf(providers, provider)
   const sub = subscriptionFor(providers, company)
-  if (!sub) return <div data-subscription-note={company} style={{ fontSize: 11.5, color: C.inkDim, lineHeight: 1.45, marginTop: 10 }}>{t(`cg_noSub_${company}`)}</div>
+  if (!sub) return (
+    <div data-subscription-note={company} style={{ fontSize: 11.5, color: C.inkDim, lineHeight: 1.45, marginTop: 10 }}>
+      {t(`cg_noSub_${company}`)}
+      {NO_SUB_SOURCE[company] && <> <a href={NO_SUB_SOURCE[company]} target="_blank" rel="noopener noreferrer" style={{ color: C.brandText, fontWeight: 700, whiteSpace: 'nowrap' }}>{t('cg_source')} ↗</a></>}
+    </div>
+  )
   const seg = (id, label) => (
     <button key={id} type="button" role="radio" aria-checked={provider === id} onClick={() => onPick?.(id)} className={provider === id ? 'ui-tab ui-tab-current' : 'ui-tab'}
       style={{ ...S.ghostBtn, fontSize: 12.5, padding: '6px 12px', fontWeight: 700, cursor: provider === id ? 'default' : 'pointer', color: provider === id ? C.ink : C.inkDim, background: provider === id ? C.surfaceAlt : C.surface }}>{label}</button>
@@ -75,6 +87,8 @@ export default function ChatGptSignIn({ t, status, waiting, onSignIn, onSignOut,
             {waiting && <button type="button" onClick={onCancel} style={{ ...S.ghostBtn, fontSize: 12, color: C.inkDim }}>{t('cg_cancel')}</button>}
           </div>
           {waiting && <div style={{ fontSize: 12, color: C.inkDim, marginTop: 8 }}>{t('cg_waiting')}</div>}
+          {/* Honest status: this sign-in passed its tests against a stand-in server only, never a real account yet. */}
+          <div data-chatgpt-unverified="" style={{ fontSize: 11.5, color: C.warning, marginTop: 8, lineHeight: 1.4 }}>{t('cg_unverified')}</div>
         </>
       )}
       {errKey && !waiting && <div style={{ fontSize: 12, color: C.danger, fontWeight: 700, marginTop: 8 }}>{t(errKey)}</div>}

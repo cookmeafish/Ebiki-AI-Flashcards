@@ -64,6 +64,8 @@ export default {
   cg_noSub_anthropic: "使用 API 密钥：Anthropic 不允许其他应用用 Claude 套餐登录。",
   cg_noSub_gemini: "使用 API 密钥（有免费额度）：Google 不允许其他应用用 Gemini 套餐登录。",
   cg_noSub_grok: "使用 API 密钥：xAI 没有供其他应用使用的套餐登录。",
+  cg_source: "官方规定",
+  cg_unverified: "新功能：尚未用真实的 ChatGPT 账号试过。如果无法登录，请使用 API 密钥。",
   cg_welcomeTitle: "你正在使用你的 ChatGPT 套餐",
   cg_welcomeBody: "在此应用中符合条件的用量会使用你的 ChatGPT 套餐。可在 ChatGPT 设置中管理用量。",
   cg_welcomeOk: "知道了",

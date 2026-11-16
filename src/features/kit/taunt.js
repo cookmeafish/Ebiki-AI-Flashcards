@@ -12,6 +12,8 @@
 // translated opener is the same in every line too). Only the line's OWN wording must be new. Before this, a boss
 // obeying its voice repeated itself by definition, and after one line (often before any) nothing was ever shown.
 
+import { mistakeKindLine } from './mistakeKind'
+
 export const TAUNT_JOB = 'fight.taunt'
 export const TAUNT_ROLE = 'help' // the cheap tier (providers.js ROLE_TIER): one line per miss
 export const TAUNT_MAX_TOKENS = 160
@@ -123,6 +125,8 @@ export function buildTauntPrompt(o = {}) {
     // From judging REAL lines (2026-11-16): English persona words left inside a Spanish line, a speaker label, a stage
     // direction said aloud, a word defined with itself, a wrong FORM of the right word read as another word.
     `Every word is in ${o.userLang || 'English'}: your opener, your nickname for the learner and your signature are said in that language too, and you leave no word of another language in the line (the learner's answer and the right answer stay as written). No speaker label ("Name:"), no sound or action said aloud (a yawn, a laugh). Say what their answer means with OTHER words, never with the word itself. If their answer is another FORM of the right word (a wrong ending, tense or person), say that it is the wrong form, not that it is a different word. Claim nothing about a word that is not true.`,
+    'Say what their wrong word means only when you are certain it is exactly true; when you are not, tease that it is not what was asked, without defining it.',
+    mistakeKindLine(o.answer, o.expected ? [o.expected] : [], { isLanguage: !!o.isLanguage }),
     recent.length ? `You already said these lines. Never repeat them, their wording, their structure or their jokes; say something completely new:\n${recent.map((l) => `- ${l}`).join('\n')}` : '',
     o.retry ? `Your last try reused words from a line you already said ("${String(o.retry).slice(0, 200)}"). Write a completely different line.` : '',
   ].filter(Boolean).join('\n')

@@ -9,6 +9,7 @@
 // lower it: a right answer is never marked wrong after the fact.
 
 import { clampTier, tierTeaches, tierOpen, TEACHING_STYLE_RULE } from '../../utils/questionTier'
+import { mistakeKindLine } from './mistakeKind'
 import { canonKeys } from '../../utils/aiJson'
 
 export const VERDICT_MAX_TOKENS = 120
@@ -121,6 +122,14 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
       // From judging REAL notes (2026-11-16): a loose definition ("legal partner" for married), the place named with a
       // synonym of the answer right before the answer, a gloss in a third language.
       `What you say a word means must be exactly true (its plain dictionary meaning, in the right gender and form). Do not describe the answer with a synonym of it in the same sentence. Write only in ${subject?.userLang || 'English'}: no gloss in any other language.`,
+      // WORD FACTS COME FROM THE CARD (accuracy first: a wrong fact in a note is taught as true). The card's own
+      // meaning is passed when the question carries it; about the learner's wrong word the note says only what is
+      // certain; and a code check says when the answer is another FORM of the right word (kit/mistakeKind.js).
+      q?._guard?.meaning ? `The card gives this meaning for the right answer: "${String(q._guard.meaning).slice(0, 200)}". State no other meaning, part of speech, gender or form for the right answer than the card and the question give.` : '',
+      // (Judged on real notes: told only "when certain", half the notes stopped saying what the wrong word means, and
+      // the contrast between the two words IS the lesson. So: say it for a word you know, stay silent only in doubt.)
+      'About the learner\'s WRONG word: when it is a real word you know well, say in a few plain words what it means, exactly and in its own gender and form (the contrast with the right answer is the lesson). Only when you are not certain of it, do not define it: say that it is not what was asked, and why the right answer fits.',
+      mistakeKindLine(ans, q?.accepted, { isLanguage: !!subject?.isLanguage }),
       TEACHING_STYLE_RULE,
       wantFix ? '"fix": a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". null when there is none.' : '',
     ].filter(Boolean).join('\n'),

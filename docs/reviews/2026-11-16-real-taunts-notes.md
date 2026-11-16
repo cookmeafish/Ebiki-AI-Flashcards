@@ -32,3 +32,14 @@ check that runs after teaching replies does not cover fight notes; extending it 
 keep showing up.
 
 Not verified: other learned languages, a general (non-language) mode, and lines in the app language English.
+
+## Rounds 3 and 4 (the same day): fixed at the source
+Changes: a code check (`kit/mistakeKind.js`) tells both prompts when the answer is another FORM of the right word;
+the note prompt gets the card's own meaning and may state only certain facts about the wrong word.
+Round 3 (independent judge): every rule 10 of 10 for taunts and notes, no fails. The verb-form miss is now explained
+as a wrong form by both the taunt and the note. Side effect the judge flagged: five notes no longer said what the
+wrong word means. Round 4 rebalanced that rule and regenerated the 10 notes: all ten name the wrong word's meaning
+again. Round 4 was NOT judged independently (usage limit); by the author's read, one note still defines a masculine
+adjective with "a woman" and one says "partner by marriage".
+Calls on the owner's key: about 100 in all (round 3 measured: 30 calls, 35,924 input and 10,323 output tokens, the
+cheap model retrying about once per taunt; rounds 1 and 2 not measured; round 4: 10 calls).
