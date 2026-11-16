@@ -10,6 +10,7 @@ import { createKeyVerdictCache } from './utils/keyVerdicts'
 const PORTABLE_IMAGE_TYPES = /^image\/(jpeg|jpg|png)$/i
 import { PROVIDERS, keyOfOtherProvider, setUsageListener, listAllModels, imageInputRefused, CHATGPT_SIGNED_IN } from './config/providers'
 import { parseAiJson, asList } from './utils/aiJson'
+import { narrowOutline } from './utils/knowledgePick'
 import { recordUsage } from './utils/tokenUsage'
 import { shapeLegacyModes } from './utils/legacyModes'
 import { editorTagTarget } from './utils/deckTags'
@@ -7972,7 +7973,9 @@ Return ONLY a JSON array (no markdown):
         // top levels, and the server slices sections by position in the full outline.
         const idxOf = (h, i) => (Number.isInteger(h.i) ? h.i : i)
         const validIds = new Set(outline.map(idxOf))
-        const toc = outline.map((h, i) => `${idxOf(h, i)}. ${'  '.repeat(Math.max(0, (h.level || 1) - 1))}${h.title}`).join('\n')
+        // A big guide (hundreds of term sections): only the headings sharing words with the task, plus the top levels,
+        // are listed (utils/knowledgePick.js): about a fifth of the tokens per pick. The ids stay the full outline's.
+        const toc = narrowOutline(outline.map((h, i) => ({ ...h, i: idxOf(h, i) })), task).map((h) => `${h.i}. ${'  '.repeat(Math.max(0, (h.level || 1) - 1))}${h.title}`).join('\n')
         const sel = await aiCall(apiKey,
           'You route study tasks to the relevant sections of study material. Respond ONLY with a raw JSON array of section numbers.',
           `TABLE OF CONTENTS:\n${toc}\n\nTASK:\n${task}\n\nReturn a JSON array with the numbers of the 1-4 sections most relevant to this task, most relevant first (e.g. [12,3]). ONLY the raw JSON array, no markdown.`,
