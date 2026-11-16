@@ -115,6 +115,9 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
       subjectLine(subject), ...questionLines(q, ans, subject),
       verdict === 'miss' ? 'The answer was judged WRONG.' : verdict === 'glancing' ? 'The answer got the tested thing right but has another mistake.' : 'The answer was judged right.',
       `Write "note" in ${subject?.userLang || 'English'}: one short, neutral sentence saying what was wrong and the right form or answer. Plain words, no dashes, no shrimp emoji.`,
+      // The screen shows the card's accepted answer right above the note: a note naming ANOTHER word as "the correct
+      // answer" (a synonym, another spelling) contradicted it and left the learner unsure which one to learn.
+      'When you name the right answer, write it EXACTLY as the accepted answer given above, letter for letter. Never call a different word, synonym or spelling "the correct answer"; a close variant may be mentioned only as "also said as", after the accepted one.',
       TEACHING_STYLE_RULE,
       wantFix ? '"fix": a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". null when there is none.' : '',
     ].filter(Boolean).join('\n'),

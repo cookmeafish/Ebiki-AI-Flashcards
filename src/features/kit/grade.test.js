@@ -95,3 +95,12 @@ describe('practice misses', () => {
     expect(missesFromResults([{ question: q, answer: 0, correct: false }, { question: q, answer: 1, correct: true }], 'The café')).toEqual([{ front: 'The café', question: 'Who paid?', answer: 'Ana', expected: 'Luis' }])
   })
 })
+
+describe('an OPEN "write a sentence" question keeps its word hidden (the hint says which word; the leak guard still applies)', () => {
+  it('a question that shows its word is dropped, open or not; one that hides it is kept as open', () => {
+    const named = { question: 'Scrivi una frase con «lentezza» che descriva una fila alla posta.', accepted: ['lentezza'], open: true, tier: 4 }
+    expect(sanitizeQuestions([named])).toHaveLength(0)
+    const hidden = { ...named, question: 'Una fila alla posta dura due ore. Scrivi una frase con il nome che significa «il muoversi piano».' }
+    expect(sanitizeQuestions([hidden])[0]).toMatchObject({ kind: 'typed', open: true, tier: 4 })
+  })
+})

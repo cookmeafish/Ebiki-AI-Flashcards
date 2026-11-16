@@ -8,6 +8,7 @@ import { C, FONT, RADIUS } from '../../config/tokens'
 import { Modal, ChunkyButton } from '../ui'
 import { buildLearnChatPrompt, boldParts, LEARN_ROLE, LEARN_JOB, LEARN_MAX_TOKENS } from './learnIt'
 import { imeActive } from '../../utils/keys'
+import { itemSections, SECTION_ICON } from './itemSections'
 
 // `tap(text, key)` makes the words tappable (ctx.words); all parts of one text share its popup (`k`).
 const Rich = ({ text, tap, k = '' }) => boldParts(text).map((p, i) => (p.bold ? <b key={i}>{tap ? tap(p.text, k) : p.text}</b> : <span key={i}>{tap ? tap(p.text, k) : p.text}</span>))
@@ -22,6 +23,11 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
   const [chatBusy, setChatBusy] = useState(false)
   const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  // Is there more of the card below the visible part of its box? (drives the fade at the box's bottom edge)
+  const secRef = useRef(null)
+  const [more, setMore] = useState(false)
+  const measureMore = () => { const el = secRef.current; if (el) setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6) }
+  useEffect(() => { measureMore(); const id = setTimeout(measureMore, 300); return () => clearTimeout(id) }, [item.back])
   const sid = useRef(`learnit-${Date.now().toString(36)}`).current
   const hookOnce = useRef(false)
 
@@ -61,7 +67,9 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
   const canTap = !!ctx.words?.canTap?.(subject.userLang)
   const tappable = (text, key) => (ctx.words && canTap ? ctx.words.tappable(text, `${sid}-${key}`, text, { lang: subject.userLang }) : text)
   const popup = (key) => (ctx.words && canTap ? ctx.words.popup(`${sid}-${key}`) : null)
-  const backLines = String(item.back || '').split(/\n+/).map((l) => l.trim()).filter(Boolean)
+  const allSections = itemSections(item.back)
+  const category = allSections.find((s) => s.role === 'category')
+  const sections = allSections.filter((s) => s.role !== 'category')
   const small = { fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 12px', borderRadius: RADIUS.pill, background: 'transparent', cursor: 'pointer' }
   return (
     <Modal open onClose={onClose} zoom={ctx.getZoom?.() || 1} width={560}>
@@ -71,12 +79,28 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
           <span dir="auto" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 19, color: C.ink, whiteSpace: 'pre-wrap' }}>{tappable(item.front, 'front')}</span>
         </div>
         {popup('front')}
-        {backLines.length > 0 && (
-          <div style={{ fontSize: 14, color: C.ink, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: '10px 12px', lineHeight: 1.6, maxHeight: 220, overflowY: 'auto' }}>
-            {backLines.map((l, i) => <div key={i} dir="auto">{tappable(l, `b${i}`)}</div>)}
+        {/* THE CARD IN SECTIONS (the owner: a wall of "Label: text" lines "is hard for the user to go through"): the
+            same layout as a lesson card (kit/itemSections.js): each label on its own line with its icon, the example
+            in a tinted box, key points as bullets, the category as a chip. Any subject and language. */}
+        {category && <span style={{ justifySelf: 'start', fontSize: 11.5, fontWeight: 700, color: C.inkDim, padding: '2px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}` }}>🏷️ {category.text}</span>}
+        {sections.length > 0 && (
+          // Long cards scroll inside the box; a fade at the bottom edge says there is more (a section cut mid-line
+          // with no cue looked like the end), gone once the learner reaches the end.
+          <div data-learn-sections="" ref={secRef} onScroll={measureMore} tabIndex={more ? 0 : undefined}
+            style={{ display: 'grid', gap: 10, maxHeight: 'min(300px, 42vh)', overflowY: 'auto', paddingRight: 4, ...(more ? { WebkitMaskImage: 'linear-gradient(#000 calc(100% - 28px), transparent)', maskImage: 'linear-gradient(#000 calc(100% - 28px), transparent)' } : {}) }}>
+            {sections.map((sec, i) => (
+              <div key={i} dir="auto" style={sec.role === 'example'
+                ? { fontSize: 14, lineHeight: 1.5, color: C.ink, padding: '8px 12px', borderRadius: RADIUS.sm, background: `color-mix(in srgb, ${C.info} 9%, ${C.surface})`, borderLeft: `3px solid ${C.info}` }
+                : { fontSize: 14.5, lineHeight: 1.55, color: C.ink }}>
+                {sec.label && <div style={{ fontWeight: 900, color: C.ink, fontSize: 13.5 }}>{SECTION_ICON[sec.role] ? `${SECTION_ICON[sec.role]} ` : ''}{sec.label}</div>}
+                {sec.role === 'points'
+                  ? <ul style={{ margin: '4px 0 0', paddingLeft: 20, display: 'grid', gap: 3 }}>{sec.points.map((p, k) => <li key={k}>{tappable(p, `b${i}-${k}`)}</li>)}</ul>
+                  : <div style={{ whiteSpace: 'pre-wrap' }}>{tappable(sec.text, `b${i}`)}</div>}
+                {sec.role === 'points' ? sec.points.map((_, k) => <span key={k}>{popup(`b${i}-${k}`)}</span>) : popup(`b${i}`)}
+              </div>
+            ))}
           </div>
         )}
-        {backLines.map((_, i) => <span key={i}>{popup(`b${i}`)}</span>)}
         {hooks.map((h, i) => (
           <div key={i} style={{ fontSize: 13, color: C.ink, background: `color-mix(in srgb, ${C.purple} 8%, ${C.surface})`, border: `1px solid color-mix(in srgb, ${C.purple} 30%, transparent)`, borderRadius: RADIUS.sm, padding: '8px 10px', lineHeight: 1.55, display: 'flex', gap: 6 }}>
             <span style={{ fontWeight: 800, color: C.purple }}>🧠</span><div dir="auto" style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-wrap' }}><Rich text={h} tap={tappable} k={`h${i}`} />{popup(`h${i}`)}</div>

@@ -1079,6 +1079,8 @@ export default {
   kit_correct: '¡Correcto!',
   kit_wrong: 'Casi',
   kit_answerWas: 'Respuesta correcta: {a}',
+  kit_openWord: "La palabra que había que usar: {a}",
+  kit_openModel: "Una buena respuesta: {a}",
   kit_accent: 'Bien, solo cuida las tildes: {a}',
   kit_typeInstead: "Mejor escribirla",
   kit_typePlaceholder: 'Escribe tu respuesta',

@@ -119,7 +119,12 @@ describe('the prefix hint in fights (one engine with Study: utils/prefixHint.js)
     expect(ensurePrefixHint(q, { isLanguage: true }).prompt).toBe('Hoy ___ (l…) mucho (to rain).')
     expect(ensurePrefixHint(q, { isLanguage: false })).toBe(q)
     expect(ensurePrefixHint({ ...q, kind: 'choice' }, { isLanguage: true }).prompt).toBe(q.prompt)
-    expect(ensurePrefixHint({ ...q, open: true }, { isLanguage: true }).prompt).toBe(q.prompt)
+    // An OPEN "write a sentence" question is hinted too (never a blind guess at which word is meant).
+    expect(ensurePrefixHint({ kind: 'typed', open: true, prompt: 'Escribe una frase con el verbo que significa «caer agua del cielo».', accepted: ['llover', 'llueve'] }, { isLanguage: true }).prompt).toBe('Escribe una frase con el verbo que significa «caer agua del cielo» (l…).')
+    expect(ensurePrefixHint({ kind: 'typed', open: true, prompt: 'Explain how it works.', accepted: ['x'] }, { isLanguage: false }).prompt).toBe('Explain how it works.')
+    // ...but only when its answer is a WORD: a model sentence as the accepted answer has nothing to hint.
+    const sentence = { kind: 'typed', open: true, prompt: 'Describe el tiempo de hoy en una frase.', accepted: ['Hoy llueve mucho en la ciudad.'] }
+    expect(ensurePrefixHint(sentence, { isLanguage: true })).toBe(sentence)
     expect(ensurePrefixHint({ ...q, accepted: ['下雨'] }, { isLanguage: true }).prompt).toBe(q.prompt)
   })
 })

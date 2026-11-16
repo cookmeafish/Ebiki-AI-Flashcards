@@ -68,7 +68,7 @@ import { retryHints, answerShowsPrefix } from './utils/studyHints'
 import { planChoices, poolEntry, poolEntries, wordOnBack, cardWord, cardMeaning, posOf, distractorRule, meaningLabel } from './utils/choicePool'
 import { buildDistractorCheckPrompt, parseDistractorCheck, swapFlagged } from './utils/distractorCheck'
 import { cardGoal, goalLine, goalField, shapeGoal } from './utils/questionGoal'
-import { prefixHint, hintAnswer, hintTokens, longerPrefix } from './utils/prefixHint'
+import { prefixHint, hintAnswer, hintTokens, longerPrefix, seamlessBlank, choicePromptFor } from './utils/prefixHint'
 import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, cardHtmlForText, setTranslator as setCardTranslator, CHANGE_MAYBE_APPLIED } from './cards'
 import { flattenConfig, diffConfig } from './utils/configDiff'
 import { modePatch } from './utils/modePatch'
@@ -8514,7 +8514,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // back to the raw text for general modes / empty strings.
   const renderTappableText = (text, sentence, source) => {
     if (activeMode.type !== 'language' || !text) return text
-    return splitTapTokens(text).map((tok, ti) => {
+    return splitTapTokens(seamlessBlank(text)).map((tok, ti) => {
       if (/^\s+$/.test(tok) || tok === '') return <span key={ti}>{tok}</span>
       const clean = tapClean(tok)
       if (!tapLongEnough(clean) || /_{2,}/.test(tok)) return <span key={ti}>{tok}</span>
@@ -8536,7 +8536,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const featureTapRef = useRef(new Map()) // source -> { answers, lang, general }
   const featureTapFor = (source) => featureTapRef.current.get(source) || null
   const renderFeatureWords = (text, source, { sentence, answers, glosses, lang } = {}) => {
-    const str = String(text ?? '')
+    const str = seamlessBlank(String(text ?? '')) // "___ (fu…)" is drawn "fu___" (display only)
     if (!str) return str
     const isLang = activeMode.type === 'language'
     const appLang = userLangName()
@@ -8791,7 +8791,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const r = cs.results[qi] || {}
     // The question as it was ASKED: picked from its options = the choice view's text (a meaning form asks its own
     // question), typed = the typed text with its hint.
-    const gq = cs.byChoice?.[qi] ? choiceQuestionText(cs.questions[qi]) : getQuestionText(cs.questions[qi])
+    const gq = seamlessBlank(cs.byChoice?.[qi] ? choiceQuestionText(cs.questions[qi]) : getQuestionText(cs.questions[qi])) // the hint drawn in the blank, as asked
     const open = !!studyQaOpen[src]
     const st = !r.correct ? 'wrong' : ((Array.isArray(r.notes) ? r.notes : []).some((n) => n && n.type !== 'praise') ? 'noted' : 'clean') // results saved by an older build may hold a non-array
     const meta = st === 'wrong'
@@ -9698,7 +9698,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const getQuestionText = (q) => (typeof q === 'string' ? q : q?.question || '')
   // The question its CHOICES answer: the meaning form's own ("What does "perro" mean?"), else the question with every
   // letter hint taken out (its letters would pick the tile).
-  const choiceQuestionText = (q) => (q && typeof q === 'object' && q.choiceMode === 'meaning' && q.choicePrompt ? String(q.choicePrompt) : stripLetterCues(getQuestionText(q), q?.acceptedAnswers))
+  const choiceQuestionText = (q) => (q && typeof q === 'object' && q.choiceMode === 'meaning' && q.choicePrompt ? String(q.choicePrompt) : choicePromptFor(getQuestionText(q), q?.acceptedAnswers, q?.choices)) // the hint stays when every option shares it
 
   const getCardFront = (card) => {
     const fields = card.fields ? Object.values(card.fields) : []
@@ -12938,7 +12938,8 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // Cue "(…)" segments render muted/italic and are never tappable — but their words DO get
   // glosses like everything else (the user reads the cue too; "empieza", "maúlla" etc. need
   // hints as much as the sentence). Shared by the question renderer and the coverage check.
-  const splitCues = (s) => String(s).split(/(\([^)]*\))/).filter((p) => p !== '')
+  // (seamlessBlank: a hint right after its blank is drawn IN the blank, "fu___", display only.)
+  const splitCues = (s) => seamlessBlank(String(s)).split(/(\([^)]*\))/).filter((p) => p !== '')
   const isCue = (p) => /^\([^)]*\)$/.test(p)
 
   // Accent/case folding for gloss KEY MATCHING only (display text is untouched): the model
@@ -18233,7 +18234,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           </div>
                         </>)
                       })() : studyChoiceFlash ? (<>
-                        <div className="st-q" style={{ marginBottom: 18 }}>{studyChoiceFlash.question}</div>
+                        <div className="st-q" style={{ marginBottom: 18 }}>{seamlessBlank(studyChoiceFlash.question)}</div>
                         {renderChoiceButtons(studyChoiceFlash.choices, { picked: studyChoiceFlash.picked, answerIdx: studyChoiceFlash.answerIdx })}
                       </>) : studyPbqReview ? (<>
                         {/* Graded PBQ — stays until Continue so the student can study what was wrong */}
@@ -18249,7 +18250,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         </div>
                       </>) : studyTypedFlash ? (<>
                         {/* Typed-answer feedback: green ✓ = locally verified; amber ⏳ = Ebi grades it later */}
-                        <div className="st-q" style={{ marginBottom: 18 }}>{studyTypedFlash.question}</div>
+                        <div className="st-q" style={{ marginBottom: 18 }}>{seamlessBlank(studyTypedFlash.question)}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                           <span className="st-flash" style={{
                             animation: 'pop .25s cubic-bezier(.34,1.56,.64,1)',

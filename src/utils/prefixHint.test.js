@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { prefixLen, prefixOf, prefixHint, hintAnswer, canHint, hasPrefixHint, stripPrefixHint, stripCountSkeleton, hasCountSkeleton, stripQuotedLetterCues, insertHint, typedPrompt, choicePromptText, longerPrefix, hintTokens } from './prefixHint'
+import { prefixLen, prefixOf, prefixHint, hintAnswer, canHint, hasPrefixHint, stripPrefixHint, stripCountSkeleton, hasCountSkeleton, stripQuotedLetterCues, insertHint, typedPrompt, choicePromptText, longerPrefix, hintTokens, seamlessBlank, choicesShareHint, choicePromptFor } from './prefixHint'
 
 describe('the prefix hint (the owner: about 20% of the word, never the length)', () => {
   it('shows about 20% of a one-word answer, at least 1, leaving 2+ hidden', () => {
@@ -95,9 +95,10 @@ describe('typedPrompt: the one way a typed language question shows its hint', ()
     expect(typedPrompt(once, acc, { isLanguage: true })).toBe(once)
     expect((once.match(/…/g) || []).length).toBe(1)
   })
-  it('never in a general mode or an open question; Han keeps the model\'s reading cue', () => {
+  it('never in a general mode; an open "write a sentence" question is hinted too; Han keeps the model\'s reading cue', () => {
     expect(typedPrompt('What is TLS?', ['tls'], { isLanguage: false })).toBe('What is TLS?')
-    expect(typedPrompt('Write a sentence', acc, { isLanguage: true, open: true })).toBe('Write a sentence')
+    // The word stays hidden, its first letters say WHICH word (the hint goes before the closing punctuation).
+    expect(typedPrompt('Scrivi una frase con il nome che significa «il muoversi piano».', ['lentezza'], { isLanguage: true })).toBe('Scrivi una frase con il nome che significa «il muoversi piano» (le…).')
     expect(typedPrompt('雨伞は？（「y」）', ['雨伞'], { isLanguage: true })).toBe('雨伞は？（「y」）')
   })
   it('the choices view shows no hint at all', () => {
@@ -177,5 +178,50 @@ describe('review fixes: numbers, two-letter words, Hangul, Arabic punctuation', 
   })
   it('the Arabic question mark closes a question like "?"', () => {
     expect(insertHint('كيف تقول "book"؟', '(ك…)')).toBe('كيف تقول "book" (ك…)؟')
+  })
+})
+
+describe('seamlessBlank: the blank carries the hint (display only)', () => {
+  it('one word: the letters sit in the blank', () => {
+    expect(seamlessBlank('El gato ___ (du…) en la silla.')).toBe('El gato du___ en la silla.')
+    expect(seamlessBlank('El gato _____(du…) aquí')).toBe('El gato du_____ aquí')
+  })
+  it('several words: one blank each; a word with no letters shown is a bare blank', () => {
+    expect(seamlessBlank('Dijo ___ (h… l…) al salir.')).toBe('Dijo h___ l___ al salir.')
+    expect(seamlessBlank('Viene ___ (… v…) al parque.')).toBe('Viene ___ v___ al parque.')
+  })
+  it('a sense cue after the hint stays; other parentheses and a hint with no blank are untouched', () => {
+    expect(seamlessBlank('Ella ___ (ca…) mucho. (moverse a pie)')).toBe('Ella ca___ mucho. (moverse a pie)')
+    expect(seamlessBlank('¿Cómo se dice "dog" (pe…)?')).toBe('¿Cómo se dice "dog" (pe…)?')
+    expect(seamlessBlank('Llena ___ (el hueco, etc…)')).toBe('Llena ___ (el hueco, etc…)')
+    expect(seamlessBlank('Nada ___ (…) aquí')).toBe('Nada ___ (…) aquí')
+  })
+  it('the stored form still strips and detects as before', () => {
+    const stored = typedPrompt('El gato ___ en la silla.', ['duerme'], { isLanguage: true })
+    expect(stored).toBe('El gato ___ (d…) en la silla.')
+    expect(choicePromptText(stored, ['duerme'])).toBe('El gato ___ en la silla.')
+    expect(seamlessBlank(seamlessBlank(stored))).toBe('El gato d___ en la silla.')
+  })
+})
+
+describe('the hint beside choices: kept only when every option shares it', () => {
+  const q = 'La ___ (te…) duró una hora.'
+  it('every option starts with the shown letters: the hint stays', () => {
+    expect(choicesShareHint(q, ['tertulia'], ['tertulia', 'tela', 'tensión', 'tecla'])).toBe(true)
+    expect(choicePromptFor(q, ['tertulia'], ['tertulia', 'tela', 'tensión', 'tecla'])).toBe(q)
+    expect(choicePromptFor(q, ['tertulia'], ['Tertulia', 'tela'])).toBe(q) // two options (a 50:50), case aside
+  })
+  it('one option that does not share it: the hint goes, as before', () => {
+    expect(choicePromptFor(q, ['tertulia'], ['tertulia', 'reunión', 'tela', 'tecla'])).toBe('La ___ duró una hora.')
+    expect(choicePromptFor(q, ['tertulia'], ['tertulia', 'una tela', 'tensión', 'tecla'])).toBe('La ___ duró una hora.') // another word count
+  })
+  it('several words: each word against its own letters; a bare "…" word matches any', () => {
+    const p = 'Llegó ___ (… t…) como siempre.'
+    expect(choicePromptFor(p, ['a tiempo'], ['a tiempo', 'a tientas', 'de tarde'])).toBe(p)
+    expect(choicePromptFor(p, ['a tiempo'], ['a tiempo', 'a veces'])).toBe('Llegó ___ como siempre.')
+  })
+  it('no options, or no hint in the text: nothing kept, nothing invented', () => {
+    expect(choicePromptFor(q, ['tertulia'], [])).toBe('La ___ duró una hora.')
+    expect(choicePromptFor('La ___ duró una hora.', ['tertulia'], ['tertulia', 'tela'])).toBe('La ___ duró una hora.')
   })
 })

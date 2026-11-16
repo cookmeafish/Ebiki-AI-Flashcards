@@ -8,8 +8,10 @@ const ROLES = [
   ['points', /^(key points?|remember|notes?|puntos clave|notas|points clés|à retenir|merkpunkte|ポイント|要点|重点)$/i],
   ['category', /^(category|categoría|catégorie|kategorie|カテゴリ|類別|类别|分类)$/i],
   ['sound', /^(pronunciation|pronunciación|prononciation|aussprache|発音|发音)$/i],
+  ['similar', /^(synonyms?|antonyms?|related|sinónimos?|antónimos?|synonymes?|antonymes?|synonyme|類義語|対義語|同义词|近义词|反义词)$/i],
+  ['grammar', /^(part of speech|gender|plural|categoría gramatical|clase de palabra|género|nature|genre|wortart|品詞|词性)$/i],
 ]
-export const SECTION_ICON = { meaning: '📖', example: '💡', points: '⭐', category: '🏷️', sound: '🔊' }
+export const SECTION_ICON = { meaning: '📖', example: '💡', points: '⭐', category: '🏷️', sound: '🔊', similar: '🔗', grammar: '🧩' }
 
 const roleOf = (label) => (ROLES.find(([, re]) => re.test(label.trim())) || ['other'])[0]
 // "a; b; c" → bullets (a plain sentence stays one item). Commas never split: they belong inside a point.

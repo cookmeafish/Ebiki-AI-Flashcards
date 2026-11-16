@@ -1079,6 +1079,8 @@ export default {
   kit_correct: '正确！',
   kit_wrong: '差一点',
   kit_answerWas: '正确答案：{a}',
+  kit_openWord: "要用的词：{a}",
+  kit_openModel: "参考答案：{a}",
   kit_accent: '对了，注意重音符号：{a}',
   kit_typeInstead: "改为输入",
   kit_typePlaceholder: '输入你的答案',

@@ -10,7 +10,7 @@
 // are the safety net. Any subject: a general mode phrased in another language keeps its terms untranslated and grades
 // understanding in any language.
 import { sameLanguage, tapAllowed } from '../../utils/tapTokens'
-import { prefixHint, typedPrompt, choicePromptText, hasPrefixHint, answerInitials, fold } from '../../utils/prefixHint'
+import { prefixHint, typedPrompt, choicePromptText, hasPrefixHint, answerInitials, fold, isWordAnswer } from '../../utils/prefixHint'
 
 export const FIGHT_STYLES = ['typed', 'choices']
 
@@ -113,12 +113,14 @@ const QUOTED_LETTER = /["'“”‘’«»‹›„‚「」『』]\s*(\p{L})\s*
 export const letterHint = (answer) => prefixHint(answer)
 // The prompt as answered with its CHOICES: no hint of any kind (its letters would pick the tile).
 export const stripLetterHints = (prompt, accepted = null) => choicePromptText(prompt, accepted)
-// A typed language question shows its prefix hint (a legacy skeleton or a quoted first letter gives way to it); open
-// and choice questions never (a hint would leak).
+// A typed language question shows its prefix hint (a legacy skeleton or a quoted first letter gives way to it), an
+// OPEN "write a sentence" one too (the owner: "you cant just blindly have the user guess what adjective it is");
+// choice questions never (a hint would leak).
 export function ensurePrefixHint(q, { isLanguage = false } = {}) {
-  if (!isLanguage || !q || q.kind !== 'typed' || q.open) return q
+  if (!isLanguage || !q || q.kind !== 'typed') return q
   const acc = Array.isArray(q.accepted) ? q.accepted.filter(Boolean) : []
   if (!acc.length) return q
+  if (q.open && !isWordAnswer(acc[0])) return q // a model sentence, not a word: nothing to hint
   // Its choices could not keep to the hint (kit/fightChoices.js `noHint`): no hint at all, so "Show choices" gives
   // nothing away.
   if (q.noHint) { const bare = choicePromptText(String(q.prompt || ''), acc); return bare === q.prompt ? q : { ...q, prompt: bare } }

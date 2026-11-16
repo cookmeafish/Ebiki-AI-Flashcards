@@ -9,8 +9,14 @@
 //   - an answer written in Han characters or kana gets none (its cue is the reading's first sound, which only the model
 //     can write, as a quoted letter); a 1-letter answer gets none (the hint would be the answer).
 // Only LANGUAGE modes (general modes are graded on understanding, answers in any language), only typed recall and
-// fill-in questions, never an open tier, never a question answered with its choices.
+// fill-in questions and an open "write a sentence" question whose answer is a word (isWordAnswer); beside choices only
+// when every option shares it (choicePromptFor).
 export const HINT_MARK = '…'
+// An OPEN question is hinted only when its first accepted answer is a WORD or short phrase (a language "write a
+// sentence with the word that means ..."): a model SENTENCE as the accepted answer (other open questions) gets no hint
+// (its initials were a row of garbage) and is shown as "a good answer", never as "the word to use".
+export const OPEN_WORD_MAX = 3
+export const isWordAnswer = (a) => { const n = String(a ?? '').trim().split(/\s+/).filter(Boolean).length; return n >= 1 && n <= OPEN_WORD_MAX }
 const isLetter = (ch) => /\p{L}/u.test(ch)
 const NO_HINT_SCRIPT = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
 export const fold = (s) => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[’‘`]/g, "'").toLowerCase()
@@ -115,6 +121,19 @@ export function stripPrefixHint(text, accepted = null) {
   return String(text || '').replace(new RegExp(`\\s*${HINT_RE.source}`, 'gu'), (all, group) => ((words ? startsAnswer(group, words) : hintTokens(group).some(Boolean)) ? '' : all))
 }
 
+// HOW A HINT IS SHOWN beside its blank (the owner: "its kinda confusing to have the blank spot then (fu..). why not make
+// it more seamless?"): the blank itself carries the letters, "Los muelles fu___ eran" instead of "___ (fu…)"; several
+// words become one blank each ("b___ d___"), a word with no letters shown a bare blank ("___ v___"). DISPLAY ONLY: the
+// stored text keeps "___ (fu…)", which every strip, detect and choice rule reads. A hint with no blank before it (a
+// question, not a gap sentence) stays as it is. The blank's length never follows the answer's.
+export function seamlessBlank(text) {
+  return String(text ?? '').replace(new RegExp(`(_{2,})\\s*${HINT_RE.source}`, 'gu'), (all, blank, group) => {
+    const toks = String(group).trim().split(/\s+/).filter(Boolean)
+    if (!toks.some((t) => t.replace(/…/g, ''))) return all // bare "(…)": not a hint
+    return toks.map((t) => `${t.replace(/…/g, '')}${blank}`).join(' ')
+  })
+}
+
 // The LEGACY letter-count skeleton ("(s·······)", "(e· ········)", Study's two-letter "(y·)" or "(y_)"), still in
 // questions saved before the prefix hint: it shows the length, so it is always taken out. A single "." never counts
 // ("(p.)" is an abbreviation).
@@ -163,10 +182,11 @@ export function insertHint(text, hint) {
 
 // THE TYPED PROMPT of a language question: every letter-count skeleton and quoted first-letter cue out, the prefix hint
 // in (once). Idempotent. No hint possible (Han, kana, a 1-letter answer): only the skeleton goes, the model's reading
-// cue stays. Not a language question, or an open one: unchanged.
-export function typedPrompt(text, accepted = [], { isLanguage = false, open = false } = {}) {
+// cue stays. Not a language question: unchanged. (An open "write a sentence" question is hinted too: its word is one
+// of several that could fit a description, and its first letters say which.)
+export function typedPrompt(text, accepted = [], { isLanguage = false } = {}) {
   const s = String(text ?? '')
-  if (!isLanguage || open) return s
+  if (!isLanguage) return s
   const hint = prefixHint(hintAnswer(accepted))
   const base = stripCountSkeleton(s)
   if (!hint) return base
@@ -177,6 +197,25 @@ export function typedPrompt(text, accepted = [], { isLanguage = false, open = fa
 // The question as shown with its CHOICES: no hint of any kind (its letters would pick the tile).
 export function choicePromptText(text, answers = null) {
   return stripQuotedLetterCues(stripPrefixHint(stripCountSkeleton(text), answers), answers)
+}
+
+// ...EXCEPT when every option shares the hint (the owner: "when multiple choice is entered, the hint for the word
+// disappears"): the choice pool picks options that start with the shown letters, so the hint singles nothing out and
+// stays on screen. One option that does not share it (the model's own options, a meaning-form set) and the hint goes,
+// as before. `choices`: the options on screen.
+export function choicesShareHint(text, answers = [], choices = []) {
+  const words = answerWords(answers)
+  const group = [...String(text || '').matchAll(HINT_RE)].map((m) => m[1]).find((g) => startsAnswer(g, words))
+  const list = (choices || []).map((c) => String(c ?? '')).filter(Boolean)
+  if (!group || list.length < 2) return false
+  const toks = hintTokens(group)
+  return list.every((c) => {
+    const ws = wordsOf(c).map((w) => fold(w).replace(/^[^\p{L}]+/u, ''))
+    return ws.length === toks.length && toks.every((tk, i) => !tk || ws[i].startsWith(tk))
+  })
+}
+export function choicePromptFor(text, answers = null, choices = []) {
+  return choicesShareHint(text, answers || [], choices) ? stripQuotedLetterCues(stripCountSkeleton(text), answers) : choicePromptText(text, answers)
 }
 
 // A LONGER prefix, for a hint asked for after a miss (Study's retry hint) or bought (a raid's Hint power): each word's

@@ -1138,6 +1138,8 @@ export default {
   kit_correct: 'Correct!',
   kit_wrong: 'Not quite',
   kit_answerWas: 'Correct answer: {a}',
+  kit_openWord: "The word to use: {a}",
+  kit_openModel: "A good answer: {a}",
   kit_accent: 'Right, just watch the accents: {a}',
   kit_typeInstead: "Type it instead",
   kit_typePlaceholder: 'Type your answer',

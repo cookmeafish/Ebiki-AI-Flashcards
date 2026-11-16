@@ -1079,6 +1079,8 @@ export default {
   kit_correct: '正解！',
   kit_wrong: 'おしい',
   kit_answerWas: '正解：{a}',
+  kit_openWord: "使う言葉：{a}",
+  kit_openModel: "良い答えの例：{a}",
   kit_accent: '正解です。アクセント記号に注意：{a}',
   kit_typeInstead: "入力で答える",
   kit_typePlaceholder: '答えを入力',

@@ -117,7 +117,9 @@ export function buildTauntPrompt(o = {}) {
     `Question: ${String(o.question || '').slice(0, 400)}`,
     o.expected ? `The right answer: ${String(o.expected).slice(0, 200)}` : '',
     `What they answered: ${String(o.answer || '(nothing)').slice(0, 200)}`,
-    'Tease them about THIS mistake, in your own voice. Easy to understand on first read, plain everyday words, nothing technical, no explanation of the answer. Mock the mistake, never the person.',
+    // CLEAR FIRST (the owner, on a line that dressed the mistake up as a riddle: "no idea how the reply ... is related"):
+    // the line names the wrong answer and the mix-up in plain words; the voice is the seasoning, never the puzzle.
+    'Tease them about THIS mistake, in your own voice. The learner must see at once what you are teasing: say their wrong answer in quotes and, in a few plain words, what they mixed up (what their answer really means next to what was asked). No riddles, no metaphors that need decoding, no images that stand in for the mistake: someone who reads only the question and your line gets the joke on first read. Plain everyday words, nothing technical, no lesson. Your voice shows in one short flourish, not in the whole line. Mock the mistake, never the person.',
     recent.length ? `You already said these lines. Never repeat them, their wording, their structure or their jokes; say something completely new:\n${recent.map((l) => `- ${l}`).join('\n')}` : '',
     o.retry ? `Your last try reused words from a line you already said ("${String(o.retry).slice(0, 200)}"). Write a completely different line.` : '',
   ].filter(Boolean).join('\n')

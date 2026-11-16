@@ -6,7 +6,7 @@
 // for that. Choice-only questions (Legends) go through the same pool and guard. Raids pass the deck's
 // studied cards (the due cards they read plus the learner context's studied sample); Legends the map's taught items.
 import { planChoices, poolEntry, poolEntries, shuffleChoices, wordOnBack, cardWord, cardMeaning, posOf, fairModelOptions } from '../../utils/choicePool'
-import { prefixHint, choicePromptText } from '../../utils/prefixHint'
+import { prefixHint, choicePromptText, isWordAnswer } from '../../utils/prefixHint'
 
 const firstLine = (s) => String(s ?? '').split(/\r?\n| · /).map((l) => l.trim()).find(Boolean) || ''
 
@@ -16,7 +16,16 @@ const firstLine = (s) => String(s ?? '').split(/\r?\n| · /).map((l) => l.trim()
 // fitting options for the option check's swaps), or unchanged.
 // `meaningLabel`: the mode's meaning label (utils/choicePool.js meaningLabel of its back template), when known.
 export function withPoolChoices(q, { card = null, pool = [], isLanguage = false, t = (k) => k, rnd = Math.random, meaningLabel = '' } = {}) {
-  if (!q || typeof q !== 'object' || q.open || !card) return q
+  if (!q || typeof q !== 'object' || !card) return q
+  // An OPEN language question whose answer is a word shows its prefix hint (the learner must know WHICH word): its
+  // options come from the pool when a set sharing that hint exists; otherwise it KEEPS the hint and the model's own
+  // options (the hint matters more there than a choice strike, which is weak and rated at most Good).
+  if (q.open) {
+    const first = (Array.isArray(q.accepted) ? q.accepted : []).map((a) => String(a ?? '').trim()).find(Boolean)
+    if (!isLanguage || q.kind !== 'typed' || !isWordAnswer(first)) return q
+    const r = withPoolChoices({ ...q, open: false }, { card, pool, isLanguage, t, rnd, meaningLabel })
+    return r.noHint || r.needChoices || !r.alt ? q : { ...r, open: true }
+  }
   if (q.kind === 'choice') return choiceFromPool(q, { card, pool, isLanguage, rnd, label: meaningLabel })
   if (q.kind !== 'typed') return q
   const accepted = (Array.isArray(q.accepted) ? q.accepted : []).map((a) => String(a ?? '').trim()).filter(Boolean)

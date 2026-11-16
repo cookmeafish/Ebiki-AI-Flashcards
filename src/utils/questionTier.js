@@ -75,7 +75,8 @@ export const QUESTION_CHECK_RULES = [
   'Reject a question when ANY of these holds:',
   '- A second answer is defensible (a synonym, another form, another term) and is neither excluded by a cue nor listed as accepted.',
   '- The key is wrong, or an accepted answer is not actually correct.',
-  '- The answer (or a giveaway form of it) appears in the question, EXCEPT a TIER 0 teaching question, which shows it on purpose.',
+  '- The answer (or a giveaway form of it) appears in the question, EXCEPT a TIER 0 teaching question, which shows it on purpose. (A hint of its first letters, like "(in…)", is added by the app and is fine.)',
+  '- An OPEN "write a sentence" question leaves the learner guessing WHICH word to use: it gives no sense cue saying what kind of word is wanted and what it means, or a near synonym fits that cue as well as the card\'s word and no first-letters hint tells them apart.',
   '- A TIER 0 question cannot be answered correctly on the first try from what it shows.',
   '- Its choices hold two defensible options, or the right option is missing.',
   '- It asks about something the card does not contain, or needs knowledge the learner cannot have.',
@@ -101,7 +102,10 @@ export function tierInstruction(tier, { isLanguage = false, learnLang = 'the lea
     // 3 Use
     `TIER 3 (USE: a young card). Test USING the word in context: a natural ${L} sentence with the word blanked (the sentence supplies tense, person and agreement so exactly one form is right, or every valid form is accepted), OR choosing it over a close synonym for a stated situation. Type "fill_blank".`,
     // 4 Produce
-    `TIER 4 (PRODUCE: a mature card). Free production: describe a short everyday situation in ${Q} (never naming the word) and ask the learner to write ONE short ${L} sentence that uses the card's word to express it, or to give the right form for a stated subject and time. Grading accepts any sentence that uses the card's word correctly with the card's meaning. acceptedAnswers: the word and its forms (the grader looks for them). Type "explanation" for the sentence (graded on correct use), "recall" for a form.`,
+    // NEVER A GUESSING GAME (the owner, on a "write a sentence with the adjective that means ..." question with no
+    // hint: "HOW THE HELL IS IT THIS???", then "there should be a hint anyway because it can be multiple things"): the
+    // word stays hidden, a sense cue says what kind of word it is, and the app adds its first letters (prefixHint.js).
+    `TIER 4 (PRODUCE: a mature card). Free production: describe a short everyday situation in ${Q} (never naming the word) and ask the learner to write ONE short ${L} sentence that uses the card's word to express it. The learner must never have to guess WHICH word is wanted: say what kind of word it is and its meaning in a compact sense cue ("con el adjetivo que significa ..."), precise enough that the card's word fits better than its near synonyms; the app then adds the word's first letters as a hint, so write no letters yourself. Grading accepts any sentence that uses the card's word correctly with the card's meaning. acceptedAnswers: the word FIRST (its dictionary form), then its forms (the grader looks for them; the hint is built from the first). Type "explanation" (graded on correct use).`,
     // 5 Master
     `TIER 5 (MASTER: a long-known card). Generative use and nuance: a common collocation, the register (formal or casual), its opposite, which of two phrasings a native would say, or fixing a short sentence that misuses it. Still exactly one fair answer (or every fair answer accepted). Type "recall" or "fill_blank" (or "explanation" for a corrected sentence).`,
   ]
@@ -120,7 +124,6 @@ export function tierInstruction(tier, { isLanguage = false, learnLang = 'the lea
 export const tierTeaches = (tier) => clampTier(tier) === 0
 // Tiers whose question is OPEN (graded on use or understanding, not one exact word): no letter cue there.
 export const tierOpen = (tier, isLanguage) => (isLanguage ? clampTier(tier) === 4 : clampTier(tier) >= 4)
-
 // THE REVIEW PASS, its prompt and its reply (Study builds its call with these; raids and Legends may too). The reviewer
 // is a second, independent model call: it sees the card and the questions, applies QUESTION_CHECK_RULES, and names what
 // fails. card: { front, back }; questions: [{ question, type, tier, acceptedAnswers, choices, answerIdx }].

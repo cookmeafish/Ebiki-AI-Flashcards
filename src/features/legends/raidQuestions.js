@@ -36,7 +36,7 @@ export function parseRaidQuestions(raw, cards, { clean = (s) => s, isLanguage = 
     const tierFor = () => (card.tier != null ? card.tier : undefined)
     const [one] = fitQuestionsToKind(parseQuestions([q], clean, { speakLang, dual: true, tierFor }), 'raid') // every fight question stands typed
     if (!one) continue
-    // Study's prefix hint for a typed language answer (utils/prefixHint.js; never on an open question, never the length).
+    // Study's prefix hint for a typed language answer (utils/prefixHint.js; an open question only when its answer is a word; never the length).
     byCard.set(i, { ...ensurePrefixHint(one, { isLanguage }), _cardId: card.cardId, target: card.front })
   }
   const qs = []

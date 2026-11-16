@@ -25,7 +25,7 @@ describe('fight choices from the deck', () => {
     expect(out.alt.choices[out.alt.answerIdx]).toBe('sombrero')
     expect([...out.alt.choices].sort()).toEqual(['sombrero', 'sonido', 'soleado', 'soporte'].sort())
   })
-  it('keeps the model\'s options when nothing fits, and then shows NO hint (the answer would be the only "so…"); leaves open and choice questions alone', () => {
+  it('keeps the model\'s options when nothing fits, and then shows NO hint (the answer would be the only "so…"); leaves sentence-answer open questions and choice questions alone', () => {
     const q = { ...typed(['sombrero'], { choices: ['sombrero', 'gorra', 'casco', 'boina'], answerIdx: 0 }), prompt: 'Lleva un ___ (so…).' }
     const out = withPoolChoices(q, { card: { front: 'sombrero', back: 'hat' }, pool: [], isLanguage: true, t })
     expect([...out.alt.choices].sort()).toEqual(['boina', 'casco', 'gorra', 'sombrero']) // the model's options, planned for a question without a hint
@@ -35,6 +35,15 @@ describe('fight choices from the deck', () => {
     expect(ensurePrefixHint(q, { isLanguage: true }).prompt).toBe('Lleva un ___ (so…).')
     const open = { ...q, open: true }
     expect(withPoolChoices(open, { card: { front: 'x', back: 'y' }, pool, isLanguage: true, t })).toBe(open)
+    // An open question whose answer is a WORD keeps its hint: pool options when a set sharing the hint exists (still
+    // open), else untouched (never `noHint`); a model SENTENCE as the answer is never planned.
+    const openWord = { ...typed(['pantalones'], { choices: ['pantalones', 'camisa', 'falda', 'gorra'], answerIdx: 0 }), open: true }
+    const planned = withPoolChoices(openWord, { card: { front: 'pantalones', back: 'trousers' }, pool, isLanguage: true, t, rnd: fixed })
+    expect(planned.open).toBe(true)
+    expect(planned.noHint).toBeUndefined()
+    expect([...planned.alt.choices].sort()).toEqual(['pantalones', 'pañuelo', 'paraguas', 'pasaporte'].sort())
+    const sentence = { ...openWord, accepted: ['Llevo unos pantalones nuevos hoy.'] }
+    expect(withPoolChoices(sentence, { card: { front: 'pantalones', back: 'trousers' }, pool, isLanguage: true, t })).toBe(sentence)
     const choice = { kind: 'choice', prompt: 'x', choices: ['a', 'b'], answerIdx: 0 }
     expect(withPoolChoices(choice, { card: { front: 'x', back: 'y' }, pool, isLanguage: true, t })).toBe(choice)
     expect(withPoolChoices(q, { card: null, pool, isLanguage: true, t })).toBe(q)

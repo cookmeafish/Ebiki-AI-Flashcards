@@ -64,7 +64,7 @@ const itemList = (items, max = 220, subject = null) => items.map((it, i) => `${i
 // prompt names it next to the card and spells out what each tier present asks. No tier = the ladder is off (today's
 // question). The model's "type" words map onto this app's question shape here.
 const hasTier = (x) => x && x.tier != null && Number.isFinite(Number(x.tier))
-const TIER_TYPES = 'In the tier texts, "recall" and "fill_blank" mean a typed question with "open": false and every correct answer in "accepted"; "explanation" means a typed question with "open": true and one good model answer in "accepted".'
+const TIER_TYPES = 'In the tier texts, "recall" and "fill_blank" mean a typed question with "open": false and every correct answer in "accepted"; "explanation" means a typed question with "open": true and one good model answer in "accepted", EXCEPT a language TIER 4 "write a sentence" question: its "accepted" lists the word to use FIRST (its dictionary form), then its other forms, never a sentence.'
 export function ladderBlock(subject, things = []) {
   const tiers = [...new Set(things.filter(hasTier).map((x) => clampTier(x.tier)))].sort((a, b) => a - b)
   if (!tiers.length) return ''

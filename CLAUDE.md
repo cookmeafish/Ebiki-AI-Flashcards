@@ -1595,7 +1595,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   - C. **Appeal** (`MissTools`): optional reason, same careful judge, one per answer (a failed check may retry),
     disabled during the re-check; shows `why`; a win refunds like B.
   - D. **📖 Learn it** mid fight (no timers; modal has `data-top-overlay` so the quiz ignores keys):
-    `kit/LearnItPanel.jsx` = card back / taught text, a hook from the ONE engine (`ctx.learn.makeHook`,
+    `kit/LearnItPanel.jsx` = card back / taught text IN SECTIONS (`kit/itemSections.js`, the lesson card's layout:
+    icon + label per section, the example in a tinted box, key points as bullets; never a wall of "Label: text"
+    lines), a hook from the ONE engine (`ctx.learn.makeHook`,
     `ctx.learn.savedHooks`), a short chat (`kit/learnIt.js`). Records no review.
   - E. **Debrief "What tripped you up"**: raids on the result (`Debrief`); Legends inside `AllAnswers`. Learn it, rule
     card, Appeal (after the fight a win fixes the Anki grade or `regradeItem`, never the outcome).
@@ -2144,7 +2146,8 @@ whose KIND climbs with the card's maturity (`tierOf(card)` from Anki: 0 Meet = n
 relearning or due within 2 days, 2 Recall 3-6 days, 3 Use 7-20, 4 Produce 21-89 (Anki's mature), 5 Master 90+).
 Struggling cards drop on their own: Anki shrinks a lapsed card's interval. Legends items: `tierOfItem(codex, {kind})`.
 - **Tier 0 TEACHES**: answerable first try from what it shows (exempt from the leak guard, `tierTeaches`).
-  Open tiers (`tierOpen`) get no prefix hint and are graded on USE (`openTierGradingRule`; fights `tierJudgeLine`).
+  Open tiers (`tierOpen`) are graded on USE (`openTierGradingRule`; fights `tierJudgeLine`); a LANGUAGE open question
+  still gets its prefix hint (see "Hints and choices").
 - **Same features everywhere** (Study, raids, Legends lessons/boss/Legendary): `TierChip` above the question, typed by
   default with a PER-QUESTION "🛡 Show choices" / "⌨ Type it instead" toggle (`qt_*`; a choice rates at most Good,
   `cs.byChoice`), the prefix hint, and the TRIPLE CHECK: `CLEAR_ANSWER_RULE` + ambiguity self-check in the prompt,
@@ -2190,11 +2193,30 @@ is in the deck gives it away".
   "(… v…)"), all-short phrases none; an ELISION shows the word after it ("l'eau" "(l'e…)", `splitElision`), a number
   "…" ("3 años" "(… a…)"). A word of 1 or 2 letters ("yo") and a Hangul word under 4 syllables get none (one letter would be
   half of it). Han/kana-first answers get none (only Han/kana ask the model for the reading's first sound in quotes,
-  `needsReadingCue`). LANGUAGE modes only, typed recall/fill_blank only, never an open tier, never while choices show
+  `needsReadingCue`). LANGUAGE modes only, typed recall/fill_blank and the open "write a sentence" question, hidden
+  beside choices unless every option shares it
   (`choicePromptText` / `stripLetterCues`; `stripPrefixHint(text, answers)` strips only THOSE answers' group, a bare
   "(…)" never). `typedPrompt` puts it after the blank or before the closing punctuation, idempotent; prefix tokens are
   never tappable. Prompts never ask the model for letters. Retry hints after a miss: a LONGER prefix, then the model's
   clue (`retryHints`; none with `noPrefix`).
+- **The hint is DRAWN IN THE BLANK** (the owner, 2026-11-16: the blank followed by "(fu…)" was "kinda confusing ... why
+  not make it more seamless?"): `seamlessBlank` (prefixHint.js) shows "___ (fu…)" as "fu___" and "(b… d…)" as
+  "b___ d___", DISPLAY ONLY (the three renderers in App.jsx; the stored text keeps the "(fu…)" form every strip, detect
+  and choice rule reads). A hint with no blank before it stays "(pe…)".
+- **The hint STAYS beside choices when every option shares it** (the owner: "when multiple choice is entered, the hint
+  for the word disappears"): `choicePromptFor(text, answers, choices)` keeps it when EVERY option on screen starts with
+  the hint's letters (the choice pool makes them so: it singles nothing out) and strips it otherwise, as before.
+- **A missed answer always shows what was wanted** (the owner: "it should show it"): an OPEN question shows the word
+  to use (`kit_openWord`) or a good answer (`kit_openModel`), never a bare "Not quite". **An open "write a sentence"
+  question is HINTED like any typed one** (language TIER 4; the owner got "the adjective that means ..." with no hint
+  and several fitting words: "HOW THE HELL IS IT THIS???", then: "there should be a hint anyway because it can be
+  multiple things. you cant just blindly have the user guess what adjective it is"): the word stays hidden, a sense
+  cue says what kind of word and what it means, and the app adds its first letters (`withLetterCount` with `open`,
+  `typedPrompt`, `ensurePrefixHint`; accepted answers list the word FIRST). The review pass rejects one that leaves
+  the learner guessing which word. General-mode open questions (explain, compare) get no letters. **A
+  fight's feedback note names the ACCEPTED answer letter for letter** (a note calling a synonym "the correct answer"
+  contradicted the card), and **a boss taunt is clear first**: the wrong answer in quotes and the mix-up in plain words,
+  the voice one flourish, never a riddle (kit/taunt.js).
 - **THE CHOICE POOL** (`utils/choicePool.js` `planChoices`, tested; `planStudyChoices` in App, `withPoolChoices` in
   fights): distractors are OTHER cards of the same deck the learner has ALREADY STUDIED (never a new card), the same kind
   (part of speech where known, the same number of words) and, in a language mode, SHARING THE SHOWN PREFIX, so neither

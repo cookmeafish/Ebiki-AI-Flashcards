@@ -12,7 +12,7 @@ import { AreaArt, BossArt, LegendsArt, paletteColors } from './art'
 import { AreaExtras } from './Extras'
 import { CheatButton, CheatRow } from './CheatUI'
 import { careerSections, checkpointsLeft, currentSection, currentIsland, careerFor, shapePackage, nextCareerStep, CAREER, careerRegions, currentRegion, regionBossesLeft, isFinalArea, isAcronymTrack, careerTopicArt, ACRONYM_TIERS, mustKnowCovered } from './career'
-import { itemSections } from './itemSections'
+import { itemSections } from '../kit/itemSections'
 import { QUIZ_SIZE } from './prompt'
 
 // The package file of a course, shaped (null when missing or broken).

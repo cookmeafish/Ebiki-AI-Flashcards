@@ -1,6 +1,6 @@
 // The first-letter cue guarantee for typed language questions.
 // Moved verbatim out of App.jsx (pure: no React, no app state) so they can be tested; App imports them back.
-import { prefixHint, hintAnswer, canHint, needsReadingCue, typedPrompt, hasPrefixHint, choicePromptText, CUE_QUOTES_PLAIN, CUE_APOS } from './prefixHint'
+import { prefixHint, hintAnswer, canHint, needsReadingCue, typedPrompt, hasPrefixHint, choicePromptText, isWordAnswer, CUE_QUOTES_PLAIN, CUE_APOS } from './prefixHint'
 
 // ── The cue guarantee (LANGUAGE-AGNOSTIC) ─────────────────────────────────────────────────────
 // A typed translation / fill-in-the-blank is only fair if the student can tell WHICH word is
@@ -63,13 +63,17 @@ export const needsLetterCue = (q, isLanguage, wantChoices) =>
 export const blankedSubject = (q) => new RegExp(`[${CUE_QUOTES_PLAIN}${CUE_APOS}]\\s*___\\s*[${CUE_QUOTES_PLAIN}${CUE_APOS}]|[:：]\\s*___\\s*(?:[(（]|[?？.。!！]*\\s*$)`, 'u').test(String(q.question || ''))
 
 // ── The question ladder: the PREFIX HINT and the choices view (same engine as fights, utils/prefixHint.js) ──────────
-// Every typed language recall/fill_blank question (not an open tier) shows its prefix hint; a legacy count skeleton or a
-// quoted first letter in a saved question is replaced by it.
+// Every typed language recall/fill_blank question shows its prefix hint; a legacy count skeleton or a quoted first
+// letter in a saved question is replaced by it. An OPEN "write a sentence with the word that means ..." question
+// (`open`: the language TIER 4) gets it TOO (the owner, 2026-11-16: "there should be a hint anyway because it can be
+// multiple things. you cant just blindly have the user guess what adjective it is"): the word stays hidden, its first
+// letters say which one is meant.
 export const hasCountSkeleton = (q) => hasPrefixHint(q?.question, cueAnswers(q || {}))
 export function withLetterCount(q, { isLanguage = false, open = false } = {}) {
-  if (!isLanguage || open || !q || typeof q !== 'object' || !(q.type === 'recall' || q.type === 'fill_blank')) return q
+  if (!isLanguage || !q || typeof q !== 'object' || !(q.type === 'recall' || q.type === 'fill_blank' || (open && q.type === 'explanation'))) return q
   const acc = cueAnswers(q)
   if (!acc.length) return q
+  if (open && !isWordAnswer(acc[0])) return q // a model sentence, not a word: nothing to hint
   // `noHint`: no option set could keep to the hint (App planStudyChoices), so the question shows none at all.
   const text = q.noHint ? choicePromptText(String(q.question || ''), acc) : typedPrompt(String(q.question || ''), acc, { isLanguage: true })
   return text === q.question ? q : { ...q, question: text }

@@ -138,3 +138,15 @@ describe('open choices for a word answer follow the prefix rule', () => {
     expect(buildOpenChoicesPrompt({ question: 'Q', answer: 'pantalones', isLanguage: true, learnLang: 'Spanish' })).not.toMatch(/starts with/)
   })
 })
+
+describe('an open "write a sentence" question is never a guessing game', () => {
+  it('the language TIER 4 instruction asks for a sense cue that pins the word; the app adds its first letters', () => {
+    const text = tierInstruction(4, { isLanguage: true, learnLang: 'Italian', quizLang: 'English' })
+    expect(text).toMatch(/never have to guess WHICH word/)
+    expect(text).toMatch(/adds the word's first letters/)
+    expect(text).toMatch(/acceptedAnswers: the word FIRST/)
+  })
+  it('the review pass rejects an open question that leaves the learner guessing which word', () => {
+    expect(String(QUESTION_CHECK_RULES)).toMatch(/guessing WHICH word to use/)
+  })
+})

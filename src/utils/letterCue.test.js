@@ -85,11 +85,17 @@ describe('the question ladder prefix hint (it replaced the letter count)', () =>
     expect(hasCountSkeleton(out)).toBe(true)
     expect(withLetterCount(q('Lleva un ___ (s·······) al sol', { type: 'fill_blank' }), { isLanguage: true }).question).toBe('Lleva un ___ (so…) al sol')
   })
-  it('puts it after a blank; never twice; not for open tiers, explanations or general modes', () => {
+  it('an OPEN "write a sentence" question is hinted too (never a blind guess at which word)', () => {
+    expect(withLetterCount(q('x', { type: 'explanation' }), { isLanguage: true, open: true }).question).toBe('x (so…)')
+    expect(withLetterCount(q('x'), { isLanguage: true, open: true }).question).toBe('x (so…)')
+    const sentence = q('x', { type: 'explanation', acceptedAnswers: ['Lleva un sombrero muy grande.'] }) // a model sentence: nothing to hint
+    expect(withLetterCount(sentence, { isLanguage: true, open: true })).toBe(sentence)
+  })
+  it('puts it after a blank; never twice; not for a plain explanation or general modes', () => {
     expect(withLetterCount(q('Lleva un ___ al sol', { type: 'fill_blank' }), { isLanguage: true }).question).toBe('Lleva un ___ (so…) al sol')
     const once = withLetterCount(q('x'), { isLanguage: true })
     expect(withLetterCount(once, { isLanguage: true })).toBe(once)
-    for (const [qq, o] of [[q('x'), { isLanguage: true, open: true }], [q('x', { type: 'explanation' }), { isLanguage: true }], [q('x'), { isLanguage: false }]]) expect(withLetterCount(qq, o)).toBe(qq)
+    for (const [qq, o] of [[q('x', { type: 'explanation' }), { isLanguage: true }], [q('x'), { isLanguage: false }], [q('x', { type: 'explanation' }), { isLanguage: false, open: true }]]) expect(withLetterCount(qq, o)).toBe(qq)
   })
   it('the choices view drops every letter cue but keeps the sense', () => {
     expect(stripLetterCues('La gacela ___ (s·······) (escapar de un peligro; empieza con "h") rápido')).toBe('La gacela ___ (escapar de un peligro) rápido')

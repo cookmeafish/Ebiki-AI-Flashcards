@@ -50,7 +50,8 @@ import { ChunkyButton, ProgressBar, depthBorder, UI } from '../ui'
 import { useFocusHold } from '../registry'
 import { matchTyped } from './grade'
 import { judgeAnswer } from './judge'
-import { questionAnswersOf, ensurePrefixHint, stripLetterHints } from './fightSettings'
+import { questionAnswersOf, ensurePrefixHint } from './fightSettings'
+import { choicePromptFor, isWordAnswer } from '../../utils/prefixHint'
 import TalkButton from './TalkButton'
 import TierChip from './TierChip'
 import { speak } from '../../speech'
@@ -326,18 +327,22 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const note = overturned ? '' : verdict?.note // the grader's note argued the old verdict
   const tone = partial ? C.warning : good ? C.success : C.danger
   const reveal = asChoice ? view.choices[view.answerIdx] : (q.accepted || [])[0]
+  // Picked from choices, or not open: the answer. Open and typed: the word to use (a language question whose answer is
+  // a word) or a good answer (a model sentence, a general-mode explanation).
+  const revealKey = !q.open || asChoice ? 'kit_answerWas' : subject?.isLanguage && isWordAnswer(reveal) ? 'kit_openWord' : 'kit_openModel'
   const switchable = !asChoice && !!q.alt && !!canUseChoices?.(q)
   // A typed language question shows its PREFIX HINT (utils/prefixHint.js: "(so…)", never the length); answered with its
   // choices every hint goes (its letters would pick the tile). A MEANING-form choice view (utils/choicePool.js: the deck
   // had too few words sharing the hint) asks its own question: the word shown, its meaning picked.
   const shownPrompt = asChoice
-    ? (q.kind !== 'choice' && q.alt?.prompt ? q.alt.prompt : stripLetterHints(q.prompt, q.accepted))
+    // (The hint STAYS when every option on screen starts with its letters: it singles nothing out. prefixHint.js)
+    ? (q.kind !== 'choice' && q.alt?.prompt ? q.alt.prompt : choicePromptFor(q.kind !== 'choice' ? ensurePrefixHint(q, { isLanguage: !!subject?.isLanguage }).prompt : q.prompt, q.accepted, view.choices))
     : ensurePrefixHint(q, { isLanguage: !!subject?.isLanguage }).prompt
   // Screen readers hear the result once the feedback is on screen (never earlier: the answer is still secret before).
   const announce = phase !== 'feedback' ? '' : [
     (overturned ? '' : verdict?.title) || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong')),
     verdict?.accent && !overturned && reveal ? t('kit_accent', { a: reveal })
-      : (!good || partial) && reveal && !q.open ? t('kit_answerWas', { a: reveal }) : '',
+      : (!good || partial) && reveal ? t(revealKey, { a: reveal }) : '',
   ].filter(Boolean).join('. ')
   return (
     <div style={{ maxWidth: MAX_W, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 18 }}>
@@ -426,7 +431,9 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: tone }}>{(overturned ? '' : verdict?.title) || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong'))}</div>
               {verdict?.accent && !overturned && <div dir="auto" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around('kit_accent', words(reveal, 'a'))}</div>}
-              {(!good || partial) && reveal && !q.open && !verdict?.accent && <div dir="auto" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around('kit_answerWas', words(reveal, 'a'))}</div>}
+              {/* An OPEN question (write a sentence, explain) shows what was wanted too (the owner: "this doesnt show the
+                  answer and it says not quite. it should show it"): the word to use, or a good answer. */}
+              {(!good || partial) && reveal && !verdict?.accent && <div dir="auto" data-answer-was="" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around(revealKey, words(reveal, 'a'))}</div>}
               {popup('a')}
               {note && <div dir="auto" style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{words(note, 'n')}</div>}
               {note && popup('n')}
