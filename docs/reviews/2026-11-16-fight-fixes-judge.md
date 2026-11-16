@@ -98,3 +98,31 @@ Screenshots and logs (scratchpad, not in the repo):
 - Desktop light, phone dark and other zoom levels: only desktop dark and phone light at the default zoom were shot.
 - RTL and full-width forms in the app: helper output only.
 - The 50:50 power on a hinted question in the app: helper output only (two options sharing the hint keep it).
+
+## Re-check after fixes
+
+Commit 60df716. Same setup as above (port 3001, bundled Chromium, muted, every AI host and every write stubbed, fake
+Anki), desktop 1280 dark and phone 390 light. Four drives: a raid whose open question has a SENTENCE as its accepted
+answer (`re1-sentence\`), a raid whose open question's word has studied deck words sharing its letters
+(`re2-poolword\`, with a long card back), a raid whose open word has none (`re3-mixed-choicemiss\`, answered by a
+wrong choice), and a Study session (`re4-study\`). No page errors in any of them. Logs: `re1.log` to `re4.log`.
+All paths below are under
+`C:\Users\User\AppData\Local\Temp\claude\2a0b332a35f80abc\0f540200-c71b-4d96-bca7-5172cee217a4\scratchpad\judge-fight\`.
+
+| # | Finding | Verdict | Evidence |
+|---|---------|---------|----------|
+| 1 | Sentence answer: garbage hint, wrong label | PASS | Typed view and choices view both read "... para describir una luz muy tenue." with no hint of any kind; the miss reads "A good answer: Una luz etérica llenaba la sala vacía." Desktop `re1-sentence\desk-dark-q-OPEN-typed.png`, `desk-dark-q-OPEN-choices.png`, `desk-dark-fb-OPEN-full.png`; phone `re1-sentence\phone-light-q-OPEN-typed.png`, `phone-light-fb-OPEN-full.png`. The raid prompt's `TIER_TYPES` now carves out the TIER 4 case too. |
+| 2 | Open word question: choices against the hint | PASS (with the accepted trade-off) | A set exists: "... «que sirve de base, lo más importante» (fu…)." keeps its hint over fundamental / furibundo / fulminante / fugitivo. Desktop `re2-poolword\desk-dark-q-OPEN-choices.png`, phone `re2-poolword\phone-light-q-OPEN-choices.png`. No set: the typed view keeps "(e…)", the choices view shows the model's options (vaporoso / etérico / tenue / sutil) with the hint taken out. Desktop `re3-mixed-choicemiss\desk-dark-q-OPEN-typed.png` and `desk-dark-choicemiss-OPEN.png`, phone `re3-mixed-choicemiss\phone-light-q-OPEN-typed.png` and `phone-light-choicemiss-OPEN.png`. Both render sensibly. In the second case one tile still starts with the letter the learner just read: that is the trade-off the coordinator decided, not a new defect. |
+| 3 | Miss by choice labelled as an open answer | PASS on desktop, not captured on phone | "Not quite. Correct answer: etérico" under the tiles: `re3-mixed-choicemiss\desk-dark-choicemiss-OPEN.png`. On the phone my script picked the wrong tile but its Enter did not submit, so the shot shows the pick, not the feedback (`phone-light-choicemiss-OPEN.png`). Same code path as desktop. |
+| 4 | Study still drew "___ (fu…)" in three places | PASS | Driven in the app. Typed flash: "En esta frase falta fu___ para que tenga sentido." (`re4-study\desk-dark-s0-typed-flash.png`, `phone-light-s0-typed-flash.png`). Choice flash: the same (`re4-study\desk-dark-s1-choice-flash.png`, `phone-light-s3-choice-flash.png`). Collapsed graded rows: "fu___" on every row (`re4-study\desk-dark-graded-rows.png`). Also seen: Study's own choices view keeps the hint when all four options share it (`re4-study\desk-dark-s1-choices.png`). Graded rows were not opened on the phone. |
+| 5 | Stale comments | PASS | grep finds none of "THE WORD IS NAMED", "never an open tier", "never on an open question", or the old test title; `raidQuestions.js:39` and `prefixHint.js:12` now state the word-only rule. |
+| 6 | Learn it clipped on phone | PASS | Long card (scroll height 555 over 300 on phone, 511 over 300 on desktop): a bottom fade while more is below (computed mask is a gradient), none after scrolling to the end (mask `none`), last bullet fully visible. Phone `re2-poolword\phone-light-learn-OPEN.png` and `phone-light-learn-OPEN-end.png`; desktop `re2-poolword\desk-dark-learn-OPEN.png` and `desk-dark-learn-OPEN-end.png`. |
+| 7 | Sections without an icon | PASS | 🔗 Sinónimos, 🧩 Género, 🧩 Plural, ⭐ Notas as bullets: the same four screenshots as row 6. |
+
+Still not verified: real model output for the taunt and the note; Legends boss, Legendary, placement and Listen &
+Speak in the app (their open questions carry sentences, now covered by row 1's rule through the shared QuizRunner);
+desktop light, phone dark and other zoom levels; the phone shot for row 3; graded rows on the phone.
+
+One small thing seen, not part of the seven: in Study's typed and choice flashes the sense cue "(palabra del mazo)"
+is drawn in the question's bold weight, while the live question draws it muted and italic. It was like that before
+this work.
