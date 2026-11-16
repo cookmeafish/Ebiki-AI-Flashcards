@@ -118,6 +118,9 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
       // The screen shows the card's accepted answer right above the note: a note naming ANOTHER word as "the correct
       // answer" (a synonym, another spelling) contradicted it and left the learner unsure which one to learn.
       'When you name the right answer, write it EXACTLY as the accepted answer given above, letter for letter. Never call a different word, synonym or spelling "the correct answer"; a close variant may be mentioned only as "also said as", after the accepted one.',
+      // From judging REAL notes (2026-11-16): a loose definition ("legal partner" for married), the place named with a
+      // synonym of the answer right before the answer, a gloss in a third language.
+      `What you say a word means must be exactly true (its plain dictionary meaning, in the right gender and form). Do not describe the answer with a synonym of it in the same sentence. Write only in ${subject?.userLang || 'English'}: no gloss in any other language.`,
       TEACHING_STYLE_RULE,
       wantFix ? '"fix": a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". null when there is none.' : '',
     ].filter(Boolean).join('\n'),
