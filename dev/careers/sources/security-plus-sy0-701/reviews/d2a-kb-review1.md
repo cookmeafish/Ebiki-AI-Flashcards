@@ -124,7 +124,7 @@ BlueBorne research page.
 - Comparing web vulnerabilities: FIXED (fact). Table row "Primary fix ... Output encoding, Content Security Policy" -> output encoding for the context, with Content Security Policy as an added layer (XSSP says it must not be the primary defense).
 - Comparing platform vulnerabilities: FIXED (heading 127 -> 109 characters; scenario no longer says "the question stresses").
 
-Totals: 64 sections checked, 26 PASS, 38 FIXED. Of the fixes, 14 are factual (corrected, tightened or softened), 7 are heading
+Totals: 64 sections checked, 28 PASS, 36 FIXED. Of the fixes, 14 are factual (corrected, tightened or softened), 7 are heading
 lengths, and the rest are rule wording (exam-knowledge phrasing) or teaching clarity.
 
 ## Cards I believe are wrong or imprecise (cards not edited)
