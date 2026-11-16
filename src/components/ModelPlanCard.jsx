@@ -217,6 +217,12 @@ export default function ModelPlanCard({ t, card, hint, provider, providerConfig,
   // What each task runs on, EVERY model ("a + b"): a task whose second model moved is listed as changed too.
   const nowMap = (defaults) => { const r = jobResolver({ overrides, defaults, presetModel }); return Object.fromEntries(TASKS.map((x) => [x.id, taskSignature(taskModels(x, r))])) }
   const names = (sig) => String(sig || '').split(' + ').map((m) => nameOf(t, m)).join(' + ')
+  // A task with several models: name only the part that moved ("A + B → A + C" reads "B → C").
+  const movedOnly = (from, to) => {
+    const a = String(from || '').split(' + '); const b = String(to || '').split(' + ')
+    const fa = a.filter((m) => !b.includes(m)); const fb = b.filter((m) => !a.includes(m))
+    return fa.length && fb.length ? { from: fa.join(' + '), to: fb.join(' + ') } : { from, to }
+  }
   const ownTasks = TASKS.filter((x) => x.jobs.some((j) => jobOverride(overrides, j))).map((x) => x.id)
   // The last update's changes stay on screen (with Undo) until undone: the toast of an automatic update points here.
   const changes = entry?.previous?.plan
@@ -288,7 +294,7 @@ export default function ModelPlanCard({ t, card, hint, provider, providerConfig,
           <div data-plan-changes="" style={{ padding: '8px 10px', borderRadius: 8, background: 'color-mix(in srgb, var(--c-info) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--c-info) 25%, transparent)' }}>
             <div style={{ fontWeight: 700 }}>{t('mp_lastUpdate', { date: date(entry.decidedAt) })}</div>
             <ul style={{ margin: '2px 0 0', paddingLeft: 18 }}>
-              {changes.map((c) => <li key={c.task}>{t('mp_changeRow', { task: t('mp_task_' + c.task), from: names(c.from), to: names(c.to) })}</li>)}
+              {changes.map((c) => { const m = movedOnly(c.from, c.to); return <li key={c.task}>{t('mp_changeRow', { task: t('mp_task_' + c.task), from: names(m.from), to: names(m.to) })}</li> })}
             </ul>
             {ownTasks.length > 0 && <div style={{ color: C.inkDim }}>{t('mp_kept', { tasks: ownTasks.map((x) => t('mp_task_' + x)).join(', ') })}</div>}
             <button onClick={() => { undoReplan?.(provider); setResult({ reason: 'undone' }) }} disabled={busy} style={{ ...S.ghostBtn, fontSize: 12, minHeight: 32, marginTop: 6, color: C.inkDim }}>{t('mp_undo')}</button>
