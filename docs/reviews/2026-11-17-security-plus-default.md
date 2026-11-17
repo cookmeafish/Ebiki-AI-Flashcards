@@ -216,4 +216,65 @@ Screenshots: fix-fresh-390-01-legends-first.png, fix-fresh-nokey-390-02-settings
   nowrap` on the code would keep it whole. With no key the button clears the bar by only 11 px, so a taller banner (a
   longer translated warning) could hide it again.
 
+## Re-check 6 (d605ee0, 1.72.6): final round
+
+### 1. Phone margin (390 x 844, bottom bar top at 766 px; the button's bottom must be at least 16 px above it)
+
+| Case | Button top / bottom | Clearance above the bar | Result |
+|---|---|---|---|
+| Fresh, no key | 617 / 703 | 63 px | PASS |
+| Fresh, with key | 491 / 576 | 190 px | PASS |
+| Owner (Spanish (LatAm) active) | 491 / 576 | 190 px | PASS |
+| Fresh, with key, 1280 x 800 | 377 / 463 | (no bar) | PASS |
+
+The island icon now sits on the "Career mode" line, and "CompTIA Security+ (SY0-701)" no longer breaks inside the
+code. One click lands on the course map in mode Security+ with deck Security+ in every case. No Spanish anywhere.
+
+### 2. Onboarding that ends in a language mode (1280 x 800)
+
+Script `scratchpad/sp3.mjs`:
+- A truly fresh profile: `/api/config` empty, no modes, no keys. Every write answered with success and kept in memory;
+  nothing reached disk. Browser locale en-US.
+- Anthropic was answered by a stub: `GET /v1/models` with a model list, `POST /v1/messages` with a fixed Italian
+  language-mode JSON for the mode-creation prompt. Every other outside host was blocked, and only Google Fonts was
+  tried.
+- Anki was a fake one holding "Default".
+
+The walk:
+1. Welcome, then language "English", theme, how Ebiki opens, Anthropic plus a test key, intelligence "Normal".
+2. Mode "Italian": Create mode made `Italian` (type language, studyLanguage Italian), and the finish screen followed.
+   Start learning opened the Study home with "ITALIAN" in the header.
+3. Legends in the Italian mode: the career tile came first with "Make a Security+ mode and open it". One click led to
+   `createDeck Security+` reaching Anki, then a new mode `Security+` (general, deck `Security+`), the course map
+   written into it, then the switch.
+4. The course map shows in English with deck Security+ ("Your deck: Security+"). The toast reads: Made the
+   "Security+" mode for the course.
+5. The mode list (header switcher) holds Italian and Security+. The Italian mode is intact: type language,
+   studyLanguage Italian, its own empty deck setting, unchanged by the course.
+6. No Italian or Spanish words appeared on any screen after onboarding (text scan plus the screenshots).
+
+**PASS.**
+
+Side note, not a defect of this feature: with the browser locale left at this machine's default, a truly fresh app
+starts its onboarding in Spanish. `appLanguage` falls back to `navigator.language` (App.jsx about line 860). That is
+by design for a Spanish system, and the language step lets the user pick English. The run above set en-US and picked
+English.
+
+### 3. Screenshots
+
+- Owner, phone, Spanish (LatAm) active, the course tile first: [owner-390-spanish-tile.png](2026-11-17-security-plus-default/owner-390-spanish-tile.png)
+- Owner, phone, after one click, course map in Security+ / Security+: [owner-390-course-map.png](2026-11-17-security-plus-default/owner-390-course-map.png)
+- Fresh, no key, phone, the tile with the button clear of the bar: [fresh-nokey-390-tile.png](2026-11-17-security-plus-default/fresh-nokey-390-tile.png)
+- Fresh, no key, phone, course map: [fresh-nokey-390-course-map.png](2026-11-17-security-plus-default/fresh-nokey-390-course-map.png)
+- Fresh, with key, desktop, the tile: [fresh-key-1280-tile.png](2026-11-17-security-plus-default/fresh-key-1280-tile.png)
+- Fresh, with key, desktop, course map: [fresh-key-1280-course-map.png](2026-11-17-security-plus-default/fresh-key-1280-course-map.png)
+- Onboarding ended in Italian, Legends tile: [onboarding-language-1280-tile.png](2026-11-17-security-plus-default/onboarding-language-1280-tile.png)
+- Onboarding ended in Italian, after one click: course map plus the mode list showing Italian and Security+: [onboarding-language-1280-course-map-modes.png](2026-11-17-security-plus-default/onboarding-language-1280-course-map-modes.png)
+
+All 8 are PNG, 59 to 205 KB each.
+
+**Overall: the requirement passes.** Opening the Security+ course from any mode lands on the Security+ mode with the
+Security+ deck in one click. A profile without that mode gets it made in the same click, with no AI call and with or
+without a key. Nothing appears in the learned language.
+
 
