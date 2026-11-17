@@ -18,7 +18,7 @@ A technical control is a safeguard that a system enforces by itself through hard
 
 **Why it matters:** technical controls scale. One rule protects thousands of users without extra staff, and it never gets tired or skips a check on a busy day. Their weakness is that they only enforce what they were configured to enforce, so a wrong rule is applied perfectly, everywhere.
 
-**Common confusions:** A written firewall policy is managerial, while the firewall applying it is technical. A person reviewing firewall logs each morning is operational, even though the logs come from a technical control. Encryption is technical even when a policy requires it. "Logical control" is an older name for the same category.
+**Common confusions:** A written firewall policy is managerial, while the firewall applying it is technical. A person reviewing firewall logs each morning is operational, even though the logs come from a technical control. Encryption is technical even when a policy requires it. "Logical control" is another name for the same category.
 
 **Scenario:** A clue says "the server rejects any connection that does not present a valid client certificate." The answer is a technical control, because the server decides each connection with no human involved. Operational is the closest wrong answer: it fails because no person performs the check.
 
@@ -38,7 +38,7 @@ A managerial control is a safeguard that works by deciding, directing and overse
 
 **Why it matters:** without managerial controls, technical tools are bought and configured with no agreed goal, and nobody can show an auditor or a court what the organization required. They also set accountability: who owns a risk and who approves exceptions.
 
-**Common confusions:** "Administrative control" is the same category under an older name. A policy is managerial in category and usually directive in type. A training session delivered to staff is operational because people carry it out day to day, while the decision to require training is managerial. Managerial does not mean "done by managers": a risk register maintained by an analyst is still managerial.
+**Common confusions:** "Administrative control" is another name for the same category. A policy is managerial in category and usually directive in type. A training session delivered to staff is operational because people carry it out day to day, while the decision to require training is managerial. Managerial does not mean "done by managers": a risk register maintained by an analyst is still managerial.
 
 **Scenario:** A clue says "the company performs an annual risk assessment and updates its security plan." The answer is managerial. Operational is the closest wrong answer: it fails because nothing here is a routine task performed by people to protect systems day to day; it is oversight and planning.
 
