@@ -170,3 +170,37 @@ clipped, or whether my script's click caused it.
 
 Not verified: what the three linked pages say; the ja and zh screens (keys only); a real ChatGPT sign-in (by
 instruction, never started); other zoom levels.
+
+## Always-on note check
+
+Commit 8185361. Same stubbed raid (port 3001, bundled Chromium, muted, every AI host stubbed and recorded, writes
+stubbed), Spanish (LatAm) mode, desktop 1280 dark. `/api/config` was served with `"factCheck": false`. In each run the
+first question ("El descanso es fu___ para rendir bien.") got the typed answer "zzz": no local match, so the AI grader
+ran (verdict stub: a miss). The note stub's first note holds a false claim on purpose ("viene del griego antiguo y
+significa trivial"); its rewrite starts "REESCRITA:". Calls were labelled by their system prompt and listed in the
+order they reached the stub. Script `notecheck.mjs`, logs `r4.log` and `r4b.log`, screenshots in `r4-notecheck\`, all
+under `C:\Users\User\AppData\Local\Temp\claude\2a0b332a35f80abc\0f540200-c71b-4d96-bca7-5172cee217a4\scratchpad\judge-fight\`.
+
+Two other calls run in parallel in every raid run and are not part of the note path: the background re-check ("You
+are a careful, fair second grader...") and the boss taunt. They show up between the note call and the first check.
+
+| Run | Fact-check stub | Calls after the answer, in order | On screen | Verdict |
+|-----|-----------------|----------------------------------|-----------|---------|
+| A | `{"mistakes": []}` | verdict, note, (re-check), (taunt), fact check | "Not quite. Correct answer: fundamental" and the note | PASS: one check, with the setting off; the note shows. `r4-notecheck\run-A-feedback.png` |
+| B | flags a quote copied from the note the first time, then none | verdict, note, (re-check), (taunt), fact check, note again with "FALSE claims" in its user prompt, fact check | the answer line and the REWRITTEN note ("REESCRITA: ..."); the first note never appears | PASS. `r4-notecheck\run-B-feedback.png` |
+| C | always flags | verdict, note, (re-check), (taunt), fact check, rewrite note ("FALSE claims"), fact check | "Not quite. Correct answer: fundamental" with no note text | PASS: two checks, then no note; the answer line stays. `r4-notecheck\run-C-feedback.png` |
+| D (extra) | as A, but the check's reply held 6 s | verdict, note, (re-check), (taunt), fact check | at 3.5 s: the answer line and "Ebi is writing a short explanation..."; after the check: the note | PASS: the note is not on screen before its check answers. `r4-notecheck\run-D-while-checking.png`, `run-D-feedback.png` |
+
+Control, the setting still governs other replies (Chat tab, one typed message, a stubbed 50-word teaching reply):
+
+| Config | Calls after sending | Fact-check calls | Verdict |
+|--------|---------------------|------------------|---------|
+| `factCheck: false` | chat reply, pose pick | 0 | PASS. `r4-notecheck\chat-factcheck-false.png` |
+| `factCheck: true` (shows the stub would catch one) | chat reply, pose pick, fact check | 1 | PASS. `r4-notecheck\chat-factcheck-true.png` |
+
+No page errors in any run. No fails.
+
+Not verified: a glancing answer's note and its follow-up attack through this path; the same check in a Legends boss
+fight (same `judgeStrike` code, not driven); a fact check that throws or times out (the code keeps the note; not
+exercised); phone width (nothing in this change is layout). The boss taunt is not fact checked, which this change does
+not claim.
