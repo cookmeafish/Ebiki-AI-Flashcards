@@ -137,9 +137,9 @@ export function useFightCheck(ctx, { onOverturn, isOver } = {}) {
 
 // THE TAUNT. opts: { bossKey, voice, rules, avoidWords, sample, mandated, bossName, enabled } (`mandated`: a raid boss's
 // RAID_VOICES entry, whose opener / signature / nickname are never counted as a repeat; keep its identity stable). onMiss(q, answer, expected) asks for
-// one line in the background; a line that arrives after the next question appeared still shows there (LATE_TAUNT_QUESTIONS;
-// it shows unless a newer miss's line is already on screen), and the bubble clears
-// at the next answer.
+// one line in the background; a line that arrives after the next question appeared is HELD and shown when that question
+// is answered (never while it is open), unless a newer miss's line is already on screen or LATE_TAUNT_QUESTIONS went by;
+// otherwise the bubble clears at the next answer.
 export const LATE_TAUNT_QUESTIONS = 2 // a checked taunt may still show this many questions after its miss
 export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = '', mandated = null, bossName = '', enabled = true } = {}) {
   const { ai, subject } = ctx
@@ -149,9 +149,19 @@ export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = 
   const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const onQuestion = useCallback(() => { qToken.current++ }, [])
-  const onAnswer = useCallback(() => setBubble(null), [])
   const lastMiss = useRef(0)
   const shownMiss = useRef(0) // the miss whose line is on screen (or was last shown)
+  // A LATE line (it landed after the next question appeared) waits here and shows when that question is ANSWERED, never
+  // while it is open: a line names an earlier answer, and an ability can ask that same card again right then (measured:
+  // a late line named the live re-asked question's answer 5 times in 20 misses).
+  const held = useRef(null) // { text, mine, my }
+  const show = (text, mine) => { shownMiss.current = mine; setBubble((b) => ({ text, n: (b?.n || 0) + 1 })) }
+  const onAnswer = useCallback(() => {
+    const h = held.current
+    held.current = null
+    if (h && alive.current && h.mine >= shownMiss.current && qToken.current - h.my <= LATE_TAUNT_QUESTIONS) show(h.text, h.mine)
+    else setBubble(null)
+  }, [])
   const onMiss = useCallback((q, answer, expected) => {
     if (!enabled || !voice) return
     const my = qToken.current
@@ -168,8 +178,8 @@ export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = 
       // Measured: "a newer miss's line wins" dropped 8 of 10 lines in a run of misses (each checked line is ready about
       // 5 s after its miss). Now a line shows unless a NEWER miss's line is already on screen; each replaces the last.
       if (!r || !alive.current || mine < shownMiss.current || qToken.current - my > LATE_TAUNT_QUESTIONS) return
-      shownMiss.current = mine
-      setBubble((b) => ({ text: r.line, n: (b?.n || 0) + 1 }))
+      if (qToken.current === my) show(r.line, mine) // its own question is still the one on screen: show now
+      else if (!held.current || mine >= held.current.mine) held.current = { text: r.line, mine, my } // a question is open: wait for its answer
     }).catch(() => {})
   }, [enabled, voice, rules, avoidWords, sample, mandated, bossName, bossKey, ai, subject])
   // Ebi's Help hears what the boss said (about a question already answered; never the live one's answer).

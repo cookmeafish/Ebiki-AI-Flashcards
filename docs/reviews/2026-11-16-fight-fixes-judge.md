@@ -279,3 +279,51 @@ question's answer is painted for one frame on Continue (above).
 
 Not verified: a check that hangs until the 5-minute timeout; a glancing answer's note and attack through the joint
 check; Legends boss fights (same code, not driven); phone width.
+
+## Re-check: answer flash and dropped taunts
+
+Commit 3810cb9 (1.71.1). The same `late.mjs` runs as the section above (port 3001, bundled Chromium, muted, every AI
+host stubbed, writes stubbed, `"factCheck": false`; delays verdict 0.3 s, taunt 1.5 s, note 3 s, check 2 s; Continue 1 s
+after the feedback, the next answer 2 s after the question shows; 10 typed misses). The per-frame watcher now also
+records the screen-reader live region (`data-quiz-announce`). "Before" = the numbers measured above. Logs
+`r7-after-all-miss.log`, `r7-after-alternate.log`; data `r6-late\late-after-*.json`; counter `leakcount.mjs`; all under
+`C:\Users\User\AppData\Local\Temp\claude\2a0b332a35f80abc\0f540200-c71b-4d96-bca7-5172cee217a4\scratchpad\judge-fight\`.
+
+### (a) The answer flash on Continue: PASS
+
+| Run | Feedback strips with "Correct answer" | Painted under a question not yet answered | Live-region announcements | Announced under a question not yet answered |
+|-----|----------------------------------------|-------------------------------------------|---------------------------|---------------------------------------------|
+| before, 10 misses in a row | 16 | 8 | not recorded then | not recorded then |
+| before, alternating | 18 | 9 | not recorded then | not recorded then |
+| after, 10 misses in a row | 8 (one per answered miss) | **0** | 8 | **0** |
+| after, alternating | 9 | **0** | 12 | **0** |
+
+Every strip and every announcement now sits under the question it answers (e.g. "Not quite. Correct answer:
+furibundo" at 5772 ms, under "El jefe salió fu___ de la reunión.", right after that question was answered).
+
+### (b) Dropped taunts: none dropped, but FAIL on giveaways
+
+| Pattern | Before (shown / dropped) | After (shown / dropped) | Generic lines |
+|---------|--------------------------|-------------------------|---------------|
+| 10 misses in a row | 2 / 8 | **10 / 0** | 0 |
+| miss then right, alternating | 1 / 9 | **10 / 0** | 0 |
+
+**A late line now names the LIVE question's answer: 2 times in the all-miss run, 3 in the alternating run.**
+`LATE_TAUNT_QUESTIONS` 2 lets a line show two questions after its miss. The Hourglass Colossus's Time Loop asks a missed
+card again two questions later (an attack question comes three later). So the line about a miss can land on the
+re-ask of that same card, and the stub's line, like real ones ("donde iba «etérico»"), names the accepted answer.
+From `r7-after-all-miss.log`:
+- the fundamental question was missed at 2.4 s; furibundo missed at 5.8 s; Continue at about 6.8 s showed the fundamental
+  question again; at 7.4 s the bubble "T1: ... «fundamental» ..." appeared over "El descanso es fu___ para rendir
+  bien."; that question was answered at 9.1 s. The answer was on screen for 1.7 s before the learner typed.
+- T6 named «funcional» over the funcional re-ask ("Compré un escritorio muy fu___.").
+
+The alternating run shows the same thing (T1 «fundamental», T4 «madrugada», T7 «fumador», each over its own card's
+question). Before this commit (limit 1) none of 40 lines in four runs did this.
+
+Fix options: never show a late line while the live question tests the same card or item as the missed one (compare the
+missed question's card id or `target` with the live question's), or go back to a limit of 1 (re-asks and attacks come
+two or more questions later), or show a late line only after the live question is answered.
+
+Not verified: other raid bosses' abilities that insert questions (Lich minions, last stands), which may re-ask sooner;
+Legends boss fights; phone width.
