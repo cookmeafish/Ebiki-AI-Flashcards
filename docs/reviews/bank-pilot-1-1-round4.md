@@ -92,3 +92,40 @@ shared-scene check. `build-bank.mjs security-plus-sy0-701 --preview --allow-shor
 
 ### Still weak (passed)
 - 88dabb74.6 and 88dabb74.2 both use dismissal as the consequence; keep refills away from job-loss deterrents.
+
+## Round 6: passes 1, 3 and 4 on the two latest rewrites
+
+Reviewer: an independent agent that did not write, edit or earlier review these two texts. Date: 2026-11-17. File
+`dev/careers/sources/security-plus-sy0-701/bank/1-1.json` (not edited); all 120 stems, asks, bullets and artifacts
+searched for the shared-scene check (jewel, stock room, insur, alarm, responder, monitored, night guard, afford,
+categor, implemented). `build-bank.mjs security-plus-sy0-701 --preview --allow-short`: no problems. Both texts already
+carry p2 (and p2b for the BEST question) on their current hashes; neither has a `miss` on its current hash.
+
+### Primary sources read this round
+- CSRC glossary, technical controls: FIPS 200 (also SP 800-30 Rev. 1, SP 800-39, SP 800-137, SP 800-82r3, CNSSI
+  4009-2022) "primarily implemented and executed by the information system through mechanisms contained in the
+  hardware, software, or firmware components of the system".
+- CSRC glossary, operational controls: FIPS 200 "Safeguards or countermeasures for a system that primarily are
+  implemented and executed by people (as opposed to systems)".
+- CSRC glossary, compensating controls: SP 800-53 Rev. 5 / SP 800-53B "employed in lieu of the controls in the
+  baselines ... equivalent or comparable protection"; SP 800-37 Rev. 2 the same with "implemented"; SP 800-63-4
+  "Alternative controls to the normative controls".
+
+### Verdicts
+
+| id | pass 1 | pass 3 | pass 4 | what and why | source |
+|---|---|---|---|---|---|
+| i1-1-7215172d.0 | PASS | PASS | PASS | Only the ask changed: it now names the four categories, so "category" cannot be read as "type". One defensible answer: how the control is implemented; goal = the type, risk left and likelihood = risk analysis, each why true. Not contested: FIPS 200 defines the categories by how a control is "implemented and executed" (by systems, by people), the card and d1.md say the same. Pass 3: reads as a normal exam definition question; the list names the label but not what it measures, so the key still has to be known (a learner who confuses category with type is not helped, which was the point). Options four parallel "wh" noun clauses. No scene (definition). | FIPS 200 via CSRC glossary (technical, operational controls); card 7215172d definition; d1.md "Technical vs managerial vs operational vs physical controls (control categories compared)" |
+| i1-1-e28fd41b.7 | PASS | PASS | PASS | Round 5's fix applied as proposed. The stem states the requirement (after-hours entry detected and answered within minutes), the guard is only recommended, and the monitored alarm with a responder meets that requirement with the insurer's written approval: comparable protection is in the stem, so the CONTESTED point stays settled. Detective's why now says "recommended", true to the stem; Corrective (no incident) and Directive (no instruction) fail plainly. Runner Detective is truly partly true and flagged; the edge names the substitution, traced to SP 800-53 Rev. 5 "in lieu of ... comparable protection". Detail "which the shop cannot afford" is literal. Role named (store manager). Shared scene: jeweler and stock room appear nowhere else; "insurer" in 3ded6b7b.9 is the organization, not a third party setting a requirement; the nearest is 6e4e84fd.3 (an after-hours loading dock alarm, key detective), which shares the device but not the scene (no requirement, no substitute, no approval) and has a different key, so not a renamed copy. | CSRC glossary compensating controls (SP 800-53 Rev. 5, SP 800-53B, SP 800-37 Rev. 2); d1.md "Compensating controls (control type)"; card e28fd41b definition |
+
+### Totals
+- Reviewed 2. Passed all three: 2, stamped p1, p3, p4 on the current text (hashes 1add9d52 and b78d3543).
+- Pass 4 error rate this round: 0 of 2. Edited questions: none.
+
+### Still weak (passed)
+- 7215172d.0 lists the four categories that 7215172d.1 asks the learner to name. One quiz never holds two questions
+  of the same card (B2), so it is not a give-away in a quiz, but a learner who meets .0 first has seen .1's key.
+- 7215172d.0: risk left and likelihood are near terms, not the closest neighbors (as noted in round 3).
+- e28fd41b.7 and 6e4e84fd.3 both use an after-hours door alarm; a learner who learned ".3 = detective" meets the
+  intended contrast here. Keep further refills away from after-hours alarms.
+- e28fd41b.7 calls the business "jeweler", "shop" and "store" in one stem; plain, but one name would read better.
