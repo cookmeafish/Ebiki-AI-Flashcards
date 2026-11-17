@@ -29,9 +29,9 @@ describe('a fight note is fact checked before the learner reads it', () => {
     expect(out.note).toBe('')
     expect(out.attack).toBeTruthy()
   })
-  it('no fact check available, a check that throws, or an empty note: unchanged', async () => {
+  it('no fact check available or an empty note: unchanged; a check that throws: FAILS CLOSED (no note)', async () => {
     expect((await checkedNote({}, q, 'a', { note: 'n' }, async () => ({}))).note).toBe('n')
-    expect((await checkedNote({ factCheck: async () => { throw new Error('down') } }, q, 'a', { note: 'n' }, async () => ({}))).note).toBe('n')
+    expect((await checkedNote({ factCheck: async () => { throw new Error('down') } }, q, 'a', { note: 'n' }, async () => ({}))).note).toBe('')
     expect(await checkedNote({ factCheck: async () => [] }, q, 'a', {}, async () => ({}))).toEqual({})
   })
   it('the rewrite prompt names each false claim', () => {

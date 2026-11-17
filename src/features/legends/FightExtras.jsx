@@ -155,7 +155,7 @@ export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = 
       bossKey, voice, rules, avoidWords, sample, mandated, bossName,
       sampleUsed: () => sampleUsed.current, markSample: () => { sampleUsed.current = true },
       isLanguage: !!subject.isLanguage, subjectName: subject.name, learnLang: subject.learnLang, userLang: subject.userLang,
-      question: q?.prompt || '', expected, answer,
+      question: q?.prompt || '', expected, answer, missQ: q, // missQ: checked with this miss's note (kit/missCheck.js)
     }).then((r) => {
       if (!r || !alive.current || my !== qToken.current) return // a newer question came first
       setBubble((b) => ({ text: r.line, n: (b?.n || 0) + 1 }))

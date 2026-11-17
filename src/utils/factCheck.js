@@ -44,6 +44,14 @@ export function buildFactCheckPrompt({ reply, question = '', context = '', subje
   return { system, user }
 }
 
+// Did the checker give a real answer (a list of mistakes, empty or not)? A reply that cannot be read is NOT "no
+// mistakes": callers that must fail closed (fight notes and taunts) ask this first.
+export function factCheckReadable(text, parse) {
+  let data
+  try { data = typeof text === 'string' ? parse(text) : text } catch { return false }
+  return Array.isArray(data) || Array.isArray(data?.mistakes) || Array.isArray(data?.errors)
+}
+
 // The model's answer → [{ quote, fix }] that are safe to show. `parse` = parseAiJson.
 export function parseFactCheck(text, reply, parse) {
   let data

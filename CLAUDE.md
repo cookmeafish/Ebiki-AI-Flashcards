@@ -2219,7 +2219,9 @@ is in the deck gives it away".
   check), and is FACT CHECKED against the card before it is shown (`checkedNote`, kit/judge.js: a false claim = one
   rewrite told what was false, checked again, else no note; ALWAYS, even with the double-check setting off, which
   governs only the other teaching replies; proof on real lines: docs/reviews/2026-11-16-real-taunts-notes.md), and
-  **a boss taunt is clear first**: the wrong answer in quotes and the mix-up in plain words,
+  **a boss taunt is clear first** and checked WITH its miss's note in ONE request (`kit/missCheck.js`; a false taunt
+  is rewritten once, else the boss's generic line); **every such check FAILS CLOSED** (a check that throws or cannot
+  be read = no note and the generic taunt; `strict` in ctx.ai.factCheck); the taunt names the wrong answer in quotes and the mix-up in plain words,
   the voice one flourish, never a riddle (kit/taunt.js).
 - **THE CHOICE POOL** (`utils/choicePool.js` `planChoices`, tested; `planStudyChoices` in App, `withPoolChoices` in
   fights): distractors are OTHER cards of the same deck the learner has ALREADY STUDIED (never a new card), the same kind

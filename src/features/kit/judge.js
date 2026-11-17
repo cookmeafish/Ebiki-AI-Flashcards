@@ -2,6 +2,7 @@
 // Subject-agnostic: language questions judge the exact word or form; everything else judges meaning.
 import { matchTyped } from './grade'
 import { TEACHING_STYLE_RULE } from '../../utils/questionTier'
+import { expectMissText, checkMissText, checkTexts } from './missCheck'
 import { flagOf, gradeObject, tierJudgeLine, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
 
 export const JUDGE_ROLE = 'study'
@@ -55,40 +56,44 @@ export async function judgeStrike(ai, subject, q, answer, { strictAccents = true
 // The background half of a strike: { note, attack? }, {} when it failed (never throws).
 export async function explainStrike(ai, subject, q, answer, { verdict = 'miss', accentsOnly = false } = {}) {
   if (!ai?.hasKey) return {}
+  const ans = String(answer || '').trim()
+  expectMissText(q, ans, 'note') // before any await: a taunt for this miss waits for the note (one shared check)
+  let out = {}
+  const write = async (wrong) => {
+    const { system, user } = buildExplainPrompt(subject, q, ans, { verdict, accentsOnly, wrong })
+    return parseExplain(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.explain, maxTokens: EXPLAIN_MAX_TOKENS, silent: true })), ai.clean) || {}
+  }
+  try { out = await write() } catch { out = {} }
   try {
-    const ans = String(answer || '').trim()
-    const write = async (wrong) => {
-      const { system, user } = buildExplainPrompt(subject, q, ans, { verdict, accentsOnly, wrong })
-      return parseExplain(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, job: JUDGE_JOBS.explain, maxTokens: EXPLAIN_MAX_TOKENS, silent: true })), ai.clean) || {}
-    }
-    const out = await write()
-    return await checkedNote(ai, q, ans, out, write)
-  } catch { return {} }
+    const first = await checkMissText(ai, q, ans, 'note', out.note || '')
+    return await checkedNote(ai, q, ans, out, write, first)
+  } catch { const { note: _n, ...rest } = out; return { ...rest, note: '' } } // fail closed
 }
 
 // A NOTE IS FACT CHECKED BEFORE THE LEARNER READS IT (a wrong fact in a note is taught as true; judging real notes
 // found about one in ten with a false word claim that no prompt rule fully removed). The app's teaching fact check
 // (ctx.ai.factCheck with `always`: decided 2026-11-16, a fight note is checked even with the "double-check" setting
-// off, which governs only the other teaching replies) reads the note against the card; a false claim
-// = ONE rewrite told what was false, checked again; still false = no note (the answer line always shows what was
-// wanted). A check that could not run keeps the note. The attack question of a glancing answer is kept either way.
+// off, which governs only the other teaching replies) reads the note against the card, in ONE request with the boss's
+// taunt for the same miss (kit/missCheck.js); a false claim = ONE rewrite told what was false, checked again; still
+// false = no note (the answer line always shows what was wanted). FAIL CLOSED: a check that throws or cannot be read
+// = no note. The attack question of a glancing answer is kept either way. `first`: the shared check's result, when
+// it already ran.
 export const NOTE_CHECK_MAX = 2
-export async function checkedNote(ai, q, answer, out, rewrite) {
+export async function checkedNote(ai, q, answer, out, rewrite, first = null) {
   if (!out?.note || typeof ai?.factCheck !== 'function') return out || {}
-  const material = [`The accepted answer is: ${(q?.accepted || []).join(' / ')}`, q?._guard?.meaning ? `The card's meaning for it: ${q._guard.meaning}` : ''].filter(Boolean).join('\n')
-  const check = async (note) => { try { return (await ai.factCheck({ reply: note, question: `${q?.prompt || ''}\nThe learner answered: ${answer}`, context: material, always: true })) || [] } catch { return [] } }
+  const drop = (cur) => { const { note: _n, ...rest } = cur; return { ...rest, note: '' } }
   let cur = out
   for (let i = 0; i < NOTE_CHECK_MAX; i++) {
-    const wrong = await check(cur.note)
-    if (!wrong.length) return cur
+    const res = i === 0 && first && first.checked?.note === String(cur.note).trim() ? first : await checkTexts(ai, q, answer, { note: cur.note })
+    if (res.failed) return drop(cur)
+    if (!res.note.length) return cur
     if (i === NOTE_CHECK_MAX - 1) break
     let next = {}
-    try { next = await rewrite(wrong) } catch { next = {} }
+    try { next = await rewrite(res.note) } catch { next = {} }
     if (!next?.note) break
     cur = { ...out, ...next, ...(out.attack && !next.attack ? { attack: out.attack } : {}) }
   }
-  const { note: _drop, ...rest } = cur
-  return { ...rest, note: '' }
+  return drop(cur)
 }
 
 // The careful second look at a miss or glancing verdict (automatic, or the learner's appeal with `reason`):

@@ -19,7 +19,7 @@ import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendi
 import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels, freshenPlanId } from './config/modelVersions'
 import { unseenChatModels, autoReplanDue, ROLE_TIER as PLAN_ROLE_TIER, roleDefaults as planRoleDefaults } from './config/modelPlan'
-import { buildFactCheckPrompt, parseFactCheck, shouldFactCheck, FACT_CHECK_MAX_TOKENS } from './utils/factCheck'
+import { buildFactCheckPrompt, parseFactCheck, factCheckReadable, shouldFactCheck, FACT_CHECK_MAX_TOKENS } from './utils/factCheck'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
 import { resolveJob, pinnedTierFor, speechJobModel, chatModelsOnly } from './config/aiJobs'
 import { MODELS as SPEECH_MODELS } from './speech/engines'
@@ -10979,16 +10979,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // `factCheckNotes` resolves to the notes ([] when off, short, failed or clean); features get it as ctx.ai.factCheck.
   // `always`: a FIGHT NOTE is checked whatever the setting says (kit/judge.js checkedNote): it is one short call per
   // missed answer, and a wrong fact in a note is taught as true. The setting governs the other teaching replies.
-  const factCheckNotes = async ({ reply, question = '', context = '', always = false }) => {
+  // `strict`: a failed call THROWS instead of reading as "no mistakes" (fight notes and taunts fail closed).
+  const factCheckNotes = async ({ reply, question = '', context = '', always = false, strict = false }) => {
     if ((!factCheckRef.current && !always) || !apiKey || !shouldFactCheck(reply)) return []
     const subject = activeMode.type === 'language' ? { language: learnLangName() } : { topic: activeMode.name }
     const { system, user } = buildFactCheckPrompt({ reply, question, context, subject, userLang: userLangName() })
     try {
       const text = await aiCall(apiKey, system, user, resolveJobModel('factcheck.reply'), { silent: true, maxTokens: FACT_CHECK_MAX_TOKENS })
+      if (strict && !factCheckReadable(text, parseAiJson)) throw new Error('fact check unreadable') // never "no mistakes" by default
       return parseFactCheck(text, reply, parseAiJson)
         .map((n) => ({ quote: n.quote, fix: stripDashes(n.fix).replace(/[🦐🦞🦀]️?/gu, '').trim() }))
         .filter((n) => n.fix)
-    } catch { return [] } // a failed check shows nothing
+    } catch (e) { if (strict) throw e; return [] } // a failed check shows nothing (strict: the caller fails closed)
   }
   const factCheckReply = (opts) => {
     factCheckNotes(opts).then((notes) => { if (notes.length) setFactNotes((p) => ({ ...p, [opts.reply]: notes })) })

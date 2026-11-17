@@ -2,6 +2,7 @@
 // each boss's last lines on this device (platform.kv), so no boss says the same thing twice.
 import { platform } from '../../platform'
 import { buildTauntPrompt, parseTaunt, tauntRepeats, tauntTranslated, pushRecent, TAUNT_ROLE, TAUNT_JOB, TAUNT_MAX_TOKENS } from './taunt'
+import { expectMissText, checkMissText, checkTexts } from './missCheck'
 
 const KEY = 'ebiki-boss-taunts'
 const MAX_BOSSES = 80
@@ -25,7 +26,12 @@ export function rememberTaunt(bossKey, line) {
 // once-per-fight guard for the sample-line fallback (used only when the model could not answer, never after a
 // rejected repeat). `mandated`: { opener, signature, nickname } the voice makes every line use (a raid boss's PERSONAS
 // entry): those words are not a repeat (kit/taunt.js tauntRepeats).
-export async function fetchTaunt(ai, { bossKey, voice, rules, avoidWords, sample = '', mandated = null, sampleUsed, markSample, ...facts }) {
+// THE TAUNT IS FACT CHECKED TOO (decided 2026-11-16: a taunt states word facts as well; one taunt explained a wrong verb
+// form as another word). `missQ` = the question object of the miss: the taunt joins the note's check in ONE request
+// (kit/missCheck.js). A false claim = ONE rewrite told what was false, checked alone; still false, or a check that
+// failed (fail closed) = the generic line (the boss's sample, once per fight) or nothing. Without `missQ` (no card
+// to check against) the line shows as before.
+export async function fetchTaunt(ai, { bossKey, voice, rules, avoidWords, sample = '', mandated = null, sampleUsed, markSample, missQ = null, ...facts }) {
   const recent = recentTaunts(bossKey)
   const fallback = () => {
     if (!sample || sampleUsed?.()) return null
@@ -33,16 +39,39 @@ export async function fetchTaunt(ai, { bossKey, voice, rules, avoidWords, sample
     return { line: sample, source: 'sample' }
   }
   if (!ai?.hasKey) return fallback()
+  if (missQ) expectMissText(missQ, facts.answer, 'taunt') // before any await: the note for this miss waits for the taunt
+  const verify = async (line, alone = false) => {
+    if (!missQ || typeof ai.factCheck !== 'function') return { ok: true }
+    const res = alone ? await checkTexts(ai, missQ, facts.answer, { taunt: line }) : await checkMissText(ai, missQ, facts.answer, 'taunt', line)
+    return res.failed ? { failed: true } : res.taunt.length ? { wrong: res.taunt } : { ok: true }
+  }
+  const settle = () => { if (missQ) checkMissText(ai, missQ, facts.answer, 'taunt', '').catch(() => {}) } // no taunt: the note stops waiting
   let retry = ''
   for (let attempt = 0; attempt < 2; attempt++) {
     let line = ''
     try {
       const { system, user } = buildTauntPrompt({ ...facts, voice, rules, avoidWords, recent, retry })
       line = parseTaunt(await ai.call(system, user, { role: TAUNT_ROLE, job: TAUNT_JOB, maxTokens: TAUNT_MAX_TOKENS, silent: true }), ai.clean)
-    } catch { return fallback() }
-    if (!line) return fallback()
-    if (!tauntRepeats(line, recent, sample, mandated, { translated: tauntTranslated(facts.userLang) })) { rememberTaunt(bossKey, line); return { line, source: 'ai' } }
+    } catch { settle(); return fallback() }
+    if (!line) { settle(); return fallback() }
+    if (!tauntRepeats(line, recent, sample, mandated, { translated: tauntTranslated(facts.userLang) })) {
+      let v = await verify(line)
+      if (v.wrong) {
+        let fixed = ''
+        try {
+          const { system, user } = buildTauntPrompt({ ...facts, voice, rules, avoidWords, recent, wrong: v.wrong })
+          fixed = parseTaunt(await ai.call(system, user, { role: TAUNT_ROLE, job: TAUNT_JOB, maxTokens: TAUNT_MAX_TOKENS, silent: true }), ai.clean)
+        } catch { fixed = '' }
+        if (!fixed || tauntRepeats(fixed, recent, sample, mandated, { translated: tauntTranslated(facts.userLang) })) return fallback()
+        line = fixed
+        v = await verify(line, true)
+      }
+      if (!v.ok) return fallback()
+      rememberTaunt(bossKey, line)
+      return { line, source: 'ai' }
+    }
     retry = line
   }
+  settle()
   return null // it kept repeating itself: nothing beats a repeat
 }

@@ -129,6 +129,7 @@ export function buildTauntPrompt(o = {}) {
     mistakeKindLine(o.answer, o.expected ? [o.expected] : [], { isLanguage: !!o.isLanguage }),
     recent.length ? `You already said these lines. Never repeat them, their wording, their structure or their jokes; say something completely new:\n${recent.map((l) => `- ${l}`).join('\n')}` : '',
     o.retry ? `Your last try reused words from a line you already said ("${String(o.retry).slice(0, 200)}"). Write a completely different line.` : '',
+    Array.isArray(o.wrong) && o.wrong.length ? `Your last line was checked and made FALSE claims. Write a new line that does not repeat them and states nothing about a word you are not certain of:\n${o.wrong.slice(0, 3).map((w) => `- you said "${String(w.quote || '').slice(0, 160)}": ${String(w.fix || '').slice(0, 200)}`).join('\n')}` : '',
   ].filter(Boolean).join('\n')
   return { system, user }
 }
