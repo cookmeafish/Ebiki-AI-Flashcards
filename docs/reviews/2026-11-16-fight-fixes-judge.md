@@ -204,3 +204,78 @@ Not verified: a glancing answer's note and its follow-up attack through this pat
 fight (same `judgeStrike` code, not driven); a fact check that throws or times out (the code keeps the note; not
 exercised); phone width (nothing in this change is layout). The boss taunt is not fact checked, which this change does
 not claim.
+
+## Joint note and taunt check
+
+Commits 9131586 (one fact check per miss, `kit/missCheck.js`) and 55d697c (a checked taunt may still show one
+question late, `LATE_TAUNT_QUESTIONS` 1). Same stubbed raid (port 3001, bundled Chromium, muted, every AI host stubbed
+and recorded in order with arrival and answer times, writes stubbed), Spanish (LatAm), desktop 1280 dark,
+`"factCheck": false` served in config. Scripts `joint.mjs`, `late.mjs`, `leakcount.mjs`; logs `r5.log`, `r5b.log`,
+`r6-*.log`; screenshots in `r5-joint\` and `r6-late\`; all under
+`C:\Users\User\AppData\Local\Temp\claude\2a0b332a35f80abc\0f540200-c71b-4d96-bca7-5172cee217a4\scratchpad\judge-fight\`.
+
+### Runs A to E (stub delays: verdict 0.3 s, taunt 0.8 s, note 1.5 s, fact check 1.2 s)
+
+Times are from the typed answer. The background re-check ("careful, fair second grader") also runs on every typed
+miss; it is left out below. Run A's first attempt was reset when 55d697c changed FightExtras.jsx and the dev server
+reloaded it; A and C-500 were run again on the settled code (`r5b.log`).
+
+| Run | Stub | Requests in order (sent → answered) | On screen | Verdict |
+|-----|------|-------------------------------------|-----------|---------|
+| A | check clean | verdict 0.01 → 0.33; note 0.33 → 1.84; taunt 0.33 → 1.15; ONE check (note + taunt in its reply) 1.85 → 3.05 | note and taunt both at 3.08 s | PASS (`r5-joint\run-A.png`) |
+| B | first check flags a quote from the TAUNT only, second clean | verdict; note; taunt; joint check 1.84 → 3.05; taunt rewrite ("FALSE claims" in its user prompt) 3.06 → 3.86; taunt-only check 3.86 → 5.07 | note at 3.07 s (unchanged), rewritten taunt at 5.10 s; the first taunt never showed | PASS (`run-B.png`) |
+| C-unreadable | the check answers prose ("Sorry, I cannot check this right now.") | verdict; note; taunt; joint check 1.85 → 3.06 | at 3.08 s: no note, the boss's generic line ("Tick, tock: that reply ran two minutes slow..."), "Correct answer: fundamental" | PASS (`run-C-unreadable.png`) |
+| C-500 | the check answers HTTP 500 | verdict; note; taunt; joint check 1.84 → 500; the same check sent again by the provider layer at 3.06 → 500 | at 4.29 s: no note, the generic line, the answer line | PASS (`run-C-500.png`). A hang was not tested: the request timeout is 5 minutes (`CALL_TIMEOUT_MS`), so a 500 and unreadable text stood in. |
+| D | miss BY CHOICE | taunt 0.52 → 1.32; taunt-only check 1.33 → 2.54; no verdict or note call | taunt at 2.55 s, answer line, no note | PASS (`run-A-choice.png`) |
+| E | as A, Continue 1 s after the answer | as A; Continue at 1.04 s; joint check answered 3.05 | the checked taunt appears at 3.06 s on the NEXT question ("... donde iba «fundamental» ..." over the furibundo question), not the answer of the question on screen | PASS (`run-A-fast.png`) |
+
+**Taunt delay.** Before 9131586 the bubble appeared when the taunt reply arrived (no check in `tauntStore.js`). Now it
+appears after the joint check: with the delays above the taunt reply arrived at 1.15 s and the bubble at 3.08 s, 1.9 s
+later (0.7 s waiting for the note, then 1.2 s for the check). With the realistic delays below (taunt 1.5 s, note 3 s,
+check 2 s) that wait is about 3.5 s (note minus taunt, plus the check). This is computed from the request times, not
+measured as one interval.
+
+### Dropped taunts, before and after 55d697c
+
+Stub delays: verdict 0.3 s, taunt 1.5 s, note 3 s, fact check 2 s. The learner presses Continue 1 s after the feedback
+and answers the next question 2 s after it shows. 10 typed misses per run (extra test cards so the raid lasts; a fight
+that ends is fought again). "Before" = 9131586's rule, reproduced by serving FightExtras.jsx with
+`LATE_TAUNT_QUESTIONS = 0` through the browser route only (the run logs "rule rewritten in the served module: true"; no
+repo file changed). Pattern "alternate": a miss, then a right answer, then a miss...
+
+| Pattern | Rule | Taunts shown | Dropped | Generic lines | Shown during a question naming ITS answer |
+|---------|------|--------------|---------|---------------|-------------------------------------------|
+| 10 misses in a row | before | 2 | 8 | 0 | 0 |
+| 10 misses in a row | after | 2 | 8 | 0 | 0 |
+| miss / right, 10 misses | before | 1 | 9 | 0 | 0 |
+| miss / right, 10 misses | after | 2 | 8 | 0 | 0 |
+
+In every run the lines shown were the last miss of a fight (nothing came after it), plus, after 55d697c in the
+alternating pattern, one late line on the next question ("T10 ... «furtivo»" over a question whose answer is
+"fusionar": no giveaway). At this pace a checked taunt is ready about 5.3 s after its miss, and by then the learner has
+either missed again (a newer miss's line wins, by design) or moved two questions on. The late rule only adds a line
+when the learner spends about 4 s or more on the next question. So it is correct, but at this pace it brings back about
+one line in ten.
+
+### Defect found: the next question's answer is drawn when Continue is pressed
+
+`src/features/kit/QuizRunner.jsx:122-129` resets `phase` to `'answer'` in a `useEffect` on `idx`. So the commit that
+shows the new question still has `phase === 'feedback'`, and the feedback strip renders `reveal`, which is the NEW
+question's `accepted[0]`, plus the old verdict. A requestAnimationFrame watcher saw that state on screen after every
+Continue that follows a miss: 8 of 8 such Continues in the all-miss runs, 9 in the alternating runs, before and after
+55d697c alike. Example from `r6-after-all-miss.log`: at 3446 ms "Correct answer: furibundo" sits under the new question
+"El jefe salió fu___ de la reunión.", which the learner only answered at 5.8 s. It lasts one frame (about 16 ms at
+60 Hz, less on fast screens). The screen-reader live region (`data-quiz-announce`) is computed from the same state, so
+it may also announce the new answer. This predates every fix in this review and affects every QuizRunner quiz (raids,
+Legends lessons, boss and Legendary fights).
+Fix: reset the phase in the same update that changes `idx` (inside `next()`), or derive the feedback from a per-index
+record so a new index can never show an old verdict.
+
+### Verdict
+
+Joint check, rewrite, fail-closed and choice-miss paths: PASS. The late-taunt rule: works as written (no line ever
+showed over a question it could give away), but at realistic pace it brings back one line in ten. Defect: the next
+question's answer is painted for one frame on Continue (above).
+
+Not verified: a check that hangs until the 5-minute timeout; a glancing answer's note and attack through the joint
+check; Legends boss fights (same code, not driven); phone width.

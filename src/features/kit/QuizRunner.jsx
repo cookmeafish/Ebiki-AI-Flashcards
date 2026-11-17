@@ -270,7 +270,10 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       if (r && r !== raw) over = { i, q: r }
       break
     }
-    if (i < total) { setOverride(over); setIdx(i) } else { setPhase('done'); onFinish?.(results.current) }
+    // The feedback is cleared in the SAME update as the index: reset only in the effect on `idx`, the new question's
+    // first frame still had the feedback phase, and the strip (and the screen-reader announcement) showed the NEW
+    // question's answer for one frame after every Continue that followed a miss (found by a per-frame watcher).
+    if (i < total) { setVerdict(null); setPicked(null); setPhase('answer'); setOverride(over); setIdx(i) } else { setPhase('done'); onFinish?.(results.current) }
   }
 
   // Keys: 1-6 pick a tile, Enter checks / continues.
