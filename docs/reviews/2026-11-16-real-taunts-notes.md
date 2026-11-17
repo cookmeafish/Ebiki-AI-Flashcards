@@ -63,3 +63,10 @@ Round 5 ran that exact path on the same 10 misses with real calls: all 10 notes 
 word's meaning; the adjective is now "means a baby is expected"; the checker flagged nothing, so no rewrite ran.
 Read by the author only, NOT by the independent judge. About 20 calls (token count lost to a script bug); about
 130 of the 150 calls are now used.
+
+## Round 5 judged (independent)
+All 10 notes pass every rule: exact accepted answer 10 of 10, short and neutral 10 of 10, correct word claims 10 of
+10 (rounds 1 to 5: 7, 8, 10, 9, 10). Nine say fully what the wrong word means, one partly (the verb-form note gives
+the reason the right form fits but no longer names the form typed). Style weaknesses left: one preposition slip, one
+stiff phrase, one comma splice. Decided the same day: fight notes are fact checked always, even with the
+double-check setting off.
