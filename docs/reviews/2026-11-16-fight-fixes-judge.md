@@ -327,3 +327,44 @@ two or more questions later), or show a late line only after the live question i
 
 Not verified: other raid bosses' abilities that insert questions (Lich minions, last stands), which may re-ask sooner;
 Legends boss fights; phone width.
+
+## Re-check 2: held late taunts
+
+Commit 90a680d (1.71.2). The same `late.mjs` and `leakcount.mjs` runs as the two sections above: port 3001, bundled
+Chromium, muted, every AI host and write stubbed, `"factCheck": false`; delays verdict 0.3 s, taunt 1.5 s, note 3 s,
+check 2 s; Continue 1 s after the feedback, the next answer 2 s after the question shows; 10 typed misses per run; the
+Hourglass Colossus, whose Time Loop asks a missed card again two questions later. The watcher now also notes, for every
+line, the question it appeared on and whether that question was still open, and records every open question that had
+a bubble on screen. Logs `r8-after-all-miss.log`, `r8-after-alternate.log`; data `r6-late\late-after-all-miss.json`,
+`r6-late\late-after-alternate-r8.json`; all under
+`C:\Users\User\AppData\Local\Temp\claude\2a0b332a35f80abc\0f540200-c71b-4d96-bca7-5172cee217a4\scratchpad\judge-fight\`.
+
+| Pattern | Shown | of which held, then shown on a later question's feedback | of which shown when no question was on screen (end of a fight) | Dropped | Generic lines |
+|---------|-------|----------------------------------------------------------|------------------------------------------------------------------|---------|---------------|
+| 10 misses in a row | 8 | 4 | 4 | 2 | 0 |
+| miss then right, alternating | 7 | 5 | 2 | 3 | 0 |
+
+For comparison, the shown / dropped counts in the earlier sections:
+
+| Pattern | 9131586 | 55d697c | 3810cb9 | 90a680d |
+|---------|---------|---------|---------|---------|
+| 10 misses in a row | 2 / 8 | 2 / 8 | 10 / 0 | 8 / 2 |
+| alternating | 1 / 9 | 2 / 8 | 10 / 0 | 7 / 3 |
+
+| Check | Result | Verdict |
+|-------|--------|---------|
+| A line appears while a later question is open | 0 in both runs (no line was shown on its own question either: at this pace each one lands after the next question appears) | PASS |
+| A bubble names the answer of the question that is open | 0 of 4 (all-miss) and 0 of 5 (alternating) open questions that had a bubble on screen. That counts every frame, including a held line still showing over the question after its feedback | PASS |
+| A held line appears at a sensible moment | Every held line appeared the moment a question was answered, beside that question's feedback strip, two questions after its miss. Example: the line about the fundamental miss (question 1) appeared at 9.2 s on the feedback of question 3, the fundamental re-ask, next to "Correct answer: fundamental" | PASS, with a weakness |
+| The answer flash on Continue (strip and live region) | painted under an unanswered question: 0 of 8 strips and 0 of 8 announcements (all-miss), 0 of 9 and 0 of 12 (alternating) | PASS |
+
+**Weakness, not a fail.** A held line can appear beside the feedback of a DIFFERENT card. In the all-miss run the line
+about the furibundo miss appeared on the feedback of the fulminante question ("... «furibundo» ..." next to "Correct
+answer: fulminante"). It names its own word, so it is readable, but it can look like a comment on the answer just
+given. The same happened for madrugada beside fulgurante.
+
+**The ability run was not done, and is not needed for this rule.** The Lich's minions re-ask cards answered RIGHT, so
+no miss line is about them. The re-ask of a MISSED card is exactly the Hourglass Colossus's Time Loop used here. With
+the hold, a line can only appear on its own question or right after a question is answered, so how soon an ability
+re-asks a card no longer matters. Not checked: last-stand and other inserted-question abilities, Legends boss fights,
+phone width.
