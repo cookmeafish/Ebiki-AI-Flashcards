@@ -518,7 +518,7 @@ export default function LegendsScreen() {
               Ebi builds your own map (choose your own adventure). A course is offered only to a mode it fits. */}
           {/* A smaller Ebi stays BESIDE the bubble on a phone (at 96 px the bubble wrapped under him and pushed the
               course button below the bottom bar). */}
-          <EbiSays pose={poseFile('king')} size={64}>{t('lg_pickTitle', { subject: subject.name })}</EbiSays>
+          <EbiSays pose={poseFile('king')} size={64} basis={140}>{t('lg_pickTitle', { subject: subject.name })}</EbiSays>
           {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
           {(() => {
             const fit = careers.filter((c) => careerMatches(c, subject))

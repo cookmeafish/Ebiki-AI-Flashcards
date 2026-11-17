@@ -177,4 +177,24 @@ Same script (`scratchpad/sp2.mjs`, now also reading the toast), 390 x 844. The p
 - One click still lands on the course map in mode Security+ with deck Security+ in both cases. With a key, the first
   lesson opens in English.
 
+## Re-check 4 (47e3cd8, 1.72.3)
+
+390 x 844, bottom bar top at 766 px. Same script.
+
+| Case | Button top / bottom vs bar top | Result |
+|---|---|---|
+| Fresh, with key | 619 / 705: fully visible | PASS |
+| Fresh, no key | 746 / 832: only the top 20 px show, the label is hidden | FAIL (66 px short) |
+
+Looking at the screenshots (fix-fresh-390-01-legends-first.png, fix-fresh-nokey-390-02-settings-closed.png):
+- Ebi is smaller, but he is still on his own row ABOVE the bubble, not beside it. The bubble keeps the full width.
+  The layout gained only the picture's height difference.
+- The bubble reads well: "How do you want to play Legends in My Studies?" on two lines, not squeezed.
+- With no key, the amber key banner (about 126 px) still pushes the button under the bar. The visible part is a
+  green strip with no text.
+- To fix it: actually put Ebi beside the bubble on phones (his row is about 125 px tall). That alone moves the
+  button to about 620 px, above the bar. Or move the course name and button above the "Career mode" heading.
+- The toast reads `Made the "Security+" mode for the course.` One click still lands on the course map in mode
+  Security+ with deck Security+. No Spanish anywhere.
+
 

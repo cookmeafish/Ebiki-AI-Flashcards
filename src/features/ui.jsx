@@ -162,13 +162,14 @@ export function Modal({ open, onClose, children, width = UI.modalWidth, zoom = 1
 }
 
 // Ebi talking: mascot on the left, a speech bubble on the right (the onboarding look).
-export function EbiSays({ pose = DEFAULT_SHRIMP, children, size = 96 }) {
+// `basis` = the bubble's smallest width before it wraps under Ebi (a screen short on height passes a smaller one).
+export function EbiSays({ pose = DEFAULT_SHRIMP, children, size = 96, basis = 200 }) {
   return (
     // Wraps on a phone-width screen: the bubble drops under Ebi instead of squeezing to a word per line.
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
       <img src={shrimpUrl(pose)} alt="" width={size} style={{ flexShrink: 0, height: 'auto', filter: 'drop-shadow(var(--sh-sm))' }} />
       <div style={{
-        position: 'relative', flex: '1 1 200px', minWidth: 0, overflowWrap: 'anywhere', background: C.surface, border: `${UI.cardBorder}px solid ${C.border}`, borderRadius: RADIUS.lg,
+        position: 'relative', flex: `1 1 ${basis}px`, minWidth: 0, overflowWrap: 'anywhere', background: C.surface, border: `${UI.cardBorder}px solid ${C.border}`, borderRadius: RADIUS.lg,
         borderBottomLeftRadius: 6, boxShadow: SHADOW.card,
         padding: '11px 15px', fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.4,
       }}>{children}</div>
