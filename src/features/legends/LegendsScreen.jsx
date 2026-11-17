@@ -548,8 +548,8 @@ export default function LegendsScreen() {
                     link below the fold, or none at all on a fresh install, hid it). A fitting mode: open the course there.
                     None: make the course's own mode (no AI, works without a key) and open it. */}
                 {!fit.length && other.length > 0 && <div data-pick="career" data-elsewhere style={{ ...tile, border: `2px solid ${C.success}` }}>
-                  <div style={{ fontSize: 30 }}>🏝️</div>
-                  <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickCareer')}</div>
+                  {/* Icon on the heading's line (its own row kept a phone's button too close to the bottom bar). */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}><span aria-hidden="true" style={{ fontSize: 26 }}>🏝️</span>{t('lg_pickCareer')}</div>
                   {other.map((c) => {
                     const m = courseModes(c, rawCtx.modes?.list?.())[0]
                     return (
