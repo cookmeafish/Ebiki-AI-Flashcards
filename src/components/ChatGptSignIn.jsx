@@ -26,7 +26,7 @@ export const subscriptionFor = (providers, company) => Object.entries(providers)
 export const NO_SUB_SOURCE = {
   anthropic: 'https://code.claude.com/docs/en/legal-and-compliance',
   gemini: 'https://geminicli.com/docs/resources/tos-privacy',
-  grok: 'https://docs.x.ai',
+  grok: 'https://x.ai/news/grok-opencode', // the page naming the few tools that may sign in (no way for other apps)
 }
 export function SubscriptionNote({ t, providers, provider, onPick }) {
   const company = companyOf(providers, provider)

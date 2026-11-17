@@ -126,3 +126,47 @@ desktop light, phone dark and other zoom levels; the phone shot for row 3; grade
 One small thing seen, not part of the seven: in Study's typed and choice flashes the sense cue "(palabra del mazo)"
 is drawn in the question's bold weight, while the live question draws it muted and italic. It was like that before
 this work.
+
+## Screenshot round 3
+
+Same setup (port 3001, bundled Chromium, muted, AI hosts and every write stubbed). No real sign-in was started:
+`/api/chatgpt/start` was aborted in the stub and the Continue link was never clicked. No page errors. All paths are under
+`C:\Users\User\AppData\Local\Temp\claude\2a0b332a35f80abc\0f540200-c71b-4d96-bca7-5172cee217a4\scratchpad\judge-fight\`.
+
+### A. Settings > AI & cost: the "uses an API key" line, its link, and the ChatGPT plan note (commit 1c2fac2)
+
+Shot: desktop 1280 dark (English), phone 390 light (English), desktop 1280 light (Spanish), and the onboarding provider
+step on phone 390 dark. Each run opened all four company tabs, then OpenAI > "ChatGPT plan (sign in)". Files:
+`r3-settings\<run>-Anthropic.png`, `-OpenAI.png`, `-Google.png`, `-xAI.png`, `-OpenAI-plan.png`, with `<run>` one of
+`desk-dark-en`, `phone-light-en`, `desk-light-es`, `onboarding-phone-dark`. Measurements: `r3-desk.log`, `r3-b.log`,
+`r3-c.log`.
+
+| Check | Verdict | Evidence |
+|-------|---------|----------|
+| The ChatGPT sign-in appears only under OpenAI | PASS | Sign-in block and Continue link count 0 on Anthropic, Gemini and Grok in all four runs, also after the plan option was picked on OpenAI; 1 under OpenAI > ChatGPT plan. |
+| Each other company names only itself | PASS | Anthropic: "... Anthropic doesn't let other apps sign in with a Claude plan."; Google: "... (free tier available): Google doesn't let ... a Gemini plan."; xAI: "... xAI has no plan sign-in for other apps." One note per tab, never another company's. |
+| The link sits on the row or wraps cleanly, no horizontal scroll on phone | PASS | Desktop: on the same line. Phone: the text wraps to 3 or 4 lines and "Their rules ↗" stays whole on the last line, inside the note's box; horizontal overflow 0 for the note's scroller and the page (`phone-light-en-Google.png`). Spanish desktop Gemini: the link drops to its own second line, cleanly (`desk-light-es-Google.png`). |
+| Link href and target | PASS | anthropic `https://code.claude.com/docs/en/legal-and-compliance`, gemini `https://geminicli.com/docs/resources/tos-privacy`, grok `https://docs.x.ai`; all `target="_blank"`, `rel="noopener noreferrer"`. All three answer 200. |
+| The amber "not yet tried" line is readable in both themes | PASS | Dark: rgb(242,169,58) on rgb(18,26,33), about 8.6:1 (`desk-dark-en-OpenAI-plan.png`, `onboarding-phone-dark-OpenAI-plan.png`). Light: rgb(156,92,0) on white, about 5.5:1 (`phone-light-en-OpenAI-plan.png`, `desk-light-es-OpenAI-plan.png`). It sits under the Continue button, above "The sign-in stays on this computer". |
+| Spanish UI; keys in es, ja, zh | PASS | "Usa una clave de API: Anthropic no deja que ... Sus normas ↗" and "Nuevo: aún no se ha probado con una cuenta real de ChatGPT. ..." render in the Spanish run; `cg_source` and `cg_unverified` exist in en, es, ja and zh. |
+| Onboarding provider step | PASS | Same component, same lines and link, sign-in only under OpenAI (phone dark). In `onboarding-phone-dark-xAI.png` the note sits partly behind the step's Back / Next bar at that scroll position; it scrolls clear. |
+
+Notes, not fails:
+- The xAI link goes to the docs home (`https://docs.x.ai`, which lands on `/overview`), not to a page that states a
+  rule, so "Their rules" promises more than that page shows. The Anthropic and Gemini links go to specific pages.
+- I checked that the three pages answer, not what they say.
+- In Spanish the option reads "ChatGPT plan (iniciar sesión)" beside "Clave de API": half English.
+
+### B. The two phone shots missed in the re-check
+
+| Item | Verdict | Evidence |
+|------|---------|----------|
+| Miss BY CHOICE on an open question, phone | PASS | Wrong tile picked, Check clicked: "Not quite. Correct answer: etérico", the right tile in green. `r3-choicemiss\phone-light-choicemiss-OPEN.png`, `r3-raid.log`. |
+| Collapsed graded rows in Study, phone | PASS | Rows read "✗ En esta frase falta fu___ p..." and "✓ En esta frase falta fu___ ..." (a card with no hint shows "___"). `r3-study\phone-light-graded-rows.png`, `r3-study.log`. |
+
+One thing seen there, outside this round: in that phone shot the graded card's header row is cut at both ends (the
+card's word on the left and the rating picker on the right are out of view). I did not check whether it scrolls or is
+clipped, or whether my script's click caused it.
+
+Not verified: what the three linked pages say; the ja and zh screens (keys only); a real ChatGPT sign-in (by
+instruction, never started); other zoom levels.
