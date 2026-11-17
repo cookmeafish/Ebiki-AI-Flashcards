@@ -49,3 +49,46 @@ Why these were rewritten: [round 3](bank-pilot-1-1-round3.md). `build-bank.mjs -
 - 867b6c50.8 and 867b6c50.4: both a person reading records and querying what looks wrong; different enough today,
   worth keeping apart in refills.
 - 55fcb3b6.1 and .9: the same card example as the key twice.
+
+## Round 5: passes 1, 3 and 4 on the two round-4 rewrites
+
+Reviewer: an independent agent that did not write, edit or earlier review these two texts. Date: 2026-11-17. File
+`dev/careers/sources/security-plus-sy0-701/bank/1-1.json` (not edited); all 120 stems, asks and artifacts read for the
+shared-scene check. `build-bank.mjs security-plus-sy0-701 --preview --allow-short`: no problems.
+
+### Primary sources read this round
+- CSRC glossary, compensating controls (read again this round): SP 800-53 Rev. 5 "employed in lieu of the controls in
+  the baselines ... that provide equivalent or comparable protection for a system or organization"; SP 800-37 Rev. 2
+  the same with "implemented".
+- NIST has no definition of a deterrent control type: CSRC glossary pages for "deterrent" and "deterrence" return 404,
+  and SP 800-53 PS-8 (personnel sanctions, read via csf.tools) requires a sanctions process but says nothing about
+  deterrence. The deterrent verdict therefore rests on the exam objectives (1.1 lists Deterrent as a control type), the
+  card (example "threat of demotion for policy violations") and d1.md "Deterrent controls (control type)" step 2 ("It
+  signals a consequence (being seen, recorded, prosecuted, disciplined)"). No reputable source found placing a
+  publicized sanction under another type, so not contested.
+
+### Verdicts
+
+| id | pass 1 | pass 3 | pass 4 | what and why | source |
+|---|---|---|---|---|---|
+| i1-1-88dabb74.6 | PASS | PASS | PASS | An HR director announces a dismissal so others decide not to try; nothing about access changes. Deterrent is the one defensible answer: Preventive fails "Nothing about file access changes", Detective finds nothing, Directive gives no instruction (d1.md: a directive tells what to do, a deterrent warns of what happens). Every why true to the stem. Detail literal. Role named; four single-word types, parallel. Shared-scene check: no sticker, sign, banner, guard, camera or lighting; the nearest are 88dabb74.2 (login notice threatening dismissal: a warning of a possible consequence on a screen, not a reported case in a newsletter) and e1ccd45a.7 / 172e8ab8.3 (payroll as the business only, different scenes). Not a renamed copy. | Exam objectives 1.1 (Deterrent); card 88dabb74 example; d1.md "Deterrent controls (control type)" How it works step 2 and Common confusions |
+| i1-1-e28fd41b.7 | FAIL | FAIL | FAIL | CONTESTED point now settled: the stem states the requirement (after-hours entry detected and answered within minutes) and the alarm with a responder meets it, approved in writing, so comparable protection is established as SP 800-53 Rev. 5 and d1.md require. BEST is warranted: Detective is truly partly true, flagged as runner, and the edge names the deciding detail. Two problems remain. (1) Pass 1 and 4, why line not true to the stem: Detective's why says "instead of the required guard", but the stem says the insurer requires the outcome and only SUGGESTS the guard. (2) Pass 3 (c), shared scene: 3ded6b7b.9 is an insurer, a break-in at the records room, and an alarm that detects it; this question repeats insurer + records room + after-hours alarm (clinics also appear in 3ded6b7b.4, 17eb1a96.9, e1ccd45a.5, 88dabb74.7). | CSRC glossary compensating controls (SP 800-53 Rev. 5, SP 800-37 Rev. 2); d1.md "Compensating controls (control type)" ("used in place of a recommended control while offering equivalent or comparable protection") |
+
+### Proposed fix for i1-1-e28fd41b.7 (writer to apply, then every pass again)
+- Stem: "A jeweler's insurer requires that any after-hours entry to the stock room be detected and answered within
+  minutes, and recommends a night guard, which the shop cannot afford. With the insurer's written approval, the store
+  manager instead installs a door alarm monitored by a firm that sends a responder within minutes." (Jeweler and stock
+  room appear nowhere else in 1.1; "recommends" matches the chapter's "recommended control".)
+- Detective why: "The alarm detects entry, but it was put in place instead of the guard the insurer recommended and
+  meets the same requirement."
+- `detail`: "which the shop cannot afford". Key, runner, edge and explain can stay (edge: "the guard the shop cannot
+  afford").
+
+### Totals
+- Reviewed 2. Passed all three: 1 (88dabb74.6), stamped p1, p3, p4 on the text as read.
+- Failed: 1 (e28fd41b.7). Its stored p1, p3, p4 hashes are from round 3 and do NOT match the current text (only p2,
+  from the round-4 solves, matches), so it is not counted as passed; no stamp withdrawal needed.
+- Pass 4 error rate this round: 1 of 2 (a why line).
+
+### Still weak (passed)
+- 88dabb74.6 and 88dabb74.2 both use dismissal as the consequence; keep refills away from job-loss deterrents.
