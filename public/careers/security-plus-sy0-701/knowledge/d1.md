@@ -812,7 +812,7 @@ An infrared motion sensor, usually a passive infrared (PIR) detector, raises an 
 **Strengths and limits:**
 - Most sensitive to movement ACROSS its zones; movement straight toward or away from it is detected less well.
 - Does not see through glass, walls, wood or metal, so it stays within the room it watches (few alarms from outside).
-- Range is set by where it is mounted and aimed, not by an electronic setting.
+- Coverage depends mostly on where it is mounted and aimed (many units also have a sensitivity or range adjustment).
 
 **Why it matters:** PIR sensors are cheap, low power and good at detecting people in rooms and corridors after hours, which is why they are a standard choice for indoor intrusion zones.
 
@@ -865,7 +865,7 @@ A microwave motion sensor transmits microwave energy and listens to what bounces
 
 **Common confusions:** Microwave and ultrasonic both use echoes and the Doppler effect; microwave uses radio energy that passes through light walls, ultrasonic uses sound that stays in the room. PIR is passive and sees heat crossing its zones.
 
-**Scenario:** A clue says "a large open warehouse needs motion detection over its whole floor area, and the sensor's range must be adjustable." The answer is a microwave sensor. A pressure mat is the closest wrong answer and fails because it covers only the spot where it lies.
+**Scenario:** A clue says "a large open warehouse needs motion detection over its whole floor area, including movement behind thin plywood partitions." The answer is a microwave sensor. A pressure mat is the closest wrong answer and fails because it covers only the spot where it lies.
 
 **Example:** installer note: "Microwave unit MW-3 range reduced from 25 m to 15 m and aimed away from the steel loading door to stop wind-driven false alarms."
 
@@ -901,13 +901,13 @@ The four SY0-701 sensors all detect an intruder, but each senses something diffe
 |---|---|---|---|---|
 | Infrared (PIR) | Change in heat pattern | Passive | No | Movement across a room |
 | Pressure | Weight on a surface | Passive switch | Not applicable | An exact spot (doorway, in front of a safe) |
-| Microwave | Doppler shift of reflected radio energy | Active | Yes (not metal) | Large areas, adjustable range |
+| Microwave | Doppler shift of reflected radio energy | Active | Yes (not metal) | Large areas, sees through thin walls |
 | Ultrasonic | Doppler shift of reflected high-frequency sound | Active | No | Filling an enclosed room |
 
 **How to choose, step by step:**
 1. Is there one exact spot to protect? Pressure.
 2. Must detection stay inside a room with glass walls or windows? PIR or ultrasonic, not microwave.
-3. Is the area large and open, with range to tune? Microwave.
+3. Is the area large and open, or must the sensor see through thin partitions? Microwave.
 4. Is the clue about body heat? Infrared. About sound echoes? Ultrasonic. About radio waves or "through walls"? Microwave.
 5. Are false alarms the main problem? A dual-technology detector (PIR plus microwave or ultrasonic, both must trigger).
 
