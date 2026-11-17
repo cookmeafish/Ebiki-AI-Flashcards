@@ -13,7 +13,8 @@
 //                    <reviews>/bank-dN.jsonl                  (default docs/reviews)
 //   --preview        writes every question, stamped or not, with its check results to
 //                    dev/careers/out/bank-preview/<id>.json for the /dev/exam-preview/ page; never touches public/.
-//   --allow-short    a card may ship with 6 to 10 questions instead of exactly 10.
+//   --allow-short    a card may ship with 6 to 9 questions, only when <src>/bank/short.json gives its reason
+//                    ({ "<card id>": "why fewer sound questions exist" }); the manifest records the reason.
 // Defaults: --src dev/careers/sources/<id>, --package public/careers/<id>.json.
 import fs from 'fs'
 import path from 'path'
@@ -45,6 +46,8 @@ for (const f of fs.existsSync(bankDir) ? fs.readdirSync(bankDir).sort() : []) {
   const sf = path.join(bankDir, 'stamps', f)
   stamps[f] = fs.existsSync(sf) ? readJson(sf) : {}
 }
+const shortFile = path.join(bankDir, 'short.json')
+const shortReasons = fs.existsSync(shortFile) ? readJson(shortFile) : {}
 if (!Object.keys(sources).length) { console.error(`no question files in ${path.relative(ROOT, bankDir)} (expected N-N.json)`); process.exit(1) }
 const kdir = path.join(SRC, 'knowledge')
 const chapters = (fs.existsSync(kdir) ? fs.readdirSync(kdir) : []).filter((f) => f.endsWith('.md')).map((name) => ({ name, text: fs.readFileSync(path.join(kdir, name), 'utf8') }))
@@ -73,7 +76,7 @@ if (fs.existsSync(OUT)) for (const f of fs.readdirSync(OUT)) {
   else if (f.endsWith('.json')) previous.files[f] = fs.readFileSync(path.join(OUT, f), 'utf8')
 }
 
-const r = buildBank({ courseId: id, pkg, sources, stamps, chapters, findCopies, phrases, allowShort, preview, previous })
+const r = buildBank({ courseId: id, pkg, sources, stamps, chapters, findCopies, phrases, allowShort, shortReasons, preview, previous })
 for (const w of r.warnings) console.log(`warn ${w}`)
 for (const p of r.problems) console.log(p)
 const count = Object.values(sources).reduce((n, l) => n + (Array.isArray(l) ? l.length : 0), 0)

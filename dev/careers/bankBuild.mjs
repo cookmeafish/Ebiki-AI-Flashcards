@@ -6,7 +6,7 @@
 // question changed after a pass can never ship quietly.
 import crypto from 'crypto'
 import { canonicalQuestion, shapeExamQuestion, cardSig, slotCode, EXAM_FORMAT } from '../../src/features/legends/exam/examQuestion.js'
-import { courseIndex, checkQuestion, checkSet, checkOwnWords, checkStamps, checkForbidden, requiredPasses } from '../../src/features/legends/exam/examChecks.js'
+import { courseIndex, checkQuestion, checkSet, checkOwnWords, checkStamps, checkForbidden, requiredPasses, shortReasonOk } from '../../src/features/legends/exam/examChecks.js'
 
 export const PASSES = ['p1', 'p2', 'p2b', 'p3', 'p4', 'oversight']
 // SHA-256 of the question's JSON with its keys in the frozen order, `rev` left out.
@@ -40,7 +40,9 @@ const fmt = (f) => `${f.check} ${f.id}: ${f.msg}`
 // `previous` = { manifest, files: { name: text } } of the bank already in public (for revs).
 // `findCopies(texts)` = the own-words check (C19); null = no outline, reported as a problem unless `noOutlineOk`.
 // `phrases` = the private forbidden phrase list, or null (skipped; the caller prints the warning).
-export function buildBank({ courseId, pkg, sources, stamps = {}, chapters = [], findCopies = null, phrases = null, allowShort = false, preview = false, previous = null }) {
+// `shortReasons` = { cardId: reason } from bank/short.json: a card may ship with 6 to 9 questions only with --allow-short
+// AND its reason, which the manifest records (validateShipped then needs it, so a hand edit down to 6 fails).
+export function buildBank({ courseId, pkg, sources, stamps = {}, chapters = [], findCopies = null, phrases = null, allowShort = false, shortReasons = {}, preview = false, previous = null }) {
   const problems = []
   const warnings = []
   const ctx = { ...courseIndex(pkg), headingsFor: headingsByDomain(chapters) }
@@ -69,7 +71,8 @@ export function buildBank({ courseId, pkg, sources, stamps = {}, chapters = [], 
       for (const f of fs) note(q, f)
     }
   }
-  const setFindings = checkSet(shaped, ctx, { allowShort })
+  const shortOk = preview ? () => allowShort : (cid) => allowShort && shortReasonOk(shortReasons[cid])
+  const setFindings = checkSet(shaped, ctx, { shortOk })
   const byId = new Map(shaped.map((q) => [q.id, q]))
   for (const f of setFindings) { const q = byId.get(f.id); if (q) note(q, f); else (f.level === 'fail' ? problems : warnings).push(fmt(f)) }
   for (const fs of results.values()) for (const f of fs) { if (f.level === 'fail') problems.push(fmt(f)); else if (f.level === 'warn') warnings.push(fmt(f)) }
@@ -120,7 +123,10 @@ export function buildBank({ courseId, pkg, sources, stamps = {}, chapters = [], 
       if (!cards[q.item]) cards[q.item] = { sig: cardSig(ctx.items.get(q.item)), slots: Array(10).fill('--') }
       cards[q.item].slots[q.slot] = slotCode(q)
     }
-    for (const c of Object.values(cards)) c.slots = c.slots.join('')
+    for (const [cid, c] of Object.entries(cards)) {
+      if (c.slots.includes('--')) c.short = shortReasons[cid].trim()
+      c.slots = c.slots.join('')
+    }
     objectives[obj] = { file, rev, cards }
     const dom = `bank-d${domainOf(obj)}.jsonl`
     out.reviews[dom] = (out.reviews[dom] || '') + list.map((q) => JSON.stringify({
@@ -140,7 +146,8 @@ export function buildBank({ courseId, pkg, sources, stamps = {}, chapters = [], 
 // THE SHIPPED BANK, re-checked (bank-package.test.js): whatever is in public/ passes C1 to C18 and C22 and agrees with
 // its manifest, so a hand edit cannot ship a broken file. `files` = { 'q-N-N.json': text }. → [string] problems.
 export const SHIPPED_CHECKS = new Set(['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14', 'C15', 'C16', 'C17', 'C18', 'C22'])
-export function validateShipped({ manifest, files, pkg, allowShort = false }) {
+// A card under 10 passes only when the manifest records its reason (`short`); there is no switch to skip that.
+export function validateShipped({ manifest, files, pkg }) {
   const problems = []
   if (!manifest || manifest.format !== EXAM_FORMAT) return [`manifest format must be ${EXAM_FORMAT}`]
   if (!(Number.isInteger(manifest.rev) && manifest.rev >= 1)) problems.push('manifest rev must be an integer >= 1')
@@ -163,10 +170,11 @@ export function validateShipped({ manifest, files, pkg, allowShort = false }) {
       if (!slots[s.q.item]) slots[s.q.item] = Array(10).fill('--')
       slots[s.q.item][s.q.slot] = slotCode(s.q)
     }
-    const want = Object.fromEntries(Object.entries(slots).map(([k, v]) => [k, { sig: cardSig(ctx.items.get(k)), slots: v.join('') }]))
+    const want = Object.fromEntries(Object.entries(slots).map(([k, v]) => [k, { sig: cardSig(ctx.items.get(k)), slots: v.join(''), ...(v.includes('--') ? { short: entry.cards?.[k]?.short } : {}) }]))
     if (JSON.stringify(sortKeys(want)) !== JSON.stringify(sortKeys(entry.cards || {}))) problems.push(`${obj}: the manifest's cards (sig, slots) do not match ${entry.file}`)
   }
-  for (const f of checkSet(all, ctx, { allowShort })) if (f.level === 'fail' && SHIPPED_CHECKS.has(f.check)) problems.push(`${f.check} ${f.id}: ${f.msg}`)
+  const reasons = Object.assign({}, ...Object.values(manifest.objectives || {}).map((e) => Object.fromEntries(Object.entries(e.cards || {}).map(([k, c]) => [k, c.short]))))
+  for (const f of checkSet(all, ctx, { shortOk: (cid) => shortReasonOk(reasons[cid]) })) if (f.level === 'fail' && SHIPPED_CHECKS.has(f.check)) problems.push(`${f.check} ${f.id}: ${f.msg}`)
   return problems
 }
 const sortKeys = (o) => Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]))

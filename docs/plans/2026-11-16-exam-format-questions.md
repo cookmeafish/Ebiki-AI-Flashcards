@@ -653,7 +653,9 @@ THE SHIPPING GATE: a question is written to `public/` only when every required s
 `oversight`, and `p2b` when `word` is BEST or MOST) equals the hash of the text being shipped. Any edit, refill or
 card change after a pass changes the hash and the question drops out until it is passed again. An objective enters
 the manifest only when every card has 10 shipped questions with at least 2 `d` and 2 `s` at level 1
-(`--allow-short`: at least 6, printed). `--preview` writes unstamped questions to `dev/careers/out/bank-preview/`
+(`--allow-short`: at least 6, only for a card whose reason is in `<src>/bank/short.json`, at least 15 characters;
+the manifest records it as the card's `short`, and the shipped check refuses a card under 10 without one, so a hand
+edit down to 6 fails; decided with oversight 2026-11-17). `--preview` writes unstamped questions to `dev/careers/out/bank-preview/`
 for the preview page, never to `public/`.
 
 The build FAILS (exit 1) on any check below. They are pure functions in `exam/examChecks.js`, shared with the live
@@ -1571,6 +1573,11 @@ at development time by agents (no owner API credits, works offline). Expect seve
    (MOST/BEST separately).
 3. Clarity, objectivity and format against the style guide and B3, plus the length and position tells across the 10.
 4. Fact check of every key and every why line against a primary source (every question, not a sample).
+CONTESTED (oversight, 2026-11-17; passes 1 and 4): if any reputable source (the exam objectives, NIST, a major vendor
+or course text) places the concept differently from the key, the question is rewritten to an uncontested example or
+dropped, logged "contested". The card saying so is not enough when the field disagrees. Also learned in the 1.1 pilot:
+wrong options are real neighboring terms (never off-topic attributes), every scenario names a role, at most 2 plain
+definition questions per card.
 A question ships only after passing all of them unchanged in the last pass. A card under 10 survivors gets refills,
 which go through every pass.
 

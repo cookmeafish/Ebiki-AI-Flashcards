@@ -24,8 +24,8 @@ describe('every shipped bank in public/careers', () => {
       const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'))
       const pkg = JSON.parse(fs.readFileSync(path.join(PUBLIC, `${id}.json`), 'utf8'))
       expect(manifest.course).toBe(id)
-      // The build enforces 10 per card unless --allow-short; here at least 6 (the manifest does not record the flag).
-      expect(validateShipped({ manifest, files: readDir(dir), pkg, allowShort: true })).toEqual([])
+      // 10 per card, or 6 to 9 for a card whose reason the manifest records (a hand edit down to 6 fails).
+      expect(validateShipped({ manifest, files: readDir(dir), pkg })).toEqual([])
       const listed = new Set(Object.values(manifest.objectives).map((o) => o.file))
       expect(Object.keys(readDir(dir)).filter((f) => !listed.has(f))).toEqual([])
     })
@@ -38,8 +38,8 @@ describe('the shipped-bank check itself (on the invented fixture)', () => {
   const pkg = read('beekeeping-fixture.json')
   const built = buildBank({ courseId: 'beekeeping-fixture', pkg, sources: { '7-1.json': read('bank/7-1.json') }, stamps: { '7-1.json': read('bank/stamps/7-1.json') },
     chapters: [{ name: 'd7-knowledge.r2.md', text: fs.readFileSync(path.join(FIX, 'knowledge', 'd7-knowledge.r2.md'), 'utf8') }],
-    findCopies: (t) => verbatimProblems(t, outlineGrams(fs.readFileSync(path.join(FIX, 'outline.md'), 'utf8'))), allowShort: true })
-  const check = (files, manifest = built.manifest) => validateShipped({ manifest, files, pkg, allowShort: true })
+    findCopies: (t) => verbatimProblems(t, outlineGrams(fs.readFileSync(path.join(FIX, 'outline.md'), 'utf8'))), allowShort: true, shortReasons: read('bank/short.json') })
+  const check = (files, manifest = built.manifest) => validateShipped({ manifest, files, pkg })
   it('passes the build output', () => expect(check(built.files)).toEqual([]))
   it('catches a hand edit that breaks a question', () => {
     const text = built.files['q-7-1.json'].replace('"Lets workers pass but stops the queen","ok":true', '"Lets workers pass but stops the queen","ok":false')

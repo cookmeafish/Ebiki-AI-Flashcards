@@ -21,7 +21,7 @@ const fixture = () => {
     courseId: 'beekeeping-fixture', pkg: read('beekeeping-fixture.json'),
     sources: { '7-1.json': read('bank/7-1.json') }, stamps: { '7-1.json': read('bank/stamps/7-1.json') },
     chapters: fs.readdirSync(path.join(FIX, 'knowledge')).map((name) => ({ name, text: fs.readFileSync(path.join(FIX, 'knowledge', name), 'utf8') })),
-    findCopies: (texts) => verbatimProblems(texts, grams), allowShort: true,
+    findCopies: (texts) => verbatimProblems(texts, grams), allowShort: true, shortReasons: read('bank/short.json'),
   }
 }
 const EXCLUDER = 'i7-1-a1c3e5f7'
@@ -43,8 +43,8 @@ describe('the fixture bank builds clean', () => {
     const card = (id) => pkg.areas[0].items.find((x) => x.id === id)
     expect(r.manifest).toEqual({ course: 'beekeeping-fixture', format: 1, rev: 1, package: '1', objectives: {
       '7.1': { file: 'q-7-1.json', rev: 1, cards: {
-        [EXCLUDER]: { sig: cardSig(card(EXCLUDER)), slots: 'd1d1s1s1S2A1--------' },
-        [ESCAPE]: { sig: cardSig(card(ESCAPE)), slots: 'd1d1s1s1S2A1--------' },
+        [EXCLUDER]: { sig: cardSig(card(EXCLUDER)), slots: 'd1d1s1s1S2A1--------', short: read('bank/short.json')[EXCLUDER] },
+        [ESCAPE]: { sig: cardSig(card(ESCAPE)), slots: 'd1d1s1s1S2A1--------', short: read('bank/short.json')[ESCAPE] },
       } } } })
   })
   it('one review line per question for the domain', () => {
@@ -54,10 +54,21 @@ describe('the fixture bank builds clean', () => {
     expect(lines.find((l) => l.id === `${ESCAPE}.4`).key).toEqual([1, 3])
   })
   it('what ships passes the shipped-bank check', () => {
-    expect(validateShipped({ manifest: r.manifest, files: r.files, pkg: fixture().pkg, allowShort: true })).toEqual([])
+    expect(validateShipped({ manifest: r.manifest, files: r.files, pkg: fixture().pkg })).toEqual([])
   })
   it('without --allow-short, 6 questions per card is not enough', () => {
     expect(buildBank({ ...fixture(), allowShort: false }).problems.filter((p) => p.startsWith('C22'))).toHaveLength(2)
+  })
+  it('--allow-short without a recorded reason (or a token one) is still refused, per card', () => {
+    const c22 = buildBank({ ...fixture(), shortReasons: { [ESCAPE]: 'too few' } }).problems.filter((p) => p.startsWith('C22'))
+    expect(c22).toHaveLength(2) // one card has no reason, the other only a token one
+    expect(c22.every((p) => p.includes('short.json'))).toBe(true)
+  })
+  it("a hand edit that drops a short card's reason from the manifest fails the shipped check", () => {
+    const m = JSON.parse(JSON.stringify(r.manifest))
+    delete m.objectives['7.1'].cards[ESCAPE].short
+    const out = validateShipped({ manifest: m, files: r.files, pkg: fixture().pkg })
+    expect(out).toEqual([expect.stringMatching(new RegExp(`^C22 ${ESCAPE}: .*6 questions, 10 needed`))])
   })
 })
 

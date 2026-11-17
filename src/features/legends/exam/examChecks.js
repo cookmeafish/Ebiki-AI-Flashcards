@@ -260,9 +260,10 @@ export function ipv6Candidates(s) {
 }
 
 // ── across questions ──
-// `questions` = shaped questions (C1 passed) of one bank build; `opts.allowShort` = at least 6 per card, not 10.
+// `questions` = shaped questions (C1 passed) of one bank build; `opts.allowShort` = at least 6 per card, not 10;
+// `opts.shortOk(cardId)` decides per card instead (a short card needs a recorded reason, see SHORT_REASON_MIN).
 // `opts.cards` = the card ids whose questions are being built (every quizzable card of each objective present).
-export function checkSet(questions, ctx, { allowShort = false } = {}) {
+export function checkSet(questions, ctx, { allowShort = false, shortOk = null } = {}) {
   const out = []
   const byObj = groupBy(questions, (q) => q.obj)
   const byCard = groupBy(questions, (q) => q.item)
@@ -315,12 +316,17 @@ export function checkSet(questions, ctx, { allowShort = false } = {}) {
     if (d < 2 || s < 2) out.push(F('C22', cid, `card ${cid}: needs at least 2 definition and 2 scenario questions at level 1 (has ${d} and ${s})`))
     if (list.filter((q) => q.kind === 'artifact').length > 2) out.push(F('C22', cid, `card ${cid}: at most 2 artifact questions`))
     if (list.filter((q) => q.pick > 1).length > 2) out.push(F('C22', cid, `card ${cid}: at most 2 select-N questions`))
-    const need = allowShort ? 6 : 10
-    if (list.length < need) out.push(F('C22', cid, `card ${cid}: ${list.length} questions, ${need} needed${allowShort ? ' (--allow-short)' : ''}`))
+    const short = shortOk ? shortOk(cid) : allowShort
+    const need = short ? 6 : 10
+    if (list.length < need) out.push(F('C22', cid, `card ${cid}: ${list.length} questions, ${need} needed${short ? ' (short card)' : shortOk || allowShort ? ' (6 to 9 only with --allow-short and its reason in bank/short.json)' : ''}`))
     if (list.length > 10) out.push(F('C22', cid, `card ${cid}: ${list.length} questions, at most 10`))
   }
   return out
 }
+
+// A short card's reason (bank/short.json, recorded in the manifest) must say something: at least this many characters.
+export const SHORT_REASON_MIN = 15
+export const shortReasonOk = (r) => typeof r === 'string' && r.trim().length >= SHORT_REASON_MIN
 
 const groupBy = (list, fn) => { const m = new Map(); for (const x of list) { const k = fn(x); if (!m.has(k)) m.set(k, []); m.get(k).push(x) } return m }
 export const stemKey = (q) => fold(`${q.stem} ${q.ask}`).replace(/\d+/g, '#')
