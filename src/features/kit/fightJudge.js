@@ -128,7 +128,7 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
       q?._guard?.meaning ? `The card gives this meaning for the right answer: "${String(q._guard.meaning).slice(0, 200)}". State no other meaning, part of speech, gender or form for the right answer than the card and the question give.` : '',
       // (Judged on real notes: told only "when certain", half the notes stopped saying what the wrong word means, and
       // the contrast between the two words IS the lesson. So: say it for a word you know, stay silent only in doubt.)
-      'About the learner\'s WRONG word: when it is a real word you know well, say in a few plain words what it means, exactly and in its own gender and form (the contrast with the right answer is the lesson). Only when you are not certain of it, do not define it: say that it is not what was asked, and why the right answer fits.',
+      'About the learner\'s WRONG word: when it is a real word you know well, say in a few plain words what it means, exactly and in its own gender and form (the contrast with the right answer is the lesson). Only when you are not certain of it, do not define it: say that it is not what was asked, and why the right answer fits. Define a word by the state, thing or action it names, never by naming who it applies to (a man, a woman) unless the form written is exactly that gender.',
       mistakeKindLine(ans, q?.accepted, { isLanguage: !!subject?.isLanguage }),
       TEACHING_STYLE_RULE,
       wantFix ? '"fix": a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". null when there is none.' : '',

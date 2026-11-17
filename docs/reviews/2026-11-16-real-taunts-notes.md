@@ -43,3 +43,10 @@ again. Round 4 was NOT judged independently (usage limit); by the author's read,
 adjective with "a woman" and one says "partner by marriage".
 Calls on the owner's key: about 100 in all (round 3 measured: 30 calls, 35,924 input and 10,323 output tokens, the
 cheap model retrying about once per taunt; rounds 1 and 2 not measured; round 4: 10 calls).
+
+## Round 4 judged (independent)
+Notes: exact accepted answer 10 of 10; short and neutral 10 of 10; correct word claims 9 of 10; all ten say what the
+wrong word means again (round 3: five). The one fail, for the third time: a masculine adjective defined with "a
+woman". A rule now tells the writer to define a word by the state or action it names, never by who it applies to
+unless the form written is that gender. That last rule has NOT been run on real lines (about 110 of the 150 calls
+are used; the rest is kept for the exam-format proof).
