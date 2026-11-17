@@ -6,6 +6,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { featureStore } from '../storage'
 import { shapeMap } from './map'
 import { isCareerMap } from './career'
+import { fnv } from './hash.js'
 
 export const LEGENDS_ID = 'legends'
 // The intent that opens the Legends screen (= the nav id); payload { edit: '<request>' } opens "Change my map". Here,
@@ -173,7 +174,7 @@ export function useLegendsMap(modeId) {
 // A step's questions (or scene) are made ONCE and kept, one file per step (features/legends/step-<hash>.json in the
 // data folder, gitignored): every later visit and retry reuses them instead of paying for new ones. `sig` is the
 // step's taught content; when "Change my map" rewrites the area, the old set no longer matches and a new one is made.
-const hash = (s) => { let h = 0x811c9dc5; for (const ch of String(s)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0 } return h.toString(36) }
+const hash = fnv
 export const stepKey = (modeId, areaId, nodeId) => `step-${hash(`${modeId}|${areaId}|${nodeId}`)}-${hash(`${nodeId}|${areaId}|${modeId}`)}`
 export const stepSig = (items) => hash(items.map((it) => `${it.id}\u0001${it.front}\u0001${it.back}`).join('\u0002'))
 
