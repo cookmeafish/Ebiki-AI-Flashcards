@@ -1,0 +1,62 @@
+{
+ "course": "security-plus-sy0-701",
+ "format": 1,
+ "rev": 1,
+ "package": "1",
+ "objectives": {
+  "1.1": {
+   "file": "q-1-1.json",
+   "rev": 1,
+   "cards": {
+    "i1-1-02a955cb": {
+     "sig": "1inagzs",
+     "slots": "d1d1s1s1S1S1S1S1A1S2"
+    },
+    "i1-1-172e8ab8": {
+     "sig": "11l2iu3",
+     "slots": "d1d1s1s1s1S1S1S1A1S2"
+    },
+    "i1-1-17eb1a96": {
+     "sig": "8qfrey",
+     "slots": "d1d1s1s1S1S1S1S1S1S2"
+    },
+    "i1-1-3aa6b30b": {
+     "sig": "17t4ibd",
+     "slots": "d1d1s1s1S1S1S1A1S1S2"
+    },
+    "i1-1-3ded6b7b": {
+     "sig": "1n2axto",
+     "slots": "d1d1s1s1s1S1S1S1A1S2"
+    },
+    "i1-1-55fcb3b6": {
+     "sig": "1jnc6cw",
+     "slots": "d1d1s1s1S1S1S1S1A1S2"
+    },
+    "i1-1-6e4e84fd": {
+     "sig": "migh7o",
+     "slots": "d1d1s2s1s1S1S1S1S1S2"
+    },
+    "i1-1-7215172d": {
+     "sig": "1m85f01",
+     "slots": "d1d1s1s1s1S1s1S1A1S2"
+    },
+    "i1-1-867b6c50": {
+     "sig": "1rgzr2j",
+     "slots": "d1d1s1s1s1S1S1S1A1S2"
+    },
+    "i1-1-88dabb74": {
+     "sig": "eqr4j0",
+     "slots": "d1d1s1s1s1S1S1S1A1S2"
+    },
+    "i1-1-e1ccd45a": {
+     "sig": "ehaygs",
+     "slots": "d1d1s1s1S1S1S1S1A1S2"
+    },
+    "i1-1-e28fd41b": {
+     "sig": "e4zd51",
+     "slots": "d1d1s1S1s1S1S1S1A1S2"
+    }
+   }
+  }
+ }
+}
