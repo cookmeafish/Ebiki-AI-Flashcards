@@ -105,7 +105,7 @@ The four categories answer one question: how is the control carried out? A syste
 
 **Scenario:** A clue lists "a clean desk policy, a shredder in every office and a cleaning crew that checks desks at night." The policy is managerial, the shredder physical, the nightly check operational. Picking "physical" for the policy is the common mistake: a document is not a barrier.
 
-**Worked mini-example:** "Requirement: badge in to the data center" (managerial, directive). "Badge reader on the door" (physical, preventive). "Badge server rejects revoked badges" (technical, preventive). "Guard reviews the badge log each shift" (operational, detective).
+**Worked mini-example:** "Requirement: badge in to the data center" (managerial, directive). "Badge reader on the door" (physical, preventive). "VPN gateway rejects a revoked user certificate" (technical, preventive). "Guard reviews the badge log each shift" (operational, detective).
 
 ### Preventive controls (control type)
 
