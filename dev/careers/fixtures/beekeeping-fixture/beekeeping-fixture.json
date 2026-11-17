@@ -1,0 +1,50 @@
+{
+ "id": "beekeeping-fixture",
+ "title": "Beekeeping (invented test course)",
+ "version": "1",
+ "areas": [
+  {
+   "id": "bee-d7",
+   "number": "7.0",
+   "title": "Hive equipment",
+   "weight": 100,
+   "theme": "",
+   "motif": "castle",
+   "palette": "original",
+   "bossName": "",
+   "story": [],
+   "canDo": [],
+   "brief": "i7-1-0b0e0f01",
+   "sections": [
+    { "id": "7.1", "title": "Manage the boxes of a hive", "short": "Hive boxes", "brief": "i7-1-0b0e0f01" }
+   ],
+   "items": [
+    {
+     "id": "i7-1-0b0e0f01",
+     "kind": "brief",
+     "front": "Hive boxes",
+     "back": "Definition: A hive is a stack of boxes: the brood box at the bottom where the queen lays, and honey boxes above it.\nCategory: 7.1 Hive boxes\nKey Points: Brood below, honey above; parts between the boxes control who moves where",
+     "section": "7.1"
+    },
+    {
+     "id": "i7-1-a1c3e5f7",
+     "kind": "term",
+     "front": "Queen excluder",
+     "back": "Definition: A flat grid with gaps wide enough for worker bees but too narrow for the larger queen, fitted between the brood box and the honey boxes above it.\nExample: A beekeeper fits one above the brood box in spring so the honey boxes hold only honey and no brood.\nCategory: 7.1 Hive boxes > Between the boxes\nKey Points: Workers pass, the queen cannot; it keeps eggs and brood out of the honey boxes; it stays on all season, unlike a bee escape board",
+     "section": "7.1"
+    },
+    {
+     "id": "i7-1-b2d4f6a8",
+     "kind": "term",
+     "front": "Bee escape board",
+     "back": "Definition: A board with a one-way exit, placed under the honey boxes a day or two before harvest, so bees can leave those boxes but cannot find their way back in.\nExample: The evening before harvest, a beekeeper slides one under the full honey boxes, and the next morning they are almost empty of bees.\nCategory: 7.1 Hive boxes > Between the boxes\nKey Points: One way, so it clears bees out; used only for a day or two before harvest; it does not sort bees by size like a queen excluder",
+     "section": "7.1"
+    }
+   ],
+   "lessons": [
+    { "section": "7.1", "title": "Between the boxes", "itemIds": ["i7-1-a1c3e5f7", "i7-1-b2d4f6a8"] }
+   ],
+   "acronyms": []
+  }
+ ]
+}

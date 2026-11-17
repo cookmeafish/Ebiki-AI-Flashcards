@@ -1,0 +1,200 @@
+[
+ { "id": "i7-1-a1c3e5f7.0", "item": "i7-1-a1c3e5f7", "obj": "7.1", "slot": 0, "rev": 1, "cardSig": "1cs1c40",
+   "kind": "definition", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "", "bullets": [],
+   "ask": "Which of the following describes what a queen excluder does?",
+   "artifact": null,
+   "options": [
+    { "t": "Lets bees leave a box but not return", "ok": false, "item": "i7-1-b2d4f6a8", "why": "That is a bee escape board, which clears bees out of a box before harvest." },
+    { "t": "Lets workers pass but stops the queen", "ok": true, "item": "i7-1-a1c3e5f7", "why": "Its gaps fit a worker bee but not the larger queen." },
+    { "t": "Narrows the entrance against robber bees", "ok": false, "item": null, "why": "That is an entrance reducer at the front of the hive, not a grid between boxes." },
+    { "t": "Holds a new queen while bees accept her", "ok": false, "item": null, "why": "That is a queen cage, used when a colony gets a new queen." }
+   ],
+   "detail": "", "runner": null, "edge": null,
+   "explain": "A queen excluder has gaps that fit a worker but not the bigger queen, so only workers reach the boxes above.",
+   "source": { "card": "definition", "chapter": "Queen excluders" } },
+
+ { "id": "i7-1-a1c3e5f7.1", "item": "i7-1-a1c3e5f7", "obj": "7.1", "slot": 1, "rev": 1, "cardSig": "1cs1c40",
+   "kind": "definition", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "", "bullets": [],
+   "ask": "Which of the following parts sits between the brood box and the honey boxes for the whole season?",
+   "artifact": null,
+   "options": [
+    { "t": "Bee escape board", "ok": false, "item": "i7-1-b2d4f6a8", "why": "A bee escape board sits there only for a day or two before harvest, not all season." },
+    { "t": "A cloth laid over the top frames", "ok": false, "item": null, "why": "A cloth over the frames sits on top of the highest box, not between brood and honey boxes." },
+    { "t": "Queen excluder", "ok": true, "item": "i7-1-a1c3e5f7", "why": "It stays between the brood box and the honey boxes all season so no brood ends up with the honey." },
+    { "t": "A block that narrows the entrance", "ok": false, "item": null, "why": "That block sits at the front opening at the bottom of the hive." }
+   ],
+   "detail": "", "runner": null, "edge": null,
+   "explain": "The excluder goes on when the honey boxes do and stays until they come off.",
+   "source": { "card": "keyPoints", "chapter": "Queen excluders" } },
+
+ { "id": "i7-1-a1c3e5f7.2", "item": "i7-1-a1c3e5f7", "obj": "7.1", "slot": 2, "rev": 1, "cardSig": "1cs1c40",
+   "kind": "scenario", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "A beekeeper lifts the honey boxes in midsummer and finds eggs and young brood in the frames that were meant for honey only. The queen has been laying up there.",
+   "bullets": [],
+   "ask": "What should the beekeeper fit between the brood box and the honey boxes?",
+   "artifact": null,
+   "options": [
+    { "t": "A cage holding a new queen", "ok": false, "item": null, "why": "A cage holds a queen while a colony accepts her. It does not keep her out of the honey boxes." },
+    { "t": "A queen excluder", "ok": true, "item": "i7-1-a1c3e5f7", "why": "It lets workers through but keeps the queen below, so she can no longer lay in the honey boxes." },
+    { "t": "A block narrowing the entrance", "ok": false, "item": null, "why": "Narrowing the front opening does nothing about where the queen lays." },
+    { "t": "A bee escape board", "ok": false, "item": "i7-1-b2d4f6a8", "why": "A bee escape board clears all bees out for a harvest. It is not meant to stay on and keep the queen down." }
+   ],
+   "detail": "eggs and young brood in the frames that were meant for honey only", "runner": null, "edge": null,
+   "explain": "Eggs in the honey boxes mean the queen walked up there. A queen excluder lets workers through but stops her.",
+   "source": { "card": "definition", "chapter": "Queen excluders" } },
+
+ { "id": "i7-1-a1c3e5f7.3", "item": "i7-1-a1c3e5f7", "obj": "7.1", "slot": 3, "rev": 1, "cardSig": "1cs1c40",
+   "kind": "scenario", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "At a club workshop, a new member asks why the grid between two of the boxes has gaps of one exact width. The leader says the width is the whole point of the part.",
+   "bullets": [],
+   "ask": "Which of the following explains the exact gap width?",
+   "artifact": null,
+   "options": [
+    { "t": "Workers pass and the queen cannot", "ok": true, "item": "i7-1-a1c3e5f7", "why": "The width is chosen so a worker fits through and the larger queen does not." },
+    { "t": "It lets bees out but not back in", "ok": false, "item": "i7-1-b2d4f6a8", "why": "That one-way exit belongs to a bee escape board, not to a grid with even gaps." },
+    { "t": "It keeps mice out in winter", "ok": false, "item": null, "why": "A mouse guard does that at the entrance. The grid's gaps are sized for bees." },
+    { "t": "It lets the hive breathe in summer", "ok": false, "item": null, "why": "Air flow comes from the entrance and vents. The gap width is about the queen." }
+   ],
+   "detail": "gaps of one exact width", "runner": null, "edge": null,
+   "explain": "The grid is a queen excluder: the gap width is what sorts the workers from the queen.",
+   "source": { "card": "definition", "chapter": "Queen excluders" } },
+
+ { "id": "i7-1-a1c3e5f7.4", "item": "i7-1-a1c3e5f7", "obj": "7.1", "slot": 4, "rev": 1, "cardSig": "1cs1c40",
+   "kind": "scenario", "level": 2, "pick": 2, "word": "", "neg": false,
+   "stem": "A hobby beekeeper is setting up a hive for the season and wants the top boxes to hold only honey, with no brood mixed in.",
+   "bullets": [],
+   "ask": "Which of the following describe how a queen excluder helps with this? (Select TWO)",
+   "artifact": null,
+   "options": [
+    { "t": "Its gaps let workers pass but stop the queen", "ok": true, "item": null, "why": "With the queen kept below, no eggs are laid in the top boxes." },
+    { "t": "It lets bees leave a box but not return", "ok": false, "item": "i7-1-b2d4f6a8", "why": "That is a bee escape board. It would empty the top boxes of workers too." },
+    { "t": "It stays in place for the whole season", "ok": true, "item": null, "why": "It is on as long as the honey boxes are, so the queen never gets up there." },
+    { "t": "It is removed a day before harvest", "ok": false, "item": null, "why": "That timing fits a bee escape board. An excluder stays on all season." },
+    { "t": "It narrows the entrance against robbers", "ok": false, "item": null, "why": "That is an entrance reducer. It does not decide where brood ends up." }
+   ],
+   "detail": "with no brood mixed in", "runner": null, "edge": null,
+   "explain": "The excluder keeps the queen below, so she lays no eggs in the honey boxes, and it stays on all season.",
+   "source": { "card": "keyPoints", "chapter": "Queen excluders" } },
+
+ { "id": "i7-1-a1c3e5f7.5", "item": "i7-1-a1c3e5f7", "obj": "7.1", "slot": 5, "rev": 1, "cardSig": "1cs1c40",
+   "kind": "artifact", "level": 2, "pick": 1, "word": "MOST", "neg": false,
+   "stem": "A beekeeper reads the inspection notes below for one hive.",
+   "bullets": [],
+   "ask": "Which of the following MOST likely explains the brood in the top box?",
+   "artifact": { "type": "log", "lines": [
+    "Hive 4, 12 June: top box frames 3 to 6 hold capped brood",
+    "Hive 4, 12 June: grid between boxes found bent, one corner lifted",
+    "Hive 4, 12 June: brood box frames normal, eggs present"
+   ], "mark": [1] },
+   "options": [
+    { "t": "A missing bee escape board", "ok": false, "item": "i7-1-b2d4f6a8", "why": "A bee escape board is only used before harvest. Its absence would not let the queen up." },
+    { "t": "An open entrance reducer", "ok": false, "item": null, "why": "The entrance is at the bottom of the hive. It has nothing to do with the top box." },
+    { "t": "A cracked inner cover", "ok": false, "item": null, "why": "The inner cover sits above the top box. A crack there does not open a way up from the brood." },
+    { "t": "A bent queen excluder", "ok": true, "item": "i7-1-a1c3e5f7", "why": "The notes say the grid between the boxes is bent with a corner lifted, which leaves a gap the queen can use." }
+   ],
+   "detail": "grid between boxes found bent, one corner lifted", "runner": null, "edge": null,
+   "explain": "A bent grid leaves a gap the queen can squeeze through, and the brood in the top box shows she did.",
+   "source": { "card": "keyPoints", "chapter": "Queen excluders" } },
+
+ { "id": "i7-1-b2d4f6a8.0", "item": "i7-1-b2d4f6a8", "obj": "7.1", "slot": 0, "rev": 1, "cardSig": "1eba6wc",
+   "kind": "definition", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "", "bullets": [],
+   "ask": "Which of the following describes what a bee escape board does?",
+   "artifact": null,
+   "options": [
+    { "t": "Narrows the entrance against robber bees", "ok": false, "item": null, "why": "That is an entrance reducer at the front of the hive." },
+    { "t": "Keeps the queen in the lower boxes", "ok": false, "item": "i7-1-a1c3e5f7", "why": "That is a queen excluder, which sorts bees by size." },
+    { "t": "Feeds sugar syrup from inside the hive", "ok": false, "item": null, "why": "That is a frame feeder. An escape board holds no food." },
+    { "t": "Lets bees leave a box but not return", "ok": true, "item": "i7-1-b2d4f6a8", "why": "Its one-way exit lets bees walk down and out of the boxes above it, with no way back." }
+   ],
+   "detail": "", "runner": null, "edge": null,
+   "explain": "A bee escape board has a one-way exit, so the boxes above it empty of bees.",
+   "source": { "card": "definition", "chapter": "Bee escape boards" } },
+
+ { "id": "i7-1-b2d4f6a8.1", "item": "i7-1-b2d4f6a8", "obj": "7.1", "slot": 1, "rev": 1, "cardSig": "1eba6wc",
+   "kind": "definition", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "", "bullets": [],
+   "ask": "Which of the following parts is placed under the honey boxes only a day or two before harvest?",
+   "artifact": null,
+   "options": [
+    { "t": "Queen excluder", "ok": false, "item": "i7-1-a1c3e5f7", "why": "A queen excluder stays on all season, not just before harvest." },
+    { "t": "Bee escape board", "ok": true, "item": "i7-1-b2d4f6a8", "why": "It goes in a day or two before harvest to clear the honey boxes of bees." },
+    { "t": "A block that narrows the entrance", "ok": false, "item": null, "why": "That block sits at the front opening, not under the honey boxes." },
+    { "t": "A cloth laid over the top frames", "ok": false, "item": null, "why": "A cloth over the frames goes on top of the highest box." }
+   ],
+   "detail": "", "runner": null, "edge": null,
+   "explain": "Only the escape board is timed to the harvest: it clears the honey boxes and then comes off.",
+   "source": { "card": "definition", "chapter": "Bee escape boards" } },
+
+ { "id": "i7-1-b2d4f6a8.2", "item": "i7-1-b2d4f6a8", "obj": "7.1", "slot": 2, "rev": 1, "cardSig": "1eba6wc",
+   "kind": "scenario", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "On harvest morning, a beekeeper wants to lift off the full honey boxes without carrying thousands of bees to the kitchen. She has one evening left to prepare.",
+   "bullets": [],
+   "ask": "What should the beekeeper place under the honey boxes that evening?",
+   "artifact": null,
+   "options": [
+    { "t": "A queen excluder", "ok": false, "item": "i7-1-a1c3e5f7", "why": "An excluder only stops the queen. The workers would still fill the boxes." },
+    { "t": "A cage holding a new queen", "ok": false, "item": null, "why": "A cage holds one queen. It does nothing about the thousands of workers." },
+    { "t": "A bee escape board", "ok": true, "item": "i7-1-b2d4f6a8", "why": "Overnight the bees walk down through its one-way exit, so the boxes are nearly empty by morning." },
+    { "t": "A block narrowing the entrance", "ok": false, "item": null, "why": "Narrowing the front opening does not clear the honey boxes." }
+   ],
+   "detail": "without carrying thousands of bees", "runner": null, "edge": null,
+   "explain": "A night under a bee escape board is enough for the bees to leave the honey boxes and not come back.",
+   "source": { "card": "example", "chapter": "Bee escape boards" } },
+
+ { "id": "i7-1-b2d4f6a8.3", "item": "i7-1-b2d4f6a8", "obj": "7.1", "slot": 3, "rev": 1, "cardSig": "1eba6wc",
+   "kind": "scenario", "level": 1, "pick": 1, "word": "", "neg": false,
+   "stem": "A beekeeper slides a board under the honey boxes one evening. By morning most bees have gone down into the brood box, and very few come back up.",
+   "bullets": [],
+   "ask": "Which of the following explains why the bees stay below?",
+   "artifact": null,
+   "options": [
+    { "t": "Its gaps are too narrow for the queen", "ok": false, "item": "i7-1-a1c3e5f7", "why": "Gaps sized for the queen describe a queen excluder, and workers pass an excluder freely." },
+    { "t": "Smoke drove them down", "ok": false, "item": null, "why": "No smoke was used here. The board did the work overnight." },
+    { "t": "Its exits open only one way", "ok": true, "item": "i7-1-b2d4f6a8", "why": "The one-way exits let bees go down but give them no way back up." },
+    { "t": "The top frames ran out of food", "ok": false, "item": null, "why": "The honey boxes are full of food. The bees left because they could not return." }
+   ],
+   "detail": "very few come back up", "runner": null, "edge": null,
+   "explain": "The board is a bee escape board: its exits work one way, so bees that go down cannot return.",
+   "source": { "card": "definition", "chapter": "Bee escape boards" } },
+
+ { "id": "i7-1-b2d4f6a8.4", "item": "i7-1-b2d4f6a8", "obj": "7.1", "slot": 4, "rev": 1, "cardSig": "1eba6wc",
+   "kind": "scenario", "level": 2, "pick": 2, "word": "", "neg": false,
+   "stem": "A beekeeper will harvest tomorrow and plans to clear the honey boxes of bees overnight, without sprays or brushing.",
+   "bullets": [],
+   "ask": "Which of the following are true of the part that does this? (Select TWO)",
+   "artifact": null,
+   "options": [
+    { "t": "It stays on the hive all season", "ok": false, "item": null, "why": "That is a queen excluder. The part here is only used for a night or two." },
+    { "t": "Bees can leave through it but not return", "ok": true, "item": null, "why": "That one-way exit is how it clears the boxes overnight." },
+    { "t": "It stops only the queen from passing", "ok": false, "item": "i7-1-a1c3e5f7", "why": "That describes a queen excluder, which would leave the workers in the boxes." },
+    { "t": "It goes under the honey boxes", "ok": true, "item": null, "why": "Placed under the honey boxes, it lets the bees above walk down and out." },
+    { "t": "It is sprayed with a scent bees avoid", "ok": false, "item": null, "why": "That is a fume board, and the stem rules out sprays." }
+   ],
+   "detail": "without sprays or brushing", "runner": null, "edge": null,
+   "explain": "A bee escape board goes under the honey boxes and lets bees out one way, with no spray and no brush.",
+   "source": { "card": "definition", "chapter": "Bee escape boards" } },
+
+ { "id": "i7-1-b2d4f6a8.5", "item": "i7-1-b2d4f6a8", "obj": "7.1", "slot": 5, "rev": 1, "cardSig": "1eba6wc",
+   "kind": "artifact", "level": 2, "pick": 1, "word": "BEST", "neg": false,
+   "stem": "A club member posts the messages below after a harvest.",
+   "bullets": [],
+   "ask": "Which of the following would have been the BEST part to fit the night before?",
+   "artifact": { "type": "message", "lines": [
+    "Club chat, 08:10: Took the honey boxes off hive 2 this morning.",
+    "Club chat, 08:11: Half the colony came with them into the kitchen.",
+    "Club chat, 08:12: I had put a grid between the boxes last night."
+   ], "mark": [1, 2] },
+   "options": [
+    { "t": "A fume board", "ok": false, "partly": true, "item": null, "why": "A fume board also drives bees out of honey boxes, but it works in minutes on the day, not set the night before." },
+    { "t": "A queen excluder", "ok": false, "item": "i7-1-a1c3e5f7", "why": "The grid was most likely an excluder, and it left the workers in the boxes." },
+    { "t": "A bee escape board", "ok": true, "item": "i7-1-b2d4f6a8", "why": "Set the night before, its one-way exit would have emptied the boxes of bees by morning." },
+    { "t": "An inner cover", "ok": false, "item": null, "why": "An inner cover sits on top of the hive and clears no bees." }
+   ],
+   "detail": "Half the colony came with them into the kitchen", "runner": 0,
+   "edge": "Both clear bees from honey boxes. A part fitted the night before points to the bee escape board, which works over hours.",
+   "explain": "The bees came along because nothing had cleared them. A bee escape board set the night before would have.",
+   "source": { "card": "example", "chapter": "Choosing what goes between the boxes" } }
+]
