@@ -516,7 +516,9 @@ export default function LegendsScreen() {
         <div style={{ maxWidth: 600, margin: 'clamp(8px, 4vw, 30px) auto', display: 'grid', gap: 'clamp(10px, 3vw, 18px)' }}>
           {/* FIRST CHOICE (the owner: "make it an option of what to choose to load"): a ready COURSE (career mode) or
               Ebi builds your own map (choose your own adventure). A course is offered only to a mode it fits. */}
-          <EbiSays pose={poseFile('king')}>{t('lg_pickTitle', { subject: subject.name })}</EbiSays>
+          {/* A smaller Ebi stays BESIDE the bubble on a phone (at 96 px the bubble wrapped under him and pushed the
+              course button below the bottom bar). */}
+          <EbiSays pose={poseFile('king')} size={64}>{t('lg_pickTitle', { subject: subject.name })}</EbiSays>
           {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
           {(() => {
             const fit = careers.filter((c) => careerMatches(c, subject))

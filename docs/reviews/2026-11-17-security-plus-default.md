@@ -157,4 +157,24 @@ Still weak:
    reuses `mode_createdNotice`, which is written for Settings. Fix: its own string without the Settings sentence, in
    all four locales.
 
+## Re-check 3 (c39d883, 1.72.2)
+
+Same script (`scratchpad/sp2.mjs`, now also reading the toast), 390 x 844. The phone bottom bar's top is at 766 px.
+
+| Case | Button top / bottom vs bar top | Toast after the click | Mode / deck | Spanish | Result |
+|---|---|---|---|---|---|
+| Fresh, with key | 663 / 748 vs 766: visible | Made the "Security+" mode for the course. | Security+ / Security+ | none | PASS |
+| Fresh, no key | **789 / 875 vs 766**: hidden by 23 px | Made the "Security+" mode for the course. | Security+ / Security+ | none | FAIL on visibility |
+
+- The needs-key line now sits under the tiles (fix-fresh-nokey-390-02-settings-closed.png): that part works.
+- With no key the button is still 23 px under the bar. On its own, the app-level amber banner ("Settings is set to
+  Anthropic (Claude), but this computer has no Anthropic (Claude) key saved" + "Add a key", about 126 px) pushes the
+  tile down. The screenshot shows only the tile's heading and the course name above the bar.
+  - Fix, either is enough: shrink the Ebi picture or the top margin of the choice screen on phones, or make the
+    banner one line on narrow widths.
+- The toast text is right in both cases. Minor: on a phone it covers part of the "Continue" button on the course map
+  for a few seconds (fix-fresh-390-02-after-click.png).
+- One click still lands on the course map in mode Security+ with deck Security+ in both cases. With a key, the first
+  lesson opens in English.
+
 
