@@ -517,7 +517,6 @@ export default function LegendsScreen() {
           {/* FIRST CHOICE (the owner: "make it an option of what to choose to load"): a ready COURSE (career mode) or
               Ebi builds your own map (choose your own adventure). A course is offered only to a mode it fits. */}
           <EbiSays pose={poseFile('king')}>{t('lg_pickTitle', { subject: subject.name })}</EbiSays>
-          {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13 }}>{t('lg_needKey')}</div>}
           {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
           {(() => {
             const fit = careers.filter((c) => careerMatches(c, subject))
@@ -573,6 +572,8 @@ export default function LegendsScreen() {
               </div>
             )
           })()}
+          {/* Under the choices (above them it pushed a phone's course button below the bottom bar). */}
+          {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13 }}>{t('lg_needKey')}</div>}
         </div>
       )
     }

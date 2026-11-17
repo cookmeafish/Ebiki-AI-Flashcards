@@ -690,6 +690,7 @@ export default {
   card_alreadyIn: '✓ 已在 {deck} 中：',
   card_syncFailed: '同步失败。Anki 是否在运行？',
   deck_linkedToMode: '已创建“{deck}”，并设为 {mode} 模式的卡组',
+  mode_courseCreated: '已为课程创建“{mode}”模式。',
   mode_createdNotice: '已创建“{mode}”模式并切换到该模式。已保存，可以随时关闭设置。',
   study_insightsLoading: '正在分析你的学习…',
   study_insightsTitle: '学习洞察',

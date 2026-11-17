@@ -690,6 +690,7 @@ export default {
   card_alreadyIn: '✓ Ya está en {deck}:',
   card_syncFailed: 'La sincronización falló. ¿Está abierto Anki?',
   deck_linkedToMode: 'Se creó "{deck}" y se asignó como mazo del modo {mode}',
+  mode_courseCreated: 'Se creó el modo "{mode}" para el curso.',
   mode_createdNotice: 'Se creó el modo "{mode}" y se cambió a él. Está guardado, puedes cerrar Ajustes cuando quieras.',
   study_insightsLoading: 'Analizando tu sesión...',
   study_insightsTitle: 'Observaciones',

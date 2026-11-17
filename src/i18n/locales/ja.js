@@ -690,6 +690,7 @@ export default {
   card_alreadyIn: '✓ {deck} に登録済み：',
   card_syncFailed: '同期に失敗しました。Anki は起動していますか？',
   deck_linkedToMode: '「{deck}」を作成し、{mode} モードのデッキに設定しました',
+  mode_courseCreated: 'コース用に「{mode}」モードを作成しました。',
   mode_createdNotice: '「{mode}」モードを作成して切り替えました。保存済みなので、設定はいつでも閉じられます。',
   study_insightsLoading: 'セッションを分析しています…',
   study_insightsTitle: '振り返り',

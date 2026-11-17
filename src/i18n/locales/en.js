@@ -748,6 +748,7 @@ export default {
   card_alreadyIn: '✓ Already in {deck}:',
   card_syncFailed: 'Sync failed. Is Anki running?',
   deck_linkedToMode: 'Created "{deck}" and set it as the deck for the {mode} mode',
+  mode_courseCreated: 'Made the "{mode}" mode for the course.',
   mode_createdNotice: 'Created the "{mode}" mode and switched to it. It is saved, so you can close Settings anytime.',
   study_insightsLoading: 'Analyzing your session...',
   study_insightsTitle: 'Insights',

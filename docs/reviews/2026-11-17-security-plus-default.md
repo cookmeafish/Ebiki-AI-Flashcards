@@ -126,3 +126,35 @@ What fails or is weak:
    but the button sits under the Ebi picture, the question bubble and the description. On desktop it is in view.
    Fix: put the course name and button at the top of the tile, or shorten the description and the picture on phones.
 
+## Re-check 2 (5f5c9e8, 1.72.1)
+
+Same script, `scratchpad/sp2.mjs`, plus a case with Anki down: every `/api/anki` call answered
+`{code:'notRunning'}`, as the real proxy does. Button position is measured against the top of the phone bottom bar,
+766 px at 390 x 844. Screenshots: `sp-default\fix-<case>-<width>-NN-<step>.png` (this run replaced the previous fix-*
+set).
+
+| Case | Width | Button top / bottom vs bar top | One click to the course map | Mode / deck after | createDeck "Security+" | Spanish | Result |
+|---|---|---|---|---|---|---|---|
+| Fresh, with key | 1280 | 472 / 558 (viewport 800) | yes | Security+ / Security+ | yes, before the mode save | none | PASS |
+| Fresh, with key | 390 | 663 / 748 vs 766 | yes | Security+ / Security+ | yes | none | PASS |
+| Fresh, no key | 1280 | 570 / 655 after closing the Settings that open by themselves | yes | Security+ / Security+ | yes | none | PASS |
+| Fresh, no key | 390 | **851 / 937 vs 766** | yes, after scrolling | Security+ / Security+ | yes | none | FAIL on visibility only |
+| Fresh, Anki down | 1280 | 472 / 558 | yes | Security+ / "Anki not connected"; mode saved with deck `Security+` | not possible (Anki down) | none | PASS |
+| Fresh, Anki down | 390 | 663 / 748 vs 766 | yes | same | not possible | none | PASS |
+| Owner, Spanish (LatAm) active | 390 | 663 / 748 vs 766 | yes ("Open it in Security+") | Security+ / Security+ | not needed (deck exists) | none | PASS |
+
+Order of requests on the fresh profile: `createDeck Security+` → `POST /api/modes` (new mode `Security+`, general,
+deck `Security+`, old mode still active) → `POST feature-data map-<new id>` (the course) → `POST /api/modes` (switch)
+→ study guide install. With a key, Continue opens the first lesson in English. With no key, Continue shows "Legends
+needs an AI key" (expected).
+
+Still weak:
+1. **No key on a phone: the button is below the fold (top 851 px, bar at 766 px).** Two extra rows push it down: the
+   amber "no Anthropic key" banner above the header and the "Legends needs an AI key" line. Fix: on narrow widths
+   put the needs-key line under the tiles (or drop it, since the banner already says so), or shrink the Ebi picture.
+2. **Wrong wording in the toast after the click:** "Created the "Security+" mode and switched to it. It is saved, so
+   you can close Settings anytime." This shows on the Legends screen, where no Settings is open. `createCourseMode`
+   reuses `mode_createdNotice`, which is written for Settings. Fix: its own string without the Settings sentence, in
+   all four locales.
+
+

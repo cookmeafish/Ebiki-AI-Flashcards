@@ -14956,7 +14956,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         }
         return null
       }
-      setSuccessNotice(t('mode_createdNotice', { mode: newMode.name }))
+      setSuccessNotice(t('mode_courseCreated', { mode: newMode.name }))
       return newId
     } finally {
       modeCreatingRef.current = false
