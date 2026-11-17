@@ -243,7 +243,7 @@ saved checkpoint set; phone; keyboard; what can go wrong)
 - R34 A learner who prefers typed recall has a stated way to get it: course cards they added to their deck still get typed questions with hints in Study, raids and practice outside the course behave as before, and if the course itself offers no typed option the notice says so instead of leaving them to search.
 
 ### Angle: phone, one hand, touch only (P)
-### Angle: a phone, one hand, touch only (P1 to P34, most important first)
+### Angle: a phone, one hand, touch only (P1 to P44, most important first)
 
 Test widths for every item unless it says otherwise: 360, 390 and 430 px portrait; 740 x 360 and 932 x 430 landscape;
 app zoom 100% and 200%; light and dark; a device with a notch and a home indicator.
@@ -431,448 +431,554 @@ app zoom 100% and 200%; light and dark; a device with a notch and a home indicat
 - K34 Esc, Back and Alt+Left during a mock exam, a boss or a task item never abandon silently: a dialog asks, names what would be lost or kept ("12 of 90 answered, your progress is saved / will be lost"), traps Tab, has its safe choice focused first, closes on Esc as "stay", and returns focus to where it was. Submit asks once too and names unanswered and flagged counts. Errors (a question failed to load, an answer could not be saved, the connection dropped) are announced as alerts with a focusable Retry, the timer does not run while a question cannot be shown, and the result screen reads as headings, a per-domain score table with headers ("Domain 4, Security Operations, 18 of 25, 72%") and a review list whose filters and items are all reachable by keyboard.
 
 ## Design
-Written 2026-11-16 from the six angle lists above and the code as it is today. Every JSON example below is invented
-and on a subject the course does not teach (baking, gardening), on purpose: no example may look like a course or
-reference question. Names of files and functions that exist today are real; everything marked NEW is to be built.
+Written 2026-11-16 from the six angle lists above and the code as it is today; revised the same day after the
+independent review `docs/reviews/2026-11-16-exam-format-design-review.md` (31 findings; its blockers 1 to 5 are
+settled here on paper). The question examples are invented and on subjects the course does not teach (pottery,
+baking), on purpose. The firewall example in D6.2 and the port table in D6.3 are the one exception: kinds 7 and 8
+are about networks by nature; their hosts and addresses are invented and the ports are public assignments. Names
+of files and functions that exist today are real; everything marked NEW is to be built.
 
 Facts the design rests on (checked in the code):
 - The shipped package is ONE file, `public/careers/security-plus-sy0-701.json` (665 KB): 5 islands, 28 objectives,
-  855 items of which 33 are briefings (`kind: 'brief'`, never quizzed), so 822 cards can be asked.
+  300 lessons, 855 items of which 33 are briefings (`kind: 'brief'`, never quizzed), so 822 cards can be asked. No
+  study guide ships on this branch (`public/careers/` holds only the package; chapters are in `dev/careers/sources/`).
+- A started course keeps the card text it started with (career.js line 18); item ids hash the term, not the back.
 - A course fight today asks TYPED questions with optional choices (`fitQuestionsToKind`), judged by an AI call
-  (`judgeStrike`). A lesson is `QuizRunner` with questions from `makeQuiz` (generate.js), which needs an AI key.
-- Saved step content lives in `features/legends/step-<hash>.json` (store.js `readStep` / `saveStep`); a fight keeps
-  only a `history` of prompts. Nothing of a running lesson or fight is persisted (NodeRun keeps it in memory).
+  (`judgeStrike`). A lesson is `QuizRunner` with questions from `makeQuiz`; its start button is disabled with no key.
+- Saved step content lives in `features/legends/step-<hash>.json` (`readStep` / `saveStep`); a fight keeps only a
+  `history` of prompts. Nothing of a running lesson or fight is persisted (NodeRun keeps it in memory).
 - The map (`map-<modeId>.json`, `version: 2`) holds every star, tally, helper and nemesis. Older builds read it.
-- `featureStore('legends')` has read and write per key, no listing, 4 MB per value, keys `[a-z0-9-]{1,64}`.
+- `featureStore('legends')`: read and write per key, no listing, 4 MB per value, keys `^[a-z0-9][a-z0-9-]{0,63}$`.
 
 ### D1. Summary and build order
-One question shape (the EXAM QUESTION) serves the pre-made bank, live AI writing, lessons, checkpoints, bosses and
-the mock exam. A course step asks bank questions first (no key, no internet), live AI questions only as an optional
-extra, and never mixes the old typed format into one quiz. Task items are a second shape, graded by code. Everything
-new lives in `src/features/legends/exam/` (pure `.js` + tests, `.jsx` screens) and `src/features/kit/tasks/`.
+One question shape (the EXAM QUESTION, frozen as v1 in D2.1) serves the pre-made bank, live AI writing, lessons,
+checkpoints, bosses and the mock exam. A course step asks bank questions (no key, no internet); live AI questions
+are an optional extra that is OFF until its error rate is measured; the old typed format is never mixed into one
+quiz. Task items are a second shape, graded by code. New code lives in `src/features/legends/exam/` (pure `.js` +
+tests, `.jsx` screens) and `src/features/kit/tasks/`.
 
 | Step | Ships | Tests that must be green |
 |---|---|---|
-| 1 | The exam question end to end: shape, `ExamQuestion.jsx` (single, select-N, artifact, explanation block, report), the bank reader and picker, the course quiz planner for lessons, checkpoints, Weak spots, region bosses, raids, the final raid and Legendary, the course fight profile, code-built acronym questions, live generation as an optional extra, the one-time notice, the build validator (`dev/careers/build-bank.mjs`) | `examQuestion.test.js`, `examChecks.test.js`, `bank.test.js`, `courseQuiz.test.js`, `courseFight.test.js` (simulation), `examGen.test.js`, `examStore.test.js`, `bank-package.test.js`, the old `fight`, `refund`, `profiles`, `balance`, `tuning`, `furycap`, `career`, `quizsave`, `quizkinds` suites untouched and green |
-| 2 | Task items kinds 1, 3, 4, 6, 8: `taskEngine.js`, `firewall.js` (flow judging), `TaskItem.jsx` with the three input ways, Task practice per island, 1 or 2 per boss, the off setting, the per-kind how-to | `taskEngine.test.js`, `firewall.test.js`, `taskBoard.test.js`, drives of every kind by touch and keyboard |
-| 3 | The mock exam, short sets, focused sets, resume, result, review, weak-objective retest, history and trend, "type it first" in lessons | `mockExam.test.js`, `examClock.test.js`, `examHistory.test.js`, merge tests with `deepMergeJson`, drives |
-| 4 | Task kinds 2, 5, 7 (zone pictures, two platforms, build firewall rules) | `taskEngine.test.js` additions, `firewall.test.js` (rule grading), art checks for zone pictures |
-| B | The bank content, in parallel once Step 1 freezes the format: the pilot objective first, then domain by domain (plan section "Phase B") | `build-bank.mjs` prints `no problems`; `bank-package.test.js` |
+| 1a (what the bank pilot needs) | `exam/examQuestion.js` (`shapeExamQuestion`, `gradeExamAnswer`, `cardSig`, `balancedOrder`), `exam/examChecks.js` (checks C1 to C23), `dev/careers/build-bank.mjs` and `bank-stamp.mjs`, the manifest format, a dev-only preview page (`/dev/exam-preview/`, dev server only: every preview question rendered with its key, why lines, marked detail and check results) | `examQuestion.test.js`, `examChecks.test.js` (an invented passing and failing case per check), `bank-build.test.js` (stamps, `cardSig`, lesson-order rule on a tiny invented package), `bank-package.test.js` |
+| 1b | `kit/ExamQuestion.jsx`, `kit/ExamExplanation.jsx`, the QuizRunner delegation, bank source and picker, pick state, card text sync, lessons, Weak spots, checkpoints, acronym recall, Report, the one-time notice, the classic fallback, the no-key gates | `bank.test.js`, `courseQuiz.test.js`, `examStore.test.js`, `acronymQuiz.test.js`, `cardSync.test.js`, a zero-AI-call test (hosts blocked), drives |
+| 1c | Course fights: `exam/courseFight.js`, pure `legends/bossOdds.js`, the NodeRun branches of D4.3, attacks, the free question, the hint scroll, Legendary | `courseFight.test.js` (simulation), `fight.test.js` additions (`free`), and `fight`, `refund`, `profiles`, `balance`, `tuning`, `furycap`, `siege` unchanged and green |
+| 1d (after the pilot is in) | Live generation (`examGen.js`, `examLive.js`, two AI jobs, the "Written by AI" mark), with its copying proof, cost proof and measured error rate | `examGen.test.js`, `aiReplyVariants.test.js` cases, `teachingStyle.test.js`, `aiJobs.test.js` |
+| 2 | Task items kinds 1, 3, 4, 6, 8, Task practice per island, 1 or 2 per boss, the off switch, the how-to | `taskEngine.test.js`, `firewall.test.js`, `taskBoard.test.js`, drives by touch and by keyboard |
+| 3 | The mock exam, short and focused sets, resume, result, review, retest, history, "type it first" in lessons | `mockExam.test.js`, `examClock.test.js`, `examHistory.test.js`, merge tests, drives |
+| 4 | Task kinds 2, 5, 7 | `taskEngine.test.js` and `firewall.test.js` additions, art checks for zone pictures |
+| B | Bank content, starting when 1a prints `no problems` on a handful of invented questions: the pilot objective, then domain by domain | `build-bank.mjs` prints `no problems`; `bank-package.test.js` |
 
-Each step is usable alone. Until a domain's bank ships, its steps use live questions (if allowed and a key works)
-or the classic path (D3.5). Bank content never blocks a code step.
+Nothing waits on 1d. Until a domain's bank ships, its steps use the classic path (today's questions, D3.5).
+Onboarding: no setup is needed to use the course. `liveQuestions` and `taskItems` are optional switches, shown in
+the one-time notice (D8.6) and in Settings, so no onboarding step is added.
 
 ### D2. The question data model
-#### D2.1 The stored shape (bank file and live questions, identical)
+#### D2.1 The FROZEN v1 shape (bank files and live questions, identical)
+The review's shape is adopted as it stands. `format: 1` in the manifest names it; any change is `format: 2`.
 
-```json
-{
-  "id": "i2-3-0a1b2c3d.4", "item": "i2-3-0a1b2c3d", "obj": "2.3", "slot": 4, "rev": 1,
-  "kind": "scenario", "level": 2, "pick": 1, "word": "BEST",
-  "stem": "A bakery sells sourdough at a weekend market. The owner wants a crust that stays crisp for six hours on an open table.",
-  "bullets": [],
-  "ask": "Which of the following would BEST meet this goal?",
-  "artifact": null,
-  "options": [
-    { "t": "Bake to a darker crust", "ok": true,  "item": "i2-3-0a1b2c3d", "why": "A darker bake drives off more surface water, and the stem asks for six hours on an open table." },
-    { "t": "Wrap each loaf in plastic", "ok": false, "item": "i2-3-77aa01ff", "why": "Plastic traps steam, so the crust softens within the hour. The stem needs it crisp." },
-    { "t": "Add more water to the dough", "ok": false, "item": null, "why": "Higher hydration opens the crumb. It does nothing for a crust that must stay crisp." },
-    { "t": "Lower the oven temperature", "ok": false, "item": "i2-3-5d5d0c21", "why": "A cooler bake leaves more moisture in the crust, the opposite of the goal." }
-  ],
-  "detail": "stays crisp for six hours on an open table",
-  "runner": 1, "edge": "Both protect the loaf, but only a darker bake keeps the crust crisp in open air.",
-  "explain": "A crust softens when water moves back into it. Baking darker removes that water before the loaf leaves the oven.",
-  "source": { "card": "keyPoints", "chapter": "Crust and moisture" },
-  "by": "bank"
-}
+```
+id        string   "<item>.<slot>"
+item      string   the course card this question belongs to (must exist in the package)
+obj       string   "N.N", must equal the card's section
+slot      integer  0..9 (bank); live questions use 10..15
+rev       integer  >= 1, raised when a shipped question changes
+cardSig   string   cardSig(card): hash of the card's front and back that every pass was run against (D3.6)
+kind      "definition" | "scenario" | "artifact"      the stem type only; the answer count is `pick`
+level     1 | 2    1 = lesson ready, 2 = boss level
+pick      1 | 2 | 3
+word      "" | "BEST" | "MOST" | "NEXT" | "FIRST" | "NOT"
+neg       boolean  true exactly when word is "NOT"
+stem      string   scenario only; "" allowed for kind "definition"; max 600 chars; level 1: max 4 sentences
+bullets   string[] length 0, 3 or 4; each max 120 chars
+ask       string   the closing question, max 160 chars; ends "?" (pick 1), "? (Select TWO)" or "? (Select THREE)"
+artifact  null | { type: "log"|"config"|"rule"|"output"|"url"|"input"|"message", lines: string[1..8] (each max 100), mark: integer[] }
+options   array    pick 1: 4..7 entries; pick 2 or 3: 5..7 entries; exactly `pick` entries with ok true
+  .t      string   max 60 chars
+  .ok     boolean
+  .item   string | null   the card whose term this option is; null = no card (neutral for the taught rule)
+  .partly boolean  optional; true = partly true for this stem (only where ok is false)
+  .why    string   one line tied to the stem, max 200 chars; required on every option
+detail    string   literal substring of stem, a bullet or an artifact line; required unless kind is "definition" and word is ""
+runner    integer | null   index into options; required exactly when word is BEST or MOST and some option has partly true
+edge      string | null    required exactly when runner is set; max 200 chars
+explain   string   1 to 3 sentences, max 400 chars
+source    { card: "definition"|"example"|"keyPoints", chapter: string }   only shipped or reviewed material (C20)
 ```
 
-Field rules (all checked by `shapeExamQuestion` in NEW `exam/examQuestion.js`, and by the build):
-- `kind`: `definition` (one sentence, no scenario), `scenario`, `artifact`, `multi` (select-N). `pick` = how many
-  options are right: 1, or 2 or 3 with 5 to 7 options. `options.filter(ok).length === pick` always (W5).
-- `level`: 1 = lesson ready (short, the deciding detail or its plain meaning is in the card text), 2 = boss level
-  (longer scenario, close neighbors, BEST or MOST, select-N, artifacts).
-- `word`: the capital key word in `ask` (`BEST`, `MOST`, `NEXT`, `NOT`, `FIRST`) or `""`. A `NOT` stem is `neg: true`.
-- `stem` holds the scenario only; `ask` is the closing question (so a screen reader group can be named by it, and the
-  key word can be marked up). `bullets`: 0, or 3 to 4 requirement lines, shown as a real list.
-- `artifact`: `null` or `{ "type": "log" | "config" | "rule" | "output" | "url" | "input" | "message", "lines": ["..."],
-  "mark": [0] }` (`mark`: the line numbers the explanation highlights). At most 8 lines of 100 characters.
-- `options[].why`: one line for EVERY option, tied to the stem. It travels with its option, so no shuffle can pair a
-  line with the wrong option (W8). `options[].item`: the course card whose term this option is, or `null`.
-- `detail`: the deciding detail, a literal substring of `stem`, a bullet or an artifact line (required for every
-  question whose `word` is not empty, and for every scenario).
-- `runner` (index of the runner-up) and `edge` (the one detail that made the key win): required when `word` is BEST or
-  MOST and any wrong option is partly true; forbidden otherwise.
-- `source`: `card` = the card field that proves the key (`definition`, `example`, `keyPoints`), `chapter` = the study
-  guide heading that covers it. Dev-only proof (primary source, pass log) stays in `dev/careers/sources/<id>/bank/`.
-- `by`: `bank` or `live`. A live question also carries `chk` (D5.4). `rev` rises when a shipped question is fixed.
-- Text rules: English, no dashes, no HTML, no "you" in the stem, no "all of the above" or "none of the above".
+Not in a shipped question: `by` (`bank` or `live`, added by the reader), pass stamps and primary sources (dev only,
+D3.2). Why lines travel with their option, so no shuffle can pair a line with the wrong option (W8). Text is English.
+
+Invented example (pottery; illustrative, not a course fact). It passes C1 to C23 as defined in D3.2:
+
+```json
+{ "id": "i9-2-4be07a13.7", "item": "i9-2-4be07a13", "obj": "9.2", "slot": 7, "rev": 1, "cardSig": "1r8k2mz",
+  "kind": "scenario", "level": 2, "pick": 1, "word": "MOST", "neg": false,
+  "stem": "A potter unloads a batch of mugs after the final firing. Several mugs show a network of fine cracks across the shiny coating, while the fired clay under it is sound and nothing has flaked away.",
+  "bullets": [],
+  "ask": "Which of the following faults does this MOST likely describe?",
+  "artifact": null,
+  "options": [
+    { "t": "Shivering", "ok": false, "partly": true, "item": "i9-2-90c1d2e4", "why": "Shivering also comes from a poor fit between coating and clay, but it lifts flakes off the piece, and here nothing has flaked away." },
+    { "t": "Crawling", "ok": false, "item": "i9-2-17f3a6b0", "why": "Crawling leaves bare patches where the coating pulled back. The stem describes cracks, not bare patches." },
+    { "t": "Crazing", "ok": true, "item": "i9-2-4be07a13", "why": "A network of fine cracks in a coating that stays attached to sound clay is crazing." },
+    { "t": "Pinholing", "ok": false, "item": null, "why": "Pinholing is small round holes left by escaping gas. It makes no cracks." }
+  ],
+  "detail": "a network of fine cracks across the shiny coating",
+  "runner": 0, "edge": "Both come from a coating and clay that shrink by different amounts. Cracks with nothing flaked away point to crazing.",
+  "explain": "The coating shrank more than the clay as the kiln cooled, so it cracked while staying attached.",
+  "source": { "card": "keyPoints", "chapter": "Faults after the final firing" } }
+```
 
 #### D2.2 The shape QuizRunner gets
-`toRunnerQuestion(q, { order, lesson })` (pure) returns today's choice question plus an `exam` block, so every
-existing reader of `q.choices[q.answerIdx]`, `q.prompt`, `q.target`, `q.explanation` keeps working:
+`toRunnerQuestion(q, { order })` (pure) returns today's choice question plus an `exam` block, so every existing
+reader of `q.choices[q.answerIdx]`, `q.prompt`, `q.target`, `q.explanation` keeps working:
 
 ```json
 { "kind": "choice", "prompt": "<stem>\n\n<ask>", "choices": ["..."], "answerIdx": 2, "target": "<the card's front>",
-  "explanation": "<explain>", "itemId": "i2-3-0a1b2c3d", "qid": "i2-3-0a1b2c3d.4",
-  "exam": { "pick": 1, "right": [2], "whys": ["...", "...", "...", "..."], "optItems": ["i2-3-...", null, "...", "..."],
-            "stem": "...", "ask": "...", "word": "BEST", "bullets": [], "artifact": null, "detail": "...",
-            "runner": 0, "edge": "...", "obj": "2.3", "level": 2, "format": "scenario", "by": "bank" } }
+  "explanation": "<explain>", "itemId": "i9-2-4be07a13", "qid": "i9-2-4be07a13.7",
+  "exam": { "pick": 1, "right": [2], "whys": ["..."], "optItems": ["...", null], "partly": [0], "stem": "...", "ask": "...",
+            "word": "MOST", "neg": false, "bullets": [], "artifact": null, "detail": "...", "runner": 0, "edge": "...",
+            "obj": "9.2", "level": 2, "kind": "scenario", "by": "bank" } }
 ```
 
-`order` is the option order chosen by `balancedOrder` (D2.4); `answerIdx` is the first right index (for select-N the
-`exam.right` list is the truth). `NodeRun.record` uses `q.itemId` when present instead of `itemIdFor(q, area.items)`.
+`order` comes from `balancedOrder` (D2.4); `answerIdx` is the first right index (for select-N `exam.right` is the
+truth). `NodeRun.record` uses `q.itemId` when present instead of `itemIdFor(q, area.items)`. The "format" of a
+question, used by the gates of D4, is derived: `multi` when `pick > 1`, `neg`, `artifact`, else its kind.
 
-#### D2.3 What changes in QuizRunner, and the new component
-QuizRunner (kit/QuizRunner.jsx) stays the one runner for lessons, checkpoints and fights. It gains ONE delegation: a
-question with `q.exam` renders NEW `kit/ExamQuestion.jsx` in place of the choice grid, and NEW `kit/ExamExplanation.jsx`
-in place of the one-line explanation inside the feedback strip. Questions without `exam` render exactly as today.
+#### D2.3 What changes in QuizRunner, and the new component (Step 1b)
+QuizRunner stays the one runner for lessons, checkpoints and fights. It gains ONE delegation: a question with
+`q.exam` renders NEW `kit/ExamQuestion.jsx` in place of the choice grid and NEW `kit/ExamExplanation.jsx` inside
+the feedback strip. Questions without `exam` render exactly as today.
 
-`ExamQuestion({ q, value, onChange, mode, struck, onStrike, hidden, disabled, t })` is presentational and is also the
-question view of the mock exam (D7), which has its own runner because QuizRunner cannot move freely.
-- `mode`: `practice` (lesson, checkpoint, fight), `exam` (mock exam: no verdict, strike-out shown), `review`.
-- Options are `<label>` tiles around a visually hidden native `<input type="radio">` (single) or `<input
-  type="checkbox">` (select-N) inside one `role="radiogroup"` or `role="group"` named by `ask` plus the pick line.
+`ExamQuestion({ q, value, onChange, mode, struck, onStrike, hidden, disabled, t })` is presentational and is also
+the question view of the mock exam (D7), which has its own runner because QuizRunner cannot move freely.
+- `mode`: `practice` (lesson, checkpoint, fight), `exam` (no verdict, strike-out shown), `review`.
+- Options are `<label>` tiles around a visually hidden native `<input type="radio">` (pick 1) or `<input
+  type="checkbox">` (select-N) in one `role="radiogroup"` or `role="group"` named by `ask` plus the pick line. 4 to 7
+  tiles, lettered A to G.
 - `value` is always a list of chosen indexes. QuizRunner's `picked` becomes a list for exam questions; `check()`
   grades with `gradeExamAnswer(q, picks)` (pure): `{ correct, rightPicks, wrongPicks, missed }`.
-- Select-N: a count line ("1 of 2 chosen") sits under the options, in a polite live region. Check is disabled until
+- Select-N: a count line ("1 of 2 chosen") under the options, in a polite live region. Check is disabled until
   exactly N are chosen and says why ("Choose 1 more"). A pick past N is refused with a visible, announced note
   ("2 already chosen. Clear one first"); it never replaces an earlier pick.
 - Picking never submits. Check is a second, separate action (already QuizRunner's pattern).
-- Strike-out exists only in `mode="exam"`: a separate labelled toggle per option (D7.3).
-- `hidden`: option indexes removed by a hint scroll (D4.6).
-- New optional QuizRunner props: `retryQuestion(q)` (the question a missed one comes back as; default the same
-  question) and `explainExtra(q, verdict)` (the links row: lesson, Learn it, Add to deck, Report).
-- QuizRunner records `info.mode = 'choice'`, `info.picks`, `info.partial` (select-N with some right picks) and
-  `info.format`.
+- Keys: `CHOICE_KEYS` (QuizRunner line 62) grows to 7; `choiceIndex` (utils/keys.js) gains `{ letters: true }` (A to
+  G by `e.key`) and returns -1 while Shift is held; NEW `strikeIndex(e, count)` reads Shift + digit by `e.code`.
+- `hidden`: option indexes removed by a hint scroll (D4.6). Strike-out only in `mode="exam"` (D7.3).
+- New optional QuizRunner props: `retryQuestion(q)` (what a missed question comes back as; default the same
+  question) and `explainExtra(q, verdict)` (the links row). It records `info.mode = 'choice'`, `info.picks`,
+  `info.partial` (select-N with some right picks) and `info.format`.
 - Help (`ctx.help.set('quiz', ...)`) already hides the answer while a question is live; for exam questions it lists
   the options and, after the answer, the key and its why line.
 
 #### D2.4 Option order and letter spread
-The stored order is never shown. `balancedOrder(questions, rand)` (pure) gives every question of one quiz or exam its
-option order so that, over the quiz, the right answer's position is spread evenly: positions are dealt from a
-shuffled bag of A to D repeated, so a 20-question fight has 5 of each letter, and any 200 questions land within 20
-to 30% per letter by construction. Select-N right positions are dealt the same way. Tested over 2,000 runs.
+The stored order is never shown. `balancedOrder(questions, rand)` (pure) deals every question of one quiz or exam
+its option order from shuffled bags of positions (one bag per option count), so a 20-question fight of 4-option
+questions has 5 right answers on each letter and any 200 such questions land within 20 to 30% per letter by
+construction. Select-N right positions are dealt the same way. Tested over 2,000 runs.
 
 #### D2.5 The explanation block (`ExamExplanation.jsx`)
-Shown after EVERY answer in lessons, checkpoints and fights, right or wrong, and in mock exam review. Never during a
-mock exam. Order, top to bottom:
-1. Verdict with a mark and a word ("Correct", "Incorrect"), then "The answer: B, <term>" (for select-N: both, and
-   which of the learner's picks were right and which wrong).
-2. `explain` (1 to 3 sentences) with `detail` shown in quotes and bold. For BEST or MOST: the runner-up line, "Close:
-   C, <term>. <edge>". An artifact is shown again with its `mark` lines highlighted.
+Shown after EVERY answer in lessons, checkpoints and fights, right or wrong, and in mock exam review. Never during
+a mock exam. Top to bottom:
+1. Verdict with a mark and a word, then "The answer: C, <term>" (select-N: all right options, and which of the
+   learner's picks were right and wrong). A negative stem restates what was asked ("The question asked which one
+   does NOT ...").
+2. `explain`, with `detail` shown in quotes and bold. When `runner` is set: "Close: A, <term>. <edge>". An artifact
+   is shown again with its `mark` lines marked "key line".
 3. "Why the others are wrong": a real list, one item per wrong option, each starting with its letter and term.
-4. Acronyms: `expandAcronyms(text, courseAcronyms)` (pure, from the package's acronym list) adds the expansion in
-   parentheses at the first mention of every acronym used in the stem or options. Authors do not have to.
-5. In a lesson only: an option whose `item` is not taught yet (D4.1) gets the tag "Not covered yet" and one line on
-   what it is (the first sentence of that card's definition, from the package).
+4. `expandAcronyms(text, courseAcronyms)` (pure, from the package's acronym list) adds the expansion in parentheses
+   at the first mention of every acronym used in the stem or options. Authors do not have to.
+5. In a lesson only: an option whose `item` is a card the learner has not been taught (D4.1) gets the tag "Not
+   covered yet" and one line on what it is (the first sentence of that card's definition, from the package).
 6. "Where it lives": objective number and title, then the links row: "Open lesson: <title>" (a real link), Learn it
-   (the existing `LearnItPanel`), Add to deck (the existing `AddOne`, which shows "In your deck"), Report.
+   (the existing `LearnItPanel`), Add to deck (the existing `AddOne`), Report. A live question shows the mark
+   "Written by AI just now" here and above the stem (D5).
 
 The lesson link opens a `Modal` layer (`useNavLayer`) with that lesson's `ItemCard`s. Back or Esc closes only the
-layer; the quiz or fight under it is untouched and focus returns to the link. The objective shown is `q.exam.obj`
-and the lesson is found by `q.itemId`, so the two always agree.
+layer and focus returns to the link. The objective is `q.exam.obj` and the lesson is found by `q.itemId`, so the
+two always agree.
 
 #### D2.6 Report a question (the dispute path that needs no AI)
 "Report" asks for a reason (wrong answer marked right, two answers fit, unclear, other) and writes
-`{ qid: { reason, at, rev } }` to `xq-report-<mode>` (D8.3). Effects, all by code:
-- The question is never picked again for this learner (while its `rev` is unchanged).
-- In a lesson or checkpoint a reported miss is taken out of the result (not counted in the score or the tallies).
-- In a fight a reported miss is treated like an overturned answer: `refundRunningFight` (fight.js) gives the heart
-  back, at most `REPORT_REFUNDS = 2` per fight (later reports still remove the question for the future).
-- In mock exam review the question leaves the score at once; the result shows both ("84 of 89, 1 reported").
-- Settings > General > Legends shows the count and "Copy reported questions" (ids and reasons), so the owner can
-  feed them back to the bank review. The AI Appeal (`MissTools`) is not offered on course questions.
+`{ "<qid>": { reason, at, rev } }` to `xq-report-<mode>` (D8.3). A reported question is never picked again for this
+learner while its `rev` is unchanged. What else it does depends on where:
+- Lesson or checkpoint: a reported miss leaves the result (not in the score, no tally moves).
+- Fight: NO heart comes back during the fight and no damage is dealt. `refundRunningFight` is NOT used: it gives
+  the heart back AND deals the damage a right answer would have dealt AND moves the miss to the clean counter
+  (fight.js `refundFor`, `applyRefund`), which would turn a report into a hit. The reported answer loses its
+  `itemId` in `answers.current`, so no tally moves and it cannot enter the nemesis list. If the fight is then LOST,
+  the result says "Not counted: you reported a question in this fight" and records no attempt and no nemesis. A
+  report can never turn a loss into a win, so it cannot lift any learner's win rate (D4.7).
+- Mock exam review: the question leaves the score at once; the result shows both ("84 of 89, 1 reported").
+- Settings > General > Legends shows the count and "Copy reported questions" (ids and reasons) for the bank review.
+The AI Appeal (`MissTools`) is not offered on course questions.
 
 ### D3. The bank
-#### D3.1 Files and size
-
+#### D3.1 Files, manifest and size
 ```
-public/careers/security-plus-sy0-701.json          the course package, unchanged
+public/careers/security-plus-sy0-701.json                               the course package, unchanged
 public/careers/security-plus-sy0-701/bank/manifest.json
 public/careers/security-plus-sy0-701/bank/q-1-1.json ... q-5-6.json     one per objective (28)
+public/careers/security-plus-sy0-701/bank/acr.json                      near-miss expansions per acronym (D4.2)
 public/careers/security-plus-sy0-701/bank/t-1-1.json ...                task items per objective (Step 2)
 ```
 
-`manifest.json` (about 30 KB, fetched once per session, re-checked by ETag):
-
 ```json
-{ "course": "security-plus-sy0-701", "format": 1, "rev": 7,
-  "objectives": { "2.3": { "file": "q-2-3.json", "rev": 3, "tasks": "t-2-3.json",
-      "cards": { "i2-3-0a1b2c3d": "ddssSSSSam", "i2-3-77aa01ff": "ddssSSS-am" } } } }
+{ "course": "security-plus-sy0-701", "format": 1, "rev": 7, "package": "1",
+  "objectives": { "9.2": { "file": "q-9-2.json", "rev": 3, "tasks": "t-9-2.json",
+      "cards": { "i9-2-4be07a13": { "sig": "1r8k2mz", "slots": "d1d1s1s1S1S1S2S1A1--" } } } } }
 ```
 
-One character per slot: `d` definition, `s` scenario level 1, `S` scenario level 2, `a` artifact, `m` select-N, `n`
-negative stem, `-` pulled. Lower case `a` or `m` = lesson ready, upper case = boss level. The picker plans a whole
-quiz from the manifest alone and then loads only the objective files it needs. An objective missing from the
-manifest has not shipped.
+Two characters per slot. First: `d` definition, `s` scenario, `a` artifact; lower case = level 1, upper case =
+level 2. Second: `1`, `2`, `3` = pick; `n` = pick 1 with a negative stem. `--` = not shipped. The picker plans a
+whole quiz from the manifest (about 45 KB, fetched once per session, re-checked by ETag) and then loads only the
+objective files it needs. An objective missing from the manifest has not shipped. A new manifest `rev` drops the
+in-memory file cache (`BANK_CACHE = 12` files, LRU).
 
-Size estimate (stem 350, four options 90, four why lines 450, explain 180, the rest 180 characters): about 1.25 KB a
-question. 822 cards x 10 = 8,220 questions = about 10.3 MB (the plan's 8,550 counts the 33 briefings, which are never
-asked; with them 10.7 MB). Per domain 1.5, 2.0, 1.7, 3.2 and 2.1 MB: too much to load for a 3-card lesson on a
-phone. So: ONE FILE PER OBJECTIVE, 28 files, average 370 KB, largest (52 cards) about 650 KB. A lesson loads 1 file,
-a region boss 1 to 3, a raid 4 to 9, the mock exam all 28 during its preparing screen (clock not running). Files are
-kept in a small in-memory LRU (`BANK_CACHE = 12`). NEW `exam/web.js` holds the only `fetch` (static files, like
-`loadCareer` in CareerMap.jsx); `exam/bankSource.js` takes it injected (`createBankSource({ fetchJson })`), so a
-phone build reads the same files from its bundle.
+Size: about 1.25 KB a question (stem 350, options 90, why lines 450, explain 180, the rest 180 characters). 822
+cards x 10 = 8,220 questions = about 10.3 MB (the plan's 8,550 counts the 33 briefings; with them 10.7 MB). Per
+domain 1.5 to 3.2 MB: too much for a 3-card lesson on a phone, so ONE FILE PER OBJECTIVE: 28 files, average
+370 KB, largest (2.4: 52 cards) about 650 KB. A lesson loads 1 file, a region boss 1 to 3, a raid 4 to 9, the mock
+exam all 28 during its preparing screen (clock stopped; the parse time on a phone is measured in Step 3 and the
+load is sliced). NEW `exam/web.js` holds the only `fetch` (static files, like `loadCareer`); `exam/bankSource.js`
+takes it injected (`createBankSource({ fetchJson })`), so a phone build reads the same files from its bundle.
 
-#### D3.2 The build validator (`dev/careers/build-bank.mjs`, NEW)
-Sources: `dev/careers/sources/<id>/bank/<obj>.rN.json` (the highest pass per objective), `bank/pulled.json` (ids
-oversight pulled), `bank/passes.json` (which of the four passes each objective finished). It writes the public files
-and FAILS (exit 1) on any of these, using the SAME pure functions as the app (`exam/examChecks.js`), so the live
-check and the build can never disagree:
+#### D3.2 The build (`dev/careers/build-bank.mjs`), stamps, and every check with its exact rule
+Sources (dev only): `dev/careers/sources/<id>/bank/<obj>.json` (the questions) and `bank/stamps/<obj>.json`:
+`{ "<qid>": { "p1": h, "p2": h, "p2b": h, "p3": h, "p4": h, "oversight": h } }`. `h` = `questionHash(q)`: SHA-256 of
+the question's JSON with its keys in the frozen order, `rev` left out. `node dev/careers/bank-stamp.mjs <pass> <obj>
+[ids]` writes a stamp for the text as it is at that moment.
 
-- Count: 10 unpulled questions per card (fewer only with `--allow-short`, printed), at least 2 `d` and 2 `s` slots
-  per card (a lesson asks a new card twice, D4.1), and an objective ships only when all four passes are stamped.
-- Shape: `shapeExamQuestion` passes; `ok` count equals `pick`; 4 options for pick 1, 5 to 7 for pick 2 or 3; a why
-  line on every option; `detail` is a literal substring; `runner` and `edge` present exactly when required.
-- Every `options[].item` and the question's `item` exist in the package; `obj` matches the card's section.
-- Text: no dashes, no HTML, no "you" in a stem, no "all of the above" or "none of the above", `ask` ends in "?" and
-  uses a known closing form, the key word in capitals.
-- Negative stems: under 5% of an objective's questions, `NOT` in capitals.
-- Duplicates: no two stems equal after `stemSkeleton` (lower case, numbers and names of roles and organizations
-  folded) within a card or across the course; no two questions of one card with the same key and the same detail.
-- Length tell: over each card's 10 and over each objective, the key is the longest option in at most 30% of
-  single-answer questions (chance is 25%), and never the only option over 1.5 times the median length.
-- Position: stored right answers spread over A to D (each 20 to 30% per objective). The app re-deals anyway (D2.4).
-- Parallel options: one grammatical shape (all noun phrases, or all verb phrases starting with a base verb); an `ask`
-  ending in "a" or "an" must fit every option; singular or plural must not single one out.
-- Stem leak: the stem, bullets and artifact never contain the key text, its acronym or its expansion (from the
-  package's acronym list), nor a content word of 5 or more letters that appears in exactly one option.
-- Acronyms: every unexpanded acronym in an option is in the course's acronym list or is a card front.
-- Lesson ready (lower case slots): at most 4 sentences in the stem; `detail` or a card sentence sharing its content
-  words is in the card's own text; no acronym in the stem that the card does not contain, unless expanded in the same
-  sentence; an artifact only when the card's text names that kind of artifact.
-- Artifacts: at most 8 lines of 100 characters; addresses only from 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24
-  and 2001:db8::/32; host names only under `.example`, `.test` or `.invalid`.
-- Own words: the existing `verbatim.mjs` overlap checks against the outline, run over every stem, option and why
-  line (12 word runs and the shorter prose phrase check).
-- Task items (Step 2): `compileTask` passes and `countSolutions(task) === 1` (D6.3).
+THE SHIPPING GATE: a question is written to `public/` only when every required stamp (`p1`, `p2`, `p3`, `p4`,
+`oversight`, and `p2b` when `word` is BEST or MOST) equals the hash of the text being shipped. Any edit, refill or
+card change after a pass changes the hash and the question drops out until it is passed again. An objective enters
+the manifest only when every card has 10 shipped questions with at least 2 `d` and 2 `s` at level 1
+(`--allow-short`: at least 6, printed). `--preview` writes unstamped questions to `dev/careers/out/bank-preview/`
+for the preview page, never to `public/`.
 
-It also writes `docs/reviews/bank-<domain>.jsonl` (plan B6). `bank-package.test.js` re-runs the shape and count
-checks on whatever bank is in `public/`, so a hand edit cannot ship a broken file.
+The build FAILS (exit 1) on any check below. They are pure functions in `exam/examChecks.js`, shared with the live
+writer (D5), so the two can never disagree. `fold(x)` = NFKC, lower case, every non-letter and non-digit to a
+space, spaces collapsed. A "content word" = a token of `fold` with 5 or more letters that is not in `STOP_WORDS`
+(a fixed list of about 150 common English words in that file); no stemming.
+
+| Check | Exact rule |
+|---|---|
+| C1 shape | `shapeExamQuestion`: every type and limit of D2.1 |
+| C2 counts | options with `ok` = `pick`; 4 to 7 options for pick 1, 5 to 7 for pick 2 or 3; `fold(t)` unique within a question |
+| C3 refs | `item` and every `options[].item` exist in the package; `obj` = the card's section; `id` = `item.slot` |
+| C4 text | no en dash (U+2013) or em dash (U+2014); no `<` followed by a letter or `/`; stem, bullets and ask do not match `/\byou(r\|rs)?\b/i`; no option whose `fold` matches `/^(all\|none\|both\|neither) of (the )?(above\|these)$/` or equals `true` or `false` |
+| C5 ask | matches `/\?( \(Select (TWO\|THREE)\))?$/` with the suffix present exactly for pick 2 (TWO) and pick 3 (THREE); starts with one of `ASK_OPENERS` = `Which of the following`, `Which`, `What should`, `What`, `How should`, `Where should`, `When should`, `Who should`; when `word` is not `""` it appears exactly once as a whole upper-case word and no other of the five words appears in upper case |
+| C6 detail | a literal substring of `stem`, of one bullet or of one artifact line; required unless kind is `definition` and `word` is `""` |
+| C7 runner | `partly` only where `ok` is false; `runner` is set exactly when `word` is BEST or MOST and some option has `partly`; it points at such an option; `edge` is set exactly when `runner` is |
+| C8 negative | `neg === (word === 'NOT')`; negative stems are under 5% of an objective's questions |
+| C9 key in stem | `fold(stem + bullets + artifact lines)` does not contain, as a whole-word phrase, `fold(t)` of any `ok` option of 4 or more letters, nor that term's acronym or any of its expansions from the package's acronym list |
+| C10 one-option word | FAIL: a content word of stem, bullets or artifact appears in exactly one option and that option is `ok` (pick 1 only). WARN (printed for pass 3, not a failure): it appears in exactly one wrong option. The pilot reports how often each fires before the rule is tuned further |
+| C11 length tell | pick 1: FAIL when the key is the single longest option and longer than 1.5 times the median option length; per objective the key is strictly the longest option in at most 35% of pick 1 questions; per card in at most 5 of its pick 1 questions |
+| C12 stored position | per objective with 40 or more four-option pick 1 questions, each position holds the key in 15 to 35% (the app re-deals anyway, D2.4) |
+| C13 duplicates | `stemKey(q)` = `fold(stem + ' ' + ask)` with every digit run replaced by `#`. FAIL: two questions of the course share a `stemKey`; two questions of one card share the key text and `fold(detail)`; two questions of one card have content-word sets with Jaccard overlap 0.8 or more. WARN: the same overlap across cards of one objective |
+| C14 acronyms | every token of an option matching `/\b[A-Z][A-Z0-9]{1,5}\b/` is in the package's acronym list, is a token of a card front, or is in `PLAIN_CAPS` (a short fixed list: IT, ID, PC, USB ...). Level 1: every such token in the stem is in the card's own front or back, or is followed by `(` in the same sentence |
+| C15 level 1 | at most 4 sentences in the stem (split on `/[.!?](\s\|$)/`); never negative; an artifact only when the card's front or back contains one of `ARTIFACT_WORDS[type]` (`log: log`, `config: config, setting`, `rule: rule, ACL`, `output: output, command`, `url: URL, link, address`, `input: input, string, field`, `message: message, error, alert`), case ignored |
+| C16 lesson options | level 1: every `ok` option's `item` is this card or null; every wrong option's `item` is null or a card taught by the SAME or an EARLIER lesson of the same objective in the package's lesson order. A wrong option with `item: null` is a plain description, not a term |
+| C17 artifact | 1 to 8 lines of at most 100 characters; `mark` indexes exist; every IPv4 address is in 192.0.2.0/24, 198.51.100.0/24 or 203.0.113.0/24, every IPv6 address in 2001:db8::/32; no token ends in a real top-level domain (`com net org io gov edu co info biz`): host names end in `.example`, `.test` or `.invalid` |
+| C18 `cardSig` | equals `cardSig` of the package's card (D3.6); a mismatch means the card changed after the passes |
+| C19 own words | `verbatim.mjs` (12 word runs and the shorter prose phrase check) over every stem, option, why line and explanation |
+| C20 source | the card's back has the labelled part `source.card` names; `source.chapter` equals a heading of the latest chapter file for that objective in `dev/careers/sources/<id>/knowledge/` (and of the shipped guide once one ships) |
+| C21 stamps | the shipping gate above |
+| C22 mix | per card: at least 2 `d` and 2 `s` at level 1; at most 2 artifact and at most 2 select-N |
+| C23 article | when `ask` matches `/\b(a\|an)\?/` or `/\b(a\|an) _+/`, the options' first letters are all vowels or all consonants |
+
+Checks that code cannot do are NOT pretended. They are named lines of the reviewer passes (plan B4), and a pass
+stamp says they were done:
+- Pass 2 (blind solve), added line: a level 1 question is solved with ONLY the card's own text in front of the
+  solver. If it cannot be answered from the card alone it is not level 1 (W19, B5).
+- Pass 3 checklist: (a) options are parallel in grammar, and none is excluded by number or verb form (W13; C23
+  covers the article); (b) all options are one family of real terms; (c) no renamed copy of another scenario (roles
+  or organization swapped) (W29; C13 covers exact and near copies); (d) every `partly` flag is right and no unflagged
+  option is partly true; (e) each C10 and C13 warning was looked at; (f) the deciding detail is plain, no trick.
+
+The build also writes `docs/reviews/bank-<domain>.jsonl` (plan B6). `bank-package.test.js` re-runs C1 to C18 and
+C22 on whatever bank is in `public/`, so a hand edit cannot ship a broken file.
 
 #### D3.3 The picker (`exam/bank.js`, pure)
-- `eligibleSlots(cardCode, want)`: the slot numbers of a card that fit `want` (`{ kinds, level, neg, pick }`).
-- `pickSlot(slots, asked, rand)`: a random slot not in this card's `asked` cycle. When every eligible slot was asked:
-  start a new cycle and never pick one of the last 3 asked (the last 1 when 3 or fewer are eligible).
-- One quiz or exam never holds two first-pass questions of the same card. The only second question of a card is a
-  lesson's planned second look at a NEW card and a missed question's return (D4.1), always from another slot.
-- `notePicked(state, picks)` returns the new state. It is saved when the quiz STARTS, so an abandoned quiz or exam
-  does not see the same questions on return.
-- Reported questions (D2.6) and pulled slots are never eligible.
+- `eligibleSlots(cardCode, want)`: the slots of a card that fit `want` (`{ kinds, level, neg, pick }`), minus
+  reported questions and unshipped slots.
+- ONE order per card and no cycles: the pick state keeps, per card, its slots in the order they were last asked,
+  oldest first (each slot at most once). `pickSlot(eligible, order, rand)`: (1) a random eligible slot that is not in
+  `order` (never asked); (2) when there is none, a random eligible slot outside the 3 most recently asked of the card
+  (outside the last 1 when 3 or fewer are eligible). There is no reset, so a lesson that can use 4 slots and a boss
+  that can use 6 share one history and neither can make the other repeat early. State per step kind is not needed
+  (and would break the last-3 rule across kinds).
+- One quiz or exam never holds two questions of the same card (the exceptions of D4.1 need the owner's yes).
+- SPARES: when a quiz is planned, each card also gets one spare slot (same rule, different from its planned slot)
+  kept in memory with the quiz. The synchronous paths (`QuizRunner.record`, `NodeRun.record`) take the retry's or the
+  attack's "another slot" from that spare, with no file read.
+- `notePicked(state, slots)` is saved when the quiz STARTS (so an abandoned quiz or exam does not see the same
+  questions on return); a spare is noted only if it was shown, in the write the step's result already makes.
 
-#### D3.4 Picker state: where it lives and how two computers merge it
-`features/legends/xq-pick-<mode>-d<n>.json`, one per domain, an OBJECT keyed by card id (never a list, so the
-offline 3-way merge `deepMergeJson` merges card by card):
-
-```json
-{ "v": 1, "cards": { "i2-3-0a1b2c3d": { "a": "3817", "p": "26" }, "i2-3-77aa01ff": { "a": "0" } } }
-```
-
-`a` = the slots asked in the current cycle, oldest first (one character per slot, `0` to `9` for bank slots, `a` to
-`f` for live slots); `p` = the tail of the previous cycle (for the last-3 rule). `updatePick(modeId, domain, fn)` in
-NEW `exam/examStore.js` follows `updateMap`: serialized, re-reads the file before every write, never writes after a
-failed read, refuses while `isDataSwitching()`, mode id pinned by the caller when its task STARTED. When both
-computers changed the same card, one side's string wins; the worst case is one repeated question, never lost
-progress. A failed read or write never blocks the quiz: it is asked without saving, and that is all that is lost.
+#### D3.4 Pick state: where it lives and how two computers merge it
+`features/legends/xq-pick-<mode>-d<n>.json`, one per domain: `{ "v": 1, "cards": { "i9-2-4be07a13": "38a17" } }`. ONE
+string per card (one character per slot: `0` to `9` bank, `a` to `f` live), oldest first, so the offline 3-way merge
+(`deepMergeJson`) can never mix two computers' halves: it merges card by card and, for a card both changed, keeps
+one side's whole string. The worst case is one repeated question, never lost progress. `updatePick(modeId, domain,
+fn)` in NEW `exam/examStore.js` follows `updateMap`: serialized, re-reads before every write, never writes after a
+failed read, refuses while `isDataSwitching()`, mode id pinned by the caller when its task STARTED, and runs once
+per quiz (`once` keyed by mode, area and node, so a StrictMode double mount writes once). A failed read or write
+never blocks the quiz: it is asked without saving. `<mode>` in every key is cleaned exactly as `keyFor` (store.js)
+does; an objective is written `9-2`, never `9.2`.
 
 #### D3.5 Which questions a step gets (never a mix of old and new formats)
-`planCourseQuiz` (D4) asks for N cards. For each card, in this order:
-1. A bank slot (shipped objective, eligible slot).
-2. A saved live question for the card (`xq-live-<mode>-<obj>`, D5.5).
-3. A NEW live question, only when the course's live setting allows it and a key works (D5).
+For each card `planCourseQuiz` (D4) wants: (1) a bank slot; (2) only if the objective has NOT shipped and the live
+setting allows it and a key works: a saved or new live question (D5). Once an objective ships, bank slots always
+win and its saved live questions are retired (kept on disk, never picked).
 
-If every card got a question, the quiz is an exam-format quiz. If some did not, those cards are dropped while at
-least `MIN_SHARE = 0.7` of the planned questions remain (a fight keeps its full count by sampling other cards of the
-same pool). Otherwise the WHOLE step falls back, in this order: the old saved set of the step if one exists (played
-exactly as saved, no AI call), then today's `makeQuizNow` when a key works, then a plain screen: "Exam-style
-questions for this domain are not installed yet, and no AI key is set", with the way to add a key or switch live
-writing on, nothing lost and nothing recorded. A fallback quiz carries a small "Classic questions" label.
+A lesson, checkpoint or Weak spots step is in one objective, so it is all bank or not bank. A fight spans
+objectives: cards come only from shipped (or live-filled) objectives when those hold at least `MIN_SHARE = 0.7` of
+the fight's pool; the fight keeps its full count. Otherwise the WHOLE step is CLASSIC: the old saved set if one
+exists (played as saved, no AI call), else today's `makeQuizNow` when a key works, else a plain screen: "Exam-style
+questions for this domain are not installed yet, and no AI key is set", with the way to add a key, nothing lost and
+nothing recorded. A classic step carries a small "Classic questions" label and, for a fight, today's typed rules.
 
-The per-course setting `features.legends.liveQuestions` (config.json, so it follows the learner):
-- `gaps` (default): AI writes only for cards with no bank question yet.
-- `mix`: also adds live questions for variety (at most 1 in 4 of a quiz).
-- `off`: never an AI call for course questions.
-It is shown in Settings > General > Legends and named in the one-time notice.
+No lesson can fall to the classic path because of the learner's route: C16 guarantees every level 1 slot is usable
+whatever was studied, C22 guarantees each card has 2 `d` and 2 `s` of them, and the taught set only SORTS (D4.1).
+The lesson's start button is enabled whenever a bank quiz can be planned (today it needs a key, NodeRun line 513).
+
+The per-course setting `features.legends.liveQuestions` (config.json, so it follows the learner): `off` (DEFAULT:
+never an AI call for course questions), `gaps` (AI writes for objectives that have not shipped; never for a shipped one). Why `off`: a live question
+gets no primary-source check (D5.3), and the owner asked for objective truth; `gaps` becomes a choice for the owner
+once Step 1d has a measured error rate.
+
+#### D3.6 A bank question is bound to the card text it was reviewed against
+`cardSig(card)` = the FNV hash store.js already uses (moved to NEW pure `legends/hash.js`) over `front + "\u0001" +
+back`. Every question carries the sig of the card its passes ran on (C18), and the manifest carries it per card.
+App rule when a learner's saved course holds OLDER card text (the map keeps what it started with):
+1. When the learner OPENS A STEP (never on opening the map: no write there), NEW pure `syncCardText(map, pkg,
+   areaId)` (beside `addAcronymTrack`, tested) finds the area's items whose sig differs from the package and
+   replaces ONLY their `front` and `back`. Ids, tallies, tiers, `cardNoteId` and progress are untouched. It is
+   saved with `updateMap` before the lesson shows its cards, so the learner reads the text the questions were
+   proved against. A card the learner added to their deck is not changed (the deck is theirs).
+2. If that save fails, or the package cannot be loaded, every card whose map sig differs from the manifest's sig
+   counts as NOT shipped for that step (D3.5). A question is never asked against text the learner was not shown.
+An old saved classic set of a step whose card text was refreshed no longer matches its `stepSig` and is not
+replayed, as today when "Change my map" rewrites an area.
 
 ### D4. Lessons, checkpoints, bosses, raids
-All planning is in NEW `exam/courseQuiz.js` (pure `planCourseQuiz(map, area, node, { manifest, pick, reports, met,
-rand })` returning `[{ item, want, role }]`, plus `makeCourseQuiz(ctx, modeId, area, node)` which loads files, fills
-gaps and saves the pick state). `makeQuiz` (generate.js) gets one branch at its top: a career map goes to
-`makeCourseQuiz`; everything else is unchanged. `adaptiveSplit`, the ladder, `fitQuestionsToKind`, the prefix hint
-and the choice pool are not used for course questions (a course is a general subject; D-conflict 1).
+Planning is in NEW `exam/courseQuiz.js`: pure `planCourseQuiz(map, area, node, { manifest, pick, reports, met,
+rand })` returning `[{ item, want, role, spare }]`, and `makeCourseQuiz(ctx, modeId, area, node)` which loads files
+and saves the pick state. `makeQuiz` (generate.js) gets one branch at its top: a career map goes to
+`makeCourseQuiz`; everything else is unchanged. A course is a general subject: `adaptiveSplit`, the ladder,
+`fitQuestionsToKind`, the prefix hint and the choice pool are not used for course questions.
 
-#### D4.1 Lessons (kind `learn`; 1 to 4 new cards)
-- TAUGHT SET = the lesson's own cards + the cards of every completed lesson of the course (`status === 'done'`).
-- Each NEW card is asked twice: a `d` slot first, an `s` slot in the second half of the quiz. Up to 4 REVIEW cards
-  from earlier lessons of the same objective (shakiest first, `weakItems`) are asked once each, level 1, between
-  them. Size = 2 x new + reviews, at most 10. So a quiz opens with one-sentence definitions and scenarios come in its
-  second half, in every lesson and not only the first.
-- A slot is preferred when all its options are taught (`options[].item` in the taught set). The right option is
-  always the lesson's or an earlier card (it is the card's own question). At least one wrong option must be taught;
-  a slot with none is not used in a lesson. Any untaught option gets "Not covered yet" in the explanation (D2.5).
+#### D4.1 Lessons (kind `learn`; 1 to 4 new cards; Step 1b)
+- TAUGHT SET = the lesson's own cards + the cards of every completed lesson of the course. It only SORTS: among a
+  card's eligible level 1 slots, one whose options are all taught or `item: null` is preferred. No slot is ever
+  excluded for it. `item: null` options are neutral.
+- By default (the owner's written rule, one question per card): each NEW card is asked once from a `d` slot, then up
+  to 4 REVIEW cards from earlier lessons of the same objective (shakiest first, `weakItems`), each once from an `s`
+  slot. So a quiz opens with one-sentence definitions and scenarios come after. A missed question comes back once
+  at the end as the SAME question (today's `retryMisses`), practice only.
+- With the owner's explicit yes (open question 2, constant `SECOND_LOOK`): each new card is asked a second time
+  from an `s` slot at the end, and a missed question returns as its spare slot (a new stem). Without the yes a
+  one-card first lesson is a one-question quiz; the plan says so plainly.
+- An option whose `item` is a card outside the taught set (possible only when the learner skipped an earlier region
+  of the objective) gets "Not covered yet" in the explanation (D2.5).
 - Format gates, from the map alone: while fewer than 3 lessons of the course are done, no select-N and no negative
-  stem. An artifact slot is used only when it is lesson ready (the card names that kind of artifact) or its card was
-  taught by a completed lesson. Lessons never use level 2 slots.
-- A missed question comes back once at the end (`retryMisses`, as today) as ANOTHER slot of the same card
-  (`retryQuestion`), never counted twice.
-- First-time helps, each shown once per learner (D8.3 `hints`): before the first BEST or MOST question a
-  dismissable note ("Several options can be partly true. One detail in the question decides."); before the first
-  artifact question a one-line cue ("This is a log entry. Read it before the options."); select-N always shows
-  "Pick 2" outside the stem.
-- Acronym options in a lesson: a small "Spell out" control beside an acronym option shows its letters spelled out
-  (from the package's acronym list, never a definition). Using it marks the answer `aided` (graded at most Hard by
-  `gradeAnswer({ hintUsed: true })`). Bosses and the mock exam never offer it; the first use says so once.
-- A miss whose right option, or the picked wrong one, is an acronym the track holds names the island's acronym
-  drill ("Core acronyms") with a link.
-- Result: `PASS.node` (0.6) and stars as today. Under 50%, the result names the 1 to 3 most missed terms with lesson
-  links and puts "Review these, then try again" before "Try again".
-- No hearts and no timer in lessons, ever.
+  stem (level 1 is never negative, C15). A level 1 artifact is allowed by C15 only when the card itself names that
+  kind of artifact. Lessons never use level 2 slots.
+- First-time helps, each once per learner (D8.3 `hints`): before the first BEST or MOST question a dismissable note
+  ("Several options can be partly true. One detail in the question decides."); before the first artifact question a
+  one-line cue ("This is a log entry. Read it before the options."); select-N always shows "Pick 2".
+- Acronym options in a lesson: a "Spell out" control beside an acronym option shows its letters spelled out (from
+  the package's list, never a definition). Using it marks the answer `aided` (at most Hard, `gradeAnswer({ hintUsed:
+  true })`). Bosses and the mock exam never offer it; the first use says so once.
+- A miss where the right or the picked option is an acronym of the track names the island's core acronym set.
+- Result: `PASS.node` (0.6) and stars as today. Under 50% it names the 1 to 3 most missed terms with lesson links
+  and puts "Review these, then try again" before "Try again". No hearts and no timer in lessons, ever.
 
-#### D4.2 Checkpoints, Weak spots, acronym track, Legendary
-- Checkpoint (layout 1 courses only): `careerQuizItems(area, node, { max: CAREER.checkpointItems })` picks the cards
-  as today; 12 questions, one per card, levels 1 and 2 half and half; `PASS.checkpoint` unchanged.
+#### D4.2 Checkpoints, Weak spots, the acronym track, Legendary
+- Checkpoint (layout 1 courses only): cards from `careerQuizItems(area, node, { max: CAREER.checkpointItems })` as
+  today; 12 questions, one per card, levels 1 and 2 half and half; `PASS.checkpoint` unchanged.
 - Weak spots: one question per `weakItems(area)` card, any level; the bonus life rule is unchanged.
-- Acronym lessons and drills: built by CODE, no bank and no AI (`acronymQuestions(item, pool, rand)` in
-  `exam/acronymQuiz.js`): "What does <ACR> stand for?" with three expansions of the same tier as wrong options, and
-  the reverse form. Same exam shape, kind `definition`. The acronym track works with no key and no internet.
-- Legendary: 20 questions, level 2, the course fight profile with `pass: PASS.legendary`.
+- Acronym lessons and drills (NEW `exam/acronymQuiz.js`, pure, no AI). A choice question built from other
+  acronyms' expansions is solved by matching initials, in either direction, so it is not built. Two forms only:
+  1. TYPED RECALL, always available with no key and no internet: "What does <ACR> stand for?" (course content, in
+     English like every question), a typed answer graded by CODE through QuizRunner's `judge` prop:
+     `matchExpansion(answer, expansions)` = equal after `fold` to any listed expansion (the standard name, the public
+     list's variant, every meaning of a two-meaning acronym). A non-match shows the expansion and is a miss.
+  2. CHOICE, only for an acronym that `bank/acr.json` covers: three authored near-miss expansions that share the
+     initials (for a two-meaning acronym the question names the context). They pass the same stamps as questions.
+- Legendary: 20 questions, level 2, the course fight profile (D4.3).
 
-#### D4.3 Fights: region boss (15), island raid (25), final raid (30)
+#### D4.3 Fights: region boss (15), island raid (25), final raid (30) (Step 1c)
 Question counts stay (`node.count`). Cards come from `careerQuizItems` as today (shakiest first, spread over the
-objectives), with the nemesis share (`NEMESIS_SHARE`, 30%) taken from `area.nemesis.itemIds` first. Levels: a first
-region's boss 40% level 1 and 60% level 2, later regions 20 / 80, raids and the final raid any level. Formats a boss
-may use: every format the learner has met (D4.5), plus at most ONE not met yet (free on a miss). Within a fight no
-question may give away another's answer (`revealsAnother`, D7.2).
+objectives), the nemesis share (`NEMESIS_SHARE`, 30%) from `area.nemesis.itemIds` first. Levels: a first region's
+boss 40% level 1 and 60% level 2, later regions 20 / 80, raids and the final raid any level. A boss may use every
+format the learner has met (D4.5) plus at most ONE not met yet (free on a miss).
 
-Every course question is a choice question, so "typed = power strike, choices = safe strike" has no meaning there.
-A course fight runs on its own profile (NEW `exam/courseFight.js`), passed through the tune layer that raids already
-use (`newFight({ variant: 'course', rules })`, `rulesOf`), so fight.js keeps one engine and raid numbers do not move:
+W16 in a fight, decided: (a) `revealsAnother(a, b)` checks only what is on screen BEFORE an answer: a question's
+stem, bullets, artifact and option texts must not contain the key text (4 or more letters, `fold`, whole phrase) of
+another question of the fight, except as one of its own options; a clash replaces the later question. (b)
+`orderForFight` puts a card's own question before any question that lists that card as a wrong option. (c)
+Explanations teach: after an answer, a why line may make a later question easier. That is accepted in fights and
+lessons and said here; the mock exam shows no explanations, so there only (a) applies.
+
+Every course question is a choice question, so "typed = power strike, choices = safe strike" has no meaning. A
+course fight runs on its own profile (NEW `exam/courseFight.js`) through the tune layer raids already use
+(`newFight({ variant: 'course', rules })`, `rulesOf`); raid numbers do not move. `bossOdds`, `bossOutcome` and
+`forgivenMisses` move from `BossArena.jsx` to NEW pure `legends/bossOdds.js` (re-exported), so tests import no screen.
 
 ```js
 export const COURSE_FIGHT = {
-  pass: { region: 0.6, raid: 0.64, final: 0.66, legendary: 0.9 },   // share of right answers that empties the bar
-  rules: { damage: { clean: 1, glancing: 1, choice: 1, crit: 1, weak: 0, counter: 1 }, attackLives: 1, missLives: 1, weakToMax: 0 },
-  taskPass: 0.6, taskBonus: 1, reportRefunds: 2,
+  pass: { region: 0.65, raid: 0.68, final: 0.66, legendary: 0.85 },   // health = ceil(questions x pass)
+  rules: { damage: { clean: 1, glancing: 1, choice: 1, crit: 0, weak: 0, counter: 1 }, comboEvery: 9999, attackLives: 1, missLives: 1 },
+  taskPass: 0.6, taskBonus: 1,
 }
 ```
 
-- A right exam answer is a full strike: `strike(state, { verdict: 'clean', mode: 'exam' })`. `mode: 'exam'` takes the
-  clean branch of `strike` (only `'choice'` takes the safe branch), deals 1, and every third in a row is a critical
-  (+1). A wrong answer is a miss: 1 heart.
-- Health and hearts: `bossOdds(total, { pass, bonus })` as today. Region boss: 9 right answers win, 7 hearts. Raid
-  (25): 16 and 10. Final (30): 20 and 11. The intro card states these numbers; the outcome decides the pass
-  (`fightStars`), as today.
-- The boss strikes back as today: a missed card returns `ATTACK_GAP` questions later as an attack, but as ANOTHER
-  slot of that card (a new stem). Blocked = counter 1. A missed attack costs 1 heart here (not 2): no single question
-  in a course fight may cost more than one heart. No other slot available = no attack.
-- `judge` is not passed (no AI call in a course fight). `canUseChoices`, `startChoices`, the strike hint header, the
-  re-check, the Appeal and glancing follow-ups are off for course fights. Taunts stay (they are optional, need a key,
-  and show nothing without one). Learn it and the explanation show after every answer.
+| Fight | Questions | Health | Hearts | Win at 0.40 | 0.55 | 0.65 | 0.75 | 0.85 | 0.65 within 3 tries |
+|---|---|---|---|---|---|---|---|---|---|
+| Region boss | 15 | 10 | 6 | 3% | 26% | 56% | 85% | 98% | 92% |
+| Island raid | 25 | 17 | 9 | 0.4% | 14% | 47% | 85% | 99% | 85% |
+| Final raid | 30 | 20 | 11 | 0.3% | 14% | 51% | 89% | 100% | 88% |
+| Legendary | 20 | 17 | 4 | 0% | 0.5% | 4% | 23% | 65% | (0.90: 86%) |
+
+Win rates by the review's model (each question right with probability p, a right answer 1 damage, a miss 1 heart
+and an attack 3 questions later up to 5 a fight, an attack right 1 damage and wrong 1 heart, questions running out
+with hearts left = a win), 60,000 fights per cell. The review's numbers for the first draft were 80 / 73 / 65% at
+0.65 and about 96% at 0.75 for the region boss and the raid. The changes: NO critical hit in course fights (it made
+"N right answers win" false and was worth 4 to 14 points), one more health and one fewer heart for the region boss
+and the raid. With one free question (D4.5) the 0.65 column is 61 / 50 / 54%. The final raid keeps 20 and 11; 21
+and 10 (36% at 0.65, 80% at 0.75) is the stricter choice the owner can ask for. Legendary is harder than today's
+for a learner who typed clean answers (those dealt 2 against 18 health); the notice says so.
+
+- The intro card states HEALTH and HEARTS ("Health 10. Hearts 6. A right answer takes 1 health; a wrong one costs
+  1 heart."), never "N right answers win": a blocked attack also takes 1 health.
+- A right answer is `strike(state, { verdict: 'clean', mode: 'exam' })` (`'exam'` takes the clean branch; only
+  `'choice'` takes the safe one) and deals 1. A wrong answer is a miss: 1 heart.
+- The boss strikes back as today: a missed card returns `ATTACK_GAP` questions later as an attack. By default it is
+  the same question again (today's rule); with the owner's yes to `SECOND_LOOK` it is the card's spare slot. Blocked
+  = 1 health. A missed attack costs 1 heart here (not 2): no question in a course fight costs more than one heart.
+- Today's rule stays that questions running out with hearts left is a win. So a Shield, the Weak spots life or a
+  free question can each let a fight end one short of an empty bar, as a shielded fight can today.
 - Item tallies: `gradeFromStrike(verdict, { choice: true })`, so a right answer is Good (it counts toward gold as a
   fight answer does today) and no item can drop a tier from the change.
-- `NodeRun` gets `course = isCareerMap(map)` from LegendsScreen and branches in four small places: the profile for
-  `newFight` and `bossOdds`, the verdict mapping in `record`, the attack question, the tools row.
+
+The NodeRun.jsx touch points for `course = isCareerMap(map)` (all of them; line numbers of today's file):
+| Line | Today | Course fight or lesson |
+|---|---|---|
+| 387, 471, 543 | `bossOdds(n, odds)` with `PASS.boss` or `PASS.legendary` | `pass` from `COURSE_FIGHT.pass[stage]` |
+| 363 | `newFight()` | `newFight({ variant: 'course', rules: COURSE_FIGHT.rules })` |
+| 389, 666 | `weakTo(area)` names shown, +1 damage | none (`weakIds = []`; `weakToMax` in a profile is read by nothing) |
+| 477 | `power: won && st.safe === 0` | `false` (it would always be true on the clean branch and set `allPower`) |
+| 478 | `effortOf({ clean, glancing, choice, misses })` | a flat `effort: 1` (a 4-option pick must not earn typed-effort XP) |
+| 513 | lesson start `disabled={!ai.hasKey}` | enabled when a bank quiz can be planned |
+| 545 to 590 | `record`: verdict, strike, attack insert | verdict from `gradeExamAnswer`; `mode: 'exam'`; `hit.free`; no attack after a freed miss; attack question per `SECOND_LOOK` |
+| 561 | answer snapshot `q: { prompt, kind, accepted, choices, ... }` | also `exam` and `picks`, so "See all answers" shows options and why lines |
+| 594 | `judge` = `judgeStrike` (an AI call) | not passed: no AI call in a course fight |
+| 611 | `lg_attackIncoming` prints the constant `ATTACK_LIVES` (2) | `rulesOf(fs).attackLives` (1) |
+| 615 | the strike hint header (safe or power) | hidden |
+| 622 | the scroll tool (half of a typed answer) | removes one wrong option (D4.6) |
+| 634 | `startChoices` | not passed |
+| 635 to 642 | `resolveQuestion`, `overturnedFor`, `MissTools` (re-check, Appeal) | off; `explainExtra` with Report instead |
+| 628 | `FightSettings` (rows write `studyRules`, a no-op under `courseCtx`) | the typed, accent and language rows hidden; the task switch is a feature-setting row |
 
 #### D4.4 Select-N and task items: scoring said before, matched after
 - Select-N is right only when exactly the N right options are chosen. The line under the options says so before
   answering: "Pick 2. Both must be right to count." A wrong one costs one heart in a fight (never more), and the
   explanation says which picks were right and which wrong.
-- A task item in a fight (Step 2) shows before it starts: "All rows right: 2 damage. 60% or more: 1 damage. Less:
-  1 heart." Mapping: all right = `clean` with `opts.bonus = 1`; fraction at or above `taskPass` = `glancing` (1 damage,
-  no heart); below = miss, 1 heart. Categorize uses the chance-corrected fraction (the rule of `pbqRatingScore`).
-  Results are per row. Task items never move item tallies; their progress is in `xq-tasks-<mode>`.
+- A task item in a fight (Step 2) shows before it starts: "All rows right: 2 health. 60% or more: 1 health. Less:
+  1 heart." Mapping: all right = `clean` with `opts.bonus = 1`; fraction at or above `taskPass` = `glancing` (1
+  damage, no heart); below = miss, 1 heart. Categorize uses the chance-corrected fraction (the rule of
+  `pbqRatingScore`). Results are per row. Task items never move item tallies; they are added to the simulation.
 
 #### D4.5 A format met for the first time inside a fight costs no heart
 `xq-state-<mode>.met` (D8.3) records each format the learner has answered in a lesson, a checkpoint or Task
-practice: `multi`, `artifact`, `neg`, `task-match`, `task-order`, `task-sort`, `task-pairs`, `task-flows`, ... A
-fight question whose format is not in `met` carries `free: true`: a miss on it costs no heart (a one-line change in
-`strike`: `if (hit.free && res.lives > 0) { res.lives = 0; res.freed = true }`, tested), the screen says "New kind
-of question: no heart at stake", and the format is then recorded as met. At most one such question per fight.
+practice (`multi`, `artifact`, `neg`, `task-match`, ...). A fight question whose format is not in `met` carries
+`free: true`, at most one per fight; the screen says "New kind of question: no heart at stake". In `strike`:
+1. `if (hit.free && res.lives > 0) { res.lives = 0; res.freed = true }` sits BEFORE the Shield line (fight.js line
+   162), so a free miss never spends the Shield.
+2. `s.misses++` and the combo reset still run (the answer was wrong); only the heart is spared.
+3. `applyRes` gets `freed: true` in `last`, so the arena shows the "no heart" text instead of a plain block.
+4. NodeRun inserts NO attack for a freed miss (an attack born from a free question could cost a heart).
 
 #### D4.6 Rules the learner already knows
 - Shield: unchanged (absorbs one heart). Bonus life from Weak spots: unchanged (`bossOdds` `bonus`).
-- Hint scroll: today it shows half of a typed answer. In a course it removes one wrong option of a single-answer
-  question (`hidden`), marks the answer `aided`, and its button shows only on a question where it can be used, so a
-  scroll is never spent for nothing.
+- Hint scroll: in a course it removes one wrong option of a pick 1 question (`hidden`), marks the answer `aided`,
+  and its button shows only where it can be used, so a scroll is never spent for nothing.
 - Nemesis: unchanged in the map; the rematch draws its share in the new format; a win clears it.
-- Task items can be switched off on the boss intro (a row in `FightSettings`), on the mock exam start and in
-  Settings (`features.legends.taskItems`, default on, read when a fight is PLANNED, so never mid-fight). Off = the
-  fight keeps its full question count with choice questions.
+- Task items can be switched off on the boss intro, on the mock exam start and in Settings
+  (`features.legends.taskItems`, default on, read when a fight is PLANNED, never mid-fight). Off = the full
+  question count with choice questions.
 - A lost boss names the 1 to 3 most missed terms with lesson links and offers "Review these, then try again" before
   "Fight again".
 
-#### D4.7 Still winnable at about 65%: the simulation that sets the numbers
-`courseFight.test.js` simulates 20,000 fights per case with `strike` itself (answers right with probability p,
-attacks included, one free question, no task items and with 2): at p = 0.65 a region boss is won at least 60% of
-the time per attempt and at least 90% within 3 attempts; at p = 0.40 at most 15%; raids and the final raid at least
-50% per attempt at p = 0.65 and at least 85% at p = 0.75. The numbers in `COURSE_FIGHT` are the starting values;
-the test decides, never feel (`PROFILES=1` style table printed with `COURSE=1`). Suites to rerun unchanged:
-`fight.test.js`, `refund.test.js`, `profiles.test.js`, `balance.test.js`, `tuning.test.js`, `furycap.test.js`,
-`siege.test.js` (a course profile must not change any raid result).
+#### D4.7 The simulation that guards the numbers
+`courseFight.test.js` runs 20,000 fights per case with `strike` itself and the profile: region boss at p = 0.65
+wins 50 to 65% per attempt and at least 88% within 3; at 0.75 between 78 and 90%; at 0.40 at most 8%. Raid and
+final raid at 0.65 win 42 to 58%, at 0.75 at most 92%. Legendary at 0.85 wins 55 to 72%. Cases: plain; with one free
+question; with a Shield; with the Weak spots life; with 1 and 2 task items. A report changes no case (it never
+turns a loss into a win, D2.6), and a test asserts that. `COURSE=1` prints the table. Suites to rerun unchanged:
+`fight`, `refund`, `profiles`, `balance`, `tuning`, `furycap`, `siege`.
 
-### D5. Live generation (the optional extra)
-Files: `exam/examGen.js` (pure: prompts, parsers), `exam/examChecks.js` (pure: the code checks of D3.2),
-`exam/examples.js` (our own few-shot examples), `exam/examLive.js` (the calls, through `ctx.ai.call`).
+### D5. Live generation (Step 1d, the optional extra, default off)
+Files: `exam/examGen.js` (pure: prompts, parsers), `exam/examples.js` (our own few-shot examples), `exam/examLive.js`
+(the calls, through `ctx.ai.call`). It uses `exam/examChecks.js` as the build does.
 
 #### D5.1 When and how much
-Only for cards D3.5 could not fill, in batches of 6 cards per call, 2 questions per card (one `d` or `s` level 1,
-one level 2), so the second visit already has variety. New AI jobs in `src/config/aiJobs.js`: `legends.exam` (role
-`study`) and `legends.examCheck` (role `qcheck`), with their `aiJob_*` keys in four locales and a task in
-`modelPlan.js`. A boss of 15 with no bank costs about 3 writing calls and 3 check calls.
+Only for cards of objectives that have not shipped, only under `gaps`, in batches of 6 cards per call, 2
+questions per card. New AI jobs in `src/config/aiJobs.js`: `legends.exam` (role `study`) and `legends.examCheck`
+(role `qcheck`), with `aiJob_*` keys in four locales and a task in `modelPlan.js`. A boss of 15 with no bank costs
+about 3 writing calls and 3 to 6 check calls.
 
 #### D5.2 The prompt (outline)
 System: "You write practice questions for a certification course. Reply with JSON only: {"questions": [<the D2.1
-shape without id, slot, rev, by>]}." Then, in order:
-1. The format rules of the style guide sections 2 and 3, as rules (never as examples from any source).
-2. `TEACHING_STYLE_RULE` (utils/questionTier.js), so the prompt joins `teachingStyle.test.js`.
-3. THE MATERIAL: for each card its number, front and full back; then the study guide sections for the objective,
-   from NEW generic `ctx.subject.knowledgeFor(task, cap, cacheKey)` (a thin wrapper of App's `getKnowledgeContext`,
-   which already picks sections by the guide's outline; added to the feature context as a generic service).
+shape without id, slot, rev, cardSig>]}." Then, in order:
+1. The format rules of style guide sections 2 and 3, as rules (never as examples from any source).
+2. `TEACHING_STYLE_RULE`, so the prompt joins `teachingStyle.test.js`.
+3. THE MATERIAL: each card's front and full back; then the study guide sections for the objective when the mode has
+   them, from NEW generic `ctx.subject.knowledgeFor(task, cap, cacheKey)` (a thin wrapper of App's
+   `getKnowledgeContext`).
 4. "The right answer and every why line must be supported by this material. If the material does not settle which
    option is best, do not write that question."
-5. THE OPTION FAMILY: the fronts of the same objective's other cards, marked taught or not for a lesson ("wrong
-   options come from this list; for a lesson at least one wrong option is marked taught").
-6. Requirements per question: `detail` copied from the stem; one why line per option tied to the stem; `runner` and
-   `edge` for BEST or MOST; invented organizations; documentation addresses only; no real names.
-7. Two examples from `exam/examples.js`, on baking and gardening. A test fails if any example shares a card front or
-   an acronym with any shipped course.
-8. What to avoid: the stems this card was already asked with (bank and live).
+5. THE OPTION FAMILY: the fronts of the same objective's cards, marked with the C16 rule for level 1.
+6. `detail` copied from the stem; one why line per option; `partly`, `runner` and `edge` as C7 says; invented
+   organizations; documentation addresses only.
+7. Two examples from `exam/examples.js`, on pottery and baking. A test fails if an example shares a card front or an
+   acronym with any shipped course.
+8. The stems this card was already asked with.
 
-#### D5.3 Checks before anything is shown
-1. `shapeExamQuestion`, then every code check of D3.2 that applies to one question or one batch (count of right
-   options, detail substring, stem leak, acronyms taught, parallel shape, length tell over the batch, lesson-ready
-   rules, artifact rules, duplicates against the avoid list).
-2. THE CHECK PASS, one call per batch with the `qcheck` model, as a BLIND SOLVE: it gets the material and each
-   question WITHOUT the key and returns `{ "i": 0, "picks": [2], "also": [], "detail": "...", "fact": true }`. A
-   question passes only when `picks` equals the key, `also` (other options that could be defended) is empty,
-   `detail` names the same deciding detail, and `fact` (nothing in the stem contradicts the material) is true.
-3. A question failing 1 or 2 is rewritten ONCE in a call that names the reason, checked again, then dropped.
+#### D5.3 The truth check a live question is held to (stated, and weaker than the bank's)
+1. C1 to C17, C22 and C23 by code.
+2. A BLIND SOLVE with the `qcheck` model: it gets the material and the question WITHOUT the key and returns
+   `{ "i": 0, "picks": [2], "also": [], "detail": "...", "fact": true }`. Pass = `picks` equals the key, `also` is
+   empty, `detail` names the same deciding detail, `fact` is true (nothing in the stem contradicts the material).
+3. A question with `word` BEST or MOST and any `partly` option needs TWO separate blind solves that both pick the
+   key for the same detail, as the bank does. Otherwise it is dropped.
+4. A failed question is rewritten ONCE naming the reason, checked again, then dropped.
+No primary-source fact check runs on a live question (the bank's pass 4). Therefore: live writing is off by
+default; every live question shows "Written by AI just now"; an exam or set that contained live questions is
+labelled so in the history and trend; and Step 1d reports its measured error rate (D11.5) before `gaps` is offered
+as a default to the owner.
 
 #### D5.4 Failure handling
-- No key, a signed-out plan or no credit: no call is made; D3.5's fallback applies; the screen says how to add a key.
-  No heart, XP or attempt is lost, and there is never a blank question.
-- A cut-off reply: `parseAiJson` salvages the complete questions; only the cards still missing are asked again once.
-- The check pass failed or timed out: one retry. Still no verdict: those questions are NOT shown and NOT saved (a
-  set is never stamped as checked without a check); the cards count as unfilled (D3.5).
-- Total failure: an error screen with Retry and "Back to the map", the same as today's `lg_errQuiz`; the step is
-  not marked attempted.
-- Every result is discarded if the mode changed or the data folder is switching (`modeId` pinned, `once` keyed by
-  mode, area and node as `makeQuiz` does).
+- No key, a signed-out plan or no credit: no call is made; D3.5's classic path applies; the screen says how to add
+  a key. No heart, XP or attempt is lost, and there is never a blank question.
+- A cut-off reply: `parseAiJson` salvages the complete questions; only the cards still missing are asked once more.
+- The check failed or timed out: one retry. Still no verdict: those questions are NOT shown and NOT saved.
+- Total failure: an error screen with Retry and "Back to the map" (today's `lg_errQuiz`); no attempt is recorded.
+- A result is discarded if the mode changed or the data folder is switching (`modeId` pinned, `once` keyed).
 
 #### D5.5 Where live questions are kept
-`features/legends/xq-live-<mode>-<obj>.json`: `{ "v": 1, "cards": { "<item>": { "a": { ...question, "chk": 1 } } } }`,
-slots `a` to `f` (at most 6 per card, oldest replaced). Written once, reused with no AI call, picked by the same
-picker as bank slots. `chk` = `EXAM_CHECK_VERSION`; a question with an older `chk` is checked again before reuse.
+`features/legends/xq-live-<mode>-<obj with a hyphen>.json`: `{ "v": 1, "cards": { "<item>": { "a": { ...question,
+"chk": 1 } } } }`, slots `a` to `f` (at most 6 per card, oldest replaced). Written once, reused with no AI call.
+`chk` = `EXAM_CHECK_VERSION`; an older `chk` is checked again before reuse. Retired when the objective ships (D3.5).
 
 ### D6. Task items
 #### D6.1 A new kit module, not a change to `src/pbq/engine.js`
 `src/pbq/engine.js` stays as it is. Its compiled shape (one `assign` list aligned with the left items) cannot hold
 unused chips, a zone with two slots, two platform columns or a rule table, and it carries Study's authoring
-prompts, rating and saved question-bank PBQs, with 460 lines of tests and App.jsx wiring. NEW
-`src/features/kit/tasks/` holds one general "chips into slots" model for kinds 1 to 6 and a separate firewall model
-for 7 and 8. It imports the engine's pure helpers (`itemKey`, `norm`, the shuffle) instead of copying them, and
+prompts, rating and saved PBQs, with its tests and App.jsx wiring. NEW `src/features/kit/tasks/` holds one general
+"chips into slots" model for kinds 1 to 6 and a firewall model for 7 and 8. It imports the engine's exported pure
+helpers `itemKey` and `norm`; the engine's shuffle is not exported, so `taskEngine.js` has its own four-line one.
 `fromPbq(pbq)` adapts a compiled Study PBQ to the new board so Study can adopt `TaskItem.jsx` later. Study's PBQ mode
 is not touched in this plan.
 
@@ -880,12 +986,12 @@ is not touched in this plan.
 Kinds 1 to 6, one shape (`kind`: `match`, `place`, `sort`, `pairs`, `platform`, `order`):
 
 ```json
-{ "id": "t-2-3.02", "obj": "2.3", "kind": "match", "title": "Match each bread fault to its cause",
+{ "id": "t-9-2.02", "obj": "9.2", "kind": "match", "title": "Match each bread fault to its cause",
   "scenario": "A baker lists four faults seen this week.",
-  "chips": [ { "id": "c1", "t": "Underproofed", "item": "i2-3-0a1b2c3d" }, { "id": "c2", "t": "Oven too cool" },
+  "chips": [ { "id": "c1", "t": "Underproofed", "item": "i9-2-0a1b2c3d" }, { "id": "c2", "t": "Oven too cool" },
              { "id": "c3", "t": "Too much flour" }, { "id": "c4", "t": "Overproofed" }, { "id": "c5", "t": "Old yeast" },
              { "id": "c6", "t": "Too much salt" } ],
-  "rows":  [ { "id": "r1", "t": "The loaf tears open along one side", "icon": "none", "slots": 1 },
+  "rows":  [ { "id": "r1", "t": "The loaf tears open along one side", "slots": 1 },
              { "id": "r2", "t": "The loaf collapses when scored", "slots": 1 },
              { "id": "r3", "t": "The crust is pale after the full time", "slots": 1 },
              { "id": "r4", "t": "The dough never rises", "slots": 1 } ],
@@ -907,7 +1013,7 @@ Kinds 1 to 6, one shape (`kind`: `match`, `place`, `sort`, `pairs`, `platform`, 
 Kinds 7 and 8 (`kit/tasks/firewall.js`):
 
 ```json
-{ "id": "t-3-2.f01", "obj": "3.2", "kind": "flows",
+{ "id": "t-9-2.f01", "obj": "9.2", "kind": "flows",
   "net": { "zones": [ { "id": "out", "name": "Internet" }, { "id": "dmz", "name": "DMZ" }, { "id": "in", "name": "Office" } ],
            "hosts": [ { "id": "h1", "name": "Web server", "zone": "dmz", "ip": "203.0.113.10" },
                       { "id": "h2", "name": "Mail server", "zone": "dmz", "ip": "203.0.113.25" },
@@ -925,13 +1031,13 @@ a text row) IS the key, so it can never be wrong. A `rules` item (kind 7) stores
 plain words>", "must": [flow, ...], "mustNot": [flow, ...] }]` and `guards` (flows that must stay blocked).
 
 #### D6.3 Grading by code, and the one-solution check
-- Kinds 1 to 6: `gradeTask(task, board)` scores every slot on its own: a row with 2 slots is compared as a set.
-  Result: `{ rows: [{ id, right, chosen, key, why }], right, total, fraction }`. `sort` also returns the
-  chance-corrected fraction.
+- Kinds 1 to 6: `gradeTask(task, board)` scores every slot on its own (a row with 2 slots is compared as a set):
+  `{ rows: [{ id, right, chosen, key, why }], right, total, fraction }`. `sort` also returns the chance-corrected
+  fraction.
 - `countSolutions(task)` (brute force over at most 8 chips): the number of complete boards that respect `use`, `all`
   and every row's `fits`. It must be exactly 1 and equal `key`. `fits` is what the author AND the blind solver list
   per row ("every chip that would be right for this row on its own"), so two interchangeable steps, or a chip that
-  fits two rows of a `once` item with no other way to tell, show up as 2 or more solutions and the item is rejected.
+  fits two rows of a `once` item, show up as 2 or more solutions and the item is rejected.
 - Every key chip of kinds 1 to 6 names a course card (`item`) or is a term of the acronym list.
 - Kind 8 `flows`: per flow right or wrong against `evalFlow`. `buildFlowsTask(seed, objective)` builds the network,
   the rules and 5 to 7 flows by code and keeps only sets with at least 2 allowed, 2 blocked, 1 caught by the implied
@@ -939,11 +1045,11 @@ plain words>", "must": [flow, ...], "mustNot": [flow, ...] }]` and `guards` (flo
 - Kind 7 `rules`: the learner's table is run through `evalFlow`. A requirement is met when all its `must` flows are
   allowed and all its `mustNot` flows blocked; a broken guard marks the rule that opened it as "too broad". So rule
   order only matters when a requirement needs it, protocol case cannot matter (a select), and no return rule is
-  needed (the evaluator is stateful by definition: only the first packet of a flow is judged). The stored key rule
-  set must meet every requirement and guard, and removing any key rule must break one (no spare rule). Only the
-  requirement wording comes from an agent at build time.
+  needed (only the first packet of a flow is judged). The stored key rule set must meet every requirement and
+  guard, and removing any key rule must break one. Only the requirement wording comes from an agent at build time.
 
-The port table (`PORTS` in `firewall.js`; public well-known assignments, the only ports an item may use):
+The port table (`PORTS` in `firewall.js`; public well-known assignments, the only ports an item may use; each row
+is checked against the IANA registry before Step 2 ships):
 
 | Service | Protocol | Port | Service | Protocol | Port |
 |---|---|---|---|---|---|
@@ -961,134 +1067,148 @@ The port table (`PORTS` in `firewall.js`; public well-known assignments, the onl
 | IMAP | tcp | 143 | RDP | tcp | 3389 |
 | SNMP | udp | 161 | SIP | tcp and udp | 5060 |
 
-A `firewall.test.js` case fails when an item uses a port outside the table or an address outside the three
-documentation ranges. Each row of the table is checked against the IANA registry before Step 2 ships.
+`firewall.test.js` fails when an item uses a port outside the table or an address outside the documentation ranges.
 
 #### D6.4 Three ways to answer, one board (`TaskItem.jsx`)
 State is a pure reducer `boardReducer(board, action)` in `taskEngine.js`: `hold(chip)`, `cancel`, `place(chip, slot)`,
 `clear(slot)`, `move(fromSlot, toSlot)`, `swap`, `up(slot)`, `down(slot)`. All three ways dispatch the same actions
-and all are always available (no mode to switch on):
+and all are always there (no mode to switch on).
+- SLOT ANATOMY: a slot is a BUTTON (the tap target and the drop target; it shows the placed chip) with a separate
+  select trigger beside it (a native `<select>` drawn as a 44 px "choose" control). Both are always present, so a
+  tap on the slot never opens the picker, and the select serves keyboards and mobile screen readers.
+- SIZES are real pixels: a control of 44 real px is `44 / getZoom()` layout px (the body zoom). At 200% zoom on a
+  360 px phone (180 layout px wide) only ONE bar is pinned: the boss arena stops being sticky (its existing pin
+  mode) and the "Placing" line is drawn inside the sticky answer bar, never as a third bar. The sticky answer bar
+  carries `data-composer`, so the toast column rises above it (`toastClearance.js`).
 1. DRAG (mouse): pointer events with `pointerType === 'mouse'` only. Never the only way.
-2. TAP, TAP (touch and click): tap a chip to hold it. A bar pinned to the bottom of the column, above Submit, shows
-   "Placing: <chip>" and the remaining chips; free slots show a dashed outline. Tap a slot to place. Tap the held
-   chip or empty space to cancel. Scrolling never places (a tap that moved more than 10 px is ignored). Tapping a
-   filled slot with a chip held swaps, and the displaced chip returns to the pool. Tapping a filled slot with nothing
-   held offers Clear and Move.
-3. SELECT (keyboard and screen reader): every slot contains a native `<select>` named by its row ("Row 3,
-   <description>: choose a term", "Step 4 of 6", "Lobby, slot 2 of 2"), with an empty "Clear" choice. In a `once`
-   item a chip used elsewhere is listed as "<chip> (used in row 2)"; choosing it moves it and announces "moved from
-   row 2 to row 4". Delete or Backspace on a slot clears it. `order` adds "Move up" and "Move down" buttons per
-   placed step, announcing "<step>, now 3 of 6".
+2. TAP, TAP: tap a chip to hold it. The answer bar shows "Placing: <chip>" and what is left; free slots show a
+   dashed outline. Tap a slot to place. Tap the held chip or empty space to cancel. Scrolling never places (a tap
+   that moved more than 10 px is ignored). A filled slot tapped with a chip held swaps, the displaced chip back in
+   the pool. A filled slot tapped with nothing held offers Clear and Move.
+3. SELECT: each slot's select is named by its row ("Row 3, <description>: choose a term", "Step 4 of 6", "Lobby,
+   slot 2 of 2") and has an empty "Clear" choice. In a `once` item a chip used elsewhere is listed as "<chip> (used
+   in row 2)"; choosing it moves it and announces "moved from row 2 to row 4". Delete or Backspace on a slot clears
+   it. `order` adds "Move up" and "Move down" buttons per placed step, announcing "<step>, now 3 of 6".
 - A text line always says what is left and the rule: "3 of 7 terms left. Not all will be used."
-- Submit with empty slots asks once: "2 slots are empty. Submit anyway?" and focus returns to the first empty slot.
+- Submit with empty slots asks once ("2 slots are empty. Submit anyway?"); focus returns to the first empty slot.
 - After grading: the score first ("4 of 5 correct"), then each row with a mark and a word, the learner's choice, the
   correct answer under a wrong row and its one-line why, then the objective and lesson link. Partly right is worded
   as progress ("4 of 5. One to fix.").
 - Kind 8 on a phone: each given rule is a stacked card with labels; each flow has two buttons, Allowed and Blocked,
   44 px tall and 12 px apart. Kind 7: each rule is a stacked card of labelled native selects and a port field
-  (`inputMode="numeric"`, digits only, 1 to 65535, the error in words beside it); "Show network" opens the network as
-  a layer and returns to the same rule. The network is always also a text list (zones, hosts, addresses).
+  (`inputMode="numeric"`, digits only, 1 to 65535, the error in words beside it). When the port field takes focus it
+  is scrolled to the middle of the visual viewport once the on-screen keyboard has opened (`visualViewport` resize),
+  with its label; the scroll position from before the focus is restored when the keyboard closes. "Show network"
+  opens the network as a layer and returns to the same rule. The network is always also a text list.
 - The how-to: before the first item of each kind a short card (place, move, clear, submit; drag or tap, tap), stored
   in `xq-state-<mode>.howto`, reopenable from a "?" button on every task item.
 
 #### D6.5 Where they appear
 - Task practice: a card on each island page (`CareerMap.jsx`), listing that island's task items by kind with the
   best score. Nothing at stake. Before the first region boss the Continue card points to it once.
-- Fights: 1 item in a region boss, 2 in a raid or the final raid, placed after question 2 and near the middle, only
-  kinds the learner has met in Task practice or one new kind (free, D4.5), only objectives of that fight, only when
-  the setting is on. A region boss task uses chips whose `item` is in that region's or an earlier lesson.
+- Fights: 1 item in a region boss, 2 in a raid or the final raid, after question 2 and near the middle, only kinds
+  met in Task practice or one new kind (free, D4.5), only objectives of that fight, only with the switch on. A region
+  boss task uses chips whose `item` is in that region's or an earlier lesson.
 - The mock exam: about 5 at the start (D7.2).
-- A kind that cannot be shown well at the current width (kind 2 or 7 below 360 px of usable width) is not offered
-  there; the mock exam replaces it with a choice question and says "1 task item was left out on this screen".
-- Sources: bank task files per objective (`t-<obj>.json`, made in Phase B with the same four passes plus the blind
-  solve as `fits`). Kind 8 is also built at run time by code. Live AI authoring of kinds 1, 3, 4 and 6 for an
-  objective without bank tasks follows the `gaps` setting and the Study PBQ pipeline's order (write, compile, blind
-  solve, one rewrite, drop).
+- A kind that cannot be shown well at the current width (kind 2 or 7 below 360 real px) is not offered there; the
+  mock exam replaces it with a choice question and says "1 task item was left out on this screen".
+- Sources: bank task files per objective (`t-<obj>.json`, the same stamps, the blind solve as `fits`). Kind 8 is
+  also built at run time by code. Live AI authoring of kinds 1, 3, 4 and 6 follows the live setting (default off).
 
 ### D7. The mock exam and the short sets (Step 3)
 Files: `exam/mockExam.js` (pure: compose, score, breakdown, next steps), `exam/examClock.js` (pure),
-`exam/ExamStart.jsx`, `exam/ExamRun.jsx`, `exam/ExamResult.jsx`, `exam/ExamReview.jsx`, `exam/ExamHistory.jsx`.
-Opened from an "Exam practice" card in the course map's header (one tap to the card, one to Start: no island needs
-to be cleared). `LegendsScreen` gets a view `exam` with `useNavEntry('legends.exam', ...)`.
+`exam/ExamStart.jsx`, `ExamRun.jsx`, `ExamResult.jsx`, `ExamReview.jsx`, `ExamHistory.jsx`. Opened from an "Exam
+practice" card in the course map's header (one tap to the card, one to Start; no island needs to be cleared).
+`LegendsScreen` gets a view `exam` with `useNavEntry('legends.exam', ...)`.
 
 #### D7.1 The start screen (nothing starts before Confirm)
-It states, from real values: the question count and time; the domain split (table: domain, weight, questions); the
-task item count and the task on or off switch; the time choice (standard, 1.5x, 2x, no timer; remembered per
-device, `ebiki-exam-time`); the pause rule in one sentence ("The clock runs only while a question is on screen. It
-pauses when you leave or when the app is loading."); "Resumes on this device only"; "A mock exam changes nothing on
-your map and records no reviews in your deck"; where the questions come from: "From the built-in question bank: no
-AI, ready at once" or "37 questions must be written with your AI key: about 14 calls, about 2 minutes"; and the
-honesty line (D10). A learner with under 20% of the course's lessons done sees a warning and "Practice an island
-instead" first; the exam can still be started. If 90 items cannot be assembled it says which domains are missing,
-offers the largest set it can make (labelled as a short set) and records nothing.
+It states, from real values: the question count and time of THIS practice set (never that they match the real
+exam); the domain split (domain, "weight in the public exam objectives", questions); the task item count and
+switch; the time choice (standard, 1.5x, 2x, no timer; remembered per device, `ebiki-exam-time`); the pause rule
+("The clock runs only while a question is on screen. It pauses when you leave or when the app is loading.");
+"Resumes in this window on this computer only"; "A mock exam changes nothing on your map and records no reviews in
+your deck"; where the questions come from ("From the built-in question bank: no AI, ready at once", or "37
+questions must be written with your AI key: about 14 calls, about 2 minutes"); and the honesty line (D10). A
+learner with under 20% of the course's lessons done sees a warning and "Practice an island instead" first.
+
+The exam is ASSEMBLED WHOLE before it starts (R30): a progress state within 1 second, a count ("Preparing 37 of
+90"), the clock stopped, and after 30 seconds without progress a Retry and a way out. If 90 items cannot be
+assembled it says which domains are missing, offers the largest set it can make (labelled a short set) and records
+nothing. P41's "the first question is answerable before all 90 are ready" is declined (conflict 14).
 
 #### D7.2 Composition (`composeExam`)
 - Size 90: 5 task items + 85 choice questions; with tasks off, 90 choice questions. Domain counts by the largest
-  remainder method on the package's `weight` values (12, 22, 18, 28, 20): 11, 20, 16, 25, 18. A task item counts
-  toward its domain. Inside a domain, objectives get shares by their card counts, every objective at least 1 when
-  the domain's count allows. The result screen shows the actual counts.
+  remainder method on the package's `weight` values, which are the weights published in the public exam objectives
+  (12, 22, 18, 28, 20): 11, 20, 16, 25, 18. A task item counts toward its domain. Inside a domain, objectives get
+  shares by their card counts, every objective at least 1 when the count allows. The result shows the real counts.
 - Kind targets over the choice questions: about 15% definition, 10% artifact, 8% select-N, the rest scenarios;
   negative stems at most 4. One question per card. Task items come first, then the rest in random order.
-- No slot that an earlier attempt of this learner used (`xq-exams` keeps each attempt's qids) while an unused slot
+- No slot an earlier attempt of this learner used (`xq-exams` keeps each attempt's qids) while an unused slot
   exists; the pick state is updated at start.
-- `revealsAnother(a, b)`: a question's key term (4 or more letters) must not appear in the stem, artifact or why
-  lines visible during the exam of another question of the same objective; a clash replaces the later one. The
-  `stemSkeleton` check also runs across the 90.
+- `revealsAnother` as in D4.3 (a): stems, bullets, artifacts and option texts only; a clash replaces the later
+  question. C13's `stemKey` also runs across the 90.
 - `balancedOrder` deals the letters; a test checks one composed exam for letter spread and the longest-option share.
 - Short sets: 20 or 30 questions, the same weighting, one minute per question, labelled "Short set" everywhere and
   kept out of the full-exam trend. Focused sets: one domain; the weakest objectives over all attempts (a retest);
   task items only (kind selectable, untimed by default).
 
 #### D7.3 The runner (`ExamRun.jsx`)
-- One bar, one row, at most 56 px: time left (hideable; "Timer hidden" announced), "Question 37 of 90", Flag (a
+- One bar, one row, at most 56 real px: time left (hideable; "Timer hidden" announced), "Question 37 of 90", Flag (a
   toggle button), Grid. A quiet "behind pace" text appears in the bar, never a pop-up.
 - Nothing game-like and no feedback: no verdict, explanation, hint, Learn it, hearts, taunt, animation or Help answer
   until the exam is submitted. Help gets a `quiz` entry that says a timed exam is running (the existing `secret`
-  redaction applies), so it will not discuss the questions.
-- Free movement: Previous, Skip and Next at the bottom; any answer can be changed until Submit. Picking by key or
-  tap never moves on by itself.
-- Strike-out: a separate labelled toggle at the right of each option ("Strike out B"), 44 px, also the X key on the
-  focused option. A struck option shows a line through and the words "struck out", can still be chosen, and is
-  saved with the attempt.
+  redaction applies).
+- Free movement: Previous, Skip and Next at the bottom; any answer can be changed until Submit; "Clear answer"
+  returns a question to unanswered (a native radio cannot be unchecked). Picking by key or tap never moves on.
+- KEYS (no collisions): digits 1 to 7 and letters A to G pick or toggle an option, and nothing else. Shift + 1 to
+  7 strikes option n in or out (`strikeIndex`). Flag, Grid, Previous, Next, Skip and Clear answer are buttons with no
+  letter shortcut. Arrow keys inside the radio group move and select, as native radios do; striking never needs
+  focus on an option.
+- Strike-out: a separate labelled toggle at the right of each option ("Strike out B"), 44 real px, its own Tab
+  stop. A struck option shows a line through and the words "struck out", can still be chosen, and is saved.
 - Select-N shows "1 of 2 chosen" and counts as answered only with exactly N chosen.
 - The grid: all numbers in a vertical-scrolling grid of 40 px cells, each with a mark for answered, unanswered,
   flagged and current (shape and text, not color alone), a text summary with counts, and filter buttons
   ("Unanswered (12)", "Flagged (3)"). One Tab stop, arrow keys move, Enter opens; Back returns to the same cell.
   It is a layer (`useNavLayer`).
 - Submit asks once and names the counts ("12 unanswered, 3 flagged"). Leaving (the exit button, Back, Esc, a mode
-  switch) asks once: "Your answers are saved on this device. You can resume later, or end the exam now."
+  switch) asks once: "Your answers are saved in this window. You can resume later, or end the exam now."
+- A connection-down note sits in flow above the bar; every answer is already stored locally and grading is by code.
 
 #### D7.4 The clock (`examClock.js`, pure; the caller passes `now`)
 `{ budgetMs, usedMs, runningSince, pauses, awayMs }`. Time is added only from `performance.now()` deltas while the
 question view is mounted, the page is visible and nothing is loading (`tick(clock, now)`); the wall clock is never
 used for the budget, so changing the system clock neither adds nor removes time. It stops on `platform.onPageHide`,
-on a hidden tab, while a question or file loads and in any "could not load" state. `usedMs` is saved with every
-answer and every 5 seconds; after a crash at most 5 seconds are lost, in the learner's favor. Warnings at half time
-and at 30, 10, 5 and 1 minute: visible text in the bar plus a polite announcement, never a focus change; "Time left"
-on demand from a named button. At zero: "Time is up" is announced, what was answered is graded, unanswered
-questions are counted as wrong and listed as unanswered, focus lands on the result heading. An exam never submits
-while hidden: time cannot run out there. The result states the time mode and how often and how long it was paused.
+on a hidden tab, while a file loads and in any "could not load" state. `usedMs` is saved with every answer and
+every 5 seconds; after a crash at most 5 seconds are lost, in the learner's favor. Warnings at half time and at 30,
+10, 5 and 1 minute: visible text in the bar plus a polite announcement, never a focus change; "Time left" on demand
+from a named button. At zero: "Time is up" is announced, what was answered is graded, unanswered questions are
+counted as wrong and listed as unanswered, focus lands on the result heading. An exam never submits while hidden.
+The result states the time mode and how often and how long it was paused.
 
-#### D7.5 Resume
-The running attempt is saved on THIS DEVICE only: `platform.kv` key `ebiki-exam-run-<modeId>`, written on every
-answer, flag, strike and move (and flushed on page hide): `{ v, id, course, modeId, kind, opts, items: [the full
-questions and tasks, in order, with their option orders], answers, struck, flags, at, clock }`. Full questions are
-stored (about 120 KB), so a resume needs no network, no bank file and no AI call, and a bank update cannot change a
-running exam. If the write fails the start screen says the exam cannot be resumed after closing. On opening Exam
-practice with a saved run: "Resume (37 of 90 answered, 51 minutes left)" or "Discard"; an unfinished run is never in
-the history. Because the run is device-local, one sitting can never be finished on two computers, and a data folder
-switch or a dropped share cannot move it into another folder. Rotation, backgrounding and a reload restore the same
-question, picks, strikes, board and scroll position from this record.
+#### D7.5 Resume (and why it cannot cross data folders)
+The running attempt is saved in THIS WINDOW's storage only (`platform.kv`; the app window, a browser tab and the
+overlay each have their own, so the start screen says "this window"). Key `ebiki-exam-run-<mode>`, written on every
+answer, flag, strike and move and flushed on page hide: `{ v, id, course, modeId, mapCreatedAt, kind, opts, items:
+[the full questions and tasks in order, with their option orders], answers, struck, flags, at, clock }`. Full
+questions are stored (about 120 KB), so a resume needs no network, bank file or AI call, and a bank update cannot
+change a running exam. If the write fails the start screen says the exam cannot be resumed after closing.
+- A run is offered for Resume, and a pending result is written, ONLY when the open map's `career.id` and `createdAt`
+  equal the run's `course` and `mapCreatedAt`. After a data folder switch (the page reloads) a mode with the same id
+  in the other folder does not match: the run is kept untouched and the screen says "An unfinished exam from
+  another data folder is waiting. Switch back to that folder to resume it, or discard it."
+- On a match: "Resume (37 of 90 answered, 51 minutes left)" or "Discard". An unfinished run is never in the history.
+- Rotation, backgrounding and a reload restore the same question, picks, strikes, board and scroll position from
+  this record. One sitting cannot be finished twice: the result is saved under the run's id (D7.8).
 
 #### D7.6 The result (`ExamResult.jsx`)
 One phone screen without scrolling: the score ("68 of 90, 76%"), time used and mode, and three separate counts:
 wrong, unanswered at time up, flagged. Then, scrolling:
-- Per domain, weakest first, a stacked list (no chart): "Domain 4, Security Operations (28% of the exam): 18 of 25,
-  72%". A domain opens to its objectives: number, title, asked, right. An objective with fewer than 3 questions
-  says "too few questions to judge" and shows no percentage.
+- Per domain, weakest first, a stacked list (no chart): "Domain 4, Security Operations (weight in the public exam
+  objectives: 28%): 18 of 25, 72%". A domain opens to its objectives: number, title, asked, right. An objective with
+  fewer than 3 questions says "too few questions to judge" and shows no percentage.
 - Task items on their own line: rows right of rows, per item.
-- "Acronyms behind your misses": the acronyms in the options of missed questions, each with its tier and a link to
-  its set.
+- "Acronyms behind your misses": the acronyms in the options of missed questions, each with its tier and a link.
 - Plain words tied to the number, from the app's own three bands (under 60%, 60 to 79%, 80% and over), always
   followed by "This is a practice estimate from Ebiki's own questions. It does not predict a real exam score." No
   pass line, no scaled score, never "you will pass" or "you are ready".
@@ -1105,31 +1225,30 @@ Learn it, Add to deck, Report (D2.6: the score is recomputed at once).
 
 #### D7.8 History, trend, rewards, and what an exam does not touch
 - `xq-exams-<mode>.json`: `{ "v": 1, "attempts": { "<id>": { kind, at, timeMode, usedMs, pauses, total, right,
-  unanswered, flagged, reported, byDomain: { "1.0": { asked, right } }, byObj: { "1.1": { asked, right } },
-  tasks: { rows, right }, qids: ["..."], machine } } }`: an object keyed by attempt id (`<time in base 36>-<4 random
-  characters>`), so two computers that each finish an exam merge to both attempts, each once. Details for review are
-  in `xq-exam-<mode>-<id>.json` (the newest 10 kept). `saveAttempt` re-reads before writing and is idempotent by id.
-  If the save fails (share down, folder switching) the finished result stays in `platform.kv` as pending, the learner
-  is told "Saved on this device. It will be added to your history when your data folder is reachable", and it is
-  written on the next open.
+  unanswered, flagged, reported, live, byDomain: { "1.0": { asked, right } }, byObj: { "1.1": { asked, right } },
+  tasks: { rows, right }, qids: ["..."] } } }`: an object keyed by attempt id (`<time in base 36>-<4 random
+  characters>`), so two computers that each finish an exam merge to both attempts, each once. `live` = how many of
+  its questions were AI-written; the history and the trend label such an attempt. Details for review are in
+  `xq-exam-<mode>-<id>.json` (the newest 10 kept). `saveAttempt` re-reads before writing and is idempotent by id.
+  If the save fails (share down, folder switching) the finished result stays in `platform.kv` as pending under the
+  rule of D7.5, the learner is told, and it is written on the next open of the matching map.
 - History screen: date, kind, score, time, per domain; a per-domain trend against the previous full exam as text
   ("Domain 2: 70%, up 8"). Short and focused sets are listed and labelled, and are not in the full-exam trend.
 - A mock exam or set changes no star, unlock, boss win or item tally, and records no review in the learner's deck.
-  The start screen says so.
-- Reward: a flat `PRACTICE_DONE` with source `legends-mock` (the same XP whatever the score or the time, at most
-  once a day), so nothing rewards rushing.
+- Reward: `PRACTICE_DONE` with source `legends-mock`. The game feature gets a rule for it (features do not import
+  each other, so it is a new case in `game/engine.js`: flat XP whatever the score or time, once a day, with its
+  label). An older game engine on another computer pays its generic practice XP each time; that is accepted.
 
 ### D8. Saved data and migration
 #### D8.1 Old saved lesson and checkpoint sets: kept, not converted, never mixed
 Decision: KEEP every old `step-<hash>.json` file exactly as it is, and never read it into an exam-format quiz.
-- A course step first tries the exam format (D3.5). If it can be built, the old saved set is simply not used. It is
-  not deleted, so the older app on another computer still plays it, and nothing is lost if writing a live question
-  fails.
-- If the exam format cannot be built for that step (no bank yet, no key or live writing off), the old saved set
-  loads and plays exactly as it did, whole, with the "Classic questions" label. `quizsave.test.js` gets a case with
-  a real old-shape set (typed questions with `alt`, `ladder`, `checked`) proving it still opens.
-- A quiz is therefore all one format, always. An old boss `history` file is still read (it only feeds the live
-  writer's avoid list) and never rewritten.
+- A course step first tries the exam format (D3.5). If it can be built, the old saved set is not used. It is not
+  deleted, so the older app on another computer still plays it.
+- If the step is classic (D3.5), the old saved set loads and plays exactly as it did, whole, with the "Classic
+  questions" label. `quizsave.test.js` gets a case with a real old-shape set (typed questions with `alt`, `ladder`,
+  `checked`) proving it still opens. The one case it is not replayed: its cards' text was refreshed (D3.6).
+- A quiz is all one format, always. An old boss `history` file is still read by the classic path and never
+  rewritten by the new one.
 - The first time a step that has an old saved set is played in the new format, a one-line note says: "This step now
   uses exam-style questions. Your progress is unchanged."
 - "New questions" on a lesson: asks first when answers exist; for an exam-format quiz it only re-plans (other
@@ -1139,30 +1258,33 @@ Decision: KEEP every old `step-<hash>.json` file exactly as it is, and never rea
 #### D8.2 Progress
 The map file's shape does not change: no new field, node kind or version. Stars, cleared steps, unlocks, helpers,
 bonus lives, nemesis lists, tallies and tiers are read and written by the same functions (`applyNodeResult`,
-`tallyItems`). Replaying a finished lesson can raise stars and never lowers them (already `Math.max`). The mock
-exam and Task practice are NOT map nodes. A `career.test.js` case snapshots a mid-course map, runs it through
-`shapeMap` and one exam-format lesson result, and compares everything except that lesson's own counters.
+`tallyItems`). The only new map write is D3.6's refresh of `front` and `back`, on opening a step. Replaying a
+finished lesson can raise stars and never lowers them (already `Math.max`). The mock exam and Task practice are NOT
+map nodes. A `career.test.js` case snapshots a mid-course map, runs it through `shapeMap`, `syncCardText` and one
+exam-format lesson result, and compares everything except that lesson's own counters and the refreshed text.
 
 #### D8.3 New files (all under `features/legends/` in the data folder; none is read by an older build)
-
-| Key | Holds | Shape rule |
+| Key (`<mode>` cleaned as `keyFor` does; all match the store's key rule) | Holds | Shape rule |
 |---|---|---|
 | `xq-state-<mode>` | `{ v, notice: { examFormat }, met: {}, hints: {}, howto: {} }` | objects only; written only on a learner action |
-| `xq-pick-<mode>-d<n>` | picker state per domain (D3.4) | object keyed by card |
-| `xq-live-<mode>-<obj>` | saved live questions (D5.5) | object keyed by card, then slot |
+| `xq-pick-<mode>-d<n>` | pick state per domain (D3.4) | object keyed by card, one string each |
+| `xq-live-<mode>-<n>-<n>` | saved live questions (D5.5) | object keyed by card, then slot |
 | `xq-report-<mode>` | reported questions (D2.6) | object keyed by question id |
 | `xq-tasks-<mode>` | Task practice bests | object keyed by task id |
 | `xq-exams-<mode>` | exam summaries (D7.8) | object keyed by attempt id |
 | `xq-exam-<mode>-<id>` | one attempt's detail | written once, never edited |
 
 Every file carries `v`. A reader that meets a higher `v` treats the file as unreadable (never as empty), so it is
-never written over, the same rule `shapeMap` follows. Every writer: mode id pinned at task start, re-read before
-write, no write after a failed read, no write while `isDataSwitching()`, serialized per key.
+never written over, the rule `shapeMap` follows. Every writer: mode id pinned at task start, re-read before write,
+no write after a failed read, no write while `isDataSwitching()`, serialized per key.
 
 #### D8.4 The older app on the same folder
 It never reads an `xq-*` key or the bank, so it cannot crash on them, and the feature-data store has no sweep, so it
 cannot delete them. It keeps playing its own step files, which the new build never rewrites. Map progress flows
-both ways because the map shape is unchanged. No "update Ebiki" message is needed.
+both ways because the map shape is unchanged. Two things differ between the computers and are said in the notice:
+the same boss is fought by different rules (typed, 11 health and 5 hearts on the older build; choices, 10 and 6 on
+the new one), and a win on either counts on both; the older build shows a card's refreshed text (D3.6) as plain
+card text, which is harmless.
 
 #### D8.5 Offline and two computers
 All new files are objects keyed by stable ids, so `deepMergeJson(theirs, mine, base)` merges entry by entry: two
@@ -1173,42 +1295,46 @@ are part of the app, not the data folder, so they work with the share down. The 
 
 #### D8.6 The one-time notice (first open of a course after the update)
 A dismissable card on the course map (not a dialog), shown while `xq-state.notice.examFormat` is unset: questions
-are now exam style with options; progress is kept; finished lessons get exam-style questions when replayed; whether
-that uses the AI key for this course right now ("No AI is used for domains 1 and 2: their questions are built in.
-Other domains use your AI key until their questions arrive. You can turn that off in Settings."); boss hearts and
-health now count answers (the numbers); where the task item switch is; question reuse (a Study setting) does not
-apply to course lessons; typed recall stays in Study for cards added to the deck, and raids and practice outside
-the course are unchanged. Showing it writes nothing; dismissing it writes `xq-state`.
+are now exam style with options; progress is kept; which domains have built-in questions today and that the others
+keep today's questions until theirs arrive; that no AI is used for built-in questions, and that AI-written
+exam-style questions are an optional switch that is off; boss fights now count health and hearts per answer (the
+numbers), and Legendary is harder than before for typed answers; where the task item switch is; question reuse (a
+Study setting) does not apply to course lessons; typed recall stays in Study for cards added to the deck, the
+acronym sets are typed, and raids and practice outside the course are unchanged. Showing it writes nothing;
+dismissing it writes `xq-state`.
 
 ### D9. Accessibility and phone: decisions that shape the components
 - LAYOUT: one scrolling column (the screen's own scroller), no nested vertical scroll. The answer bar (Check,
   Continue, Submit, Previous, Skip, Next) is `position: sticky; bottom: 0` inside that column with
-  `padding-bottom: env(safe-area-inset-bottom)`: never `position: fixed` (the body zoom), so it sits above the phone
-  bottom bar, the home indicator, toasts and a docked Help. Side padding at least 16 px plus the safe insets.
+  `padding-bottom: env(safe-area-inset-bottom)` and `data-composer`: never `position: fixed` (the body zoom), so it
+  sits above the phone bottom bar, the home indicator, toasts and a docked Help. Side padding at least 16 real px
+  plus the safe insets. Every minimum size in this plan is in real pixels (`n / getZoom()` layout px).
 - OPTION TILES: full width, at least 48 px tall, 8 px apart, text wraps without clipping, the letter stays on the
   first line; the whole tile is the label of a native input. A tap that ends a scroll (moved over 10 px) is ignored.
   Chosen = tint + check mark + thicker border. Right, wrong, struck, flagged, current: always a mark and a word.
 - ARTIFACTS: a labelled block (`role="group"`, `aria-label` "Log entry", "Firewall rule", "Command output" ...,
   `tabIndex=0`) of real, selectable monospace text, at least 12 px. Each source line is its own block with a line
   number in a gutter and wraps inside the box (`overflow-wrap: anywhere`), so a wrapped line is recognisable by its
-  missing number, there is NO sideways scroll anywhere, and the deciding part can never hide off screen. In the
-  explanation the `mark` lines get a border and the word "key line".
+  missing number, there is NO sideways scroll anywhere, and the deciding part can never hide off screen.
 - STEM: bullets are a real `<ul>`. The key word is `<strong>` with a visually hidden "(key word)" after it, so it
   survives a reader that does not voice capitals.
 - BOSS HEADER ON A PHONE: the arena's existing slim pin mode; the drives measure that art, health and hearts take
   at most 35% of the height in portrait and 25% in landscape, and that the first stem line is visible at 360 x 640.
 - KEYS: 1 to 7 and A to G pick (toggle for select-N), Space toggles the focused option, Enter checks or continues,
-  arrows move inside the group (native). In the mock exam also F flag, X strike the focused option, G grid; every
-  one of these is also a visible named button, and a "?" button lists the shortcuts. No shortcut fires while focus
-  is in an input, textarea, select or contenteditable, while a dialog or layer is open (`data-app-dialog`,
-  `data-top-overlay`), during IME composition, or while voice typing listens (the existing QuizRunner guards plus a
-  check of the voice layer).
+  arrows move inside the group (native). The mock exam adds only Shift + digit (strike); everything else is a
+  visible named button, and a "?" button lists the keys. No key fires while focus is in an input, textarea, select
+  or contenteditable, while a dialog or layer is open (`data-app-dialog`, `data-top-overlay`), during IME
+  composition, or while something else holds the keys: NEW `kit/keyHold.js` (`holdKeys(id)`, `keysHeld()`), which
+  the voice feature calls while it listens (the kit never imports a feature).
 - FOCUS: a new question moves focus to its heading ("Question 14 of 90", `tabIndex=-1`), then the reading order is
   stem, artifact, options. After grading, focus moves to the verdict, announced once; Continue is the next Tab stop.
   A question that is replaced or still loading announces "Loading question" then "Question ready", and keys are
   ignored until it is ready. Closing a layer or dialog returns focus to the control that opened it.
-- ANNOUNCEMENTS: one polite live region per runner for counts ("2 of 2 chosen"), moves ("moved from row 2 to row
-  4"), timer set points and results; `role="alert"` for errors, with a focusable Retry.
+- ANNOUNCEMENTS: one polite live region per runner for counts, moves, timer set points and results; `role="alert"`
+  for errors, with a focusable Retry.
+- ROTATION: the state of a quiz, fight, task board and exam lives in components that stay mounted when the width
+  crosses `SHELL.phoneBelow` (the shell flips its own layout; the screen element is the same). A drive rotates
+  mid-fight, mid-task and mid-exam and compares picks, placed chips, the held chip and typed ports.
 - MOTION: nothing in the exam components animates position; under reduced motion, focus mode or Still bosses chips
   move at once and results simply appear.
 - CONTRAST AND ZOOM: only tokens (`C.*`, `*Fill` under white text); new states are added to `contrast.test.js`.
@@ -1219,155 +1345,190 @@ the course are unchanged. Showing it writes nothing; dismissing it writes `xq-st
 
 ### D10. i18n and honesty text
 All UI text goes through `t()` in `src/i18n/locales/{en,es,zh,ja}.js`, no em dashes. Question text (stems, options,
-explanations, task content) is course content in English; when the app language is not English a one-time line
-says so ("Course questions are in English, like the exam."). New key families (prefix `lgx_`):
+explanations, task content, the acronym recall line) is course content in English; when the app language is not
+English a one-time line says "Course questions are in English." New key families (prefix `lgx_`):
 - `lgx_pick*` (Pick 2, both must be right, 1 of 2 chosen, choose 1 more, clear one first)
-- `lgx_exp*` (the answer, close, why the others are wrong, not covered yet, where it lives, open lesson, key line)
-- `lgx_art_*` (artifact labels), `lgx_word*` (key word), `lgx_spell*` (spell out)
-- `lgx_report*`, `lgx_classic*`, `lgx_notReady*`, `lgx_live*` (setting names and hints), `lgx_notice*`
-- `lgx_fight*` (course fight intro numbers, new kind no heart, task damage line, review these then try again)
+- `lgx_exp*` (the answer, close, why the others are wrong, not covered yet, where it lives, open lesson, key line,
+  the question asked which one does NOT), `lgx_art_*` (artifact labels), `lgx_word*`, `lgx_spell*`
+- `lgx_report*` (reasons, not counted), `lgx_classic*`, `lgx_notReady*`, `lgx_notice*`, `lgx_english`
+- `lgx_set*` (Settings labels and hints for the live switch and the task switch, the reported count),
+  `lgx_ai*` (Written by AI just now, the history label)
+- `lgx_keys*` (the shortcut list), `lgx_load*` (Loading question, Question ready), `lgx_offline` (connection down)
+- `lgx_fight*` (health and hearts intro, new kind no heart, task health line, review these then try again, the
+  scroll's new text)
 - `lgx_task*` (titles per kind, placing, terms left, not all used, used in row, moved, cleared, slots empty, how-to
   per kind, score, row right or wrong, left out on this screen), `lgx_fw*` (rule table headers, allowed, blocked,
   implied deny, show network, port range error)
-- `lgx_exam*` (start screen lines, time modes, pause rule, bar, flag, strike out, grid, filters, submit and leave
-  dialogs, time warnings, time is up, resume, discard, pending save), `lgx_res*` (result, bands, estimate line,
-  too few to judge, next steps, add cards), `lgx_hist*`
-- `nav_leaveExam`, `aiJob_legends_exam`, `aiJob_legends_examCheck` and their hints
+- `lgx_exam*` (start screen lines, time modes, pause rule, bar, flag, strike out, clear answer, grid, filters,
+  submit and leave dialogs, time warnings, time is up, resume, discard, other folder, pending save), `lgx_res*`
+  (result, bands, estimate line, weight in the public exam objectives, too few to judge, next steps, add cards),
+  `lgx_hist*`
+- `nav_leaveExam`; `aiJob_legends_exam`, `aiJob_legends_examCheck` and hints; the `modelPlan.js` task name for the
+  two jobs; the game feature's label for `legends-mock`
 Counted strings get singular and plural keys; template families go into `src/i18n/templateKeys.test.js`.
 
 Honesty rules, written into the keys and checked by a test that scans the four locales for banned phrases:
 - Always "exam-style practice questions written by Ebiki from this course's own cards". Never "real exam
-  questions", "from the exam", "official", "you will pass", "you are ready", "passing score".
+  questions", "from the exam", "official", "you will pass", "you are ready", "passing score", "like the exam", "of
+  the exam", "as on the exam", or their translations.
+- The app never states a fact about the real exam. Domain weights are named "weight in the public exam
+  objectives"; the mock exam's size and time are its own.
 - The course start, the first quiz, the mock exam start and every result carry the estimate line; the course's
   existing trademark line (`noticeKey`) stays on its screens.
 - Help and Chat: a Help entry (`useHelpEntry`) and a learner-context source for a course mode state that Ebiki
   writes its own practice questions and has no real exam questions; asked for real ones, Ebi says so.
 
 ### D11. Test plan and proof plan
-1. UNIT TESTS (vitest, pure modules): `examQuestion` (shape, grade, select-N, mapping, `balancedOrder` spread over
-   2,000 runs), `examChecks` (every check with a passing and a failing invented case), `bank` (picker: no repeat in
-   a cycle, last-3 rule, one per card, gates), `courseQuiz` (lesson composition, taught set, format gates, fallback
-   order, never mixed), `courseFight` (the simulation of D4.7, `free`, task mapping, report refund cap),
-   `acronymQuiz`, `examGen` (prompt holds the rules and no course term in examples; parsers through
-   `aiReplyVariants.test.js`), `examStore` (re-read before write, pinned mode, blocked while switching, higher `v`
-   is unreadable, merges), `taskEngine` (compile, grade, `countSolutions`, reducer), `firewall` (evaluator, builder
-   guarantees, rule grading, port table), `mockExam` (weights within one, kinds, no earlier slot, `revealsAnother`),
-   `examClock` (pause, resume, clock change, time up), history merge. Plus `features.test.js`, the platform-neutral
-   scan, `i18n-coverage`, `locales`, `contrast`, `teachingStyle`, `aiJobs`.
-2. BUILD: `node dev/careers/build-bank.mjs security-plus-sy0-701` prints `no problems` on the pilot objective.
+1. UNIT TESTS (vitest, pure modules):
+   - 1a: `examQuestion` (shape, every limit, grading, select-N, mapping, `balancedOrder` over 2,000 runs, `cardSig`);
+     `examChecks` (C1 to C23, a passing and a failing invented case each; the D2.1 example passes all); `bank-build`
+     (a question ships only with every stamp equal to its hash; an edit after a pass drops it; `p2b` required for
+     BEST and MOST; a `cardSig` mismatch fails; C16 against a tiny invented package's lesson order).
+   - 1b: `bank` (never-asked first, the last-3 rule under mixed eligibility of a lesson and a boss, no reset, one
+     per card, spares, reports); `courseQuiz` (composition, sort-only taught set, gates, classic fallback, never
+     mixed, a one-card first lesson is a bank quiz with nothing studied); `cardSync` (text refreshed, tallies
+     untouched, unfilled when the save fails); `examStore` (re-read before write, pinned mode, blocked while
+     switching, higher `v` unreadable, key names accepted by the store's rule, pick state written once under a
+     double mount); `acronymQuiz`; a course lesson with every AI host blocked makes ZERO calls (automated); a new
+     manifest `rev` drops the file cache.
+   - 1c: `courseFight` (D4.7, `free` before the Shield and no attack after it, task mapping, a report never changes
+     a win rate, a lost fight with a report is not counted); a course fight with AI hosts blocked makes zero calls.
+   - 1d: `examGen` (prompt holds the rules; no course term in the examples; two solves for BEST and MOST with a
+     `partly` option; parsers through `aiReplyVariants.test.js`).
+   - Later steps: `taskEngine`, `firewall`, `taskBoard`, `mockExam` (weights within one, kinds, no earlier slot,
+     `revealsAnother`), `examClock`, history merge, resume refused for another folder's map.
+   - Always: `features.test.js`, the platform-neutral scan, `i18n-coverage`, `locales`, `contrast`, the honesty scan
+     with the banned phrases of D10.
+2. BUILD: `node dev/careers/build-bank.mjs security-plus-sy0-701` prints `no problems`; first on a handful of
+   invented questions (the gate for the pilot to start), then on the pilot objective.
 3. IN-APP DRIVES (Playwright's bundled Chromium, port 3001, muted, AI hosts stubbed, `/api/feature-data` in
-   memory): a first lesson (definitions first, explanation, lesson link and back, report); a lesson with select-N
-   and an artifact; an old-layout course with an old saved checkpoint set (loads, labelled, passed state kept); a
-   region boss won and lost (hearts, attack, free question, review-then-retry); a raid; no key and no bank (the
-   plain screen, nothing lost); each task kind by tap and by keyboard only; the mock exam: start, flag, strike,
-   grid, reload and resume, hide for a while (clock rule), time up, result, review, retest, history; all at the
-   widths, zooms and themes of D9, every screenshot looked at, greyscale copies for the state marks.
-4. OWNER-SETUP PROOF (at most 150 model calls in total, counted from `logs/token-usage.json` before and after): the
-   owner's provider and models, a real mid-course save copied to a scratch data folder. Played: one lesson and one
-   checkpoint or region boss from the bank (0 calls expected), one region boss on a domain with no bank (live), one
-   short set of 20 with live questions. Recorded in the judge table: calls and tokens per boss attempt and per
-   exam, the wait to the first question, and a before and after snapshot diff of the map file.
-5. JUDGES AND SAMPLES: an independent judge that gets ONLY the style guide rates 40 questions (20 live, 20 pilot
-   bank; boss level) rule by rule, pass rate per rule recorded honestly. An accuracy checker that did not write the
-   questions fact checks the same 40 against cards and chapters; the error rate is recorded. A 30-question sample
-   (stems and options only) is written to `docs/reviews/exam-sample-<date>.jsonl` by NEW
-   `dev/careers/sample-questions.mjs` and sent to oversight for the copying check; repeated after any prompt change.
+   memory): the preview page (1a); a first lesson with nothing studied (definitions first, explanation, lesson
+   link and back, report); a lesson with select-N and an artifact; an old-layout course with an old saved
+   checkpoint set (loads, labelled, passed state kept); a course whose saved card text is older than the package;
+   a region boss won and lost (hearts, attack, free question, review-then-retry, a report then a loss); a raid; no
+   key and no bank (the plain screen, nothing lost); each task kind by tap and by keyboard only; rotation mid-fight
+   and mid-task; the mock exam: start, flag, strike, grid, reload and resume, a hidden page (clock rule), time up,
+   result, review, retest, history, a run from another folder; all at the widths, zooms and themes of D9, every
+   screenshot looked at, greyscale copies for the state marks.
+4. OWNER-SETUP PROOF: the owner's provider and models, a real mid-course save copied to a scratch data folder.
+   Steps 1b and 1c: one lesson, one checkpoint or region boss from the pilot bank, 0 model calls (counted from
+   `logs/token-usage.json`), with a before and after diff of the map file. Step 1d: at most 150 model calls in
+   total: one region boss and one short set of 20 written live; recorded in the judge table: calls and tokens per
+   boss attempt and per set, the wait to the first question.
+5. JUDGES AND SAMPLES: an independent judge that gets ONLY the style guide rates 40 boss-level questions (pilot
+   bank after 1a; plus 20 live ones in 1d) rule by rule, pass rate per rule recorded honestly. An accuracy checker
+   that did not write the questions fact checks the same questions against cards and chapters; the error rate is
+   recorded, for live questions separately (it decides D12.3). A 30-question sample (stems and options only) is
+   written to `docs/reviews/exam-sample-<date>.jsonl` by NEW `dev/careers/sample-questions.mjs` and sent to oversight
+   for the copying check; repeated after any prompt change.
 6. INDEPENDENT REVIEW of the diff and screenshots against this design and the six lists, item by item, before each
    step is called done (the project's triple check).
 
-### D12. Open questions for the owner (each with the default that will be built)
-1. Boss numbers. With options on every question, a right answer deals 1 and a region boss needs 9 right of 15 with
-   7 hearts (today 11 health and 5 hearts, where a typed clean answer deals 2). Default: the numbers of D4.3, tuned
-   by the simulation. The alternative keeps 11 and 5 and lets a right answer deal 2, so a fight can end after 5
-   questions.
-2. A new card twice in its lesson. The bank rule says one quiz never holds two questions of one card. Default:
-   bosses, checkpoints and exams follow it strictly; a LESSON asks each new card twice (a definition, later a
-   scenario), because a lesson of 1 to 4 cards would otherwise be a quiz of 1 to 4 questions.
-3. Before a domain's bank ships. Default: `gaps` (AI writes exam-style questions for that domain when a key works,
-   said in the notice). The alternative is `off` by default, which leaves those domains on classic questions.
-4. Briefing cards. 33 of the 855 cards are briefings that are never quizzed. Default: the bank covers the 822
-   others (8,220 questions).
-5. Size in git. The bank adds about 10 MB to the repository and the install, and `docs/reviews/bank-*.jsonl` about
-   as much again. Default: both in git, as the plan says.
-6. Mock exam time. Default: 90 minutes for 90 questions, one minute a question for short sets, the clock pausing
+### D12. Open questions for the owner (each with what is built until answered)
+1. Fight numbers (D4.3 table): region 10 health and 6 hearts, raid 17 and 9, final raid 20 and 11, Legendary 17
+   and 4, no critical hit. The final raid at 21 and 10 is the stricter choice (36% per attempt at 65%).
+2. A second question of one card in a lesson, and a missed question or an attack coming back with a new stem. This
+   goes against the written bank rule, so it needs an explicit yes. Until then: one question per card, the same
+   question on a return, and a one-card lesson is a one-question quiz.
+3. Live AI questions before a domain's bank ships. Built `off`. After Step 1d measures their error rate the owner
+   can make `gaps` the default.
+4. Briefing cards. 33 of the 855 cards are briefings that are never quizzed. Built: the bank covers the 822 others.
+5. Size in git. About 10 MB of bank and about as much in `docs/reviews/bank-*.jsonl`. Built: both in git.
+6. Mock exam time. Built: 90 minutes for 90 questions, one minute a question for short sets, the clock pausing
    whenever the exam is not on screen, no strict mode.
+7. The first task batch. Oversight's scope says kinds 1, 2, 3, 6, 8; this plan builds 1, 3, 4, 6, 8 and moves kind
+   2 (zone pictures) to Step 4. It changes a scope decision, so it needs oversight's OK.
+8. Oversight to confirm that the "deciding detail" fragments quoted in style guide section 2 are invented, since
+   this plan is in a public repository.
 
 ### Conflicts decided
 1. Language hint rules against a course: a course is a general subject. No prefix hint, no choice pool, no ladder
    chip, no typed default on course questions. Other modes keep all of them.
 2. B22 (spell out acronyms in lessons) against the exam format (acronyms unexpanded): spelled out on request in
-   LESSONS only, marked as an aided answer; bosses and the mock exam never. The owner's goal is the exam format where
-   it counts, and the acronym track exists for learning them.
-3. B24 and B25 (typed recall) against "the options replace blind typing" (scope 1): course quizzes are choice
-   questions. A safe "type it first" lesson option is deferred to Step 3: a typed exact match (the key term, its
-   acronym or its expansion) is right; anything else is NOT a miss, the options simply appear. No AI judge, so no
-   right answer can be marked wrong.
+   LESSONS only, marked as an aided answer; bosses and the mock exam never.
+3. B24 and B25 (typed recall) against "the options replace blind typing" (scope 1): course questions are choice
+   questions. "Type it first" in lessons is deferred to Step 3: a typed exact match (the key term, its acronym or
+   its expansion) is right; anything else is NOT a miss, the options simply appear. The acronym sets are typed
+   recall graded by code (D4.2), because no fair choice form can be built by code.
 4. B32 (a first-time format costs no heart) against plain fight rules: built (D4.5), one per fight, said on screen.
 5. R20 (same hearts and pass mark) against W28 and B33 (winnable at 65% when every answer is a choice): the question
-   counts stay, hearts and health change, said in the notice and on the intro. Open question 1.
-6. The bank rule "one per card per quiz" against lessons of 1 to 4 cards and B20: see open question 2.
-7. R11 (one saved set, reused) against the bank's "another one next time": bank questions rotate at no cost; live
-   questions are written once per card, saved and rotated the same way. No visit pays twice.
+   counts stay, health and hearts change (D4.3), said in the notice and on the intro.
+6. The bank rule "one per card per quiz" against B20 and short lessons: the written rule wins until the owner says
+   yes (open question 2).
+7. R11 (one saved set, reused) against the bank's "another one next time": bank questions rotate at no cost.
 8. W22 and B16 (an explanation after every answer) against E24 (no feedback in the mock exam): by surface.
-   Lessons, checkpoints and fights always explain; the mock exam explains only in review.
-9. W10 (a dispute judged) against "works with no key": a report is upheld by rule, with a cap of 2 refunds a fight.
+9. W10 (a dispute judged, heart returned) against "works with no key" and the balance: a report is upheld by rule
+   for the score, the tallies and the future, but returns no heart in a fight; a lost fight with a report is not
+   counted (D2.6).
 10. W37 and R30 (say the AI cost before a mock exam) against the bank (no cost): the start screen states whichever
     is true for this attempt.
 11. K31 (an optional strict timer): declined. One clock rule is easier to state and to trust.
-12. Scope 4's first task batch (1, 2, 3, 6, 8) against this build order (1, 3, 4, 6, 8): kind 2 needs zone pictures
-    (art with its own QA) and moves to Step 4; kind 4 is kind 1's simplest case and comes for free.
+12. Scope 4's first task batch against this build order: open question 7.
 13. E38 (report during the exam) against E24: Report is offered in review; during the exam the learner flags.
+14. P41 ("the first question is answerable before all 90 are ready") against R30 ("an exam that cannot be assembled
+    says so before the timer starts") and D7.5 (the whole exam is stored for resume): the exam is assembled whole
+    first. P41's other parts are met (progress within 1 second, the clock stopped while waiting, Retry and a way out
+    after 30 seconds); the streaming part is declined.
+15. W16 in fights against explanations after every answer: texts shown before an answer never give another answer
+    away and questions are ordered (D4.3); that an explanation teaches something a later question asks is accepted.
+16. The review's finding 15 (ask acronyms in the reverse direction with same-length options): not taken. The
+    expansion shown in the stem spells the initials of the right acronym whatever the options' lengths. Typed
+    recall and authored same-initial options are used instead (D4.2).
+17. The review's finding 7 against "state per card per step kind": one order per card with no reset is used. It is
+    unambiguous, and unlike state per step kind it keeps the last-3 rule true across a lesson and a boss.
 
 ### Requirement coverage
-Every id of the six lists, read down each pair of columns (W, E, B, R, P, K in order). "D" numbers are sections above; "S2", "S3", "S4" = ships with that step.
+Every id of the six lists (250), read down each pair of columns (W, E, B, R, P, K in order). "D" numbers are sections above; "S2", "S3", "S4" = ships with that step.
 
 | Ids | Met by | Ids | Met by | Ids | Met by |
 |---|---|---|---|---|---|
-| W1 | D3.2 gates + plan B4 passes; D5.3 blind solve | E17 | D7 intro (S3) | R16 | D8.1 |
-| W2 | D2.1 `detail`, D2.5, D3.2 | E18, E19, E20, E21 | D7.1, D7.2, D7.4 (S3) | R17 | D8.1 |
-| W3 | D2.1 `source`, D5.2 item 4, plan B4 pass 4 | E22, E23, E24, E25, E26, E27 | D7.3 (S3) | R18 | D8.1 (history read), D3.3 |
-| W4 | D5.3 `fact`, plan B4 pass 1 | E28 | D7.4 (S3) | R19 | nothing of a running quiz or fight is persisted today (NodeRun keeps it in memory), so nothing can resume broken; no change |
-| W5 | D2.1, D3.2 (`ok` count equals `pick`) | E29, E30 | D7.3, D2.3 (S3) | R20 | D4.6, D4.3 (hearts and health change, said in D8.6; conflict 5) |
-| W6, W7 | D5.3, D5.4 | E31, E32 | D7.3, D7.5 (S3) | R21, R22, R23, R24 | D8.4 |
-| W8 | D2.1 (why travels with its option), D2.4 | E33, E34, E35 | D7.2 (S3) | R25, R26 | D8.5, D7.8 |
-| W9 | D2.1, D2.5, D3.2 | E36, E37 | D7.8, D7.2 (S3) | R27, R28, R29 | D7.5, D7.8 |
-| W10 | D2.6 | E38 | D2.6, D7.7 (S3) | R30, R31 | D7.1, D7.8 |
-| W11 | D3.2 length tell, D5.3 | E39 | D7.2 test, D2.4 | R32 | D4.6 |
-| W12 | D2.4 | E40 | D2.5 | R33, R34 | D8.6 |
-| W13, W14, W15 | D3.2 (parallel options, stem leak, artifact), D5.3 | E41 | D2.1 text rules, D3.2, D4.1 (spell out is lessons only) | P1, P2 | D9 layout |
-| W16 | D4.3, D7.2 `revealsAnother` | E42, E43 | D7.8 (S3) | P3, P4 | D9 boss header, layout |
-| W17 | D3.2 acronyms | E44 | D9, D6.5 (S3) | P5, P6, P7, P8 | D9 option tiles, layout; D2.3 |
-| W18, W19, W20 | D4.1, D3.2 lesson ready | B1, B2, B3, B4 | D4.1 | P9, P10 | D9 artifacts (no sideways scroll exists) |
-| W21 | D2.1, D3.2 | B5 | D3.2 lesson ready | P11 | D6.4 (rules as stacked cards) (S2) |
-| W22 | D2.5 | B6, B7 | D4.1, D3.2 lesson ready | P12, P13, P14 | D2.3, D9 |
-| W23, W24, W25 | D2.3, D4.4 | B8 | D4.1 first-time helps | P15, P16 | D2.5, D9 layout |
-| W26 | D4.4, D6.4 (S2) | B9, B10 | D2.3, D2.5 | P17 | D2.5 layer; D7.7 (S3) |
-| W27 | D6.3 (S2) | B11, B12, B13 | D4.1 gates, D2.1 (`NOT` in capitals; D2.5 restates the ask) | P18, P19, P20, P21, P22, P23, P24 | D6.4 (S2) |
-| W28 | D4.3, D4.7 | B14, B15 | D2.1 artifact, D2.5, D4.1 | P25 | D6.2 kinds 2 and 5, D6.5 (S4) |
-| W29 | D3.2 duplicates, D3.3, D7.2 | B16, B17, B18, B19 | D2.5 | P26, P27 | D6.4 (S2) |
-| W30 | D3.3, D3.4 | B20 | D4.1 (`retryQuestion`) | P28, P29, P30 | D6.4 kind 7 (S4) |
-| W31 | D7.2 (S3) | B21 | D4.1 ("Not covered yet") | P31 | D6.4 kind 8 (S2) |
-| W32 | D8.1 | B22 | D4.1 (lessons only; conflict 2) | P32, P33, P34, P35 | D7.3 (S3) |
-| W33 | D8.2 | B23 | D4.1 | P36 | D7.6 (S3) |
-| W34, W35, W36 | D3.5, D5.4 | B24, B25 | deferred to step 3 ("type it first", conflict 3): Step 1 must first fix the choice format; the safe design needs the acronym aliases wired | P37, P38 | D7.5 (exam, S3); a fight keeps its state in memory through rotation and backgrounding as today, and a page the system killed restarts the fight from its intro (not persisted: declined, a fight is 15 to 30 questions and costs nothing to restart) |
-| W37 | D7.1 (S3) | B26, B27, B28, B29, B30 | D6.4, D6.5 (S2) | P39 | D7.1, D7.4 (S3) |
-| W38 | D11.4 (measured, recorded in the judge table); D3.3 (an abandoned exam is not written again) | B31 | D6.5 (S2) | P40 | D7.5 (S3); grading is by code everywhere (D2.3, D6.3) |
-| W39 | D7.4 (S3) | B32 | D4.5 | P41 | D7.1, D7.4, D5.4 (the first question is shown as soon as its batch is checked) |
-| W40 | D7.3, D7.5 (S3) | B33 | D4.3, D4.7 | P42, P43 | D9 contrast and zoom |
-| W41, W42, W43 | D7.4 (S3) | B34 | D4.6 | P44 | D9 back |
-| W44 | D7.3, D9 keys (S3) | B35 | D10, D8.6 | K1, K2, K6, K7 | D9 keys |
-| W45 | D7.8 (S3) | B36 | D4.1, D4.6 | K3, K4, K5 | D2.3, D9 announcements |
-| W46 | D9 artifacts | B37 | D2.6, D5.3 | K8, K9, K10, K11, K12 | D9 focus, D2.5 |
-| W47 | D3.2 artifacts, D6.3 | B38 | D7.1; no timer in lessons or fights (D4.1) | K13, K14, K15 | D9 artifacts, stem |
-| W48 | D6.4 (S2, S4) | R1, R2, R5, R6 | D8.2, D4.6 | K16, K17, K18, K19, K20 | D6.4 (S2) |
-| W49 | D10 | R3, R12 | D8.1 (no call, no write on open) | K21 | D6.4 kind 7 (S4) |
-| W50, W51, W52 | D10, D7.6 | R4 | D8.2 (nothing outside `features/legends/xq-*` is written; the deck is never touched) | K22 | D6.4 kind 8, D6.2 (S2) |
-| W53, W56 | D11.5 | R7, R8 | D8.6 | K23, K24 | D6.4 (S2) |
-| W54 | D5.2 item 7, D11.1 | R9 | D3.5, D5.4 | K25, K26, K27, K28 | D9 |
-| W55 | D10 | R10, R11 | D8.1, D3.5, D5.5 | K29, K30, K32 | D7.4, D7.3 (S3) |
-| E1, E2, E3, E4, E5, E6, E7, E8 | D7.6 (S3) | R13 | declined: no bulk refresh action exists (D8.1), so nothing can be spent in bulk | K31 | D7.1, D7.4 (extended time, no timer, pause and resume); the strict mode is declined (conflict 11) |
-| E9, E10, E11, E12 | D7.7, D2.5 (S3) | R14 | D5.4, D8.1 (the old set is never deleted) | K33, K34 | D7.3, D9 back (S3) |
-| E13, E14, E15, E16 | D7.6 (S3) | R15 | D8.2 |  |  |
+| W1 | D3.2 stamps and passes; D5.3 blind solve | E13, E14, E15, E16 | D7.6 (S3) | R17 | D8.1 |
+| W2 | D2.1 `detail`, D2.5, D3.2 C6 | E17 | D7 intro (S3) | R18 | D8.1, D3.3 |
+| W3 | D2.1 `source`, D3.2 C20, plan B4 pass 4 | E18, E19, E20, E21 | D7.1, D7.2, D7.4 (S3) | R19 | nothing of a running quiz or fight is persisted today (NodeRun keeps it in memory), so nothing can resume broken; no change |
+| W4 | plan B4 pass 1; D5.3 `fact` | E22, E23, E24, E25, E26, E27 | D7.3 (S3) | R20 | D4.6, D4.3 (health and hearts change, said in D8.6; conflict 5) |
+| W5 | D3.2 C2 | E28 | D7.4 (S3) | R21, R22, R23, R24 | D8.4 |
+| W6, W7 | D3.2 shipping gate; D5.3, D5.4 | E29, E30 | D7.3, D2.3 (S3) | R25, R26 | D8.5, D7.8 |
+| W8 | D2.1 (why travels with its option), D2.4 | E31, E32 | D7.3, D7.5 (S3) | R27, R28 | D7.5, D7.8 |
+| W9 | D2.1, D2.5, D3.2 C1 | E33, E34, E35 | D7.2 (S3) | R29 | D7.5 (the run is bound to the map's `career.id` and `createdAt`; another folder's map never resumes or receives it, and the learner is told) |
+| W10 | D2.6 (no heart back in a fight: conflict 9) | E36, E37 | D7.8, D7.2 (S3) | R30, R31 | D7.1, D7.8 |
+| W11 | D3.2 C11 | E38 | D2.6, D7.7 (S3) | R32 | D4.6 |
+| W12 | D2.4, D3.2 C12 | E39 | D7.2 test, D2.4 | R33, R34 | D8.6 |
+| W13 | D3.2 C23 (article) and pass 3 line (a) (grammar, number, verb form) | E40 | D2.5 | P1, P2 | D9 layout |
+| W14, W15 | D3.2 C9, C10 (artifact lines included) | E41 | D3.2 C4, C14; D4.1 (spell out is lessons only) | P3, P4 | D9 boss header, layout |
+| W16 | D4.3 (fights: on-screen texts, order; explanations accepted, conflict 15); D7.2 (exam) | E42, E43 | D7.8 (S3) | P5, P6, P7, P8 | D9 option tiles, layout; D2.3 |
+| W17 | D3.2 C14 | E44 | D9, D6.5 (S3) | P9, P10 | D9 artifacts (no sideways scroll exists) |
+| W18 | D3.2 C16, D4.1 | B1, B2, B4 | D3.2 C16, D4.1 | P11 | D6.4 (rules as stacked cards) (S2) |
+| W19 | D3.2 pass 2 added line (solved from the card text alone), C15, C16 | B3, B21 | D4.1, D2.5 ("Not covered yet") | P12, P13, P14 | D2.3, D9 |
+| W20 | D2.1 `level`, D3.2 C15, D4.1 | B5 | D3.2 pass 2 added line, C15 | P15, P16 | D2.5, D9 layout |
+| W21 | D3.2 C4, C8 | B6, B7 | D4.1, D3.2 C15 | P17 | D2.5 layer; D7.7 (S3) |
+| W22 | D2.5 | B8 | D4.1 first-time helps | P18, P19, P20, P21, P22, P23, P24 | D6.4 (S2) |
+| W23, W24, W25 | D2.3, D4.4 | B9, B10 | D2.3, D2.5 | P25 | D6.2 kinds 2 and 5, D6.5 (S4) |
+| W26 | D4.4, D6.4 (S2) | B11, B12, B13 | D4.1 gates, D3.2 C5, C15; D2.5 restates a negative ask | P26, P27 | D6.4 (S2) |
+| W27 | D6.3 (S2) | B14, B15 | D2.1 artifact, D2.5, D4.1 | P28, P29 | D6.4 kind 7 (S4) |
+| W28 | D4.3, D4.7 | B16, B17, B18, B19 | D2.5 | P30 | D6.4 kind 7: numeric field, the field kept above the keyboard, scroll restored (S4) |
+| W29 | D3.2 C13 and pass 3 line (c), D3.3, D7.2 | B20 | D4.1 (a new stem needs the owner's yes, open question 2; until then the same question returns once) | P31 | D6.4 kind 8 (S2) |
+| W30 | D3.3, D3.4 | B22 | D4.1 (lessons only; conflict 2) | P32, P33, P34, P35 | D7.3 (S3) |
+| W31 | D7.2 (S3) | B23 | D4.1 | P36 | D7.6 (S3) |
+| W32 | D8.1 | B24, B25 | deferred to step 3 ("type it first", conflict 3): the choice format must be fixed first and the acronym aliases wired | P37 | D9 rotation (components stay mounted; drives in D11.3); D7.5 for the exam |
+| W33 | D8.2 | B26, B27, B28, B29, B30 | D6.4, D6.5 (S2) | P38 | D7.5 (exam, S3); a fight keeps its state in memory through backgrounding as today, and a page the system killed restarts the fight from its intro (declined: a fight is 15 to 30 questions and costs nothing to restart) |
+| W34, W35, W36 | D3.5, D5.4 | B31 | D6.5 (S2) | P39 | D7.1, D7.4 (S3) |
+| W37 | D7.1 (S3) | B32 | D4.5 | P40 | D7.3, D7.5 (S3); grading is by code everywhere (D2.3, D6.3) |
+| W38 | D11.4 (measured, recorded in the judge table); D3.3 (an abandoned exam is not written again) | B33 | D4.3, D4.7 | P41 | D7.1 (progress within 1 second, clock stopped, Retry and a way out); "answerable before all 90 are ready" is declined (conflict 14) |
+| W39 | D7.4 (S3) | B34 | D4.6 | P42, P43 | D9 contrast and zoom, D6.4 sizes |
+| W40 | D7.3, D7.5 (S3) | B35 | D10, D8.6 | P44 | D9 back |
+| W41, W42, W43 | D7.4 (S3) | B36 | D4.1, D4.6 | K1, K2, K6, K7 | D9 keys, D2.3, D7.3 |
+| W44 | D7.3, D9 keys (S3) | B37 | D2.6, D5.3 | K3, K4, K5 | D2.3, D9 announcements |
+| W45 | D7.8 (S3) | B38 | D7.1; no timer in lessons or fights (D4.1) | K8, K9, K10, K11, K12 | D9 focus, D2.5 |
+| W46 | D9 artifacts | R1, R2, R5, R6 | D8.2, D4.6 | K13, K14, K15 | D9 artifacts, stem |
+| W47 | D3.2 C17, D6.3 | R3, R12 | D8.1, D3.6 (no call and no write on opening the map) | K16, K17, K18, K19, K20 | D6.4 (S2) |
+| W48 | D6.4 (S2, S4) | R4 | D8.2: the update and the first open write nothing; the deck, its schedule, the knowledge base and the study settings are never written by this feature. Only learner actions write: a step (the map), a switch in Settings (config.json `features.legends.*`), "Add to deck" (the deck) | K21 | D6.4 kind 7 (S4) |
+| W49 | D10 | R7, R8 | D8.6 | K22 | D6.4 kind 8, D6.2 (S2) |
+| W50, W51, W52 | D10, D7.6 | R9 | D3.5, D5.4 | K23, K24 | D6.4 (S2) |
+| W53, W56 | D11.5 | R10, R11 | D8.1, D3.5, D5.5 | K25, K26, K27, K28 | D9 |
+| W54 | D5.2 item 7, D11.1 | R13 | declined: no bulk refresh action exists (D8.1), so nothing can be spent in bulk | K29, K30, K32 | D7.4, D7.3 (S3) |
+| W55 | D10 | R14 | D5.4, D8.1 (the old set is never deleted) | K31 | D7.1, D7.4 (extended time, no timer, pause and resume); the strict mode is declined (conflict 11) |
+| E1, E2, E3, E4, E5, E6, E7, E8 | D7.6 (S3) | R15 | D8.2 | K33, K34 | D7.3, D9 back (S3) |
+| E9, E10, E11, E12 | D7.7, D2.5 (S3) | R16 | D8.1 |  |  |
 
 ## Phase B: the pre-made question bank (owner, 2026-11-16)
 
