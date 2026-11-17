@@ -108,7 +108,8 @@ export function verdictOf(flags, { strictAccents = true } = {}) {
 
 // THE EXPLANATION (background): a short neutral note in the learner's language, and for a glancing answer whose other
 // slip is not only accents, the follow-up question the boss throws back ("fix").
-export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsOnly = false } = {}) {
+// `wrong`: false claims the fact check found in an earlier note ([{ quote, fix }]): the rewrite must not repeat them.
+export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsOnly = false, wrong = null } = {}) {
   const wantFix = verdict === 'glancing' && !accentsOnly
   return {
     system: `You explain one graded answer to a learner. Reply with JSON only: {"note": "..."${wantFix ? ', "fix": {"question": "...", "answer": "..."} | null' : ''}}.`,
@@ -130,6 +131,7 @@ export function buildExplainPrompt(subject, q, ans, { verdict = 'miss', accentsO
       // the contrast between the two words IS the lesson. So: say it for a word you know, stay silent only in doubt.)
       'About the learner\'s WRONG word: when it is a real word you know well, say in a few plain words what it means, exactly and in its own gender and form (the contrast with the right answer is the lesson). Only when you are not certain of it, do not define it: say that it is not what was asked, and why the right answer fits. Define a word by the state, thing or action it names, never by naming who it applies to (a man, a woman) unless the form written is exactly that gender.',
       mistakeKindLine(ans, q?.accepted, { isLanguage: !!subject?.isLanguage }),
+      Array.isArray(wrong) && wrong.length ? `Your earlier note was checked and made FALSE claims. Write a new note that does not repeat them and makes no claim you are not certain of:\n${wrong.slice(0, 3).map((w) => `- you wrote "${String(w.quote || '').slice(0, 160)}": ${String(w.fix || '').slice(0, 200)}`).join('\n')}` : '',
       TEACHING_STYLE_RULE,
       wantFix ? '"fix": a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". null when there is none.' : '',
     ].filter(Boolean).join('\n'),

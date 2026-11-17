@@ -50,3 +50,16 @@ wrong word means again (round 3: five). The one fail, for the third time: a masc
 woman". A rule now tells the writer to define a word by the state or action it names, never by who it applies to
 unless the form written is that gender. That last rule has NOT been run on real lines (about 110 of the 150 calls
 are used; the rest is kept for the exam-format proof).
+
+## Round 5: the remaining wrong claim, closed at the source
+The claim: a masculine adjective was defined with "a woman who expects a baby" (true only of the feminine form).
+The cause: the model defines the everyday use of the word family and ignores the form actually written; the wrong
+word's meaning is not on the card, so no card field can supply it.
+Closed two ways: (1) the rule "define a word by the state or action it names, never by who it applies to"; (2) every
+fight note now goes through the app's teaching fact check before it is shown (`checkedNote`, kit/judge.js): a false
+claim = one rewrite told what was false, checked again; still false = no note (the answer line still shows what was
+wanted). It follows the user's existing "double-check" setting and costs one more call per missed answer.
+Round 5 ran that exact path on the same 10 misses with real calls: all 10 notes name the exact answer and the wrong
+word's meaning; the adjective is now "means a baby is expected"; the checker flagged nothing, so no rewrite ran.
+Read by the author only, NOT by the independent judge. About 20 calls (token count lost to a script bug); about
+130 of the 150 calls are now used.
