@@ -76,3 +76,6 @@ dev/raid-history/
 dev/careers/sources/*/outline.md
 dev/careers/sources/*/acronyms.txt
 dev/careers/out/
+
+# Phrases that must never appear in course questions (kept off git; read by dev/careers/build-bank.mjs)
+/dev/careers/private/

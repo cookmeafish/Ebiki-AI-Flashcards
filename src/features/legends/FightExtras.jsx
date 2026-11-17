@@ -137,8 +137,10 @@ export function useFightCheck(ctx, { onOverturn, isOver } = {}) {
 
 // THE TAUNT. opts: { bossKey, voice, rules, avoidWords, sample, mandated, bossName, enabled } (`mandated`: a raid boss's
 // RAID_VOICES entry, whose opener / signature / nickname are never counted as a repeat; keep its identity stable). onMiss(q, answer, expected) asks for
-// one line in the background; a line that arrives after the next question appeared is dropped, and the bubble clears
+// one line in the background; a line that arrives after the next question appeared still shows there (LATE_TAUNT_QUESTIONS;
+// a newer miss's line wins), and the bubble clears
 // at the next answer.
+export const LATE_TAUNT_QUESTIONS = 1 // a checked taunt may still show this many questions after its miss
 export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = '', mandated = null, bossName = '', enabled = true } = {}) {
   const { ai, subject } = ctx
   const [bubble, setBubble] = useState(null) // { text, n }
@@ -148,16 +150,21 @@ export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = 
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const onQuestion = useCallback(() => { qToken.current++ }, [])
   const onAnswer = useCallback(() => setBubble(null), [])
+  const lastMiss = useRef(0)
   const onMiss = useCallback((q, answer, expected) => {
     if (!enabled || !voice) return
     const my = qToken.current
+    const mine = ++lastMiss.current
     fetchTaunt(ai, {
       bossKey, voice, rules, avoidWords, sample, mandated, bossName,
       sampleUsed: () => sampleUsed.current, markSample: () => { sampleUsed.current = true },
       isLanguage: !!subject.isLanguage, subjectName: subject.name, learnLang: subject.learnLang, userLang: subject.userLang,
       question: q?.prompt || '', expected, answer, missQ: q, // missQ: checked with this miss's note (kit/missCheck.js)
     }).then((r) => {
-      if (!r || !alive.current || my !== qToken.current) return // a newer question came first
+      // A CHECKED taunt (kit/missCheck.js) can land after the next question appeared: it still shows there (it names the
+      // earlier wrong answer, never the live question's), unless a newer miss asked for its own line or two questions
+      // went by (decided 2026-11-16: a dropped taunt read as "the boss stopped talking").
+      if (!r || !alive.current || mine !== lastMiss.current || qToken.current - my > LATE_TAUNT_QUESTIONS) return
       setBubble((b) => ({ text: r.line, n: (b?.n || 0) + 1 }))
     }).catch(() => {})
   }, [enabled, voice, rules, avoidWords, sample, mandated, bossName, bossKey, ai, subject])

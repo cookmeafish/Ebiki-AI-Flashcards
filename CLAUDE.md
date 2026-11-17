@@ -1613,7 +1613,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     whose OWN words equal another's is a repeat (a short line of mandated words had no run left to compare).
     `raidTaunts.test.js` builds a line in every persona's structure. Voices: `RAID_VOICES` (raidVoices.js); Legends
     bosses `islandVoice` + `RAID_VOICE_RULES`/`STOCK_WORDS` (raidVoices.js). `TauntBubble` under the arena; a line
-    arriving after the next question is dropped; Help hears it (`boss-taunt`).
+    arriving after the next question still shows there (it is fact checked first and was being dropped: "the boss
+    stopped talking"; `LATE_TAUNT_QUESTIONS` 1, a newer miss's line wins); Help hears it (`boss-taunt`).
 - **Accent grading is ONE setting** with Study's accent drill (`studyRules.accentDrill`; `subject.strictAccents`,
   `subject.setStrictAccents`), only for languages with accents: fights pass `strictAccents: !!subject.accents && ...`
   (a general mode graded "Quebec" for "Québec" glancing, with an accent attack). Relaxed: a slip counts clean unless it
