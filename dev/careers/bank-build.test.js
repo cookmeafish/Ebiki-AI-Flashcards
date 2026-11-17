@@ -234,4 +234,22 @@ describe('build-bank.mjs and bank-stamp.mjs from the command line', () => {
     for (const p of ['p1', 'p2', 'p3', 'p4', 'oversight']) expect(run('bank-stamp.mjs', [p, '7.1', 'i7-1-a1c3e5f7.0', '--src', path.join(dir, 'src')]).out).toMatch(/stamped .* on 1 question/)
     expect(run('build-bank.mjs', args(dir, ['--phrases', path.join(dir, 'none.json')])).code).toBe(0)
   }, 60000)
+  it('a blind-solve mismatch blocks p2 and the build until the text changes; a later agreeing solver does not settle it', () => {
+    const dir = tempCopy()
+    const src = ['--src', path.join(dir, 'src')]
+    const id = 'i7-1-a1c3e5f7.0'
+    expect(run('bank-stamp.mjs', ['miss', '7.1', ...src]).code).toBe(2) // ids required
+    expect(run('bank-stamp.mjs', ['miss', '7.1', id, ...src]).out).toMatch(/stamped miss on 1 question/)
+    const again = run('bank-stamp.mjs', ['p2', '7.1', id, ...src])
+    expect(again.code).toBe(1)
+    expect(again.out).toMatch(/not stamped i7-1-a1c3e5f7\.0: a blind solver picked another answer/)
+    expect(run('build-bank.mjs', args(dir, ['--phrases', path.join(dir, 'none.json')])).out).toMatch(/C21 i7-1-a1c3e5f7\.0: a blind solver picked another answer on this exact text/)
+    // The rewrite: the text changes, every pass is stamped again, and it ships.
+    const qf = path.join(dir, 'src', 'bank', '7-1.json')
+    const qs = JSON.parse(fs.readFileSync(qf, 'utf8'))
+    qs[0].explain = 'A queen excluder lets workers through and keeps the bigger queen below it.'
+    fs.writeFileSync(qf, JSON.stringify(qs, null, 1))
+    for (const p of ['p1', 'p2', 'p3', 'p4', 'oversight']) expect(run('bank-stamp.mjs', [p, '7.1', id, ...src]).code).toBe(0)
+    expect(run('build-bank.mjs', args(dir, ['--phrases', path.join(dir, 'none.json')])).code).toBe(0)
+  }, 90000)
 })

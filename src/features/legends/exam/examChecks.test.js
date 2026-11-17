@@ -290,6 +290,10 @@ describe('C21 stamps', () => {
     const h = hash(plain)
     expect(checkStamps(plain, { p1: h, p2: h, p3: h, p4: h, oversight: h }, hash)).toEqual([])
   })
+  it('a recorded blind-solve mismatch on this exact text fails, even with every pass stamped', () => {
+    expect(checkStamps(q, { ...all, miss: [hash(q)] }, hash).map((f) => f.msg)).toEqual(['a blind solver picked another answer on this exact text: rewrite it'])
+    expect(checkStamps(q, { ...all, miss: ['older-text'] }, hash)).toEqual([])
+  })
   it('an edit after a pass', () => {
     const edited = ex({ explain: 'The coating shrank more than the clay, so it cracked.' })
     expect(checkStamps(edited, all, hash)[0].msg).toMatch(/changed after/)

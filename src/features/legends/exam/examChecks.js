@@ -364,6 +364,9 @@ export function checkStamps(q, stamp, hashOf) {
   const out = []
   if (missing.length) out.push(F('C21', q.id, `not stamped by ${missing.join(', ')}`))
   if (stale.length) out.push(F('C21', q.id, `changed after ${stale.join(', ')} (the stamp no longer matches the text)`))
+  // A blind solver who picked another answer on THIS exact text is evidence a learner will too: it never ships until the
+  // text changes (bank-stamp.mjs `miss` records the hash; a later agreeing solver does not settle it).
+  if (Array.isArray(stamp?.miss) && stamp.miss.includes(h)) out.push(F('C21', q.id, 'a blind solver picked another answer on this exact text: rewrite it'))
   return out
 }
 
