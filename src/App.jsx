@@ -14918,6 +14918,52 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  // A READY COURSE'S MODE (Legends career mode): made from the course itself, no AI call, so it works without a key
+  // (the owner: the Security+ course should land on a Security+ mode and deck; a fresh install had no way in). General
+  // mode, the course's deck, made active. → the new id, or null when nothing was saved (the reason already shown).
+  // `activate: false` keeps the current mode active (the caller moves a course there first, then switches).
+  const createCourseMode = async ({ name, description, deck, activate = true }) => {
+    if (!modesLoadedRef.current || dataSwitchingRef.current) { raiseNotice(t('mode_cannotSave')); return null }
+    if (modeCreating || modeCreatingRef.current) return null
+    modeCreatingRef.current = true
+    setModeCreating(true)
+    try {
+      if (activate && !(await endStudyForModeSwitchRef.current())) return null
+      const current = modesRef.current
+      const newId = mintModeId(current)
+      const newMode = {
+        id: newId,
+        name: uniqueModeName(modeText(name, '').slice(0, 60).trim() || 'Course'),
+        type: 'general',
+        description: modeText(description, ''),
+        fields: { definition: true, example: true, category: true, keyPoints: true },
+        frontTemplate: '{term}',
+        backTemplate: 'Definition: {definition}\nExample: {example}\nKey points: {keyPoints}',
+        tagRules: 'Include: ebiki',
+        studyRules: { ...defaultGeneralStudyRules },
+        chatSuggestions: [],
+        ankiDeck: modeText(deck, ''),
+      }
+      const listBefore = modesRef.current, activeBefore = activeModeIdRef.current
+      // Replacing the placeholder, the new mode is active whatever was asked: the old active id is gone (as createMode).
+      const replacingPlaceholder = modesToAddTo() !== modesRef.current
+      const saved = await saveModes([...modesToAddTo().filter((m) => m.id !== newId), newMode], activate || replacingPlaceholder ? newId : activeModeIdRef.current, { changedIds: [newId] })
+      if (saved && saved.saveOk === false) {
+        if (modesRef.current.some((m) => m.id === newId)) {
+          const back = modesRef.current.filter((m) => m.id !== newId)
+          modesRef.current = back.length ? back : listBefore; activeModeIdRef.current = activeBefore
+          setModes(modesRef.current); setActiveModeId(activeBefore)
+        }
+        return null
+      }
+      setSuccessNotice(t('mode_createdNotice', { mode: newMode.name }))
+      return newId
+    } finally {
+      modeCreatingRef.current = false
+      setModeCreating(false)
+    }
+  }
+
   // Two modes with one name share one folder (config AND knowledge base), and the second save
   // overwrote the first mode's config. Compared the way the folder names compare (case, trailing
   // dots). A clash gets " 2", " 3"... Rename refuses a clash instead (it asks the user).
@@ -15665,6 +15711,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       list: () => modesRef.current.map((m) => ({ id: m.id, name: m.name, type: m.type, description: m.description || '', ankiDeck: m.ankiDeck || '' })),
       activeId: () => activeModeIdRef.current,
       switchTo: async (id) => (await switchActiveMode(id)) === true,
+      // A ready course's own mode ({ name, description, deck }), made from the course with no AI call and made active:
+      // → the new id, or null.
+      createForCourse: (spec) => createCourseMode(spec || {}),
       installCourseKnowledge, // a course's study guide into a mode's knowledge base
     },
     study: {

@@ -1977,7 +1977,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   must print `no problems`, a coverage block in `career.test.js`). The package ships in `public/careers/`; the vendor's
   raw outline stays gitignored.
   - **The first Legends screen is a CHOICE** (career mode or choose your own adventure; never straight into the intro);
-    a course is offered only to a mode it fits (`careerMatches`), with the mode it needs named otherwise; starting it
+    a course is offered only to a mode it fits (`careerMatches`). In any other mode (a language mode, a fresh install)
+    the course tile still shows FIRST with ONE step (the owner: the course must land on its own Security+ mode and
+    deck): "Open it in <mode>" when a fitting mode exists, else "Make a <deck> mode and open it"
+    (`ctx.modes.createForCourse` = App `createCourseMode`: a general mode from the course, its deck, NO AI call, works
+    without a key; `activate: false` lets a misplaced course move in before the switch); starting it
     sets the mode's deck to the course's `deck`. A course map has its own header (course name, islands, steps; no
     language level, journey or Raid) and a "Continue" card (`nextCareerStep`).
   - **BRIEFINGS are never quizzed**: a domain's and an objective's overview card is `kind: 'brief'`, shown as a

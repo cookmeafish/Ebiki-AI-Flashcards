@@ -501,10 +501,9 @@ export default function LegendsScreen() {
             const fit = careers.filter((c) => careerMatches(c, subject))
             const other = careers.filter((c) => !careerMatches(c, subject))
             const waiting = parked.course && fit.some((c) => c.id === parked.course.career?.id) ? parked.course : null
-            const goTo = other.flatMap((c) => courseModes(c, rawCtx.modes?.list?.()).map((m) => ({ c, m }))).slice(0, 3)
             const tile = { display: 'grid', gap: 8, alignContent: 'start', padding: '16px 18px', borderRadius: RADIUS.lg, background: C.surface, textAlign: 'left', fontFamily: FONT.body, color: C.ink }
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: fit.length ? 'repeat(auto-fit, minmax(240px, 1fr))' : '1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: careers.length ? 'repeat(auto-fit, minmax(240px, 1fr))' : '1fr', gap: 14 }}>
                 {fit.length > 0 && <div data-pick="career" style={{ ...tile, border: `2px solid ${C.success}` }}>
                   <div style={{ fontSize: 30 }}>🏝️</div>
                   <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickCareer')}</div>
@@ -519,6 +518,26 @@ export default function LegendsScreen() {
                     </div>
                   ))}
                 </div>}
+                {/* A course this mode does not fit (a language mode, a fresh install): the SAME course tile, first, with
+                    the one step that gets there (the owner: the course should land on its own mode and deck; a small
+                    link below the fold, or none at all on a fresh install, hid it). A fitting mode: open the course there.
+                    None: make the course's own mode (no AI, works without a key) and open it. */}
+                {!fit.length && other.length > 0 && <div data-pick="career" data-elsewhere style={{ ...tile, border: `2px solid ${C.success}` }}>
+                  <div style={{ fontSize: 30 }}>🏝️</div>
+                  <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickCareer')}</div>
+                  <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_courseOwnMode')}</div>
+                  {other.map((c) => {
+                    const m = courseModes(c, rawCtx.modes?.list?.())[0]
+                    return (
+                      <div key={c.id} style={{ display: 'grid', gap: 6, marginTop: 4 }}>
+                        <div style={{ fontWeight: 900, fontSize: 15 }}>{t(c.titleKey)}</div>
+                        {m
+                          ? <ChunkyButton color={C.success} onClick={async () => { if (!(await rawCtx.modes.switchTo(m.id))) setError(t('lg_errSave')) }}>▶ {t('lg_courseOpenIn', { mode: m.name })}</ChunkyButton>
+                          : <ChunkyButton color={C.success} disabled={!rawCtx.modes?.createForCourse} onClick={async () => { if (!(await rawCtx.modes.createForCourse({ name: c.deck, description: t(c.titleKey), deck: c.deck }))) setError(t('lg_errSave')) }}>▶ {t('lg_courseMakeMode', { mode: c.deck })}</ChunkyButton>}
+                      </div>
+                    )
+                  })}
+                </div>}
                 <div data-pick="adventure" style={{ ...tile, border: `2px solid ${fit.length ? C.border : C.info}` }}>
                   <div style={{ fontSize: 30 }}>🗺️</div>
                   <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickAdventure')}</div>
@@ -528,13 +547,6 @@ export default function LegendsScreen() {
                     ? <ChunkyButton color={C.info} variant={fit.length ? 'ghost' : undefined} onClick={async () => { if (!(await switchMapKind(modeId, 'adventure'))) setError(t('lg_errSave')) }}>▶ {t('lg_resumeAdventure')}</ChunkyButton>
                     : <ChunkyButton color={C.info} variant={fit.length ? 'ghost' : undefined} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>▶ {t('lg_pickAdventureGo')}</ChunkyButton>}
                 </div>
-                {!fit.length && goTo.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 12.5, color: C.inkDim }}>
-                    <span>🏝️ {t('lg_courseElsewhere')}</span>
-                    {goTo.map(({ c, m }) => <ChunkyButton key={`${c.id}:${m.id}`} variant="ghost" color={C.success} style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => rawCtx.modes.switchTo(m.id)}>{t('lg_goToMode', { course: t(c.titleKey), mode: m.name })}</ChunkyButton>)}
-                  </div>
-                )}
-                {!fit.length && !goTo.length && other.length > 0 && <div style={{ fontSize: 12.5, color: C.inkDim }}>🏝️ {t('lg_pickCareerNone', { courses: other.map((c) => t(c.titleKey)).join(', ') })}</div>}
               </div>
             )
           })()}
@@ -754,7 +766,21 @@ export default function LegendsScreen() {
             <ChunkyButton variant="ghost" color={C.info} disabled={!!busy} onClick={async () => { if (!(await switchMapKind(modeId, 'adventure'))) setError(t('lg_errSave')) }}>🗺️ {t('lg_toAdventure')}</ChunkyButton>
             {homes.map((m) => <ChunkyButton key={m.id} color={C.success} disabled={!!busy} onClick={() => move(m)}>▶ {t('lg_courseMoveTo', { mode: m.name })}</ChunkyButton>)}
           </div>
-          {!homes.length && <div style={{ fontSize: 13, color: C.inkDim }}>{t('lg_courseNoMode', { course: map.career?.title || t(course.titleKey) })}</div>}
+          {/* No fitting mode yet: make the course's own mode and carry this course (with its progress) there. */}
+          {!homes.length && rawCtx.modes?.createForCourse && course && <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <ChunkyButton color={C.success} disabled={!!busy} onClick={async () => {
+              setBusy(t('lg_moving')); setError('')
+              const from = modeId
+              // Made WITHOUT switching, the course moved in, THEN the switch (switched first, the new mode opened on an
+              // empty map before the move landed).
+              const id = await rawCtx.modes.createForCourse({ name: course.deck, description: t(course.titleKey), deck: course.deck, activate: false })
+              const ok = id != null && (await moveCourse(from, id))
+              setBusy('')
+              if (!ok) { setError(t('lg_errSave')); return }
+              if (!(await rawCtx.modes.switchTo(id))) setError(t('lg_switchFailed', { mode: course.deck }))
+            }}>▶ {t('lg_courseMakeMode', { mode: course.deck })}</ChunkyButton>
+          </div>}
+          {!homes.length && !rawCtx.modes?.createForCourse && <div style={{ fontSize: 13, color: C.inkDim }}>{t('lg_courseNoMode', { course: map.career?.title || t(course.titleKey) })}</div>}
         </div>
       )
     }
