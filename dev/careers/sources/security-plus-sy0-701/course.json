@@ -25,5 +25,15 @@
     "FTPS": "FTP over TLS (FTP Secure); not the same as SFTP, which runs over SSH",
     "SFTP": "SSH File Transfer Protocol; not the same as FTPS, which is FTP over TLS",
     "CTM": "Counter Mode (usually abbreviated CTR)"
-  }
+  },
+  "knowledge": [
+    {"prefix":"d0","title":"Reference: numbers, ports, standards and acronyms"},
+    {"prefix":"d1","title":"Domain 1: General Security Concepts"},
+    {"prefix":"d2a","title":"Domain 2 (part 1): Threat actors, threat vectors and vulnerabilities"},
+    {"prefix":"d2b","title":"Domain 2 (part 2): Indicators of attack and mitigations"},
+    {"prefix":"d3","title":"Domain 3: Security Architecture"},
+    {"prefix":"d4a","title":"Domain 4 (part 1): Securing resources, assets, vulnerabilities and monitoring"},
+    {"prefix":"d4b","title":"Domain 4 (part 2): Identity, automation, incident response and investigations"},
+    {"prefix":"d5","title":"Domain 5: Security Program Management and Oversight"}
+  ]
 }

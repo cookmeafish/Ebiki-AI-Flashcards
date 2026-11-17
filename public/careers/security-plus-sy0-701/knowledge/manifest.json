@@ -1,0 +1,45 @@
+{
+  "course": "security-plus-sy0-701",
+  "files": [
+    {
+      "file": "d0.md",
+      "title": "Reference: numbers, ports, standards and acronyms",
+      "version": "r9-71521a36"
+    },
+    {
+      "file": "d1.md",
+      "title": "Domain 1: General Security Concepts",
+      "version": "r9-8bd0383e"
+    },
+    {
+      "file": "d2a.md",
+      "title": "Domain 2 (part 1): Threat actors, threat vectors and vulnerabilities",
+      "version": "r9-ed326e42"
+    },
+    {
+      "file": "d2b.md",
+      "title": "Domain 2 (part 2): Indicators of attack and mitigations",
+      "version": "r9-4771f8ed"
+    },
+    {
+      "file": "d3.md",
+      "title": "Domain 3: Security Architecture",
+      "version": "r9-cbb4cc27"
+    },
+    {
+      "file": "d4a.md",
+      "title": "Domain 4 (part 1): Securing resources, assets, vulnerabilities and monitoring",
+      "version": "r9-ec22a13e"
+    },
+    {
+      "file": "d4b.md",
+      "title": "Domain 4 (part 2): Identity, automation, incident response and investigations",
+      "version": "r9-13963d0c"
+    },
+    {
+      "file": "d5.md",
+      "title": "Domain 5: Security Program Management and Oversight",
+      "version": "r9-3616ad3c"
+    }
+  ]
+}
