@@ -68,14 +68,15 @@ export async function explainStrike(ai, subject, q, answer, { verdict = 'miss', 
 
 // A NOTE IS FACT CHECKED BEFORE THE LEARNER READS IT (a wrong fact in a note is taught as true; judging real notes
 // found about one in ten with a false word claim that no prompt rule fully removed). The app's teaching fact check
-// (ctx.ai.factCheck: the user's "double-check" setting, off = no check) reads the note against the card; a false claim
+// (ctx.ai.factCheck with `always`: decided 2026-11-16, a fight note is checked even with the "double-check" setting
+// off, which governs only the other teaching replies) reads the note against the card; a false claim
 // = ONE rewrite told what was false, checked again; still false = no note (the answer line always shows what was
 // wanted). A check that could not run keeps the note. The attack question of a glancing answer is kept either way.
 export const NOTE_CHECK_MAX = 2
 export async function checkedNote(ai, q, answer, out, rewrite) {
   if (!out?.note || typeof ai?.factCheck !== 'function') return out || {}
   const material = [`The accepted answer is: ${(q?.accepted || []).join(' / ')}`, q?._guard?.meaning ? `The card's meaning for it: ${q._guard.meaning}` : ''].filter(Boolean).join('\n')
-  const check = async (note) => { try { return (await ai.factCheck({ reply: note, question: `${q?.prompt || ''}\nThe learner answered: ${answer}`, context: material })) || [] } catch { return [] } }
+  const check = async (note) => { try { return (await ai.factCheck({ reply: note, question: `${q?.prompt || ''}\nThe learner answered: ${answer}`, context: material, always: true })) || [] } catch { return [] } }
   let cur = out
   for (let i = 0; i < NOTE_CHECK_MAX; i++) {
     const wrong = await check(cur.note)

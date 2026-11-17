@@ -14,7 +14,7 @@ describe('a fight note is fact checked before the learner reads it', () => {
   })
   it('a false claim: one rewrite told what was false, checked again, then shown', async () => {
     const seen = []
-    const ai = { factCheck: async ({ reply, context }) => { seen.push(context); return reply.includes('bad') ? [{ quote: 'bad claim', fix: 'It means something else.' }] : [] } }
+    const ai = { factCheck: async ({ reply, context, always }) => { expect(always).toBe(true); seen.push(context); return reply.includes('bad') ? [{ quote: 'bad claim', fix: 'It means something else.' }] : [] } }
     let told = null
     const out = await checkedNote(ai, q, 'scendere', { note: 'A bad claim here.', attack: { prompt: 'p', accepted: ['a'] } }, async (wrong) => { told = wrong; return { note: 'A corrected note.' } })
     expect(out.note).toBe('A corrected note.')

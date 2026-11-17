@@ -2215,7 +2215,11 @@ is in the deck gives it away".
   `typedPrompt`, `ensurePrefixHint`; accepted answers list the word FIRST). The review pass rejects one that leaves
   the learner guessing which word. General-mode open questions (explain, compare) get no letters. **A
   fight's feedback note names the ACCEPTED answer letter for letter** (a note calling a synonym "the correct answer"
-  contradicted the card), and **a boss taunt is clear first**: the wrong answer in quotes and the mix-up in plain words,
+  contradicted the card), is told when the answer is another FORM of the right word (`kit/mistakeKind.js`, a code
+  check), and is FACT CHECKED against the card before it is shown (`checkedNote`, kit/judge.js: a false claim = one
+  rewrite told what was false, checked again, else no note; ALWAYS, even with the double-check setting off, which
+  governs only the other teaching replies; proof on real lines: docs/reviews/2026-11-16-real-taunts-notes.md), and
+  **a boss taunt is clear first**: the wrong answer in quotes and the mix-up in plain words,
   the voice one flourish, never a riddle (kit/taunt.js).
 - **THE CHOICE POOL** (`utils/choicePool.js` `planChoices`, tested; `planStudyChoices` in App, `withPoolChoices` in
   fights): distractors are OTHER cards of the same deck the learner has ALREADY STUDIED (never a new card), the same kind

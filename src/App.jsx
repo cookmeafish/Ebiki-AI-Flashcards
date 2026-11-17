@@ -10977,8 +10977,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // model names up to 2 real mistakes, each quoting the reply. Never blocks the reply, never throws, silent on failure;
   // the note is stored by reply text (`factNotes`), never saved and never sent back to a model as Ebi's words.
   // `factCheckNotes` resolves to the notes ([] when off, short, failed or clean); features get it as ctx.ai.factCheck.
-  const factCheckNotes = async ({ reply, question = '', context = '' }) => {
-    if (!factCheckRef.current || !apiKey || !shouldFactCheck(reply)) return []
+  // `always`: a FIGHT NOTE is checked whatever the setting says (kit/judge.js checkedNote): it is one short call per
+  // missed answer, and a wrong fact in a note is taught as true. The setting governs the other teaching replies.
+  const factCheckNotes = async ({ reply, question = '', context = '', always = false }) => {
+    if ((!factCheckRef.current && !always) || !apiKey || !shouldFactCheck(reply)) return []
     const subject = activeMode.type === 'language' ? { language: learnLangName() } : { topic: activeMode.name }
     const { system, user } = buildFactCheckPrompt({ reply, question, context, subject, userLang: userLangName() })
     try {
