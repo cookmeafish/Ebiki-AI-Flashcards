@@ -1619,8 +1619,10 @@ Never copy one, never paraphrase one, never put the reference text into a prompt
   help desk, a user in some department, a business manager), an organization type (bank, factory, hospital, city,
   shipping firm, insurer, retailer) and what happened or what is required.
 - **One or two deciding details.** The stem carries the clue that separates the answer from its close neighbors:
-  "without new hardware", "the same key both ways", "before it goes to production", "from thousands of addresses",
-  "the user never clicked anything". Difficulty comes from telling neighbors apart, never from tricks or trivia.
+  "the badge reader must keep working during a network outage", "only the payroll team may open it", "the vendor will
+  not release another update". Difficulty comes from telling neighbors apart, never from tricks or trivia.
+  (Replaced 2026-11-16: the earlier examples here were paraphrased from the reference and must never be used as
+  question content; the copy check treats them as forbidden near-matches.)
 - **Requirement lists.** Some stems give 3 or 4 bullet requirements; one tool or control meets all of them, or the
   learner picks the N options that meet them.
 - **The closing question uses fixed exam phrases**, with the key word in capitals:
