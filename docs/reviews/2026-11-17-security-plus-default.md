@@ -197,4 +197,23 @@ Looking at the screenshots (fix-fresh-390-01-legends-first.png, fix-fresh-nokey-
 - The toast reads `Made the "Security+" mode for the course.` One click still lands on the course map in mode
   Security+ with deck Security+. No Spanish anywhere.
 
+## Re-check 5 (987a169, 1.72.4)
+
+390 x 844, bottom bar top at 766 px. Same script.
+
+| Case | Button top / bottom vs bar top | Ebi beside the bubble | Result |
+|---|---|---|---|
+| Fresh, with key | 543 / 628: fully visible | yes | PASS |
+| Fresh, no key | 669 / 755: fully visible, 11 px clear of the bar | yes | PASS |
+
+Screenshots: fix-fresh-390-01-legends-first.png, fix-fresh-nokey-390-02-settings-closed.png.
+- Ebi (64 px) now sits left of the bubble. The bubble reads well: "How do you want / to play Legends in / My Studies?"
+  on three lines, normal size, nothing cut.
+- The whole button label "MAKE A SECURITY+ MODE AND OPEN IT" shows in both cases.
+- The toast reads `Made the "Security+" mode for the course.` One click lands on the course map in mode Security+ with
+  deck Security+. No Spanish anywhere.
+- Minor: the course name breaks inside the exam code, "(SY0-" / "701)". A non-breaking hyphen or `white-space:
+  nowrap` on the code would keep it whole. With no key the button clears the bar by only 11 px, so a taller banner (a
+  longer translated warning) could hide it again.
+
 

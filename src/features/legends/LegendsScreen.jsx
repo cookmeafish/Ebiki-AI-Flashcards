@@ -41,6 +41,8 @@ import { LEGENDS_INTENT } from './store'
 export { LEGENDS_INTENT }
 // A learner who picks "I'm new" starts near the bottom whatever they rated; the rating still nudges it.
 const NEW_LEVEL = [0, 0, 3, 8, 14, 20]
+// An exam code ("SY0-701") never breaks at its hyphen on a narrow screen (display only: a non-breaking hyphen).
+const keepCodesWhole = (text) => String(text || '').replace(/([A-Za-z0-9])-(?=[0-9])/g, '$1‑')
 const PLACEMENT_SOURCE = 'legends-placement' // the game gives the placement XP for this source
 
 function Stars({ n }) {
@@ -533,7 +535,7 @@ export default function LegendsScreen() {
                   <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_pickCareerDesc')}</div>
                   {fit.map((c) => (
                     <div key={c.id} style={{ display: 'grid', gap: 6, marginTop: 4 }}>
-                      <div style={{ fontWeight: 900, fontSize: 15 }}>{t(c.titleKey)}</div>
+                      <div style={{ fontWeight: 900, fontSize: 15 }}>{keepCodesWhole(t(c.titleKey))}</div>
                       {waiting?.career?.id === c.id
                         ? <ChunkyButton color={C.success} onClick={async () => { if (!(await switchMapKind(modeId, 'course'))) setError(t('lg_errSave')) }}>▶ {t('lg_resumeCourse')}</ChunkyButton>
                         : <ChunkyButton color={C.success} onClick={() => saveStart({ reason: 'school', selfRating: 1, goal: 'normal', path: 'career', career: c.id })}>▶ {t('lg_startCourseShort')}</ChunkyButton>}
@@ -552,7 +554,7 @@ export default function LegendsScreen() {
                     const m = courseModes(c, rawCtx.modes?.list?.())[0]
                     return (
                       <div key={c.id} style={{ display: 'grid', gap: 6, marginTop: 4 }}>
-                        <div style={{ fontWeight: 900, fontSize: 15 }}>{t(c.titleKey)}</div>
+                        <div style={{ fontWeight: 900, fontSize: 15 }}>{keepCodesWhole(t(c.titleKey))}</div>
                         {m
                           ? <ChunkyButton color={C.success} onClick={async () => { if (!(await rawCtx.modes.switchTo(m.id))) setError(t('lg_errSave')) }}>▶ {t('lg_courseOpenIn', { mode: m.name })}</ChunkyButton>
                           : <ChunkyButton color={C.success} disabled={!rawCtx.modes?.createForCourse || !!busy} onClick={() => makeCourseMode(c)}>▶ {busy || t('lg_courseMakeMode', { mode: c.deck })}</ChunkyButton>}
