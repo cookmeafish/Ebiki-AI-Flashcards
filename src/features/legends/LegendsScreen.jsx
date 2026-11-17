@@ -27,7 +27,7 @@ import Placement from './PlacementExam'
 import MapView from './MapView'
 import { loadCareer, availableCareers, regionBossName } from './CareerMap'
 import { CAREERS, buildCareerMap, careerMatches, careerSampleMax, isCareerMap, careerFor, courseCtx, courseModes, clearsIsland, careerFight, careerHasProgress, raidLook, addAcronymTrack, CAREER_LAYOUT, ACRONYM_ORDER } from './career'
-import { chooseCourseDeck } from './deck'
+import { chooseCourseDeck, prepareCourseDeck } from './deck'
 import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
@@ -379,6 +379,28 @@ export default function LegendsScreen() {
       )
     }
 
+    // "Make a <course> mode and open it" (a mode the course does not fit, a fresh install): ONE click to the open course
+    // (the owner: it must land on the course's own mode and deck). The deck is made ready in the card store first
+    // (an empty one of the course's name, or created; never one holding cards), the mode made with it but NOT switched
+    // to, the course map written into that mode, THEN the switch: switched first, the new mode opened on its choice
+    // screen and needed a second click, and a deck saved on the mode before it existed was never created.
+    const makeCourseMode = async (c) => {
+      setBusy(t('lg_moving')); setError('')
+      try {
+        const pkg = await loadCareer(c.id)
+        if (!pkg) { setError(t('lg_careerLoadFailed')); return }
+        const deck = (await prepareCourseDeck(ctx, c.deck)) || c.deck
+        const description = t(c.titleKey)
+        const id = await rawCtx.modes.createForCourse({ name: c.deck, description, deck, activate: false })
+        if (id == null) { setError(t('lg_errSave')); return }
+        const start = { reason: 'school', selfRating: 1, goal: 'normal', path: 'career', placement: null }
+        const built = await updateMap(id, (m) => (m && m.areas?.length ? m : buildCareerMap(pkg, { modeId: id, subject: { name: c.deck, description }, start })))
+        if (!built) { setError(t('lg_errSave')); return }
+        await updateLearner(ctx, id, (m) => m || newLearner({ level: NEW_LEVEL[1] || 0, confidence: 0.2, source: 'self' }))
+        if (!(await rawCtx.modes.switchTo(id))) setError(t('lg_switchFailed', { mode: c.deck }))
+      } finally { setBusy('') }
+    }
+
     // ── First visit ──
     const saveStart = async (a) => {
       const start = { reason: a.reason, selfRating: a.selfRating, goal: a.goal, path: a.path, placement: null }
@@ -491,7 +513,7 @@ export default function LegendsScreen() {
 
     if (!map) {
       return (
-        <div style={{ maxWidth: 600, margin: '30px auto', display: 'grid', gap: 18 }}>
+        <div style={{ maxWidth: 600, margin: 'clamp(8px, 4vw, 30px) auto', display: 'grid', gap: 'clamp(10px, 3vw, 18px)' }}>
           {/* FIRST CHOICE (the owner: "make it an option of what to choose to load"): a ready COURSE (career mode) or
               Ebi builds your own map (choose your own adventure). A course is offered only to a mode it fits. */}
           <EbiSays pose={poseFile('king')}>{t('lg_pickTitle', { subject: subject.name })}</EbiSays>
@@ -525,7 +547,6 @@ export default function LegendsScreen() {
                 {!fit.length && other.length > 0 && <div data-pick="career" data-elsewhere style={{ ...tile, border: `2px solid ${C.success}` }}>
                   <div style={{ fontSize: 30 }}>🏝️</div>
                   <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 19 }}>{t('lg_pickCareer')}</div>
-                  <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_courseOwnMode')}</div>
                   {other.map((c) => {
                     const m = courseModes(c, rawCtx.modes?.list?.())[0]
                     return (
@@ -533,10 +554,12 @@ export default function LegendsScreen() {
                         <div style={{ fontWeight: 900, fontSize: 15 }}>{t(c.titleKey)}</div>
                         {m
                           ? <ChunkyButton color={C.success} onClick={async () => { if (!(await rawCtx.modes.switchTo(m.id))) setError(t('lg_errSave')) }}>▶ {t('lg_courseOpenIn', { mode: m.name })}</ChunkyButton>
-                          : <ChunkyButton color={C.success} disabled={!rawCtx.modes?.createForCourse} onClick={async () => { if (!(await rawCtx.modes.createForCourse({ name: c.deck, description: t(c.titleKey), deck: c.deck }))) setError(t('lg_errSave')) }}>▶ {t('lg_courseMakeMode', { mode: c.deck })}</ChunkyButton>}
+                          : <ChunkyButton color={C.success} disabled={!rawCtx.modes?.createForCourse || !!busy} onClick={() => makeCourseMode(c)}>▶ {busy || t('lg_courseMakeMode', { mode: c.deck })}</ChunkyButton>}
                       </div>
                     )
                   })}
+                  {/* Below the button (on a phone the button sat under the bottom bar). */}
+                  <div style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>{t('lg_courseOwnMode')}</div>
                 </div>}
                 <div data-pick="adventure" style={{ ...tile, border: `2px solid ${fit.length ? C.border : C.info}` }}>
                   <div style={{ fontSize: 30 }}>🗺️</div>

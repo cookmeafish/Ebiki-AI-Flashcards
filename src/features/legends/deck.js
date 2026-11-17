@@ -60,7 +60,17 @@ export async function addItemsToDeck(ctx, modeId, areaId, items) {
 
 // The deck a course starts with (career.js pickCourseDeck decides; this asks the store). Never fills a deck.
 export async function chooseCourseDeck(ctx, subject, name) {
-  if (!name || subject?.modeDeck || ctx.ankiConnected === false || !ctx.cards?.deckSize) return null
+  if (subject?.modeDeck) return null
+  const deck = await prepareCourseDeck(ctx, name)
+  if (!deck) return null
+  try { ctx.cards.setModeDeck(deck); return deck } catch { return null }
+}
+
+// The course's deck made ready in the card store (pickCourseDeck: an empty one of that name, or created), for a mode
+// not yet active (the "make the course's mode" button sets it on the new mode itself). → the deck name, or null
+// (no card store answering: the caller falls back to the course's deck name).
+export async function prepareCourseDeck(ctx, name) {
+  if (!name || ctx.ankiConnected === false || !ctx.cards?.deckSize) return null
   const decks = ctx.cards.decks || []
   const sizes = {}
   for (const d of courseDeckNames(name)) if (decks.includes(d)) sizes[d] = await ctx.cards.deckSize(d)
@@ -68,7 +78,6 @@ export async function chooseCourseDeck(ctx, subject, name) {
   if (!plan) return null
   try {
     if (plan.create) await ctx.cards.createDeck(plan.deck)
-    ctx.cards.setModeDeck(plan.deck)
     return plan.deck
   } catch { return null }
 }

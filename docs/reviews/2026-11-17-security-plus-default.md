@@ -81,3 +81,48 @@ In `LegendsScreen.jsx`, first-choice screen:
 2. When another mode fits (`goTo`), show the same Career mode tile (with "Open in Security+") at the top instead of a
    small link under the adventure tile, so it is visible on a phone without scrolling.
 3. Use `lg_courseNoMode`-style wording only where it is true.
+
+## Re-check after the fix (4c690a3, 1.72.0)
+
+Setup as before, script `scratchpad/sp2.mjs`. All writes were answered locally. On the fresh profiles the
+`POST /api/modes` stub echoed success and kept the new list in memory, so the new mode appeared. The fresh Anki is a
+fake one holding only "Default". No AI host was reached; the only outside request blocked was Google Fonts.
+Screenshots: `sp-default\fix-<profile>-<width>-NN-<step>.png` in the same folder.
+
+| Profile | Width | Career tile first | Button visible without scrolling | Click lands on | Course map opens | Spanish | Result |
+|---|---|---|---|---|---|---|---|
+| Owner (Spanish (LatAm) active) | 1280 | yes | yes | Security+ / Security+ | yes, at once (saved map) | none | PASS |
+| Owner (Spanish (LatAm) active) | 390 | yes | tile heading yes, button NO (top 811 px, bottom bar from 774) | Security+ / Security+ | yes, at once | none | PASS, phone weak spot |
+| Fresh, with key | 1280 | yes | yes | Security+ / "Security+ (?)" | after a 2nd click, "Start the course" | none | FAIL (2 issues below) |
+| Fresh, with key | 390 | yes | tile heading yes, button NO (top 811 px) | Security+ / "Security+ (?)" | after a 2nd click | none | FAIL |
+| Fresh, no key | 1280 | yes | yes, once Settings is closed | Security+ / "Security+ (?)" | after a 2nd click | none | make-mode PASS; same FAIL items |
+| Fresh, no key | 390 | yes | NO (top 1008 px) | Security+ / "Security+ (?)" | after a 2nd click | none | same as above |
+
+What passes:
+- The career tile is now the first tile in every mode: Spanish (LatAm), My Studies, and the new Security+ mode.
+- Owner profile: one click on "Open it in Security+" switches to mode Security+ with deck Security+ and shows the saved
+  course map. The first lesson is in English.
+- Fresh profile: "Make a Security+ mode and open it" posts one new mode (`Security+`, type general, deck `Security+`),
+  switches to it and shows "Created the "Security+" mode and switched to it". It makes no AI call and works with no
+  key. Every screen is English.
+- Fresh with no key: Settings > AI & cost opens by itself at start (the app's existing no-key behavior); after Close
+  the button works. The map opens; Continue then says "Legends needs an AI key", which is expected (lessons quiz with AI).
+
+What fails or is weak:
+1. **"...and open it" does not open the course** (fresh profile). The new mode lands on its own first-choice screen
+   and needs a second click, "Start the course". The button text promises one step.
+   Source: the button in `LegendsScreen.jsx` (about line 536) only calls `createForCourse` and does not start the
+   course. Fix: after the switch, start the course in the new mode (`saveStart({ path: 'career', career: c.id })`
+   pinned to the new mode id), or carry a "start this course" intent that the new mode's screen runs once.
+2. **The Security+ deck is never created in Anki** (fresh profile). The header shows "Security+ (?)" (App.jsx about
+   line 16164: the deck is not in Anki's list) before and after Start. No `createDeck` reached Anki.
+   - Source: `createCourseMode` (App.jsx about line 14925) saves `ankiDeck: 'Security+'` on the mode. On Start,
+     `chooseCourseDeck` (deck.js) returns early because `subject.modeDeck` is already set, so it never runs
+     `pickCourseDeck` / `createDeck`.
+   - Not run, from the code: the first "Add to deck" would then go to a missing deck; AnkiConnect normally refuses that.
+   - Fix: make the mode with no deck and let `chooseCourseDeck` create or pick it. That also keeps the "(my cards)"
+     rule when a full "Security+" deck already exists. Or have `createForCourse` create the deck when Anki answers.
+3. **Phone (390 x 844): the tile's button is below the fold** in every profile. The tile heading "Career mode" shows,
+   but the button sits under the Ebi picture, the question bubble and the description. On desktop it is in view.
+   Fix: put the course name and button at the top of the tile, or shorten the description and the picture on phones.
+
