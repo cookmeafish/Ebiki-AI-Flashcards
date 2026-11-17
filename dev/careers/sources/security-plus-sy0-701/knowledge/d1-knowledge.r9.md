@@ -953,7 +953,7 @@ A honeypot is a decoy system, or a single decoy resource on a system, set up to 
 
 **Why it matters:** honeypots give high-confidence alerts with few false positives, because normal traffic never goes there. They also show how attackers behave against your environment, which no vendor report can.
 
-**Common confusions:** A honeypot is one decoy system; a honeynet is a network of them. A honeyfile is a decoy file; a honeytoken is a decoy piece of data (credential, key, record). A honeypot does not prevent attacks on real systems; it detects and diverts. Poor isolation can turn it into a launch point, and NIST notes legal counsel may need to review its use.
+**Common confusions:** A honeypot is usually a whole decoy system (some glossaries also call a single decoy resource, even one file, a honeypot); a honeynet is a network of decoy systems. A honeyfile is the specific name for a decoy file; a honeytoken is a decoy piece of data (credential, key, record). A honeypot does not prevent attacks on real systems; it detects and diverts. Poor isolation can turn it into a launch point, and NIST notes legal counsel may need to review its use.
 
 **Scenario:** A clue says "the team deploys a fake database server with no business purpose and alerts on any login attempt to it." The answer is a honeypot. Honeytoken is the closest wrong answer and fails because the decoy is a whole system, not a planted piece of data.
 
