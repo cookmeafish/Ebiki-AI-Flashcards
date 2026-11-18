@@ -635,7 +635,7 @@
     "definition": "The formal review and sign-off a change must get before it is made, often by a change advisory board, based on the request's purpose, scope, risk and schedule.",
     "example": "A change request to open a new firewall port is submitted, reviewed for risk and approved by the CAB before implementation.",
     "category": "1.3 Change management > Business processes",
-    "keyPoints": "No change without approval; CAB = change advisory board; emergency changes still get approval, sometimes after the fact"
+    "keyPoints": "Changes are approved before they are made (low-risk standard changes can be pre-approved); CAB = change advisory board; emergency changes still get approval, sometimes after the fact"
   },
   {
     "obj": "1.3",

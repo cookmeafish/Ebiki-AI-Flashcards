@@ -1212,7 +1212,7 @@ A standard operating procedure is a written, step-by-step instruction for carryi
 4. Staff follow it; deviations are recorded.
 5. Update the SOP whenever the systems or process change (a change itself can require an SOP update).
 
-**Why it matters:** consistent steps reduce mistakes, make changes predictable, help new staff work correctly, and give auditors something to compare actual practice against. Pre-approved standard changes are only safe because an SOP defines exactly how they are done.
+**Why it matters:** consistent steps reduce mistakes, make changes predictable, help new staff work correctly, and give auditors something to compare actual practice against. A pre-approved standard change is low risk partly because an SOP defines exactly how it is done; it is still tested and recorded.
 
 **Common confusions:** An SOP (procedure) is more detailed than a policy (which states WHAT must happen and WHY) and more binding than a guideline (a recommendation). Policies, standards, procedures and guidelines are compared in objective 5.1. An SOP is not a backout plan, though an SOP can describe how to write one.
 
