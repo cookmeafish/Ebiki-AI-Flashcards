@@ -135,3 +135,29 @@ back through the passes.
 ### Not done or not verified
 No edits, no commit. The Honeynet Project paper was not read; the "honeynet is a type of honeypot" reading rests on
 Wikipedia's example list only and was not used to fail anything.
+
+## Round 6
+Reviewer: another agent that did not write, edit or earlier review these questions. Date: 2026-11-17. Scope: the 2
+questions changed after round 5 (the honeypot "services" why line, and the f7da1d02.0 key wording), each read whole and
+checked against all of 1.2 and 1.1 for shared scenes. No question was edited. Build (`--preview --allow-short`):
+`no problems`; no C10 warning on either question.
+
+### Sources read this round
+- d1.md Honeypot (decoy system): "a decoy system, or a single decoy resource on a system"; "Legitimate users have no
+  reason to touch it"; built to resemble "a file server, a database, an exposed login page"; detective, "can also
+  divert attackers".
+- Cards i1-2-f7da1d02 (definition "A single decoy system that looks like a real, valuable target"; "honeynet is many
+  decoys together") and i1-2-16c4c6d2 ("pot (system), net (network), file (document), token (traceable data)").
+- Round 5 sources (CSRC honeypot glossary, Wikipedia Honeypot (computing)) as quoted above.
+
+### Per question
+| Id | P1 | P3 | P4 | What and why | Source |
+|---|---|---|---|---|---|
+| i1-2-f7da1d02.0 | PASS | PASS | PASS | C why "no real users or business services; any contact with it is suspect" is now true (a honeypot exposes services but none serves the business). Key "A single decoy system made to look like a real target" matches the card's definition word for word in substance; all four options now start "A ...", parallel. The chapter also allows "a single decoy resource", but no other option fits any reading (A = honeynet, C = production, D = blocking filter), so one defensible answer. Key a little the longest (10 words vs 7 to 9), no stem word repeated; not a tell. | d1.md Honeypot; card f7da1d02; CSRC honeypot |
+| i1-2-16c4c6d2.4 | PASS | PASS | PASS | Honeypot why now "no real users or business services, never a live production server": true. Other whys and the explain match the card's pot/net/file/token split. Role (trainee analyst), organization (gas utility), deciding detail (which card is accurate); scene unique in 1.1 and 1.2. | card 16c4c6d2; d1.md deception compared |
+
+### Totals
+PASS 2, FAIL 0. Stamped p1, p3, p4 (each run twice) on i1-2-f7da1d02.0 and i1-2-16c4c6d2.4.
+
+### Not done or not verified
+No edits, no commit. The Honeynet Project paper still not read (not needed for these two).
