@@ -637,7 +637,7 @@ An implicit trust zone is the area behind a Policy Enforcement Point where every
 1. A PEP admits a subject after a decision.
 2. Inside the zone behind that PEP, entities can talk to each other without new checks.
 3. The PEP cannot apply any policy beyond its own position in the traffic path.
-4. Therefore Zero Trust moves PEPs closer to each resource, so each zone holds as few resources as possible (ideally one).
+4. Therefore Zero Trust moves PEPs closer to each resource, so each implicit trust zone is made as small as possible.
 
 **Why it matters:** a large implicit trust zone (a flat internal network) means one compromised device can reach everything inside it. Small zones contain an intruder to the one resource that was granted.
 
