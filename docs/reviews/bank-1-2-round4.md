@@ -93,3 +93,45 @@ Not stamped: i1-2-14edb9e6.7, i1-2-f7da1d02.0, i1-2-2b388cf0.2, i1-2-2b388cf0.5,
 
 ## Not done or not verified
 - No edits, no commit. Spitzner's honeytoken article was not read.
+
+## Round 5
+Reviewer: another agent that did not write, edit or earlier review these questions. Date: 2026-11-17. Scope: the 6
+questions the writer changed in [fixes round 5](bank-1-2-fixes-round4.md) ("Round 5"), read against all 360 of 1.2 and
+the 120 of 1.1 for shared scenes. No question was edited. Build (`--preview --allow-short`): `no problems`.
+
+### Sources read this round
+- d1.md Zero Trust control plane vs data plane, Honeypot, Honeynet, Honeyfile, Honeytoken, deception compared; the
+  cards i1-2-14edb9e6, d12236b3, 2ba8977f, 479731d1, f7da1d02, 36635eb8, 2b388cf0, 1d176e79, i4-5-4e1f521b.
+- SP 800-207 and the NIST honeypot glossary (CNSSI 4009 / RFC 4949) as quoted in round 4 above.
+- https://en.wikipedia.org/wiki/Honeypot_(computing): "High-interaction honeypots imitate the activities of the
+  production systems that host a variety of services"; "Low-interaction honeypots simulate only the services
+  frequently requested by attackers"; lists "Example: Honeynet" under high-interaction honeypots.
+- Not read: the Honeynet Project "Know Your Enemy: Honeynets" paper (both URLs failed to load).
+
+### Held lines
+A honeypot can be a single decoy resource; a honeyfile with call-back content alerts wherever opened; Zero Trust
+re-evaluates during a session. No line of the 6 now contradicts any of the three.
+
+### Per question
+| Id | P1 | P3 | P4 | What and why | Source |
+|---|---|---|---|---|---|
+| i1-2-14edb9e6.7 | PASS | PASS | PASS | A why no longer claims "once per request". Only the gateways carry session traffic; each control plane option fails a stated detail (sessions or rules unchanged). Minor: the key is the only plural option; natural for gateways and not flagged by C10. | SP 800-207 §3 (PEP, data plane); d1.md control vs data plane |
+| i1-2-f7da1d02.0 | FAIL | PASS | FAIL | Option C why "A honeypot has no real users or services" is false: honeypots expose services to be attacked (d1.md Honeypot: an exposed login page, an SSH login attempt on db-fin-07; Wikipedia: high-interaction honeypots host a variety of services). Fix: "A honeypot has no real users or business services; any contact with it is suspect." Optional while there: key "A single decoy system made to look like a real target" so it starts with "A" like the other three. The writer's "still weak" (key = the usual case) judged acceptable: the key is the card's definition, the only option fitting every source, and A is what every source calls a honeynet (Wikipedia files a honeynet under high-interaction honeypots, but A is still not "a honeypot" in general, and its why says only "not a single honeypot"). | d1.md Honeypot; Wikipedia Honeypot (computing); CSRC honeypot |
+| i1-2-f7da1d02.3 | PASS | PASS | PASS | Explain hedged ("usually one system as here"). Note: the scene (one decoy server grown into servers, workstations and a router) resembles 36635eb8.3; the shared parts are the honeynet card's own definition and the asks differ (what was run vs main gain), so not a renamed scene. | CSRC honeypot; card 36635eb8 |
+| i1-2-2b388cf0.2 | PASS | PASS | PASS | "Decoy server" reads fairly: a plain description beside three terms, wrong, so no tell toward the key; fails plainly (a file is not a server); item points to the honeypot card (lesson 15, before honeyfile), C16 clear. Not "Honeypot", correctly, since a file can be a honeypot under RFC 4949. | Package lesson order; d1.md Honeyfile |
+| i1-2-2b388cf0.5 | PASS | PASS | PASS | FIM now carries `item: "i4-5-4e1f521b"`; its why (alerts on change, not on opening) matches the card. BEST justified by the honeytoken partly. | Card i4-5-4e1f521b; d1.md Honeyfile, Honeytoken |
+| i1-2-1d176e79.5 | PASS | PASS | PASS | Edge and C why no longer say "opened inside"; both true with call-back content. FIM item set, why true. | d1.md Honeyfile step 3, Honeytoken, deception compared |
+
+### Totals
+PASS 5, FAIL 1 (error rate 1 / 6). Stamped p1, p3, p4 (each run twice) on i1-2-14edb9e6.7, i1-2-f7da1d02.3,
+i1-2-2b388cf0.2, i1-2-2b388cf0.5, i1-2-1d176e79.5. Not stamped: i1-2-f7da1d02.0.
+
+### Worth a sweep
+Swept all 360 for the same claim: one more hit, i1-2-16c4c6d2.4 (stamped p1/p3/p4 in round 4, outside this round's
+scope, not re-stamped or unstamped here): a why reads "A honeypot is a decoy with no real users or services, never a
+live production server." Same fix: "no real users or business services". The writer should fix both and send both
+back through the passes.
+
+### Not done or not verified
+No edits, no commit. The Honeynet Project paper was not read; the "honeynet is a type of honeypot" reading rests on
+Wikipedia's example list only and was not used to fail anything.
