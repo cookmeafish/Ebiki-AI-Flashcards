@@ -37,3 +37,14 @@ run twice).
 ## Heads-up outside scope
 - i1-2-bcae1bd8.8 (not under review) keys "Proving the hardware is trusted". "Trusted" is vaguer than the held line
   (holds an issued credential); worth a look by the writer for consistency with bcae1bd8.6.
+
+## bcae1bd8.8 (2026-11-17)
+
+Reviewed after the fix for the heads-up above (rev 2): key now "Proving which machine is connecting", wrong option
+"Proving which cashier is signing in". Same reviewer setup (did not write it).
+
+| Id | P1 | P3 | P4 | Notes |
+|---|---|---|---|---|
+| i1-2-bcae1bd8.8 | PASS | PASS | PASS | Artifact (device CN, internal device CA, EKU Client Authentication, key in TPM) supports only device identity; key why says it does not show patched or compliant, matching the line held on bcae1bd8.6 (SP 800-207 §2.2 assumption 3; d1.md "Authenticating systems" steps 1 to 4). Cashier option fails on the CN naming a device; sales secrecy fails on the EKU; refunds is authorization. Options parallel, key not the odd one out. Only C10 warning: "stored" (artifact's "stored in TPM") echoed by a wrong option, a lure, acceptable. Scene (grocery POS terminal) shared with no other 1.1 or 1.2 question; distinct from .2 (toll camera), .3 (bank laptops), .6 (hospital MFA). |
+
+Stamped p1, p3, p4 (each run twice).
