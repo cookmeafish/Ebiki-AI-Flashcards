@@ -227,6 +227,11 @@ describe('C16 lesson options', () => {
   it('a card of the same or an earlier lesson passes', () => expect(fails(l1(), 'C16')).toBe(false))
   it('the right answer must be this card or null', () => expect(fails(withOpt(l1(), 0, { item: POTTERY_CARDS.shivering.id }), 'C16')).toBe(true))
   it('does not apply at level 2', () => expect(fails(ex(), 'C16')).toBe(false))
+  it("an option NAMED like a course card must carry that card's id (any level): null hid a later lesson's term", () => {
+    const named = { t: POTTERY_CARDS.crawling.front.replace(/\s*\([^)]*\)/g, '').toUpperCase(), item: null }
+    expect(fails(withOpt(ex(), 2, named), 'C16')).toBe(true)
+    expect(fails(withOpt(ex(), 2, { ...named, item: POTTERY_CARDS.crawling.id }), 'C16')).toBe(false)
+  })
 })
 
 describe('C17 artifact', () => {

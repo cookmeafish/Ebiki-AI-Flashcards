@@ -62,6 +62,7 @@ export function courseIndex(pkg) {
   const acronyms = new Map()
   const expansionOf = new Map()
   const frontTokens = new Set()
+  const cardByName = new Map() // a card's name (front without its "(...)" notes), folded → its id
   for (const a of pkg?.areas || []) {
     const lessonIdx = new Map()
     const perSection = new Map()
@@ -72,6 +73,7 @@ export function courseIndex(pkg) {
     }
     for (const it of a.items || []) {
       items.set(it.id, { ...it, area: a.number, lesson: lessonIdx.has(it.id) ? lessonIdx.get(it.id) : null })
+      if (it.kind !== 'brief') { const n = cardName(it.front); if (n && !cardByName.has(n)) cardByName.set(n, it.id) }
       for (const t of String(it.front || '').split(/[^\p{L}\p{N}]+/u)) if (t) frontTokens.add(t)
     }
     for (const x of a.acronyms || []) {
@@ -80,8 +82,10 @@ export function courseIndex(pkg) {
       for (const e of all) expansionOf.set(fold(e), x.acronym)
     }
   }
-  return { items, acronyms, expansionOf, frontTokens }
+  return { items, acronyms, expansionOf, frontTokens, cardByName }
 }
+// "File integrity monitoring (FIM)" and "file integrity monitoring" are one card name.
+export const cardName = (front) => fold(String(front || '').replace(/\([^)]*\)/g, ' ')).replace(/\s+/g, ' ').trim()
 
 const F = (check, id, msg, level = 'fail') => ({ check, level, id, msg })
 const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`) // en dash, em dash
@@ -205,6 +209,12 @@ export function checkQuestion(q, ctx, { live = false } = {}) {
     }
   }
 
+  // C16 (any level): an option NAMED like a course card carries that card's id. `item: null` on a real card's name hid a
+  // later objective's term from the lesson-order rule below (found by a reviewer, 2026-11-17).
+  for (const o of q.options) {
+    const named = o.item === null && ctx.cardByName ? ctx.cardByName.get(cardName(o.t)) : null
+    if (named) out.push(F('C16', id, `option "${o.t}" names the course card ${named}: set its item to that id`))
+  }
   // C16 lesson options
   if (q.level === 1 && card) {
     for (const o of q.options) {
