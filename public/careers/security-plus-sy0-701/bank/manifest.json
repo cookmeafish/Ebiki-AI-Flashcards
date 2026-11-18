@@ -1,7 +1,7 @@
 {
  "course": "security-plus-sy0-701",
  "format": 1,
- "rev": 2,
+ "rev": 3,
  "package": "1",
  "objectives": {
   "1.1": {
@@ -55,6 +55,156 @@
     "i1-1-e28fd41b": {
      "sig": "e4zd51",
      "slots": "d1d1s1S1s1S1S1S1A1S2"
+    }
+   }
+  },
+  "1.2": {
+   "file": "q-1-2.json",
+   "rev": 1,
+   "cards": {
+    "i1-2-0a8d33e2": {
+     "sig": "1cd9wvw",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-0b16de98": {
+     "sig": "1yaimfn",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-0b9395bf": {
+     "sig": "1r5bf87",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-11f54fd8": {
+     "sig": "wvrkaa",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-1227072e": {
+     "sig": "h92jzk",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-14edb9e6": {
+     "sig": "11eqqls",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-16c4c6d2": {
+     "sig": "1ny6t6i",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-1d176e79": {
+     "sig": "w8bsxt",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-1d27ddab": {
+     "sig": "dhmn4j",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-218c54fb": {
+     "sig": "c185c5",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-2b388cf0": {
+     "sig": "vbbrrg",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-2ba8977f": {
+     "sig": "itk0yb",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-2dbfd6d2": {
+     "sig": "1ddba84",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-36635eb8": {
+     "sig": "16dgmxj",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-380bde66": {
+     "sig": "12jdsvl",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-3fd5834e": {
+     "sig": "1lu6jfk",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-4464ac34": {
+     "sig": "vjs6jo",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-479731d1": {
+     "sig": "1hd5izd",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-4810105c": {
+     "sig": "gqunj0",
+     "slots": "d1d1s1s1s1S1S1A1S1s2"
+    },
+    "i1-2-7daeebda": {
+     "sig": "u618xc",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-84be52e0": {
+     "sig": "quojni",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-92e8e207": {
+     "sig": "1iedpff",
+     "slots": "d1d1s1s1s1S1S2A1S1S2"
+    },
+    "i1-2-a47c7ca5": {
+     "sig": "1i3am8l",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-b1e0e898": {
+     "sig": "1a0lk2o",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-b241c9e1": {
+     "sig": "p9h88t",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-b6050128": {
+     "sig": "xf3nso",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-b7e50561": {
+     "sig": "1k42915",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-bbe3e8cc": {
+     "sig": "1j1ip5x",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-bcae1bd8": {
+     "sig": "1w71koi",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-cd158454": {
+     "sig": "18mwz6w",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-d12236b3": {
+     "sig": "13stnw9",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-d7797bd7": {
+     "sig": "1hp0mmu",
+     "slots": "d1d1S1s1S1S1s1S1A1D2"
+    },
+    "i1-2-dddf60a9": {
+     "sig": "ug5z49",
+     "slots": "d1d1s1s1S1S1S1S1A1S2"
+    },
+    "i1-2-f3ff4328": {
+     "sig": "mo4j8o",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
+    },
+    "i1-2-f7da1d02": {
+     "sig": "1nnxw3z",
+     "slots": "d1d1s1s1s1S1S1A1S1S2"
+    },
+    "i1-2-ffabbe55": {
+     "sig": "1x72hra",
+     "slots": "d1d1s1s1S1S1S1S1A1D2"
     }
    }
   }
