@@ -1,12 +1,12 @@
 {
  "course": "security-plus-sy0-701",
  "format": 1,
- "rev": 1,
+ "rev": 2,
  "package": "1",
  "objectives": {
   "1.1": {
    "file": "q-1-1.json",
-   "rev": 1,
+   "rev": 2,
    "cards": {
     "i1-1-02a955cb": {
      "sig": "1inagzs",

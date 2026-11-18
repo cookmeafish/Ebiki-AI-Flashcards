@@ -73,7 +73,7 @@ export function courseIndex(pkg) {
     }
     for (const it of a.items || []) {
       items.set(it.id, { ...it, area: a.number, lesson: lessonIdx.has(it.id) ? lessonIdx.get(it.id) : null })
-      if (it.kind !== 'brief') { const n = cardName(it.front); if (n && !cardByName.has(n)) cardByName.set(n, it.id) }
+      if (it.kind !== 'brief') for (const n of cardNames(it.front)) if (n && !cardByName.has(n)) cardByName.set(n, it.id)
       for (const t of String(it.front || '').split(/[^\p{L}\p{N}]+/u)) if (t) frontTokens.add(t)
     }
     for (const x of a.acronyms || []) {
@@ -86,6 +86,23 @@ export function courseIndex(pkg) {
 }
 // "File integrity monitoring (FIM)" and "file integrity monitoring" are one card name.
 export const cardName = (front) => fold(String(front || '').replace(/\([^)]*\)/g, ' ')).replace(/\s+/g, ' ').trim()
+// Every name a card goes by: the whole front, and each "/" part ("Allow lists/deny lists" is also "deny list"), singular.
+const singular = (n) => n.split(' ').map((w) => (w.length > 3 && /[^s]s$/.test(w) ? w.slice(0, -1) : w)).join(' ')
+export const cardNames = (front) => {
+  const bare = String(front || '').replace(/\([^)]*\)/g, ' ')
+  return [...new Set([bare, ...bare.split('/')].map((p) => singular(cardName(p))).filter((n) => n.split(' ').length >= 2))] // one-word names ("resource") are ordinary words too
+}
+// The card an option names, if any: the option itself (articles dropped, singular) is a card name, or it is a card
+// name with ONE added word ("A longer maintenance window"). `cardByName` from courseIndex.
+export function namedCard(text, cardByName) {
+  if (!cardByName) return null
+  const t = singular(cardName(text).replace(/^(a|an|the) /, ''))
+  if (cardByName.has(t)) return cardByName.get(t)
+  const words = t.split(' ')
+  if (words.length < 3) return null
+  for (let i = 0; i < words.length; i++) { const k = words.filter((_, j) => j !== i).join(' '); if (cardByName.has(k) && k.split(' ').length >= 2) return cardByName.get(k) }
+  return null
+}
 
 const F = (check, id, msg, level = 'fail') => ({ check, level, id, msg })
 const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`) // en dash, em dash
@@ -212,7 +229,7 @@ export function checkQuestion(q, ctx, { live = false } = {}) {
   // C16 (any level): an option NAMED like a course card carries that card's id. `item: null` on a real card's name hid a
   // later objective's term from the lesson-order rule below (found by a reviewer, 2026-11-17).
   for (const o of q.options) {
-    const named = o.item === null && ctx.cardByName ? ctx.cardByName.get(cardName(o.t)) : null
+    const named = o.item === null ? namedCard(o.t, ctx.cardByName) : null
     if (named) out.push(F('C16', id, `option "${o.t}" names the course card ${named}: set its item to that id`))
   }
   // C16 lesson options

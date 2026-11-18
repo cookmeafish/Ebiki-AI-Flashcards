@@ -1,7 +1,7 @@
 // Checks C1 to C23 (examChecks.js): an invented passing and failing case for each. Pottery only (testFixtures.js);
 // the forbidden-phrase cases use invented phrases, never the private list.
 import { describe, it, expect } from 'vitest'
-import { courseIndex, checkQuestion, checkSet, checkOwnWords, checkStamps, checkForbidden, phraseHit, fold, contentWords, ipv6Candidates, stemKey } from './examChecks.js'
+import { courseIndex, checkQuestion, checkSet, checkOwnWords, checkStamps, checkForbidden, phraseHit, fold, contentWords, ipv6Candidates, stemKey, namedCard, cardNames } from './examChecks.js'
 import { cardSig } from './examQuestion.js'
 import { potteryPackage, potteryExample, potteryLevel1, POTTERY_CARDS, POTTERY_HEADINGS } from './testFixtures.js'
 import { outlineGrams, verbatimProblems } from '../../../../dev/careers/verbatim.mjs'
@@ -228,9 +228,18 @@ describe('C16 lesson options', () => {
   it('the right answer must be this card or null', () => expect(fails(withOpt(l1(), 0, { item: POTTERY_CARDS.shivering.id }), 'C16')).toBe(true))
   it('does not apply at level 2', () => expect(fails(ex(), 'C16')).toBe(false))
   it("an option NAMED like a course card must carry that card's id (any level): null hid a later lesson's term", () => {
-    const named = { t: POTTERY_CARDS.crawling.front.replace(/\s*\([^)]*\)/g, '').toUpperCase(), item: null }
+    const named = { t: `A ${POTTERY_CARDS.kiln.front.toUpperCase()}`, item: null }
     expect(fails(withOpt(ex(), 2, named), 'C16')).toBe(true)
-    expect(fails(withOpt(ex(), 2, { ...named, item: POTTERY_CARDS.crawling.id }), 'C16')).toBe(false)
+    expect(fails(withOpt(ex(), 2, { ...named, item: POTTERY_CARDS.kiln.id }), 'C16')).toBe(false)
+  })
+  it('a card name behind an article, with one added word, in the singular, or as one "/" part still counts', () => {
+    const byName = new Map([['glaze firing', 'g1'], ['kiln shelf', 'k1'], ['kiln shelve', 'k1'], ['drying rack', 'd1']])
+    for (const n of cardNames('Kiln shelves/drying racks (studio)')) if (!byName.has(n)) byName.set(n, 'k2')
+    expect(namedCard('A glaze firing', byName)).toBe('g1')
+    expect(namedCard('A longer glaze firing', byName)).toBe('g1')
+    expect(namedCard('Drying racks', byName)).toBe('d1')
+    expect(namedCard('Glaze', byName)).toBe(null) // one word is an ordinary word too
+    expect(namedCard('A firing that never ends', byName)).toBe(null)
   })
 })
 

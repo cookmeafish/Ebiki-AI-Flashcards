@@ -1392,7 +1392,9 @@ Honesty rules, written into the keys and checked by a test that scans the four l
      untouched, unfilled when the save fails); `examStore` (re-read before write, pinned mode, blocked while
      switching, higher `v` unreadable, key names accepted by the store's rule, pick state written once under a
      double mount); `acronymQuiz`; a course lesson with every AI host blocked makes ZERO calls (automated); a new
-     manifest `rev` drops the file cache.
+     manifest `rev` drops the file cache. An option's `item` may name a card of a LATER island (a level-2 wrong
+     option such as a domain 5 term in a 1.1 question): no picker, explanation or "learn this term" link may open a
+     card of an island the learner has not opened (oversight, 2026-11-17); tested with such an option.
    - 1c: `courseFight` (D4.7, `free` before the Shield and no attack after it, task mapping, a report never changes
      a win rate, a lost fight with a report is not counted); a course fight with AI hosts blocked makes zero calls.
    - 1d: `examGen` (prompt holds the rules; no course term in the examples; two solves for BEST and MOST with a
